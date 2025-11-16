@@ -13,75 +13,31 @@ import {
   Th,
   Td,
   Badge,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalCloseButton,
-  ModalFooter,
   useDisclosure,
   useToast,
   VStack,
   HStack,
   Text,
-  Select,
-  FormControl,
-  FormLabel,
   Divider,
   Alert,
-  AlertIcon,
-  Grid,
-  CheckboxGroup,
-  Checkbox,
-  Stack,
-  Input,
-  IconButton
+  AlertIcon
 } from '@chakra-ui/react';
-import { DeleteIcon, EditIcon, AddIcon } from '@chakra-ui/icons';
 import { getAllRoles } from '../lib/permissions';
+import PermissionEditor from './PermissionEditor';
 
 /**
  * PermissionsManager - Gestion des droits individuels
- * Stockage LOCAL (localStorage) - pas de dépendance API
+ * Affiche la liste des utilisateurs et permet de gérer leurs permissions
  */
 export default function PermissionsManager() {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isAddPermOpen, onOpen: onAddPermOpen, onClose: onAddPermClose } = useDisclosure();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [formRole, setFormRole] = useState('MEMBER');
   const [debugInfo, setDebugInfo] = useState('');
   const rolesInfo = getAllRoles();
-
-  // États pour ajouter/éditer droits
-  const [formPerm, setFormPerm] = useState({
-    module: '',
-    access: [],
-    reason: ''
-  });
-  const [editingPermId, setEditingPermId] = useState(null);
-
-  const MODULES = [
-    { id: 'vehicles', label: '🚗 Gestion des Véhicules' },
-    { id: 'events', label: '🎉 Gestion des Événements' },
-    { id: 'finance', label: '💰 Gestion Financière' },
-    { id: 'members', label: '👥 Gestion des Adhérents' },
-    { id: 'stock', label: '📦 Gestion des Stocks' },
-    { id: 'site', label: '🌐 Gestion du Site' },
-    { id: 'newsletter', label: '📧 Gestion Newsletter' },
-    { id: 'planning', label: '📅 RétroPlanning' }
-  ];
-
-  const ACCESS_TYPES = [
-    { value: 'read', label: 'Lecture' },
-    { value: 'create', label: 'Créer' },
-    { value: 'edit', label: 'Modifier' },
-    { value: 'delete', label: 'Supprimer' }
-  ];
 
   // Charger les données depuis le serveur
   const loadData = useCallback(async () => {
@@ -117,15 +73,13 @@ export default function PermissionsManager() {
   }, [loadData]);
 
   const handleSelectUser = (user) => {
-    setSelectedUser({ ...user });
-    setFormRole(user.role || 'MEMBER');
-    // TODO: Ouvrir modal de gestion
-    toast({
-      title: 'Fonctionnalité en développement',
-      description: `Gestion de ${user.firstName} ${user.lastName}`,
-      status: 'info',
-      duration: 2000
-    });
+    setSelectedUser(user);
+    onOpen();
+  };
+
+  const handlePermissionUpdated = () => {
+    // Recharger les utilisateurs si nécessaire
+    loadData();
   };
 
   if (loading) {
@@ -232,6 +186,16 @@ export default function PermissionsManager() {
           </Text>
         </Box>
       </Alert>
+
+      {/* Permission Editor Modal */}
+      {selectedUser && (
+        <PermissionEditor
+          isOpen={isOpen}
+          onClose={onClose}
+          user={selectedUser}
+          onPermissionUpdated={handlePermissionUpdated}
+        />
+      )}
     </VStack>
   );
 }
