@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchJson } from '../lib/apiClient';
 
 /**
  * Hook pour charger les permissions individuelles d'un utilisateur
@@ -16,8 +17,7 @@ export function useUserPermissions(userId) {
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/user-permissions/${userId}`);
-        const data = await response.json();
+        const data = await fetchJson(`/api/user-permissions/${userId}`);
 
         if (data.success) {
           // Parser les actions si elles sont en JSON string
