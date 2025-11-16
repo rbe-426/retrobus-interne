@@ -85,27 +85,50 @@ export default function PermissionsManager() {
   // Charger les données depuis le serveur
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
+      console.log('🔄 Chargement utilisateurs depuis /api/site-users...');
+      
       // Charger les utilisateurs du serveur
-      const response = await fetch('/api/site-users');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await fetch('/api/site-users', {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
       
       const serverUsers = await response.json();
+      console.log('📦 Utilisateurs reçus (raw):', serverUsers);
+      
       let processedUsers = Array.isArray(serverUsers) ? serverUsers : 
                           serverUsers.users ? serverUsers.users : [];
+
+      console.log('📝 Utilisateurs à traiter:', processedUsers.length);
 
       // Localiser w.belaidi et configurer les permissions
       const belaidiIndex = processedUsers.findIndex(u => u.username?.toLowerCase() === 'w.belaidi');
       
       if (belaidiIndex >= 0) {
         const belaidi = processedUsers[belaidiIndex];
+        console.log('🎯 w.belaidi trouvé:', belaidi);
         
         // Charger les permissions existantes de w.belaidi depuis le serveur
         try {
-          const permResponse = await fetch(`/api/site-users/${belaidi.id}/permissions`);
+          const permResponse = await fetch(`/api/site-users/${belaidi.id}/permissions`, {
+            credentials: 'include'
+          });
+          console.log('📡 Permissions response status:', permResponse.status);
+          
           if (permResponse.ok) {
             const permData = await permResponse.json();
+            console.log('📦 Permissions données:', permData);
+            
             // Convertir format DB vers format UI
-            const uiPermissions = permData.permissions.map(p => ({
+            const uiPermissions = (permData.permissions || []).map(p => ({
               id: p.id,
               module: p.resource,
               access: (p.actions || []).map(a => {
@@ -116,9 +139,11 @@ export default function PermissionsManager() {
             }));
             belaidi.permissions = uiPermissions;
             console.log('✅ Permissions w.belaidi chargées du serveur:', uiPermissions.length);
+          } else {
+            throw new Error(`HTTP ${permResponse.status}`);
           }
         } catch (e) {
-          console.warn('⚠️ Pas de permissions trouvées pour w.belaidi, création automatique...');
+          console.warn('⚠️ Pas de permissions trouvées pour w.belaidi:', e.message);
           // Créer les droits complets automatiquement
           belaidi.permissions = [{
             id: 'belaidi_full_access',
@@ -129,7 +154,8 @@ export default function PermissionsManager() {
         }
         
         belaidi.role = belaidi.role || 'ADMIN';
-        console.log('✅ w.belaidi trouvé et configuré');
+      } else {
+        console.warn('⚠️ w.belaidi non trouvé parmi les utilisateurs');
       }
 
       // Normaliser les permissions pour tous les utilisateurs
@@ -148,6 +174,8 @@ export default function PermissionsManager() {
     } catch (error) {
       console.error('❌ Erreur chargement utilisateurs:', error);
       setUsers([]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -309,6 +337,37 @@ export default function PermissionsManager() {
       duration: 1500
     });
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardBody>
+          <Text textAlign="center" py={8}>
+            ⏳ Chargement des utilisateurs...
+          </Text>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <Card>
+        <CardBody>
+          <Alert status="warning" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <Text fontWeight="bold">Aucun utilisateur trouvé</Text>
+              <Text fontSize="sm" mt={2}>
+                Vérifiez que l'API `/api/site-users` fonctionne correctement.
+                Consultez la console du navigateur pour les détails.
+              </Text>
+            </Box>
+          </Alert>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <VStack spacing={8} align="stretch">
