@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchJson } from '../lib/apiClient';
+import { fetchJson } from '../apiClient';
 
 /**
  * Hook pour charger les permissions individuelles d'un utilisateur
