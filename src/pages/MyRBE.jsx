@@ -31,24 +31,13 @@ import ModernCard from '../components/Layout/ModernCard';
 import PermissionsManager from '../components/PermissionsManager';
 
 const cards = [
-  // Profil utilisateur
-  {
-    title: "Mon Profil",
-    description: "Informations personnelles et permissions",
-    to: "/dashboard/profile",
-    icon: FiUsers,
-    color: "blue",
-    category: "general"
-  },
-
-  // Accès général
   {
     title: "RétroDemandes",
     description: "Créez vos demandes et consultez vos devis",
     to: "/dashboard/retro-requests",
     icon: FiPlus,
     color: "blue",
-    category: "general"
+    resource: "RETRODEMANDES"
   },
   {
     title: "Récapitulatif Demandes",
@@ -56,46 +45,56 @@ const cards = [
     to: "/dashboard/president/retro-requests",
     icon: FiPlus,
     color: "cyan",
-    category: "general",
-    requiredRole: ['PRESIDENT', 'ADMIN']
+    requiredRole: ['PRESIDENT', 'ADMIN'],
+    resource: "RETRODEMANDES"
   },
-  {
-    title: "Retromail",
-    description: "Messagerie interne de l'équipe",
-    to: "/retromail",
-    icon: FiInbox,
-    color: "teal",
-    category: "general"
-  },
-  {
-    title: "RétroSupport",
-    description: "Tickets: incidents, bugs et améliorations",
-    to: "/dashboard/support",
-    icon: FiLifeBuoy,
-    color: "cyan",
-    category: "general"
-  },
-
-  // Véhicules
   {
     title: "RétroBus",
     description: "Mécanique, véhicules et maintenance",
     to: "/dashboard/retrobus",
     icon: FiTool,
     color: "teal",
-    category: "vehicles",
     resource: "VEHICLES"
   },
-
-  // Événements
+  {
+    title: "Gestion Financière",
+    description: "Recettes, dépenses et opérations programmées",
+    to: "/admin/finance",
+    icon: FiDollarSign,
+    color: "rbe",
+    resource: "FINANCE"
+  },
   {
     title: "Gestion des Événements",
     description: "Création, planification et suivi",
     to: "/dashboard/events-management",
     icon: FiCalendar,
     color: "green",
-    category: "events",
     resource: "EVENTS"
+  },
+  {
+    title: "Gérer les adhésions",
+    description: "Membres, cotisations et documents",
+    to: "/dashboard/members-management",
+    icon: FiUsers,
+    color: "blue",
+    resource: "MEMBERS"
+  },
+  {
+    title: "Gestion des Stocks",
+    description: "Inventaire et matériel de l'association",
+    to: "/dashboard/stock-management",
+    icon: FiPackage,
+    color: "yellow",
+    resource: "STOCK"
+  },
+  {
+    title: "Gestion Newsletter",
+    description: "Abonnés et campagnes d'envoi",
+    to: "/dashboard/newsletter",
+    icon: FiMail,
+    color: "purple",
+    resource: "NEWSLETTER"
   },
   {
     title: "RétroPlanning",
@@ -103,62 +102,14 @@ const cards = [
     to: "/dashboard/retroplanning",
     icon: FiCalendar,
     color: "orange",
-    category: "events",
     resource: "PLANNING"
   },
-
-  // Finance
-  {
-    title: "Gestion Financière",
-    description: "Recettes, dépenses et opérations programmées",
-    to: "/admin/finance",
-    icon: FiDollarSign,
-    color: "rbe",
-    category: "finance",
-    resource: "FINANCE"
-  },
-
-  // Membres & Adhésions
-  {
-    title: "Gérer les adhésions",
-    description: "Membres, cotisations et documents",
-    to: "/dashboard/members-management",
-    icon: FiUsers,
-    color: "blue",
-    category: "members",
-    resource: "MEMBERS"
-  },
-
-  // Stock
-  {
-    title: "Gestion des Stocks",
-    description: "Inventaire et matériel de l'association",
-    to: "/dashboard/stock-management",
-    icon: FiPackage,
-    color: "yellow",
-    category: "stock",
-    resource: "STOCK"
-  },
-
-  // Newsletter
-  {
-    title: "Gestion Newsletter",
-    description: "Abonnés et campagnes d'envoi",
-    to: "/dashboard/newsletter",
-    icon: FiMail,
-    color: "purple",
-    category: "newsletter",
-    resource: "NEWSLETTER"
-  },
-
-  // Administration
   {
     title: "Gestion du Site",
     description: "Changelog, contenu et mise à jour",
     to: "/dashboard/site-management",
     icon: FiGlobe,
     color: "pink",
-    category: "admin",
     resource: "SITE_MANAGEMENT"
   },
   {
@@ -167,21 +118,32 @@ const cards = [
     to: "/dashboard/myrbe/permissions",
     icon: FiShield,
     color: "red",
-    category: "admin",
-    requiredRole: ['ADMIN', 'MANAGER', 'OPERATOR']
+    requiredRole: ['ADMIN', 'MANAGER', 'OPERATOR'],
+    resource: "PERMISSIONS_MANAGEMENT"
+  },
+  {
+    title: "Retromail",
+    description: "Messagerie interne de l'équipe",
+    to: "/retromail",
+    icon: FiInbox,
+    color: "teal",
+    resource: "RETROMAIL"
+  },
+  {
+    title: "RétroSupport",
+    description: "Tickets: incidents, bugs et améliorations",
+    to: "/dashboard/support",
+    icon: FiLifeBuoy,
+    color: "cyan",
+    resource: "RETROSUPPORT"
+  },
+  {
+    title: "Mon Profil",
+    description: "Informations personnelles et permissions",
+    to: "/dashboard/profile",
+    icon: FiUsers,
+    color: "blue"
   }
-];
-
-// Catégories d'onglets
-const TABS = [
-  { id: 'general', label: '📌 Accueil', icon: FiPlus },
-  { id: 'vehicles', label: '🚗 Véhicules', icon: FiTruck, resource: 'VEHICLES' },
-  { id: 'events', label: '🎉 Événements', icon: FiCalendar, resource: 'EVENTS' },
-  { id: 'finance', label: '💰 Finance', icon: FiDollarSign, resource: 'FINANCE' },
-  { id: 'members', label: '👥 Membres', icon: FiUsers, resource: 'MEMBERS' },
-  { id: 'stock', label: '📦 Stock', icon: FiPackage, resource: 'STOCK' },
-  { id: 'newsletter', label: '📧 Newsletter', icon: FiMail, resource: 'NEWSLETTER' },
-  { id: 'admin', label: '⚙️ Administration', icon: FiGlobe, resource: 'SITE_MANAGEMENT' }
 ];
 
 export default function MyRBE() {
@@ -191,7 +153,6 @@ export default function MyRBE() {
   const userRole = roles?.[0] || 'MEMBER';
   const { permissions: userPermissions, loading: permissionsLoading } = useUserPermissions(user?.id);
   const [showPermissions, setShowPermissions] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState(0);
   
   // Détecter si c'est demandé via URL
   const location = React.useMemo(() => window.location.pathname, []);
@@ -222,13 +183,13 @@ export default function MyRBE() {
 
     // Si la carte a une ressource, vérifier les permissions
     if (card.resource) {
-      // Regarder d'abord les permissions individuelles
+      // Vérifier d'abord les permissions individuelles
       const hasIndividualPermission = userPermissions.some(p => p.resource === card.resource);
       if (hasIndividualPermission) {
         return true;
       }
 
-      // Sinon vérifier les permissions par rôle
+      // Mapper les ressources aux permissions par rôle
       const cardPermissionMap = {
         'VEHICLES': RESOURCES.VEHICLES,
         'EVENTS': RESOURCES.EVENTS,
@@ -237,7 +198,11 @@ export default function MyRBE() {
         'MEMBERS': RESOURCES.MEMBERS,
         'STOCK': RESOURCES.STOCK,
         'NEWSLETTER': RESOURCES.NEWSLETTER,
-        'SITE_MANAGEMENT': RESOURCES.SITE_MANAGEMENT
+        'SITE_MANAGEMENT': RESOURCES.SITE_MANAGEMENT,
+        'RETRODEMANDES': RESOURCES.RETRODEMANDES,
+        'RETROMAIL': RESOURCES.RETROMAIL,
+        'RETROSUPPORT': RESOURCES.RETROSUPPORT,
+        'PERMISSIONS_MANAGEMENT': RESOURCES.PERMISSIONS_MANAGEMENT
       };
 
       const requiredResource = cardPermissionMap[card.resource];
@@ -248,55 +213,23 @@ export default function MyRBE() {
     return true;
   };
 
-  /**
-   * Filtrer les cartes par catégorie et droits d'accès
-   */
-  const getCardsByCategory = (category) => {
-    return cards
-      .filter(card => card.category === category)
-      .filter(shouldShowCard);
-  };
+  // Filtrer les cartes en fonction des permissions
+  const visibleCards = cards.filter(shouldShowCard);
 
-  /**
-   * Vérifier si un onglet doit être visible
-   */
-  const isTabVisible = (tab) => {
-    // L'onglet "Accueil" est toujours visible
-    if (tab.id === 'general') return true;
-
-    // L'onglet "Administration" est réservé aux admins/managers/operators
-    if (tab.id === 'admin') {
-      return ['ADMIN', 'MANAGER', 'OPERATOR'].includes(userRole);
-    }
-
-    // Pour les autres onglets, vérifier les permissions individuelles OU les permissions par rôle
-    if (tab.resource) {
-      // Permission individuelle
-      const hasIndividualPermission = userPermissions.some(p => p.resource === tab.resource);
-      if (hasIndividualPermission) return true;
-
-      // Permission par rôle
-      const resourceMap = {
-        'VEHICLES': RESOURCES.VEHICLES,
-        'EVENTS': RESOURCES.EVENTS,
-        'FINANCE': RESOURCES.FINANCE,
-        'MEMBERS': RESOURCES.MEMBERS,
-        'STOCK': RESOURCES.STOCK,
-        'NEWSLETTER': RESOURCES.NEWSLETTER,
-        'SITE_MANAGEMENT': RESOURCES.SITE_MANAGEMENT
-      };
-
-      return canAccess(userRole, resourceMap[tab.resource], customPermissions);
-    }
-
-    return true;
-  };
-
-  const visibleTabs = TABS.filter(isTabVisible);
-  const cardsByCategory = {};
-  visibleTabs.forEach(tab => {
-    cardsByCategory[tab.id] = getCardsByCategory(tab.id);
-  });
+  if (permissionsLoading) {
+    return (
+      <PageLayout
+        title="Espace MyRBE"
+        subtitle="Les outils d'administration RétroBus Essonne"
+        bgGradient="linear(to-r, blue.500, purple.600)"
+      >
+        <VStack spacing={4} py={8}>
+          <Spinner size="lg" />
+          <Text>Chargement des permissions...</Text>
+        </VStack>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout
@@ -330,84 +263,52 @@ export default function MyRBE() {
           </Box>
         )}
 
-        {/* Grille des fonctionnalités avec onglets - Masquée si permissions affichées */}
+        {/* Grille des fonctionnalités - Masquée si permissions affichées */}
         {!showPermissions && (
-          <Box>
-            {permissionsLoading ? (
-              <VStack spacing={4} py={8}>
-                <Spinner size="lg" />
-                <Text>Chargement des permissions...</Text>
-              </VStack>
+          <>
+            {visibleCards.length > 0 ? (
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                {visibleCards.map((card) => (
+                  <ModernCard
+                    key={card.title}
+                    title={card.title}
+                    description={card.description}
+                    icon={card.icon}
+                    color={card.color}
+                    badge={card.badge}
+                    as={card.title === 'Gestion des Autorisations' ? 'button' : RouterLink}
+                    to={card.title !== 'Gestion des Autorisations' ? card.to : undefined}
+                    onClick={card.title === 'Gestion des Autorisations' ? () => setShowPermissions(true) : undefined}
+                  />
+                ))}
+              </SimpleGrid>
             ) : (
-              <Tabs colorScheme="blue" variant="enclosed" index={activeTab} onChange={setActiveTab}>
-                <TabList overflowX="auto">
-                  {visibleTabs.map((tab, idx) => (
-                    <Tab key={tab.id}>
-                      <HStack spacing={2}>
-                        <Text>{tab.label}</Text>
-                        {cardsByCategory[tab.id]?.length > 0 && (
-                          <Badge colorScheme="blue">{cardsByCategory[tab.id].length}</Badge>
-                        )}
-                      </HStack>
-                    </Tab>
-                  ))}
-                </TabList>
-
-                <TabPanels>
-                  {visibleTabs.map((tab) => (
-                    <TabPanel key={tab.id}>
-                      {cardsByCategory[tab.id]?.length > 0 ? (
-                        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-                          {cardsByCategory[tab.id].map((card) => (
-                            <ModernCard
-                              key={card.title}
-                              title={card.title}
-                              description={card.description}
-                              icon={card.icon}
-                              color={card.color}
-                              badge={card.badge}
-                              as={card.title === 'Gestion des Autorisations' ? 'button' : RouterLink}
-                              to={card.title !== 'Gestion des Autorisations' ? card.to : undefined}
-                              onClick={card.title === 'Gestion des Autorisations' ? () => setShowPermissions(true) : undefined}
-                            />
-                          ))}
-                        </SimpleGrid>
-                      ) : (
-                        <Box
-                          bg={useColorModeValue('gray.50', 'gray.900')}
-                          borderRadius="md"
-                          p={8}
-                          textAlign="center"
-                          borderWidth="2px"
-                          borderStyle="dashed"
-                          borderColor={useColorModeValue('gray.300', 'gray.600')}
-                        >
-                          <HStack justify="center" mb={3}>
-                            <FiAlertCircle size={24} />
-                          </HStack>
-                          <Text fontWeight="bold" mb={2}>
-                            Accès refusé
-                          </Text>
-                          <Text fontSize="sm" color="gray.600">
-                            Vous n'avez pas les permissions pour accéder à cette section.
-                            {userRole !== 'ADMIN' && (
-                              <Text mt={2} fontSize="xs">
-                                Contactez un administrateur pour demander l'accès.
-                              </Text>
-                            )}
-                          </Text>
-                        </Box>
-                      )}
-                    </TabPanel>
-                  ))}
-                </TabPanels>
-              </Tabs>
+              <Box
+                bg={useColorModeValue('gray.50', 'gray.900')}
+                borderRadius="md"
+                p={12}
+                textAlign="center"
+                borderWidth="2px"
+                borderStyle="dashed"
+                borderColor={useColorModeValue('gray.300', 'gray.600')}
+              >
+                <HStack justify="center" mb={3}>
+                  <FiAlertCircle size={32} />
+                </HStack>
+                <Heading size="md" mb={2}>Accès limité</Heading>
+                <Text color="gray.600" mb={4}>
+                  Vous n'avez pas accès aux fonctionnalités de MyRBE avec votre rôle et vos permissions actuels.
+                </Text>
+                <Text fontSize="sm" color="gray.500">
+                  Contactez un administrateur pour demander l'accès.
+                </Text>
+              </Box>
             )}
-          </Box>
+          </>
         )}
         
         {/* Section d'aide */}
-        {!showPermissions && (
+        {!showPermissions && visibleCards.length > 0 && (
           <VStack spacing={6}>
             <Box 
               bg={alertBg}
@@ -424,8 +325,8 @@ export default function MyRBE() {
                   </Text>
                 </HStack>
                 <Text color="blue.600" lineHeight="relaxed" fontSize="sm">
-                  Votre vue MyRBE est personnalisée selon vos permissions. 
-                  Les onglets affichés correspondent à vos droits d'accès. 
+                  Votre vue MyRBE est personnalisée selon vos permissions individuelles et votre rôle. 
+                  Les cartes affichées correspondent à vos droits d'accès. 
                   Les modifications que vous effectuez sont automatiquement sauvegardées 
                   et synchronisées avec les autres membres de l'équipe.
                 </Text>
@@ -443,26 +344,26 @@ export default function MyRBE() {
             {/* Stats rapides */}
             <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} w="full">
               <ModernCard 
-                title="Uptime" 
-                description="99.9%" 
-                color="green"
-                variant="modern"
-              />
-              <ModernCard 
-                title="Membres actifs" 
-                description="45" 
+                title="Cartes visibles" 
+                description={`${visibleCards.length}`}
                 color="blue"
                 variant="modern"
               />
               <ModernCard 
-                title="Dernière sync" 
-                description="Il y a 2 min" 
-                color="gray"
+                title="Votre rôle" 
+                description={userRole}
+                color="green"
+                variant="modern"
+              />
+              <ModernCard 
+                title="Permissions individuelles" 
+                description={`${userPermissions.length}`}
+                color="orange"
                 variant="modern"
               />
               <ModernCard 
                 title="Version" 
-                description="v2.1.3" 
+                description="v2.2.0" 
                 color="purple"
                 variant="modern"
               />
