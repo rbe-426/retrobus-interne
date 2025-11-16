@@ -143,27 +143,7 @@ export default function MyRBEPermissionsManager() {
           }
         });
 
-        console.log('✅ API Response:', data);
-        
-        if (data.success && data.permission) {
-          const newPerm = data.permission;
-          console.log('✅ New permission object:', newPerm);
-
-          // Mettre à jour l'état local
-          setPermissions(prev => ({
-            ...prev,
-            [userId]: {
-              ...prev[userId],
-              [cardId]: newPerm
-            }
-          }));
-
-          toast({
-            title: 'Accès accordé',
-            status: 'success',
-            duration: 2000
-          });
-        } else {
+        if (!data.success || !data.permission) {
           console.error('❌ Unexpected response format:', data);
           toast({
             title: 'Erreur',
@@ -171,7 +151,14 @@ export default function MyRBEPermissionsManager() {
             status: 'error',
             duration: 2000
           });
+          return;
         }
+
+        toast({
+          title: 'Accès accordé',
+          status: 'success',
+          duration: 2000
+        });
       }
     } catch (error) {
       console.error('❌ Erreur:', error);
@@ -184,6 +171,9 @@ export default function MyRBEPermissionsManager() {
       });
     } finally {
       setSaving(false);
+      // ✅ Recharger TOUTES les permissions depuis la base de données
+      // pour être sûr qu'elles sont à jour
+      await loadData();
     }
   };
 
@@ -245,6 +235,8 @@ export default function MyRBEPermissionsManager() {
       });
     } finally {
       setSaving(false);
+      // ✅ Recharger TOUTES les permissions depuis la base de données
+      await loadData();
     }
   };
 
