@@ -4429,7 +4429,7 @@ const AdminFinance = () => {
                     <AlertIcon />
                     <Box>
                       <Text fontWeight="bold">Aperçu du rendu final</Text>
-                      <Text fontSize="sm">Les variables {{PLACEHOLDERS}} ont été remplacées avec vos données. Vous pouvez imprimer ou exporter en PDF.</Text>
+                      <Text fontSize="sm">Les variables {'{{PLACEHOLDERS}}'} ont été remplacées avec vos données. Vous pouvez imprimer ou exporter en PDF.</Text>
                     </Box>
                   </Alert>
 
