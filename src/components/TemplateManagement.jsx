@@ -45,9 +45,9 @@ const TemplateManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    docType: 'QUOTE',
     htmlContent: '',
-    cssContent: '',
+    logoSmall: '',
+    logoBig: '',
     isDefault: false,
   });
 
@@ -59,7 +59,7 @@ const TemplateManagement = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/document-templates');
+      const response = await fetch('/api/quote-templates');
       if (!response.ok) throw new Error('Failed to load templates');
       const data = await response.json();
       setTemplates(data);
@@ -83,7 +83,7 @@ const TemplateManagement = () => {
         return;
       }
 
-      const response = await fetch('/api/document-templates', {
+      const response = await fetch('/api/quote-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,7 +119,7 @@ const TemplateManagement = () => {
         return;
       }
 
-      const response = await fetch(`/api/document-templates/${selectedTemplate.id}`, {
+      const response = await fetch(`/api/quote-templates/${selectedTemplate.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -145,7 +145,7 @@ const TemplateManagement = () => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce template?')) return;
 
     try {
-      const response = await fetch(`/api/document-templates/${templateId}`, {
+      const response = await fetch(`/api/quote-templates/${templateId}`, {
         method: 'DELETE',
       });
 
@@ -165,7 +165,7 @@ const TemplateManagement = () => {
 
   const handlePreview = async (template) => {
     try {
-      const response = await fetch(`/api/document-templates/${template.id}/preview`, {
+      const response = await fetch(`/api/quote-templates/${template.id}/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -186,9 +186,9 @@ const TemplateManagement = () => {
     setFormData({
       name: template.name,
       description: template.description || '',
-      docType: template.docType,
       htmlContent: template.htmlContent,
-      cssContent: template.cssContent || '',
+      logoSmall: template.logoSmall || '',
+      logoBig: template.logoBig || '',
       isDefault: template.isDefault,
     });
     editDisclosure.onOpen();
@@ -198,9 +198,9 @@ const TemplateManagement = () => {
     setFormData({
       name: '',
       description: '',
-      docType: 'QUOTE',
       htmlContent: '',
-      cssContent: '',
+      logoSmall: '',
+      logoBig: '',
       isDefault: false,
     });
     setSelectedTemplate(null);
@@ -247,7 +247,6 @@ const TemplateManagement = () => {
               <Thead>
                 <Tr bg="gray.100">
                   <Th>Nom</Th>
-                  <Th>Type</Th>
                   <Th>Description</Th>
                   <Th>Défaut</Th>
                   <Th>Actions</Th>
@@ -257,11 +256,6 @@ const TemplateManagement = () => {
                 {templates.map(template => (
                   <Tr key={template.id} _hover={{ bg: 'gray.50' }}>
                     <Td fontWeight="600">{template.name}</Td>
-                    <Td>
-                      <Badge colorScheme={template.docType === 'QUOTE' ? 'blue' : 'green'}>
-                        {template.docType}
-                      </Badge>
-                    </Td>
                     <Td fontSize="sm">{template.description || '-'}</Td>
                     <Td>
                       {template.isDefault && <Badge colorScheme="yellow">Défaut</Badge>}
@@ -304,7 +298,7 @@ const TemplateManagement = () => {
       <Modal isOpen={createDisclosure.isOpen} onClose={createDisclosure.onClose} size="2xl">
         <ModalOverlay />
         <ModalContent maxH="90vh" overflowY="auto">
-          <ModalHeader>Créer un nouveau template</ModalHeader>
+          <ModalHeader>Créer un nouveau template de devis</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4}>
@@ -319,14 +313,6 @@ const TemplateManagement = () => {
                 value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
               />
-
-              <Select
-                value={formData.docType}
-                onChange={e => setFormData({ ...formData, docType: e.target.value })}
-              >
-                <option value="QUOTE">Devis</option>
-                <option value="INVOICE">Facture</option>
-              </Select>
 
               <Box w="full">
                 <Text fontSize="sm" fontWeight="600" mb={2}>
@@ -344,16 +330,52 @@ const TemplateManagement = () => {
 
               <Box w="full">
                 <Text fontSize="sm" fontWeight="600" mb={2}>
-                  CSS personnalisé (optionnel)
+                  Logo Petit (optionnel)
                 </Text>
-                <Textarea
-                  placeholder="body { font-family: Arial; }"
-                  value={formData.cssContent}
-                  onChange={e => setFormData({ ...formData, cssContent: e.target.value })}
-                  minH="100px"
-                  fontFamily="mono"
-                  fontSize="xs"
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData({ ...formData, logoSmall: event.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
                 />
+                {formData.logoSmall && (
+                  <Box mt={2}>
+                    <img src={formData.logoSmall} alt="Logo petit" style={{ maxHeight: '50px' }} />
+                  </Box>
+                )}
+              </Box>
+
+              <Box w="full">
+                <Text fontSize="sm" fontWeight="600" mb={2}>
+                  Logo Grand (optionnel)
+                </Text>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData({ ...formData, logoBig: event.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {formData.logoBig && (
+                  <Box mt={2}>
+                    <img src={formData.logoBig} alt="Logo grand" style={{ maxHeight: '100px' }} />
+                  </Box>
+                )}
               </Box>
 
               <HStack>
@@ -370,7 +392,7 @@ const TemplateManagement = () => {
                   Variables disponibles:
                 </Text>
                 <Text fontSize="xs" fontFamily="mono">
-                  {'{{NUMERO}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{TOTAL}}, {{DUE_DATE}}, {{STATUS}}, {{PAYMENT_METHOD}}, {{NOTES}}'}
+                  {'{{NUM_DEVIS}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{DESTINATAIRE_NOM}}, {{DESTINATAIRE_ADRESSE}}, {{NOTES}}, {{LOGO_BIG}}, {{LOGO_SMALL}}'}
                 </Text>
               </Box>
             </VStack>
@@ -406,14 +428,6 @@ const TemplateManagement = () => {
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
               />
 
-              <Select
-                value={formData.docType}
-                onChange={e => setFormData({ ...formData, docType: e.target.value })}
-              >
-                <option value="QUOTE">Devis</option>
-                <option value="INVOICE">Facture</option>
-              </Select>
-
               <Box w="full">
                 <Text fontSize="sm" fontWeight="600" mb={2}>
                   Contenu HTML *
@@ -430,16 +444,52 @@ const TemplateManagement = () => {
 
               <Box w="full">
                 <Text fontSize="sm" fontWeight="600" mb={2}>
-                  CSS personnalisé (optionnel)
+                  Logo Petit (optionnel)
                 </Text>
-                <Textarea
-                  placeholder="body { font-family: Arial; }"
-                  value={formData.cssContent}
-                  onChange={e => setFormData({ ...formData, cssContent: e.target.value })}
-                  minH="100px"
-                  fontFamily="mono"
-                  fontSize="xs"
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData({ ...formData, logoSmall: event.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
                 />
+                {formData.logoSmall && (
+                  <Box mt={2}>
+                    <img src={formData.logoSmall} alt="Logo petit" style={{ maxHeight: '50px' }} />
+                  </Box>
+                )}
+              </Box>
+
+              <Box w="full">
+                <Text fontSize="sm" fontWeight="600" mb={2}>
+                  Logo Grand (optionnel)
+                </Text>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData({ ...formData, logoBig: event.target.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {formData.logoBig && (
+                  <Box mt={2}>
+                    <img src={formData.logoBig} alt="Logo grand" style={{ maxHeight: '100px' }} />
+                  </Box>
+                )}
               </Box>
 
               <HStack>
@@ -456,7 +506,7 @@ const TemplateManagement = () => {
                   Variables disponibles:
                 </Text>
                 <Text fontSize="xs" fontFamily="mono">
-                  {'{{NUMERO}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{TOTAL}}, {{DUE_DATE}}, {{STATUS}}, {{PAYMENT_METHOD}}, {{NOTES}}'}
+                  {'{{NUM_DEVIS}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{DESTINATAIRE_NOM}}, {{DESTINATAIRE_ADRESSE}}, {{NOTES}}, {{LOGO_BIG}}, {{LOGO_SMALL}}'}
                 </Text>
               </Box>
             </VStack>
