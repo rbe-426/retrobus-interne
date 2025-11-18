@@ -22,6 +22,7 @@ import {
   FiUnlock, FiEye, FiEyeOff, FiActivity, FiTrendingDown as FiSimulation,
   FiDatabase, FiShield, FiAlertTriangle, FiInfo, FiSave, FiRotateCcw, FiCheckCircle
 } from "react-icons/fi";
+import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 
 
 const AdminFinance = () => {
@@ -148,6 +149,8 @@ const AdminFinance = () => {
     status: 'DRAFT', 
     eventId: '',
     memberId: '',
+    destinataireName: '',
+    destinataireAdresse: '',
     notes: '',
     paymentMethod: '',
     paymentDate: '',
@@ -159,6 +162,8 @@ const AdminFinance = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [pdfFile, setPdfFile] = useState(null);
+  const [templatePreviewData, setTemplatePreviewData] = useState(null);
+  const { isOpen: isTemplatePreviewOpen, onOpen: onTemplatePreviewOpen, onClose: onTemplatePreviewClose } = useDisclosure();
 
   // Edition/Liaison transaction
   const { isOpen: isEditTxOpen, onOpen: onEditTxOpen, onClose: onEditTxClose } = useDisclosure();
@@ -302,6 +307,25 @@ const AdminFinance = () => {
     } catch (e) {
       const local = readDocsLocal();
       setDocuments(local);
+    }
+  };
+
+  // Charger templates de devis
+  const loadTemplates = async () => {
+    try {
+      const paths = buildPathCandidates('/api/quote-templates');
+      const response = await fetch(paths[0] || '/api/quote-templates', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const tmplList = Array.isArray(data) ? data : (data?.templates || []);
+        setTemplates(tmplList);
+      }
+    } catch (e) {
+      console.warn('⚠️ Impossible de charger les templates:', e);
+      setTemplates([]);
     }
   };
 
@@ -1062,8 +1086,8 @@ const AdminFinance = () => {
     }
   };
 
-  // Charger les templates disponibles
-  const loadTemplates = async () => {
+  // Charger les templates de documents HTML (éditeur)
+  const loadDocumentTemplates = async () => {
     try {
       const paths = buildPathCandidates('/api/document-templates');
       const data = await fetchJsonFirst(paths, {
@@ -1071,10 +1095,11 @@ const AdminFinance = () => {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (data && data.templates) {
-        setTemplates(data.templates);
+        // NOTE: Pour l'instant, document-templates n'est pas utilisé
+        // Les templates de devis sont chargés via loadTemplates()
       }
     } catch (e) {
-      console.error('❌ Erreur chargement templates:', e);
+      console.error('❌ Erreur chargement templates documents:', e);
     }
   };
 
@@ -1086,48 +1111,50 @@ const AdminFinance = () => {
     }
 
     try {
-      // Générer l'HTML en remplaçant les variables
-      let html = selectedTemplate.htmlContent || '';
-      const variables = {
-        '{{NUMERO}}': docForm.number,
-        '{{TITRE}}': docForm.title,
-        '{{DESCRIPTION}}': docForm.description || '',
-        '{{MONTANT}}': parseFloat(docForm.amount || 0).toFixed(2),
-        '{{DATE}}': new Date(docForm.date).toLocaleDateString('fr-FR'),
-        '{{NOTES}}': docForm.notes || '',
+      // Validation des données requises
+      if (!docForm.number) {
+        toast({ status: 'warning', title: 'Champ requis', description: 'Le numéro du document est obligatoire' });
+        return;
+      }
+      if (!docForm.title) {
+        toast({ status: 'warning', title: 'Champ requis', description: 'Le titre du document est obligatoire' });
+        return;
+      }
+      if (!docForm.amount) {
+        toast({ status: 'warning', title: 'Champ requis', description: 'Le montant est obligatoire' });
+        return;
+      }
+
+      // Préparer les données pour le preview avec tous les placeholders
+      const previewData = {
+        NUM_DEVIS: docForm.number,
+        TITRE: docForm.title,
+        OBJET: docForm.title,
+        DESCRIPTION: docForm.description || '',
+        MONTANT: parseFloat(docForm.amount || 0).toFixed(2),
+        DATE: new Date(docForm.date).toLocaleDateString('fr-FR'),
+        DESTINATAIRE_NOM: docForm.destinataireName || 'Destinataire',
+        DESTINATAIRE_ADRESSE: docForm.destinataireAdresse || '',
+        NOTES: docForm.notes || '',
+        LOGO_BIG: selectedTemplate.logoBig || '',
+        LOGO_SMALL: selectedTemplate.logoSmall || '',
       };
 
-      Object.entries(variables).forEach(([key, value]) => {
-        html = html.replace(new RegExp(key, 'g'), value);
+      setTemplatePreviewData({
+        templateId: selectedTemplate.id,
+        data: previewData,
+        templateName: selectedTemplate.name
       });
-
-      // Générer le PDF (utiliser html2pdf ou autre library)
-      // Pour l'instant, ouvrir dans une nouvelle fenêtre
-      const newWindow = window.open('', '_blank');
-      newWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${docForm.title}</title>
-          <style>${selectedTemplate.cssContent || ''}</style>
-        </head>
-        <body>
-          ${html}
-          <script>window.print();</script>
-        </body>
-        </html>
-      `);
-      newWindow.document.close();
+      onTemplatePreviewOpen();
 
       toast({
         status: 'success',
-        title: 'Document généré',
-        description: 'Utilisez le menu Imprimer pour générer le PDF'
+        title: 'Aperçu généré',
+        description: 'Vérifiez l\'aperçu avant d\'imprimer'
       });
     } catch (e) {
-      console.error('❌ Erreur génération:', e);
-      toast({ status: 'error', title: 'Erreur', description: 'Impossible de générer le document' });
+      console.error('❌ Erreur génération aperçu:', e);
+      toast({ status: 'error', title: 'Erreur', description: 'Impossible de générer l\'aperçu' });
     }
   };
 
@@ -1166,11 +1193,14 @@ const AdminFinance = () => {
       status: 'DRAFT', 
       eventId: '',
       memberId: '',
+      destinataireName: '',
+      destinataireAdresse: '',
       notes: '',
       paymentMethod: '',
       paymentDate: '',
       amountPaid: ''
     });
+    setSelectedTemplate(null);
     onDocOpen();
   };
 
@@ -1190,11 +1220,14 @@ const AdminFinance = () => {
       status: doc.quoteStatus || doc.invoiceStatus || doc.status || 'DRAFT',
       eventId: doc.eventId || '',
       memberId: doc.memberId || '',
+      destinataireName: doc.destinataireName || '',
+      destinataireAdresse: doc.destinataireAdresse || '',
       notes: doc.notes || '',
       paymentMethod: doc.paymentMethod || '',
       paymentDate: doc.paymentDate ? doc.paymentDate.slice(0,10) : '',
       amountPaid: String(doc.amountPaid ?? '')
     });
+    setSelectedTemplate(null);
     onDocOpen();
   };
 
@@ -1229,6 +1262,8 @@ const AdminFinance = () => {
         invoiceStatus: docForm.type === 'INVOICE' ? docForm.status : null,
         eventId: docForm.eventId || null,
         memberId: docForm.memberId || null,
+        destinataireName: docForm.destinataireName || null,
+        destinataireAdresse: docForm.destinataireAdresse || null,
         notes: docForm.notes || null,
         paymentMethod: docForm.paymentMethod || null,
         paymentDate: docForm.paymentDate || null,
@@ -3358,6 +3393,28 @@ const AdminFinance = () => {
                   </FormControl>
                 </HStack>
 
+                {/* Destinataire - Pour le template */}
+                <HStack spacing={3}>
+                  <FormControl>
+                    <FormLabel fontSize="sm" fontWeight="bold">Destinataire - Nom</FormLabel>
+                    <Input 
+                      size="sm"
+                      value={docForm.destinataireName || ''} 
+                      onChange={(e)=>setDocForm(prev=>({...prev, destinataireName: e.target.value}))} 
+                      placeholder="Nom du destinataire (pour le template)"
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm" fontWeight="bold">Destinataire - Adresse</FormLabel>
+                    <Input 
+                      size="sm"
+                      value={docForm.destinataireAdresse || ''} 
+                      onChange={(e)=>setDocForm(prev=>({...prev, destinataireAdresse: e.target.value}))} 
+                      placeholder="Adresse (pour le template)"
+                    />
+                  </FormControl>
+                </HStack>
+
                 {/* Notes */}
                 <FormControl>
                   <FormLabel fontSize="sm">Notes (visibles au client)</FormLabel>
@@ -3375,78 +3432,58 @@ const AdminFinance = () => {
                   <VStack spacing={3} align="stretch">
                     <HStack justify="space-between">
                       <Heading size="sm">📄 Générer le document</Heading>
-                      <Switch 
-                        isChecked={docGenerationMode !== 'manual'} 
-                        onChange={(e) => setDocGenerationMode(e.target.checked ? 'template' : 'manual')}
-                      />
                     </HStack>
 
-                    {docGenerationMode !== 'manual' && (
-                      <VStack spacing={2} align="stretch">
-                        {/* Tabs pour Template vs PDF */}
-                        <HStack>
-                          <Button 
-                            size="sm" 
-                            variant={docGenerationMode === 'template' ? 'solid' : 'outline'}
-                            colorScheme="orange"
-                            onClick={() => setDocGenerationMode('template')}
+                    <VStack spacing={2} align="stretch">
+                      {/* Sélection du template */}
+                      {templates.length > 0 ? (
+                        <FormControl>
+                          <FormLabel fontSize="sm" fontWeight="bold">📋 Sélectionner un template</FormLabel>
+                          <Select 
+                            size="sm"
+                            value={selectedTemplate?.id || ''} 
+                            onChange={(e) => {
+                              const tmpl = templates.find(t => t.id === e.target.value);
+                              setSelectedTemplate(tmpl);
+                            }}
+                            placeholder="Choisir un template..."
                           >
-                            📋 Depuis template
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant={docGenerationMode === 'pdf' ? 'solid' : 'outline'}
-                            colorScheme="orange"
-                            onClick={() => setDocGenerationMode('pdf')}
-                          >
-                            📁 Uploader PDF
-                          </Button>
-                        </HStack>
-
-                        {/* Template */}
-                        {docGenerationMode === 'template' && (
-                          <FormControl>
-                            <FormLabel fontSize="sm" fontWeight="bold">Sélectionner un template</FormLabel>
-                            <Select 
-                              size="sm"
-                              value={selectedTemplate?.id || ''} 
-                              onChange={(e) => {
-                                const tmpl = templates.find(t => t.id === e.target.value);
-                                setSelectedTemplate(tmpl);
-                              }}
-                              placeholder="Choisir un template..."
-                            >
-                              {templates.filter(t => t.docType === docForm.type).map(t => (
-                                <option key={t.id} value={t.id}>
-                                  {t.name} {t.isDefault ? '⭐' : ''}
-                                </option>
-                              ))}
-                            </Select>
+                            {templates.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.name} {t.isDefault ? '⭐' : ''}
+                              </option>
+                            ))}
+                          </Select>
+                          {selectedTemplate && (
                             <Text fontSize="xs" color="gray.600" mt={1}>
-                              {selectedTemplate?.description || 'Aucun template sélectionné'}
+                              ✅ {selectedTemplate.name}
                             </Text>
-                          </FormControl>
-                        )}
+                          )}
+                        </FormControl>
+                      ) : (
+                        <Alert status="warning">
+                          <AlertIcon />
+                          <Text fontSize="xs">Aucun template disponible. Créez-en un d'abord.</Text>
+                        </Alert>
+                      )}
 
-                        {/* PDF Upload */}
-                        {docGenerationMode === 'pdf' && (
-                          <FormControl>
-                            <FormLabel fontSize="sm" fontWeight="bold">Uploader un PDF</FormLabel>
-                            <Input 
-                              type="file"
-                              accept=".pdf"
-                              size="sm"
-                              onChange={handlePdfUpload}
-                            />
-                            {pdfFile && (
-                              <Text fontSize="xs" color="green.600" mt={1}>
-                                ✅ {pdfFile.name} sélectionné
-                              </Text>
-                            )}
-                          </FormControl>
-                        )}
-                      </VStack>
-                    )}
+                      {/* Bouton de prévisualisation */}
+                      {selectedTemplate && (
+                        <Button 
+                          colorScheme="orange" 
+                          size="sm"
+                          onClick={generateFromTemplate}
+                          leftIcon={<FiDownload />}
+                          width="100%"
+                        >
+                          🔍 Générer l'aperçu & PDF
+                        </Button>
+                      )}
+
+                      <Text fontSize="xs" color="gray.500" mt={2}>
+                        💡 Remplissez tous les champs du formulaire (Numéro, Titre, Montant, Destinataire) avant de générer
+                      </Text>
+                    </VStack>
                   </VStack>
                 </Box>
               </VStack>
@@ -3455,29 +3492,8 @@ const AdminFinance = () => {
               <HStack spacing={2}>
                 <Button variant="ghost" onClick={onDocClose}>Annuler</Button>
                 
-                {/* Boutons conditionnels */}
-                {docGenerationMode === 'template' && selectedTemplate && (
-                  <Button 
-                    colorScheme="orange" 
-                    onClick={generateFromTemplate}
-                    leftIcon={<FiDownload />}
-                  >
-                    🔍 Aperçu & PDF
-                  </Button>
-                )}
-                
-                {docGenerationMode === 'pdf' && pdfFile && (
-                  <Button 
-                    colorScheme="blue" 
-                    onClick={() => toast({ title: 'PDF attaché', status: 'info' })}
-                    leftIcon={<FiCheckCircle />}
-                  >
-                    ✅ Attacher PDF
-                  </Button>
-                )}
-                
                 <Button colorScheme="purple" onClick={saveDocument}>
-                  {editingDocument ? '💾 Enregistrer' : '➕ Créer'}
+                  {editingDocument ? '💾 Enregistrer les modifications' : '➕ Créer le document'}
                 </Button>
               </HStack>
             </ModalFooter>
@@ -4391,6 +4407,55 @@ const AdminFinance = () => {
               <Button onClick={onSimulationResultsClose}>
                 Fermer
               </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Modal: Aperçu du template */}
+        <Modal isOpen={isTemplatePreviewOpen} onClose={onTemplatePreviewClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh" overflowY="auto">
+            <ModalHeader>
+              Aperçu du document: {templatePreviewData?.templateName}
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {templatePreviewData && selectedTemplate && (
+                <VStack spacing={4} align="stretch">
+                  <Alert status="info">
+                    <AlertIcon />
+                    <Box>
+                      <Text fontWeight="bold">Aperçu du rendu</Text>
+                      <Text fontSize="sm">Les variables {{PLACEHOLDERS}} ont été remplacées avec vos données.</Text>
+                    </Box>
+                  </Alert>
+
+                  {/* Template Preview Component */}
+                  <Box borderWidth="1px" borderRadius="md" p={4} bg="white">
+                    <QuoteTemplatePreview 
+                      template={selectedTemplate} 
+                      data={templatePreviewData.data}
+                    />
+                  </Box>
+                </VStack>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <HStack spacing={2}>
+                <Button variant="ghost" onClick={onTemplatePreviewClose}>
+                  Fermer
+                </Button>
+                <Button 
+                  colorScheme="blue"
+                  onClick={() => {
+                    // Ouvrir pour impression
+                    window.print();
+                  }}
+                  leftIcon={<FiDownload />}
+                >
+                  🖨️ Imprimer
+                </Button>
+              </HStack>
             </ModalFooter>
           </ModalContent>
         </Modal>
