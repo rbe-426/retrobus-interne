@@ -28,10 +28,21 @@ export default function QuoteTemplatePreview({ template, data }) {
     );
   }
 
+  // Guard: ensure data is an object before processing
+  if (!data || typeof data !== 'object') {
+    console.warn('⚠️ QuoteTemplatePreview: data is invalid or missing', data);
+    return (
+      <Alert status="warning">
+        <AlertIcon />
+        <Text>Données de template manquantes</Text>
+      </Alert>
+    );
+  }
+
   // Replace placeholders with actual data
   let html = template.htmlContent;
   
-  if (data) {
+  try {
     // Replace {{PLACEHOLDER}} style variables (skip DEVIS_LINES_TR for now, it's HTML)
     Object.entries(data).forEach(([key, value]) => {
       // Skip raw HTML placeholders
@@ -53,14 +64,26 @@ export default function QuoteTemplatePreview({ template, data }) {
     if (data.DEVIS_LINES_TR) {
       html = html.replace(/{{DEVIS_LINES_TR}}/g, data.DEVIS_LINES_TR);
     }
+  } catch (err) {
+    console.error('❌ Erreur remplacement placeholders:', err);
+    return (
+      <Alert status="error">
+        <AlertIcon />
+        <Text>Erreur lors du rendu du template: {err.message}</Text>
+      </Alert>
+    );
   }
 
   // Also replace logo placeholders if present (they are already base64)
-  if (template.logoBig) {
-    html = html.replace(/{{LOGO_BIG}}/g, `data:image/png;base64,${template.logoBig}`);
-  }
-  if (template.logoSmall) {
-    html = html.replace(/{{LOGO_SMALL}}/g, `data:image/png;base64,${template.logoSmall}`);
+  try {
+    if (template.logoBig) {
+      html = html.replace(/{{LOGO_BIG}}/g, `data:image/png;base64,${template.logoBig}`);
+    }
+    if (template.logoSmall) {
+      html = html.replace(/{{LOGO_SMALL}}/g, `data:image/png;base64,${template.logoSmall}`);
+    }
+  } catch (err) {
+    console.warn('⚠️ Erreur remplacement logos:', err);
   }
 
   return (
