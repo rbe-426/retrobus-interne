@@ -60,9 +60,9 @@ function MaintenanceTab({ vehicles, apiClient }) {
     try {
       setLoading(true);
       const [maintenanceData, scheduleData, summaryData] = await Promise.all([
-        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/maintenance`),
-        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/service-schedule`),
-        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/maintenance-summary`)
+        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/maintenance`).catch(() => []),
+        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/service-schedule`).catch(() => []),
+        apiClient.get(`/vehicles/${encodeURIComponent(parc)}/maintenance-summary`).catch(() => null)
       ]);
 
       setMaintenance(Array.isArray(maintenanceData) ? maintenanceData : []);
@@ -70,7 +70,10 @@ function MaintenanceTab({ vehicles, apiClient }) {
       setSummary(summaryData);
     } catch (e) {
       console.error('Error loading maintenance data:', e);
-      toast({ status: 'error', title: 'Erreur de chargement', description: e.message });
+      // Ne pas afficher de toast d'erreur si les endpoints n'existent pas encore
+      setMaintenance([]);
+      setSchedule([]);
+      setSummary(null);
     } finally {
       setLoading(false);
     }
