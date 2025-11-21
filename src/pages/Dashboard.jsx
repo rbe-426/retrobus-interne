@@ -19,7 +19,7 @@ export default function Dashboard() {
     <Box>
       <Routes>
         <Route index element={<DashboardHome />} />
-  <Route path="retrobus" element={<RetroBus />} />
+        <Route path="retrobus" element={<RetroBus />} />
         <Route path="vehicules" element={<Vehicules />} />
         <Route path="vehicules/ajouter" element={<RequireCreator><VehiculeCreate /></RequireCreator>} />
         <Route path="vehicules/:parc" element={<VehiculeShow />} />
