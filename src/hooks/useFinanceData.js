@@ -402,12 +402,6 @@ export const useFinanceData = (currentUser = null) => {
         if (!res.ok) throw new Error("Erreur creation document");
 
         const data = await res.json();
-        // Normaliser: ajouter le champ status unifié
-        const normalizedDoc = {
-          ...data,
-          status: data.type === 'QUOTE' ? data.quoteStatus : data.invoiceStatus
-        };
-        setDocuments([...documents, normalizedDoc]);
         toast({
           title: "Succes",
           description: "Document cree",
@@ -427,7 +421,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [documents, toast]
+    [toast]
   );
 
   // Supprimer un document
@@ -465,7 +459,7 @@ export const useFinanceData = (currentUser = null) => {
   // Charger les données au montage
   useEffect(() => {
     loadFinanceData();
-  }, [loadFinanceData]);
+  }, []);
 
   // Mettre à jour le solde (avec permissions)
   const updateBalance = useCallback(
