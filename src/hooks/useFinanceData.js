@@ -139,6 +139,29 @@ export const useFinanceData = (currentUser = null) => {
         console.warn("⚠️ Erreur chargement transactions:", err.message);
       }
 
+      // Charger les documents (Devis & Factures)
+      try {
+        const docsRes = await fetch(`${API_BASE}/api/finance/documents`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (docsRes.ok) {
+          const data = await docsRes.json();
+          const rawDocs = Array.isArray(data) ? data : (data.documents || []);
+          
+          // Normaliser les documents: ajouter un champ "status" unifié
+          const normalizedDocs = rawDocs.map(doc => ({
+            ...doc,
+            status: doc.type === 'QUOTE' ? doc.quoteStatus : doc.invoiceStatus
+          }));
+          
+          setDocuments(normalizedDocs);
+        }
+      } catch (err) {
+        console.warn("⚠️ Erreur chargement documents:", err.message);
+      }
+
       // Charger les opérations programmées (endpoint: /scheduled-operations)
       try {
         const schedRes = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
@@ -352,19 +375,39 @@ export const useFinanceData = (currentUser = null) => {
 
         setLoading(true);
 
-        const res = await fetch(`${API_BASE}/api/finance/documents`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          },
-          body: JSON.stringify(finalDoc)
-        });
+        // ÉDITION ou CRÉATION ?
+        let res;
+        if (document.id) {
+          // Mode édition: PUT
+          res = await fetch(`${API_BASE}/api/finance/documents/${document.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify(finalDoc)
+          });
+        } else {
+          // Mode création: POST
+          res = await fetch(`${API_BASE}/api/finance/documents`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify(finalDoc)
+          });
+        }
 
         if (!res.ok) throw new Error("Erreur creation document");
 
         const data = await res.json();
-        setDocuments([...documents, data]);
+        // Normaliser: ajouter le champ status unifié
+        const normalizedDoc = {
+          ...data,
+          status: data.type === 'QUOTE' ? data.quoteStatus : data.invoiceStatus
+        };
+        setDocuments([...documents, normalizedDoc]);
         toast({
           title: "Succes",
           description: "Document cree",
@@ -530,6 +573,48 @@ export const useFinanceData = (currentUser = null) => {
     [userRole, scheduledOperations, toast]
   );
 
+  // Mettre à jour le statut d'un document
+  const updateDocumentStatus = useCallback(
+    async (documentId, newStatus) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/finance/documents/${documentId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!res.ok) throw new Error("Erreur mise à jour statut");
+
+        const updatedDoc = await res.json();
+        // Normaliser: ajouter le champ status unifié
+        const normalizedDoc = {
+          ...updatedDoc,
+          status: updatedDoc.type === 'QUOTE' ? updatedDoc.quoteStatus : updatedDoc.invoiceStatus
+        };
+        setDocuments(documents.map(d => d.id === documentId ? normalizedDoc : d));
+        toast({
+          title: "Succès",
+          description: "Statut mis à jour",
+          status: "success"
+        });
+        // Recharger les données pour synchroniser
+        await loadFinanceData();
+        return normalizedDoc;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      }
+    },
+    [documents, toast]
+  );
+
   return {
     loading,
     loadFinanceData,
@@ -549,6 +634,7 @@ export const useFinanceData = (currentUser = null) => {
     setDocForm,
     addDocument,
     deleteDocument,
+    updateDocumentStatus,
     // Opérations programmées
     scheduledOperations,
     setScheduledOperations,

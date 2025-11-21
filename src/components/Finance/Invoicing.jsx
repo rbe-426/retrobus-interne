@@ -24,6 +24,7 @@ const FinanceInvoicing = () => {
     documents,
     addDocument,
     deleteDocument,
+    updateDocumentStatus,
     loading
   } = useFinanceData();
 
@@ -172,7 +173,12 @@ const FinanceInvoicing = () => {
 
     setIsAdding(true);
     try {
-      await addDocument(docForm);
+      // Si on édite un document existant, ajouter l'ID
+      const dataToSave = {
+        ...docForm,
+        ...(editingDocument && { id: editingDocument.id })
+      };
+      await addDocument(dataToSave);
       toast({
         title: "Succès",
         description: editingDocument ? "Document modifié" : "Document créé",
@@ -230,6 +236,46 @@ const FinanceInvoicing = () => {
           status: "error"
         });
       }
+    }
+  };
+
+  // Changer le statut d'un document
+  const handleChangeStatus = async (docId, newStatus) => {
+    try {
+      await updateDocumentStatus(docId, newStatus);
+      toast({
+        title: "Succès",
+        description: "Statut mis à jour",
+        status: "success"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier le statut",
+        status: "error"
+      });
+    }
+  };
+
+  // Voir le document (généré ou importé)
+  const handleViewDocument = async (doc) => {
+    if (!doc.documentUrl && !doc.htmlContent) {
+      toast({
+        title: "Aucun document",
+        description: "Ce document n'a pas de fichier généré ou importé",
+        status: "info"
+      });
+      return;
+    }
+
+    if (doc.documentUrl) {
+      // Ouvrir le PDF/document importé
+      window.open(doc.documentUrl, "_blank");
+    } else if (doc.htmlContent) {
+      // Afficher le HTML généré
+      const newWindow = window.open("", "_blank");
+      newWindow.document.write(doc.htmlContent);
+      newWindow.document.close();
     }
   };
 
@@ -449,10 +495,21 @@ const FinanceInvoicing = () => {
                                 size="sm"
                                 variant="ghost"
                                 leftIcon={<FiEye />}
-                                onClick={() => handleOpenEdit(doc)}
+                                onClick={() => handleViewDocument(doc)}
                               >
                                 Voir
                               </Button>
+                              <Select
+                                size="sm"
+                                width="auto"
+                                value={doc.status}
+                                onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
+                                cursor="pointer"
+                              >
+                                {quoteStatuses.map(s => (
+                                  <option key={s} value={s}>{statusLabels[s]}</option>
+                                ))}
+                              </Select>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -533,10 +590,21 @@ const FinanceInvoicing = () => {
                                 size="sm"
                                 variant="ghost"
                                 leftIcon={<FiPrinter />}
-                                onClick={() => handleOpenEdit(doc)}
+                                onClick={() => handleViewDocument(doc)}
                               >
                                 Imprimer
                               </Button>
+                              <Select
+                                size="sm"
+                                width="auto"
+                                value={doc.status}
+                                onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
+                                cursor="pointer"
+                              >
+                                {invoiceStatuses.map(s => (
+                                  <option key={s} value={s}>{statusLabels[s]}</option>
+                                ))}
+                              </Select>
                               <Button
                                 size="sm"
                                 variant="ghost"
