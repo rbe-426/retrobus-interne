@@ -603,6 +603,296 @@ export const useFinanceData = (currentUser = null) => {
     [toast]
   );
 
+  // ===== NOTES DE FRAIS =====
+  const createExpenseReport = useCallback(
+    async (report) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/expense-reports`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify(report)
+        });
+
+        if (!res.ok) throw new Error("Erreur création");
+
+        const newReport = await res.json();
+        setExpenseReports([...expenseReports, newReport]);
+        toast({
+          title: "Succès",
+          description: "Note de frais créée",
+          status: "success"
+        });
+        return newReport;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [expenseReports, toast]
+  );
+
+  const updateExpenseReport = useCallback(
+    async (id, updates) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/expense-reports/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify(updates)
+        });
+
+        if (!res.ok) throw new Error("Erreur mise à jour");
+
+        const updated = await res.json();
+        setExpenseReports(expenseReports.map(r => r.id === id ? updated : r));
+        toast({
+          title: "Succès",
+          description: "Note de frais mise à jour",
+          status: "success"
+        });
+        return updated;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [expenseReports, toast]
+  );
+
+  const deleteExpenseReport = useCallback(
+    async (id) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/expense-reports/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        });
+
+        if (!res.ok) throw new Error("Erreur suppression");
+
+        setExpenseReports(expenseReports.filter(r => r.id !== id));
+        toast({
+          title: "Succès",
+          description: "Note de frais supprimée",
+          status: "success"
+        });
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [expenseReports, toast]
+  );
+
+  // ===== SIMULATIONS =====
+  const createSimulationScenario = useCallback(
+    async (scenario) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/simulations`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify(scenario)
+        });
+
+        if (!res.ok) throw new Error("Erreur création simulation");
+
+        const newScenario = await res.json();
+        setSimulationData({
+          ...simulationData,
+          scenarios: [...simulationData.scenarios, newScenario]
+        });
+        toast({
+          title: "Succès",
+          description: "Scénario de simulation créé",
+          status: "success"
+        });
+        return newScenario;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [simulationData, toast]
+  );
+
+  const runSimulation = useCallback(
+    async (scenarioId) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/simulations/${scenarioId}/run`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        });
+
+        if (!res.ok) throw new Error("Erreur simulation");
+
+        const results = await res.json();
+        setSimulationData({
+          ...simulationData,
+          activeScenario: scenarioId
+        });
+        return results;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [simulationData, toast]
+  );
+
+  const deleteSimulationScenario = useCallback(
+    async (scenarioId) => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE}/api/finance/simulations/${scenarioId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        });
+
+        if (!res.ok) throw new Error("Erreur suppression");
+
+        setSimulationData({
+          ...simulationData,
+          scenarios: simulationData.scenarios.filter(s => s.id !== scenarioId)
+        });
+        toast({
+          title: "Succès",
+          description: "Scénario supprimé",
+          status: "success"
+        });
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [simulationData, toast]
+  );
+
+  // ===== RAPPORTS =====
+  const loadReports = useCallback(
+    async (year) => {
+      try {
+        setLoading(true);
+        const res = await fetch(
+          `${API_BASE}/api/finance/reports?year=${year}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        if (!res.ok) throw new Error("Erreur chargement rapports");
+
+        const data = await res.json();
+        setReportData(data);
+        return data;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast]
+  );
+
+  const exportReportPdf = useCallback(
+    async (year) => {
+      try {
+        setLoading(true);
+        const res = await fetch(
+          `${API_BASE}/api/finance/reports/${year}/export`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        if (!res.ok) throw new Error("Erreur export");
+
+        // Créer un blob et télécharger
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `rapport-finance-${year}.pdf`;
+        a.click();
+
+        toast({
+          title: "Succès",
+          description: "Rapport téléchargé",
+          status: "success"
+        });
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast]
+  );
+
   return {
     loading,
     loadFinanceData,
@@ -634,14 +924,22 @@ export const useFinanceData = (currentUser = null) => {
     setExpenseReports,
     newExpenseReport,
     setNewExpenseReport,
+    createExpenseReport,
+    updateExpenseReport,
+    deleteExpenseReport,
     // Simulations
     simulationData,
     setSimulationData,
+    createSimulationScenario,
+    runSimulation,
+    deleteSimulationScenario,
     // Rapports
     reportYear,
     setReportYear,
     reportData,
     setReportData,
+    loadReports,
+    exportReportPdf,
     // Configuration
     balance,
     setBalance,
