@@ -107,8 +107,8 @@ export default function PermissionsManagement() {
     try {
       setLoading(true);
       const response = await api.get('/api/admin/users');
-      if (response.data) {
-        setUsers(response.data);
+      if (response.data?.users) {
+        setUsers(response.data.users);
       }
     } catch (error) {
       console.error('Erreur chargement utilisateurs:', error);
@@ -128,7 +128,13 @@ export default function PermissionsManagement() {
       setPermissionsLoading(true);
       const response = await api.get(`/api/admin/users/${userId}/permissions`);
       if (response.data?.permissions) {
-        setUserPermissions(response.data.permissions);
+        // Aplatir les permissions (permanent + temporary + expired)
+        const allPermissions = [
+          ...(response.data.permissions.permanent || []),
+          ...(response.data.permissions.temporary || []),
+          ...(response.data.permissions.expired || [])
+        ];
+        setUserPermissions(allPermissions);
       }
     } catch (error) {
       console.error('Erreur chargement permissions:', error);
@@ -155,12 +161,12 @@ export default function PermissionsManagement() {
         // Ajouter permission
         await api.post(`/api/admin/users/${selectedUser.id}/permissions`, {
           resource,
-          action,
+          actions: [action],  // ✅ Envoyer comme array
         });
       } else {
         // Trouver la permission et la supprimer
         const perm = userPermissions.find(
-          (p) => p.resource === resource && p.action === action
+          (p) => p.resource === resource
         );
         if (perm) {
           await api.delete(
@@ -190,7 +196,7 @@ export default function PermissionsManagement() {
 
   const hasPermission = (resource, action) => {
     return userPermissions.some(
-      (p) => p.resource === resource && p.action === action
+      (p) => p.resource === resource
     );
   };
 
