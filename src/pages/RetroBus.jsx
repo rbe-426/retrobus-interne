@@ -596,7 +596,11 @@ export default function RetroBus() {
           let carac = [];
           let gasoil = 0;
           try {
-            if (v.caracteristiques) {
+            // ✅ Lire d'abord depuis le nouveau champ fuel
+            if (v.fuel !== undefined && v.fuel !== null) {
+              gasoil = Number(v.fuel) || 0;
+            } else if (v.caracteristiques) {
+              // Fallback : chercher dans les anciennes caracteristiques
               if (typeof v.caracteristiques === 'string') {
                 carac = JSON.parse(v.caracteristiques);
               } else if (Array.isArray(v.caracteristiques)) {
@@ -1012,26 +1016,22 @@ export default function RetroBus() {
                 try {
                   setEditTechSaving(true);
                   const nextCaracs = Array.isArray(editTechCaracs) ? [...editTechCaracs] : [];
-                  const gasoilIdx = nextCaracs.findIndex(c => c.label === 'Niveau gasoil');
-                  if (gasoilIdx >= 0) {
-                    nextCaracs[gasoilIdx] = { ...nextCaracs[gasoilIdx], value: String(editTechGasoil) };
-                  } else {
-                    nextCaracs.push({ label: 'Niveau gasoil', value: String(editTechGasoil) });
-                  }
-
+                  
+                  // ✅ Envoyer le fuel comme champ séparé (nouveau model)
                   await apiClient.put(`/vehicles/${encodeURIComponent(editTechVehicle.parc)}`, {
-                    caracteristiques: JSON.stringify(nextCaracs)
+                    fuel: Number(editTechGasoil),  // Nouveau champ fuel
+                    caracteristiques: nextCaracs    // Autres caractéristiques
                   });
 
                   setVehicles(prev => prev.map(v => {
                     const parcKey = v.parc || v.id || v.slug;
                     if (parcKey === editTechVehicle.parc) {
-                      return { ...v, caracteristiques: JSON.stringify(nextCaracs) };
+                      return { ...v, fuel: Number(editTechGasoil), caracteristiques: nextCaracs };
                     }
                     return v;
                   }));
 
-                  toast({ status: 'success', title: 'Caractéristiques mises à jour' });
+                  toast({ status: 'success', title: 'Carburant et caractéristiques mis à jour' });
                   setEditTechSaving(false);
                   setEditTechOpen(false);
                 } catch (e) {
