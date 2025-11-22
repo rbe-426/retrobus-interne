@@ -127,7 +127,7 @@ export function UserProvider({ children }) {
         setMemberError(lastStatus);
         return null;
       }
-      return member;
+      return data;  // ✅ Retourner `data` au lieu de `member` (qui n'est pas encore mis à jour)
     } finally {
       setMemberLoading(false);
     }
