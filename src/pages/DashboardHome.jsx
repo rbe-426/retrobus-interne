@@ -372,7 +372,7 @@ export default function DashboardHome() {
           {getGreeting()}, {user?.prenom || user?.email || 'Utilisateur'} ! 👋
         </Heading>
         <Text fontSize="lg" opacity={0.9}>
-          Voici un aperçu de votre activité RétrobuS Essonne
+          Voici un aperçu de votre activité RétroBus Essonne
         </Text>
       </Box>
 
