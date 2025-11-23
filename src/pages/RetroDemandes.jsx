@@ -229,6 +229,38 @@ const RetroDemandes = () => {
     }
   };
 
+  const handleStatusChange = async (newStatus) => {
+    if (!selectedRequest) return;
+    
+    try {
+      setLoading(true);
+      await apiClient.post(`/api/retro-requests/${selectedRequest.id}/status`, {
+        status: newStatus,
+        reason: "Changement de statut"
+      });
+      toast({
+        title: "Succès",
+        description: "Statut modifié",
+        status: "success"
+      });
+      // Mettre à jour selectedRequest avec le nouveau statut
+      setSelectedRequest({
+        ...selectedRequest,
+        status: newStatus
+      });
+      await loadMyRequests();
+    } catch (error) {
+      console.error("Erreur changement statut:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier le statut",
+        status: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewDetails = (request) => {
     setSelectedRequest(request);
     onPreviewOpen();
@@ -237,9 +269,11 @@ const RetroDemandes = () => {
   const getStatusBadge = (status) => {
     const statusMap = {
       PENDING: { label: "⏳ En attente", color: "orange" },
-      APPROVED: { label: "✅ Approuvée", color: "green" },
-      REJECTED: { label: "❌ Refusée", color: "red" },
-      PROCESSING: { label: "🔄 En traitement", color: "blue" }
+      ASSIGNED: { label: "👤 Assignée", color: "blue" },
+      IN_PROGRESS: { label: "🔄 En cours", color: "blue" },
+      COMPLETED: { label: "✅ Complétée", color: "green" },
+      CLOSED: { label: "🔒 Fermée", color: "gray" },
+      REJECTED: { label: "❌ Rejetée", color: "red" }
     };
     const s = statusMap[status] || { label: status, color: "gray" };
     return <Badge colorScheme={s.color}>{s.label}</Badge>;
@@ -446,7 +480,7 @@ const RetroDemandes = () => {
                         {getStatusBadge(req.status)}
                       </HStack>
                       <Text fontSize="sm" color="gray.600">
-                        {req.user?.name || "Anonyme"}
+                        {req.userName || "Utilisateur"}
                       </Text>
                       <HStack spacing={2} fontSize="xs" color="gray.500">
                         <Badge>{categoryLabel(req.category)}</Badge>
@@ -476,7 +510,7 @@ const RetroDemandes = () => {
                   {allRequests.map((req) => (
                     <Tr key={req.id}>
                       <Td fontWeight="medium">{req.title}</Td>
-                      <Td fontSize="sm">{req.user?.name || "Anonyme"}</Td>
+                      <Td fontSize="sm">{req.userName || "Utilisateur"}</Td>
                       <Td fontSize="sm">{categoryLabel(req.category)}</Td>
                       <Td>
                         <Badge
@@ -660,6 +694,15 @@ const RetroDemandes = () => {
                 <SimpleGrid columns={{ base: 2, md: 4 }} gap={4} width="100%">
                   <Box>
                     <Text fontWeight="bold" fontSize="sm">
+                      Utilisateur:
+                    </Text>
+                    <Text>{selectedRequest.userName || "Utilisateur"}</Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {selectedRequest.userEmail}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold" fontSize="sm">
                       Catégorie:
                     </Text>
                     <Text>{categoryLabel(selectedRequest.category)}</Text>
@@ -672,12 +715,6 @@ const RetroDemandes = () => {
                   </Box>
                   <Box>
                     <Text fontWeight="bold" fontSize="sm">
-                      Statut:
-                    </Text>
-                    {getStatusBadge(selectedRequest.status)}
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" fontSize="sm">
                       Date:
                     </Text>
                     <Text>
@@ -685,6 +722,29 @@ const RetroDemandes = () => {
                     </Text>
                   </Box>
                 </SimpleGrid>
+                <Divider />
+                <Box width="100%">
+                  <Text fontWeight="bold" fontSize="sm" mb={2}>
+                    Statut:
+                  </Text>
+                  <HStack spacing={2} width="100%">
+                    {getStatusBadge(selectedRequest.status)}
+                    <Select
+                      size="sm"
+                      width="200px"
+                      value={selectedRequest.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      isDisabled={loading}
+                    >
+                      <option value="PENDING">⏳ En attente</option>
+                      <option value="ASSIGNED">👤 Assignée</option>
+                      <option value="IN_PROGRESS">🔄 En cours</option>
+                      <option value="COMPLETED">✅ Complétée</option>
+                      <option value="CLOSED">🔒 Fermée</option>
+                      <option value="REJECTED">❌ Rejetée</option>
+                    </Select>
+                  </HStack>
+                </Box>
               </VStack>
             )}
           </ModalBody>
