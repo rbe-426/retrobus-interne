@@ -5,23 +5,23 @@
 
 import React, { useContext } from 'react';
 import { Box, Container, Heading, Text, Alert, AlertIcon, AlertTitle, AlertDescription, VStack } from '@chakra-ui/react';
-import { AuthContext } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 
 export default function AdminTemplates() {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, isAdmin } = useUser();
 
   // Check if user is admin
-  if (!user || !user.roles?.includes('ADMIN')) {
+  if (!isAdmin) {
     return (
       <Box p={6}>
         <Container maxW="container.md">
           <Alert status="error" borderRadius="md">
             <AlertIcon />
             <VStack align="start" spacing={2}>
-              <AlertTitle>Access Denied</AlertTitle>
+              <AlertTitle>Accès refusé</AlertTitle>
               <AlertDescription>
-                You must have administrator privileges to access this page.
+                Vous devez être administrateur pour accéder à cette page.
               </AlertDescription>
             </VStack>
           </Alert>

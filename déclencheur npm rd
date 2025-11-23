@@ -35,3 +35,22 @@ cd C:\Users\belai\OneDrive\Documents\2025 Dev\PHOTOTHEQUE_TCESSONNES
 git add .
 git commit -m "mise à jour"
 git push origin main
+
+---- SAUEVGARDES ----
+# Sauvegarde simple
+npm run backup
+
+# Sauvegarde complète
+npm run backup:full
+
+# Lister les sauvegardes
+npm run backups:list
+
+# Restaurer depuis une sauvegarde
+npm run restore
+
+# Restaurer la dernière sauvegarde
+npm run restore:latest
+
+# Restaurer interactivement
+npm run restore:interactive

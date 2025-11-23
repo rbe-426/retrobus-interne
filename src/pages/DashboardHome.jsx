@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Box, SimpleGrid, GridItem, Heading, Text, Button, Link as ChakraLink,
   Stack, Stat, StatLabel, StatNumber, HStack, VStack, Badge, useColorModeValue,
@@ -12,7 +12,7 @@ import {
   FiDollarSign, FiExternalLink, FiEye, FiFileText, FiGitBranch, 
   FiHeart, FiHome, FiMapPin, FiPlus, FiRefreshCw, FiSettings, 
   FiTrendingUp, FiTruck, FiUser, FiUsers, FiZap, FiBarChart,
-  FiChevronLeft, FiChevronRight
+  FiChevronLeft, FiChevronRight, FiShare2, FiMail
 } from "react-icons/fi";
 import { useUser } from '../context/UserContext';
 
@@ -32,7 +32,6 @@ function loadFlashes() {
     const now = Date.now();
     return arr.filter(f => f && f.active && (!f.expiresAt || new Date(f.expiresAt).getTime() > now));
   } catch (e) {
-    console.warn("loadFlashes:", e);
     return [];
   }
 }
@@ -47,7 +46,6 @@ export default function DashboardHome() {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [quickActions, setQuickActions] = useState([]);
   const [retroActus, setRetroActus] = useState([]);
   const [currentActuIndex, setCurrentActuIndex] = useState(0);
   
@@ -63,22 +61,18 @@ export default function DashboardHome() {
     setFlashes(loadFlashes());
     loadDashboardData();
     
-    // Actualiser les données toutes les 5 minutes
+    // Actualiser les donnÃ©es toutes les 5 minutes
     const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
   const loadDashboardData = async () => {
-    console.log('🔄 Chargement des données du dashboard...');
-    
-    // Charger chaque type de données en parallèle
+    // Charger chaque type de donnÃ©es en parallÃ¨le
     loadVehiclesData();
     loadEventsData();
     loadMembersData();
     
-    // Activités récentes et actions rapides
-    setupRecentActivity();
-    setupQuickActions();
+    // Charger les actus
     loadRetroActus();
   };
 
@@ -99,25 +93,59 @@ export default function DashboardHome() {
           setRetroActus(Array.isArray(data) ? data : []);
           return;
         } catch (e) {
-          console.warn(`Échec chargement depuis ${url}:`, e);
-        }
+          }
       }
       
-      // Si aucune source n'a fonctionné
+      // Si aucune source n'a fonctionnÃ©
       setRetroActus([]);
     } catch (error) {
-      console.error('Erreur chargement RétroActus:', error);
       setRetroActus([]);
+    }
+  };
+
+  const shareRetroActu = async (actu) => {
+    const subject = encodeURIComponent(`RÃ©troActus: ${actu?.title || 'News'}`);
+    const body = encodeURIComponent(
+      `DÃ©couvrez cette actualitÃ© de RÃ©troBus Essonne:\n\n` +
+      `${actu?.title || 'Sans titre'}\n\n` +
+      `${actu?.content || ''}\n\n` +
+      `Site: https://retrobus-essonne.fr`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
+  const shareOnWeb = async (actu) => {
+    // VÃ©rifie si l'API Web Share est disponible
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: actu?.title || 'RÃ©troActus',
+          text: actu?.content || '',
+          url: 'https://retrobus-essonne.fr'
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          }
+      }
+    } else {
+      // Fallback: copier dans le presse-papiers
+      const textToCopy = `${actu?.title}\n${actu?.content}\nhttps://retrobus-essonne.fr`;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        toast({
+          title: "CopiÃ©!",
+          description: "L'actualitÃ© a Ã©tÃ© copiÃ©e dans le presse-papiers",
+          status: "success",
+          duration: 2000,
+          isClosable: true,
+        });
+      });
     }
   };
 
   const loadVehiclesData = async () => {
     try {
-      console.log('📊 Chargement des véhicules...');
-      
-      // Vérifier si l'API existe
+      // VÃ©rifier si l'API existe
       if (!vehiculesAPI || typeof vehiculesAPI.getAll !== 'function') {
-        console.warn('vehiculesAPI non disponible');
         setStats(prev => ({
           ...prev,
           vehicles: { total: 0, active: 0, loading: false }
@@ -126,9 +154,7 @@ export default function DashboardHome() {
       }
 
       const response = await vehiculesAPI.getAll();
-      console.log('🚛 Réponse véhicules:', response);
-      
-      // Adapter selon la structure de la réponse
+      // Adapter selon la structure de la rÃ©ponse
       let vehicles = [];
       if (response?.data) {
         vehicles = Array.isArray(response.data) ? response.data : [response.data];
@@ -139,21 +165,19 @@ export default function DashboardHome() {
       const vehicleStats = {
         total: vehicles.length,
         active: vehicles.filter(v => {
-          // Tenter différents noms de champs pour le statut
+          // Tenter diffÃ©rents noms de champs pour le statut
           const status = v?.statut || v?.status || v?.etat || '';
           return status === 'ACTIF' || status === 'ACTIVE' || status === 'active' || status === 'En service';
         }).length,
         loading: false
       };
 
-      console.log('📈 Stats véhicules:', vehicleStats);
-
       setStats(prev => ({
         ...prev,
         vehicles: vehicleStats
       }));
 
-      // Ajouter à l'activité récente si nouveaux véhicules
+      // Ajouter Ã  l'activitÃ© rÃ©cente si nouveaux vÃ©hicules
       if (vehicles.length > 0) {
         const recentVehicles = vehicles.filter(v => {
           const created = new Date(v.createdAt || v.dateCreation || v.created_at);
@@ -166,7 +190,7 @@ export default function DashboardHome() {
             {
               id: `vehicles-${Date.now()}`,
               type: 'vehicle',
-              title: `${recentVehicles.length} nouveau(x) véhicule(s) ajouté(s)`,
+              title: `${recentVehicles.length} nouveau(x) vÃ©hicule(s) ajoutÃ©(s)`,
               time: 'Aujourd\'hui',
               icon: FiTruck,
               color: 'blue'
@@ -177,7 +201,6 @@ export default function DashboardHome() {
       }
 
     } catch (error) {
-      console.error('❌ Erreur chargement véhicules:', error);
       setStats(prev => ({
         ...prev,
         vehicles: { total: 0, active: 0, loading: false }
@@ -187,11 +210,8 @@ export default function DashboardHome() {
 
   const loadEventsData = async () => {
     try {
-      console.log('📊 Chargement des événements...');
-      
-      // Vérifier si l'API existe
+      // VÃ©rifier si l'API existe
       if (!eventsAPI || typeof eventsAPI.getAll !== 'function') {
-        console.warn('eventsAPI non disponible');
         setStats(prev => ({
           ...prev,
           events: { total: 0, upcoming: 0, published: 0, loading: false }
@@ -200,9 +220,7 @@ export default function DashboardHome() {
       }
 
       const response = await eventsAPI.getAll();
-      console.log('📅 Réponse événements:', response);
-      
-      // Adapter selon la structure de la réponse
+      // Adapter selon la structure de la rÃ©ponse
       let events = [];
       if (response?.data) {
         events = Array.isArray(response.data) ? response.data : [response.data];
@@ -217,26 +235,24 @@ export default function DashboardHome() {
           try {
             const eventDate = new Date(e?.date || e?.dateEvent || e?.startDate);
             const status = e?.status || e?.statut || '';
-            return eventDate > now && (status === 'PUBLISHED' || status === 'published' || status === 'Publié');
+            return eventDate > now && (status === 'PUBLISHED' || status === 'published' || status === 'PubliÃ©');
           } catch {
             return false;
           }
         }).length,
         published: events.filter(e => {
           const status = e?.status || e?.statut || '';
-          return status === 'PUBLISHED' || status === 'published' || status === 'Publié';
+          return status === 'PUBLISHED' || status === 'published' || status === 'PubliÃ©';
         }).length,
         loading: false
       };
-
-      console.log('📈 Stats événements:', eventStats);
 
       setStats(prev => ({
         ...prev,
         events: eventStats
       }));
 
-      // Ajouter à l'activité récente si nouveaux événements
+      // Ajouter Ã  l'activitÃ© rÃ©cente si nouveaux Ã©vÃ©nements
       if (events.length > 0) {
         const recentEvents = events.filter(e => {
           const created = new Date(e.createdAt || e.dateCreation || e.created_at);
@@ -249,7 +265,7 @@ export default function DashboardHome() {
             {
               id: `events-${Date.now()}`,
               type: 'event',
-              title: `${recentEvents.length} nouvel(s) événement(s) créé(s)`,
+              title: `${recentEvents.length} nouvel(s) Ã©vÃ©nement(s) crÃ©Ã©(s)`,
               time: 'Aujourd\'hui',
               icon: FiCalendar,
               color: 'green'
@@ -260,7 +276,6 @@ export default function DashboardHome() {
       }
 
     } catch (error) {
-      console.error('❌ Erreur chargement événements:', error);
       setStats(prev => ({
         ...prev,
         events: { total: 0, upcoming: 0, published: 0, loading: false }
@@ -270,11 +285,8 @@ export default function DashboardHome() {
 
   const loadMembersData = async () => {
     try {
-      console.log('📊 Chargement des membres...');
-      
-      // Vérifier si l'API existe
+      // VÃ©rifier si l'API existe
       if (!membersAPI || typeof membersAPI.getAll !== 'function') {
-        console.warn('membersAPI non disponible');
         setStats(prev => ({
           ...prev,
           members: { total: 0, active: 0, loading: false }
@@ -283,9 +295,7 @@ export default function DashboardHome() {
       }
 
       const response = await membersAPI.getAll();
-      console.log('👥 Réponse membres:', response);
-      
-      // Adapter selon la structure de la réponse
+      // Adapter selon la structure de la rÃ©ponse
       let members = [];
       if (response?.members) {
         members = Array.isArray(response.members) ? response.members : [response.members];
@@ -299,19 +309,17 @@ export default function DashboardHome() {
         total: members.length,
         active: members.filter(m => {
           const status = m?.membershipStatus || m?.statut || m?.status || m?.adhesionStatus || '';
-          return status === 'ACTIVE' || status === 'active' || status === 'Actif' || status === 'À jour';
+          return status === 'ACTIVE' || status === 'active' || status === 'Actif' || status === 'Ã€ jour';
         }).length,
         loading: false
       };
-
-      console.log('📈 Stats membres:', memberStats);
 
       setStats(prev => ({
         ...prev,
         members: memberStats
       }));
 
-      // Ajouter à l'activité récente si nouveaux membres
+      // Ajouter Ã  l'activitÃ© rÃ©cente si nouveaux membres
       if (members.length > 0) {
         const recentMembers = members.filter(m => {
           const created = new Date(m.createdAt || m.dateCreation || m.dateAdhesion || m.created_at);
@@ -324,7 +332,7 @@ export default function DashboardHome() {
             {
               id: `members-${Date.now()}`,
               type: 'member',
-              title: `${recentMembers.length} nouvelle(s) adhésion(s)`,
+              title: `${recentMembers.length} nouvelle(s) adhÃ©sion(s)`,
               time: 'Aujourd\'hui',
               icon: FiUsers,
               color: 'purple'
@@ -335,7 +343,6 @@ export default function DashboardHome() {
       }
 
     } catch (error) {
-      console.error('❌ Erreur chargement membres:', error);
       setStats(prev => ({
         ...prev,
         members: { total: 0, active: 0, loading: false }
@@ -343,58 +350,10 @@ export default function DashboardHome() {
     }
   };
 
-  const setupRecentActivity = () => {
-    // Activités de base (seront complétées par les vraies données)
-    const baseActivity = [
-      {
-        id: 'system-1',
-        type: 'system',
-        title: 'Dashboard mis à jour',
-        time: 'À l\'instant',
-        icon: FiActivity,
-        color: 'gray'
-      }
-    ];
-
-    setRecentActivity(prev => prev.length > 0 ? prev : baseActivity);
-  };
-
-  const setupQuickActions = () => {
-    const actions = [
-      {
-        title: 'Nouveau véhicule',
-        icon: FiPlus,
-        to: '/dashboard/vehicules',
-        color: 'blue'
-      },
-      {
-        title: 'Créer événement',
-        icon: FiCalendar,
-        to: '/dashboard/events-management',
-        color: 'green'
-      },
-      {
-        title: 'Gestion membres',
-        icon: FiUsers,
-        to: '/dashboard/members-management',
-        color: 'purple'
-      },
-      {
-        title: 'Finance',
-        icon: FiDollarSign,
-        to: '/admin',
-        color: 'orange'
-      }
-    ];
-
-    setQuickActions(actions);
-  };
-
-  // Finaliser le loading quand toutes les données sont chargées
+  // Finaliser le loading quand toutes les donnÃ©es sont chargÃ©es
   useEffect(() => {
     const allLoaded = !stats.vehicles.loading && !stats.events.loading && !stats.members.loading;
     if (allLoaded && loading) {
-      console.log('✅ Toutes les données sont chargées');
       setLoading(false);
     }
   }, [stats, loading]);
@@ -402,7 +361,7 @@ export default function DashboardHome() {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Bonjour";
-    if (hour < 17) return "Bon après-midi";
+    if (hour < 17) return "Bon aprÃ¨s-midi";
     return "Bonsoir";
   };
 
@@ -427,9 +386,9 @@ export default function DashboardHome() {
             textAlign="center"
             w="full"
           >
-            <Heading size="xl">Chargement des données...</Heading>
+            <Heading size="xl">Chargement des donnÃ©es...</Heading>
             <Text mt={2} opacity={0.9}>
-              Récupération des véhicules, événements et membres
+              RÃ©cupÃ©ration des vÃ©hicules, Ã©vÃ©nements et membres
             </Text>
           </Box>
           <Spinner size="xl" color="blue.500" />
@@ -440,7 +399,7 @@ export default function DashboardHome() {
 
   return (
     <Container maxW="container.xl" py={8} fontFamily="Montserrat, sans-serif">
-      {/* En-tête avec salutation */}
+      {/* En-tÃªte avec salutation */}
       <Box
         bgGradient={gradientBg}
         color="white"
@@ -450,10 +409,10 @@ export default function DashboardHome() {
         textAlign="center"
       >
         <Heading size="xl" mb={4}>
-          {getGreeting()}, {user?.prenom || user?.email || 'Utilisateur'} ! 👋
+          {getGreeting()}, {user?.prenom || user?.email || 'Utilisateur'} ! ðŸ‘‹
         </Heading>
         <Text fontSize="lg" opacity={0.9}>
-          Voici un aperçu de votre activité RétrobuS Essonne
+          Voici un aperÃ§u de votre activitÃ© RÃ©trobuS Essonne
         </Text>
       </Box>
 
@@ -467,7 +426,7 @@ export default function DashboardHome() {
               <Card bg={cardBg} borderColor={borderColor} shadow="lg">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Véhicules actifs</StatLabel>
+                    <StatLabel color="gray.600">VÃ©hicules actifs</StatLabel>
                     <StatNumber color="blue.500">
                       <HStack>
                         <Icon as={FiTruck} />
@@ -492,7 +451,7 @@ export default function DashboardHome() {
               <Card bg={cardBg} borderColor={borderColor} shadow="lg">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Événements à venir</StatLabel>
+                    <StatLabel color="gray.600">Ã‰vÃ©nements Ã  venir</StatLabel>
                     <StatNumber color="green.500">
                       <HStack>
                         <Icon as={FiCalendar} />
@@ -540,40 +499,14 @@ export default function DashboardHome() {
               </Card>
             </SimpleGrid>
 
-            {/* Actions rapides */}
-            <Card bg={cardBg} borderColor={borderColor} shadow="lg">
-              <CardHeader>
-                <Heading size="md" fontWeight="700">Actions rapides</Heading>
-              </CardHeader>
-              <CardBody>
-                <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-                  {quickActions.map((action) => (
-                    <Button
-                      key={action.title}
-                      as={RouterLink}
-                      to={action.to}
-                      leftIcon={<Icon as={action.icon} />}
-                      colorScheme={action.color}
-                      variant="outline"
-                      size="sm"
-                      h="auto"
-                      py={4}
-                      flexDirection="column"
-                      textAlign="center"
-                    >
-                      {action.title}
-                    </Button>
-                  ))}
-                </SimpleGrid>
-              </CardBody>
-            </Card>
 
-            {/* Les RétroActus */}
+
+            {/* Les RÃ©troActus */}
             {retroActus.length > 0 && (
               <Card bg={cardBg} borderColor={borderColor} shadow="lg">
                 <CardHeader>
                   <HStack justify="space-between">
-                    <Heading size="md" fontWeight="700">📰 Les RétroActus</Heading>
+                    <Heading size="md" fontWeight="700">ðŸ“° Les RÃ©troActus</Heading>
                     <HStack spacing={2}>
                       <IconButton
                         icon={<FiChevronLeft />}
@@ -582,7 +515,7 @@ export default function DashboardHome() {
                         onClick={() => setCurrentActuIndex((prev) => 
                           prev === 0 ? retroActus.length - 1 : prev - 1
                         )}
-                        aria-label="Actu précédente"
+                        aria-label="Actu prÃ©cÃ©dente"
                         isDisabled={retroActus.length <= 1}
                       />
                       <Text fontSize="xs" color="gray.500">
@@ -631,52 +564,34 @@ export default function DashboardHome() {
                         borderRadius="md"
                       />
                     )}
+                    <HStack spacing={2} pt={4} w="100%">
+                      <Button
+                        size="sm"
+                        leftIcon={<FiShare2 />}
+                        colorScheme="blue"
+                        variant="outline"
+                        flex={1}
+                        onClick={() => shareOnWeb(retroActus[currentActuIndex])}
+                      >
+                        Partager
+                      </Button>
+                      <Button
+                        size="sm"
+                        leftIcon={<FiMail />}
+                        colorScheme="cyan"
+                        variant="outline"
+                        flex={1}
+                        onClick={() => shareRetroActu(retroActus[currentActuIndex])}
+                      >
+                        Email
+                      </Button>
+                    </HStack>
                   </VStack>
                 </CardBody>
               </Card>
             )}
 
-            {/* Activité récente */}
-            <Card bg={cardBg} borderColor={borderColor} shadow="lg">
-              <CardHeader>
-                <HStack justify="space-between">
-                  <Heading size="md" fontWeight="700">Activité récente</Heading>
-                  <IconButton
-                    icon={<FiRefreshCw />}
-                    size="sm"
-                    variant="ghost"
-                    onClick={loadDashboardData}
-                    title="Actualiser"
-                  />
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4} align="stretch">
-                  {recentActivity.length === 0 ? (
-                    <Text color="gray.500" textAlign="center" py={4}>
-                      Aucune activité récente
-                    </Text>
-                  ) : (
-                    recentActivity.slice(0, 5).map((activity) => (
-                      <HStack key={activity.id} spacing={4} p={3} bg="gray.50" borderRadius="lg">
-                        <Icon as={activity.icon} color={`${activity.color}.500`} />
-                        <VStack align="start" spacing={0} flex={1}>
-                          <Text fontWeight="600" fontSize="sm">
-                            {activity.title}
-                          </Text>
-                          <Text fontSize="xs" color="gray.500">
-                            {activity.time}
-                          </Text>
-                        </VStack>
-                        <Badge colorScheme={activity.color} variant="subtle">
-                          {activity.type}
-                        </Badge>
-                      </HStack>
-                    ))
-                  )}
-                </VStack>
-              </CardBody>
-            </Card>
+
           </VStack>
         </GridItem>
 
@@ -747,7 +662,7 @@ export default function DashboardHome() {
                     leftIcon={<FiTruck />}
                     size="sm"
                   >
-                    Véhicules ({stats.vehicles.total})
+                    VÃ©hicules ({stats.vehicles.total})
                   </Button>
                   <Button
                     as={RouterLink}
@@ -757,7 +672,7 @@ export default function DashboardHome() {
                     leftIcon={<FiCalendar />}
                     size="sm"
                   >
-                    Événements ({stats.events.total})
+                    Ã‰vÃ©nements ({stats.events.total})
                   </Button>
                   <Button
                     as={RouterLink}
@@ -789,13 +704,13 @@ export default function DashboardHome() {
                     size="sm"
                     colorScheme="orange"
                   >
-                    🔧 Diagnostiques API
+                    ðŸ”§ Diagnostiques API
                   </Button>
                 </VStack>
               </CardBody>
             </Card>
 
-            {/* Informations système */}
+            {/* Informations systÃ¨me */}
             <Alert status="info" borderRadius="md">
               <AlertIcon />
               <VStack align="start" spacing={1}>
@@ -803,7 +718,7 @@ export default function DashboardHome() {
                   APIs disponibles
                 </Text>
                 <Text fontSize="xs">
-                  Les données sont récupérées en temps réel quand les APIs sont disponibles.
+                  Les donnÃ©es sont rÃ©cupÃ©rÃ©es en temps rÃ©el quand les APIs sont disponibles.
                 </Text>
               </VStack>
             </Alert>

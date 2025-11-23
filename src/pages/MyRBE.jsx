@@ -155,7 +155,7 @@ const cards = [
 export default function MyRBE() {
   const alertBg = useColorModeValue("blue.50", "blue.900");
   const alertBorder = useColorModeValue("blue.500", "blue.300");
-  const { user, roles, customPermissions } = useUser();
+  const { user, roles, customPermissions, isAdmin } = useUser();
   const userRole = roles?.[0] || 'MEMBER';
   const { permissions: userPermissions, loading: permissionsLoading } = useUserPermissions(user?.id);
 
@@ -164,12 +164,12 @@ export default function MyRBE() {
    */
   const shouldShowCard = (card) => {
     // Si la carte est masquée, ne pas l'afficher (sauf pour ADMIN)
-    if (card.hidden && userRole !== 'ADMIN') {
+    if (card.hidden && !isAdmin) {
       return false;
     }
 
     // Les ADMIN voient TOUT
-    if (userRole === 'ADMIN') {
+    if (isAdmin) {
       return true;
     }
 
@@ -179,7 +179,7 @@ export default function MyRBE() {
     }
 
     // Vérifier les rôles requis
-    if (card.requiredRole && !card.requiredRole.includes(userRole)) {
+    if (card.requiredRole && !card.requiredRole.some(role => roles.includes(role))) {
       return false;
     }
 
