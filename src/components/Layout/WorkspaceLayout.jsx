@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Box,
   Button,
@@ -35,6 +35,14 @@ const WorkspaceLayout = ({
   const [activeSection, setActiveSection] = useState(defaultSectionId || sections[0]?.id);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile] = useMediaQuery("(max-width: 768px)");
+  const mainContentRef = useRef(null);
+
+  // Scroller vers le top quand la section change
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [activeSection]);
 
   const bgSidebar = useColorModeValue("gray.50", "gray.900");
   const bgMain = useColorModeValue("white", "gray.800");
@@ -137,7 +145,7 @@ const WorkspaceLayout = ({
       </Box>
 
       {/* Main content */}
-      <Box flex={1} overflowY="auto" position="relative" h="100%">
+      <Box flex={1} overflowY="auto" position="relative" h="100%" ref={mainContentRef}>
         {isMobile && !sidebarOpen && (
           <Button
             position="fixed"
