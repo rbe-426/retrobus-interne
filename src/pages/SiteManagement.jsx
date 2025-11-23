@@ -1588,19 +1588,23 @@ export default function SiteManagement() {
         
         <Tabs variant="enclosed" colorScheme="blue">
           <TabList>
-            <Tab>📝 Changelog & Versions</Tab>
             <Tab>🔐 Accès aux Sites</Tab>
+            <Tab>📰 RétroNews</Tab>
             <Tab>⚙️ Configuration</Tab>
             <Tab>📄 Modèles de Documents</Tab>
           </TabList>
 
           <TabPanels>
             <TabPanel>
+              <AccessManagement />
+            </TabPanel>
+
+            <TabPanel>
               <Flex mb={6} align="center">
-                <Heading size="lg">Gestion du Site</Heading>
+                <Heading size="lg">📰 Gestion des RétroNews</Heading>
                 <Spacer />
                 <Button leftIcon={<FaPlus />} colorScheme="blue" onClick={handleCreate}>
-                  Nouveau Changelog
+                  Nouvelle RétroNews
                 </Button>
               </Flex>
 
@@ -1608,7 +1612,7 @@ export default function SiteManagement() {
                 {changelogs.length === 0 ? (
                   <Alert status="info">
                     <AlertIcon />
-                    Aucun changelog trouvé. Créez le premier !
+                    Aucune RétroNews trouvée. Créez la première !
                   </Alert>
                 ) : (
                   changelogs.map((changelog) => (
@@ -1664,10 +1668,6 @@ export default function SiteManagement() {
                   ))
                 )}
               </VStack>
-            </TabPanel>
-
-            <TabPanel>
-              <AccessManagement />
             </TabPanel>
 
             <TabPanel>
