@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Heading, SimpleGrid, Card, CardHeader, CardBody,
   Text, Badge, HStack, Spinner, Center, Button, Flex, useToast,
@@ -17,7 +17,7 @@ import {
 import { eventsAPI } from '../api/events.js';
 import { vehiculesAPI } from '../api/vehicles.js';
 
-// Templates d'Ã©vÃ©nements prÃ©dÃ©finis (corrigÃ©s)
+// Templates d'événements prédéfinis (corrigés)
 const EVENT_TEMPLATES = {
   public_open_access: {
     name: "Ouvert au Public",
@@ -26,7 +26,7 @@ const EVENT_TEMPLATES = {
     defaults: {
       isVisible: true,
       allowPublicRegistration: false,
-      requiresRegistration: false,  // â† PAS d'inscription requise
+      requiresRegistration: false,  // ← PAS d'inscription requise
       isFree: true,
       adultPrice: null,
       childPrice: null,
@@ -35,7 +35,7 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'none',
       status: 'PUBLISHED'
     },
-    description: "Ã‰vÃ©nement ouvert au public, accÃ¨s libre sans inscription"
+    description: "Événement ouvert au public, accès libre sans inscription"
   },
   public_with_registration: {
     name: "Public avec Inscription",
@@ -43,8 +43,8 @@ const EVENT_TEMPLATES = {
     color: "blue",
     defaults: {
       isVisible: true,
-      allowPublicRegistration: true,   // â† Le public PEUT s'inscrire
-      requiresRegistration: true,      // â† Inscription REQUISE
+      allowPublicRegistration: true,   // ← Le public PEUT s'inscrire
+      requiresRegistration: true,      // ← Inscription REQUISE
       isFree: false,
       adultPrice: 15,
       childPrice: 8,
@@ -53,16 +53,16 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'internal',
       status: 'PUBLISHED'
     },
-    description: "Ã‰vÃ©nement public avec inscription ouverte directement au public"
+    description: "Événement public avec inscription ouverte directement au public"
   },
   private_outing: {
-    name: "Sortie PrivÃ©e",
+    name: "Sortie Privée",
     icon: FiEyeOff,
     color: "yellow",
     defaults: {
-      isVisible: true,                 // â† Visible sur le site public
-      allowPublicRegistration: false, // â† Pas d'inscription publique
-      requiresRegistration: false,    // â† Pas d'inscription requise
+      isVisible: true,                 // ← Visible sur le site public
+      allowPublicRegistration: false, // ← Pas d'inscription publique
+      requiresRegistration: false,    // ← Pas d'inscription requise
       isFree: true,
       adultPrice: null,
       childPrice: null,
@@ -71,7 +71,7 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'none',
       status: 'PUBLISHED'
     },
-    description: "Sortie visible publiquement mais rÃ©servÃ©e (pas d'inscription possible)"
+    description: "Sortie visible publiquement mais réservée (pas d'inscription possible)"
   },
   public_contact_required: {
     name: "Contact Association Requis",
@@ -79,8 +79,8 @@ const EVENT_TEMPLATES = {
     color: "orange",
     defaults: {
       isVisible: true,
-      allowPublicRegistration: false,  // â† Le public NE PEUT PAS s'inscrire
-      requiresRegistration: true,      // â† Mais inscription REQUISE
+      allowPublicRegistration: false,  // ← Le public NE PEUT PAS s'inscrire
+      requiresRegistration: true,      // ← Mais inscription REQUISE
       isFree: false,
       adultPrice: 12,
       childPrice: 6,
@@ -92,11 +92,11 @@ const EVENT_TEMPLATES = {
     description: "Visible par tous mais inscription uniquement en contactant l'association"
   },
   members_only: {
-    name: "AdhÃ©rents Seulement",
+    name: "Adhérents Seulement",
     icon: FiLock,
     color: "purple",
     defaults: {
-      isVisible: false,             // â† Pas visible publiquement
+      isVisible: false,             // ← Pas visible publiquement
       allowPublicRegistration: false,
       requiresRegistration: true,
       isFree: true,
@@ -107,16 +107,16 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'internal',
       status: 'PUBLISHED'
     },
-    description: "RÃ©servÃ© aux adhÃ©rents, non visible sur le site public"
+    description: "Réservé aux adhérents, non visible sur le site public"
   },
   private_internal: {
-    name: "Ã‰vÃ©nement Interne",
+    name: "Événement Interne",
     icon: FiLock,
     color: "red",
     defaults: {
-      isVisible: false,             // â† Pas visible publiquement
+      isVisible: false,             // ← Pas visible publiquement
       allowPublicRegistration: false,
-      requiresRegistration: false,  // â† Pas d'inscription du tout
+      requiresRegistration: false,  // ← Pas d'inscription du tout
       isFree: true,
       adultPrice: null,
       childPrice: null,
@@ -125,7 +125,7 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'none',
       status: 'DRAFT'
     },
-    description: "Ã‰vÃ©nement interne, complÃ¨tement privÃ©"
+    description: "Événement interne, complètement privé"
   },
   public_pdf_form: {
     name: "Formulaire PDF Public",
@@ -133,8 +133,8 @@ const EVENT_TEMPLATES = {
     color: "teal",
     defaults: {
       isVisible: true,
-      allowPublicRegistration: true,   // â† Le public PEUT tÃ©lÃ©charger le PDF
-      requiresRegistration: true,      // â† Inscription REQUISE
+      allowPublicRegistration: true,   // ← Le public PEUT télécharger le PDF
+      requiresRegistration: true,      // ← Inscription REQUISE
       isFree: false,
       adultPrice: 12,
       childPrice: 6,
@@ -143,26 +143,26 @@ const EVENT_TEMPLATES = {
       registrationMethod: 'pdf',
       status: 'PUBLISHED'
     },
-    description: "Ã‰vÃ©nement public avec formulaire PDF Ã  tÃ©lÃ©charger"
+    description: "Événement public avec formulaire PDF à télécharger"
   },
   parade_classic_vehicles: {
-    name: "ðŸš— DÃ©filÃ© Anciennes",
+    name: "🚗 Défilé Anciennes",
     icon: FiTruck,
     color: "red",
     defaults: {
       isVisible: true,
-      allowPublicRegistration: true,   // â† Le public PEUT s'inscrire
-      requiresRegistration: true,      // â† Inscription REQUISE
+      allowPublicRegistration: true,   // ← Le public PEUT s'inscrire
+      requiresRegistration: true,      // ← Inscription REQUISE
       isFree: true,
       adultPrice: null,
       childPrice: null,
       maxParticipants: null,
       registrationDeadline: '',
-      registrationMethod: 'internal',  // â† Formulaire interne avec champs spÃ©cifiques
+      registrationMethod: 'internal',  // ← Formulaire interne avec champs spécifiques
       status: 'PUBLISHED',
-      registrationType: 'parade_vehicles'  // â† Champs spÃ©cialisÃ©s
+      registrationType: 'parade_vehicles'  // ← Champs spécialisés
     },
-    description: "DÃ©filÃ© de vÃ©hicules anciens - Inscription avec nom, vÃ©hicule et club"
+    description: "Défilé de véhicules anciens - Inscription avec nom, véhicule et club"
   }
 };
 
@@ -188,7 +188,7 @@ const Evenements = () => {
     helloAssoUrl: '',
     vehicleId: '',
     status: 'DRAFT',
-    // Champs corrigÃ©s pour la nouvelle logique
+    // Champs corrigés pour la nouvelle logique
     isVisible: true,              // Visible sur le site public
     allowPublicRegistration: false, // Le public peut s'inscrire
     requiresRegistration: false,   // Inscription requise
@@ -196,11 +196,103 @@ const Evenements = () => {
     maxParticipants: '',
     registrationDeadline: '',
     registrationMethod: 'none',    // 'none', 'helloasso', 'pdf', 'internal'
-    pdfUrl: '',                    // URL du PDF Ã  tÃ©lÃ©charger
+    pdfUrl: '',                    // URL du PDF à télécharger
     eventType: 'public_info_only'
   });
 
-  
+  // Test API pour diagnostiquer l'erreur 400
+  const testAPIConnection = async () => {
+    const token = localStorage.getItem('token');
+    console.log('🔍 Testing API connection...');
+    console.log('Token exists:', !!token);
+    
+    if (!token) {
+      toast({ status: "error", title: "Pas de token", description: "Veuillez vous reconnecter" });
+      return;
+    }
+
+    try {
+      // Test 1: GET events
+      const testResponse = await fetch('https://refreshing-adaptation-rbe-serveurs.up.railway.app/events', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('GET /events status:', testResponse.status);
+      
+      if (testResponse.ok) {
+        const data = await testResponse.json();
+        console.log('✅ GET API works, events:', data.length);
+        setEvents(Array.isArray(data) ? data : []);
+        
+        // Test 2: POST test event pour voir l'erreur exacte
+        console.log('🧪 Testing POST with minimal data...');
+        const testEventData = {
+          id: `test-${Date.now()}`,
+          title: 'Test Event',
+          date: '2025-12-31',
+          status: 'DRAFT'
+        };
+        
+        const postResponse = await fetch('https://refreshing-adaptation-rbe-serveurs.up.railway.app/events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(testEventData)
+        });
+        
+        console.log('POST /events status:', postResponse.status);
+        
+        if (postResponse.ok) {
+          const createdEvent = await postResponse.json();
+          console.log('✅ POST works, created:', createdEvent);
+          
+          // Nettoyer le test en supprimant l'événement créé
+          await fetch(`https://refreshing-adaptation-rbe-serveurs.up.railway.app/events/${testEventData.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          toast({ 
+            status: "success", 
+            title: "API entièrement fonctionnelle", 
+            description: "GET et POST fonctionnent correctement"
+          });
+        } else {
+          const errorText = await postResponse.text();
+          console.log('❌ POST error:', postResponse.status, errorText);
+          
+          toast({ 
+            status: "error", 
+            title: `Erreur POST ${postResponse.status}`, 
+            description: errorText
+          });
+        }
+      } else {
+        const errorText = await testResponse.text();
+        console.log('❌ GET error:', testResponse.status, errorText);
+        
+        toast({ 
+          status: "error", 
+          title: `Erreur GET ${testResponse.status}`, 
+          description: errorText
+        });
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      toast({ 
+        status: "error", 
+        title: "Erreur réseau", 
+        description: error.message
+      });
+    }
+  };
+
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -209,14 +301,14 @@ const Evenements = () => {
       if (!token) {
         toast({ 
           status: "warning", 
-          title: "Session expirÃ©e",
+          title: "Session expirée",
           description: "Veuillez vous reconnecter."
         });
         window.location.href = '/login';
         return;
       }
 
-      // VÃ©rification de la validitÃ© du token
+      // Vérification de la validité du token
       try {
         const tokenParts = token.split('.');
         if (tokenParts.length !== 3) {
@@ -227,10 +319,10 @@ const Evenements = () => {
         const currentTime = Math.floor(Date.now() / 1000);
         
         if (payload.exp && payload.exp < currentTime) {
-          throw new Error('Token expirÃ©');
+          throw new Error('Token expiré');
         }
       } catch (tokenError) {
-
+        console.error('Token invalide:', tokenError);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         toast({ 
@@ -245,7 +337,7 @@ const Evenements = () => {
       const data = await eventsAPI.getAll();
       setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
-
+      console.error('Erreur events API:', e);
       
       if (e.message.includes('401')) {
         localStorage.removeItem('token');
@@ -258,13 +350,13 @@ const Evenements = () => {
         toast({ 
           status: "error", 
           title: "Erreur 400 - Bad Request",
-          description: "ProblÃ¨me avec la requÃªte. Cliquez sur 'Tester API' pour diagnostiquer."
+          description: "Problème avec la requête. Cliquez sur 'Tester API' pour diagnostiquer."
         });
       } else {
         toast({ 
           status: "error", 
           title: "Erreur de chargement",
-          description: "Impossible de charger les Ã©vÃ©nements."
+          description: "Impossible de charger les événements."
         });
       }
       
@@ -279,7 +371,7 @@ const Evenements = () => {
       const data = await vehiculesAPI.getAll();
       setVehicles(Array.isArray(data) ? data : []);
     } catch (e) {
-
+      console.error(e);
       setVehicles([]);
     }
   }, []);
@@ -322,7 +414,7 @@ const Evenements = () => {
       ...prev,
       ...template.defaults,
       eventType: templateKey,
-      // Conserver les champs dÃ©jÃ  remplis
+      // Conserver les champs déjà remplis
       title: prev.title,
       date: prev.date,
       time: prev.time,
@@ -335,7 +427,7 @@ const Evenements = () => {
     
     toast({
       status: "info",
-      title: "Template appliquÃ©",
+      title: "Template appliqué",
       description: template.description
     });
   };
@@ -349,12 +441,12 @@ const Evenements = () => {
   const handleEdit = (event) => {
     setEditingEvent(event);
     
-    // Parser les extras pour rÃ©cupÃ©rer la configuration
+    // Parser les extras pour récupérer la configuration
     let extras = {};
     try {
       extras = event.extras ? JSON.parse(event.extras) : {};
     } catch (e) {
-
+      console.log('Impossible de parser extras:', e);
     }
 
     setFormData({
@@ -383,7 +475,7 @@ const Evenements = () => {
   };
 
   const generateEventSlug = (title, date) => {
-    // CrÃ©er un slug unique Ã  partir du titre et de la date
+    // Créer un slug unique à partir du titre et de la date
     const titleSlug = title
       .toLowerCase()
       .normalize('NFD')
@@ -394,7 +486,7 @@ const Evenements = () => {
       .substring(0, 30); // Limiter la longueur
     
     const dateSlug = date.replace(/-/g, '');
-    const randomSuffix = Math.random().toString(36).substring(2, 6); // Ajouter un suffixe alÃ©atoire
+    const randomSuffix = Math.random().toString(36).substring(2, 6); // Ajouter un suffixe aléatoire
     
     return `${titleSlug}-${dateSlug}-${randomSuffix}`;
   };
@@ -437,42 +529,42 @@ const Evenements = () => {
         }
       };
 
-      // Pour la crÃ©ation, ajouter l'ID obligatoire
+      // Pour la création, ajouter l'ID obligatoire
       if (!editingEvent) {
         eventData.id = generateEventSlug(formData.title, formData.date);
-
+        console.log('🆔 Generated ID:', eventData.id);
       }
 
-
+      console.log('🚀 Saving event data:', eventData);
 
       if (editingEvent) {
         await eventsAPI.update(editingEvent.id, eventData);
-        toast({ status: "success", title: "Ã‰vÃ©nement modifiÃ© avec succÃ¨s" });
+        toast({ status: "success", title: "Événement modifié avec succès" });
       } else {
         await eventsAPI.create(eventData);
-        toast({ status: "success", title: "Ã‰vÃ©nement crÃ©Ã© avec succÃ¨s" });
+        toast({ status: "success", title: "Événement créé avec succès" });
       }
 
       await fetchEvents();
       onClose();
       resetForm();
     } catch (e) {
-
+      console.error('Save error:', e);
       
-      // Gestion spÃ©cifique des erreurs avec plus de dÃ©tails
-      if (e.message.includes('409') || (e.message.includes('ID dÃ©jÃ  utilisÃ©'))) {
+      // Gestion spécifique des erreurs avec plus de détails
+      if (e.message.includes('409') || (e.message.includes('ID déjà utilisé'))) {
         toast({ 
           status: "error", 
-          title: "ID dÃ©jÃ  utilisÃ©",
-          description: "Un Ã©vÃ©nement avec ce nom et cette date existe dÃ©jÃ . Modifiez le titre ou la date."
+          title: "ID déjà utilisé",
+          description: "Un événement avec ce nom et cette date existe déjà. Modifiez le titre ou la date."
         });
       } else if (e.message.includes('400')) {
-        // Essayer de rÃ©cupÃ©rer plus d'informations sur l'erreur 400
-
+        // Essayer de récupérer plus d'informations sur l'erreur 400
+        console.log('Détails erreur 400 - Data envoyée:', eventData);
         toast({ 
           status: "error", 
-          title: "Erreur 400 - DonnÃ©es invalides",
-          description: "VÃ©rifiez la console pour voir les donnÃ©es envoyÃ©es."
+          title: "Erreur 400 - Données invalides",
+          description: "Vérifiez la console pour voir les données envoyées."
         });
       } else {
         toast({ 
@@ -487,13 +579,13 @@ const Evenements = () => {
   };
 
   const handleDelete = async (event) => {
-    if (!confirm(`ÃŠtes-vous sÃ»r de vouloir supprimer l'Ã©vÃ©nement "${event.title}" ?`)) {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'événement "${event.title}" ?`)) {
       return;
     }
 
     try {
       await eventsAPI.delete(event.id);
-      toast({ status: "success", title: "Ã‰vÃ©nement supprimÃ©" });
+      toast({ status: "success", title: "Événement supprimé" });
       await fetchEvents();
     } catch (e) {
       toast({ 
@@ -507,15 +599,15 @@ const Evenements = () => {
   const togglePublish = async (event) => {
     const newStatus = event.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
     try {
-
+      console.log('🔄 Toggling status from', event.status, 'to', newStatus);
       await eventsAPI.update(event.id, { status: newStatus });
       toast({ 
         status: "success", 
-        title: `Ã‰vÃ©nement ${newStatus === 'PUBLISHED' ? 'publiÃ©' : 'dÃ©publiÃ©'}` 
+        title: `Événement ${newStatus === 'PUBLISHED' ? 'publié' : 'dépublié'}` 
       });
       await fetchEvents();
     } catch (e) {
-
+      console.error('Erreur toggle publish:', e);
       toast({ 
         status: "error", 
         title: "Erreur lors de la publication",
@@ -526,7 +618,7 @@ const Evenements = () => {
 
   const getStatusBadge = (status) => {
     return status === 'PUBLISHED' 
-      ? <Badge colorScheme="green">PubliÃ©</Badge>
+      ? <Badge colorScheme="green">Publié</Badge>
       : <Badge colorScheme="gray">Brouillon</Badge>;
   };
 
@@ -545,7 +637,7 @@ const Evenements = () => {
         );
       }
     } catch (e) {
-
+      console.log('Error parsing event extras:', e);
     }
     
     return <Badge colorScheme="gray">Standard</Badge>;
@@ -555,11 +647,11 @@ const Evenements = () => {
     try {
       const extras = event.extras ? JSON.parse(event.extras) : {};
       
-
+      console.log(`🔍 Internal - Event "${event.title}" extras:`, extras);
       
       // Logique simple et claire
       
-      // 1. Ã‰vÃ©nement non visible publiquement
+      // 1. Événement non visible publiquement
       if (!extras.isVisible) {
         return (
           <Button
@@ -569,7 +661,7 @@ const Evenements = () => {
             variant="solid"
             isDisabled
           >
-            PrivÃ©/Interne
+            Privé/Interne
           </Button>
         );
       }
@@ -621,12 +713,12 @@ const Evenements = () => {
       
       return (
         <Button size="sm" leftIcon={<FiGlobe />} colorScheme="gray" variant="outline" isDisabled>
-          IndÃ©terminÃ©
+          Indéterminé
         </Button>
       );
     } catch (e) {
-
-      // Fallback trÃ¨s simple
+      console.log(`Error parsing extras for ${event.title}:`, e);
+      // Fallback très simple
       return (
         <Button size="sm" leftIcon={<FiGlobe />} colorScheme="green" variant="outline" isDisabled>
           Legacy (ouvert)
@@ -637,13 +729,13 @@ const Evenements = () => {
 
   const getVehicleName = (vehicleId) => {
     const vehicle = vehicles.find(v => v.parc === vehicleId);
-    return vehicle ? `${vehicle.parc} - ${vehicle.modele}` : 'Aucun vÃ©hicule';
+    return vehicle ? `${vehicle.parc} - ${vehicle.modele}` : 'Aucun véhicule';
   };
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const selectedVehicle = selectedEvent ? vehicles.find(v => v.parc === selectedEvent.vehicleId) : null;
 
-  // Vue en cartes amÃ©liorÃ©e
+  // Vue en cartes améliorée
   const CardsView = () => (
     <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
       {events.map((event) => (
@@ -665,7 +757,7 @@ const Evenements = () => {
               <HStack>
                 <FiCalendar />
                 <Text fontSize="sm">
-                  {event.date} {event.time && `Ã  ${event.time}`}
+                  {event.date} {event.time && `à ${event.time}`}
                 </Text>
               </HStack>
               
@@ -677,7 +769,7 @@ const Evenements = () => {
               )}
 
               {event.vehicleId && (
-                <Text fontSize="sm">ðŸšŒ {getVehicleName(event.vehicleId)}</Text>
+                <Text fontSize="sm">🚌 {getVehicleName(event.vehicleId)}</Text>
               )}
               
               {event.description && (
@@ -690,12 +782,12 @@ const Evenements = () => {
                 <HStack spacing={4}>
                   {event.adultPrice && (
                     <Text fontSize="sm" fontWeight="bold" color="green.600">
-                      Adulte: {event.adultPrice}â‚¬
+                      Adulte: {event.adultPrice}€
                     </Text>
                   )}
                   {event.childPrice && (
                     <Text fontSize="sm" fontWeight="bold" color="green.600">
-                      Enfant: {event.childPrice}â‚¬
+                      Enfant: {event.childPrice}€
                     </Text>
                   )}
                 </HStack>
@@ -715,7 +807,7 @@ const Evenements = () => {
                   colorScheme={event.status === 'PUBLISHED' ? 'red' : 'green'}
                   onClick={() => togglePublish(event)}
                 >
-                  {event.status === 'PUBLISHED' ? 'DÃ©publier' : 'Publier'}
+                  {event.status === 'PUBLISHED' ? 'Dépublier' : 'Publier'}
                 </Button>
                 <Button
                   leftIcon={<FiTrash2 />}
@@ -757,7 +849,7 @@ const Evenements = () => {
               _hover={{ bg: "gray.50" }}
             >
               <Td fontWeight="semibold">{event.title}</Td>
-              <Td>{event.date} {event.time && `Ã  ${event.time}`}</Td>
+              <Td>{event.date} {event.time && `à ${event.time}`}</Td>
               <Td>{getEventTypeBadge(event)}</Td>
               <Td>
                 <VStack align="start" spacing={1}>
@@ -768,14 +860,14 @@ const Evenements = () => {
               <Td>
                 <HStack spacing={1}>
                   <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(event); }}>
-                    Ã‰diter
+                    Éditer
                   </Button>
                   <Button 
                     size="sm" 
                     colorScheme={event.status === 'PUBLISHED' ? 'red' : 'green'}
                     onClick={(e) => { e.stopPropagation(); togglePublish(event); }}
                   >
-                    {event.status === 'PUBLISHED' ? 'DÃ©publier' : 'Publier'}
+                    {event.status === 'PUBLISHED' ? 'Dépublier' : 'Publier'}
                   </Button>
                   <Button 
                     size="sm" 
@@ -798,18 +890,20 @@ const Evenements = () => {
     <Box p={6}>
       <Flex justify="space-between" align="center" mb={6}>
         <VStack align="start" spacing={1}>
-          <Heading>ðŸ“ CrÃ©ation des Ã‰vÃ©nements</Heading>
+          <Heading>📝 Création des Événements</Heading>
           <Text fontSize="sm" color="gray.600">
-            CrÃ©ez et configurez de nouveaux Ã©vÃ©nements pour l'association
+            Créez et configurez de nouveaux événements pour l'association
           </Text>
         </VStack>
         <HStack spacing={3}>
           <Button
             leftIcon={<FiEdit />}
             size="sm"
+            colorScheme="purple"
             variant="outline"
+            onClick={testAPIConnection}
           >
-            Ã‰diter
+            Tester API
           </Button>
           <Button
             leftIcon={viewMode === 'cards' ? <FiList /> : <FiGrid />}
@@ -824,7 +918,7 @@ const Evenements = () => {
             colorScheme="blue"
             onClick={handleCreate}
           >
-            Nouvel Ã©vÃ©nement
+            Nouvel événement
           </Button>
         </HStack>
       </Flex>
@@ -836,10 +930,15 @@ const Evenements = () => {
       ) : events.length === 0 ? (
         <Center py={20}>
           <VStack spacing={4}>
-            <Text color="gray.500" fontSize="lg">Aucun Ã©vÃ©nement trouvÃ©</Text>
-            <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
-              CrÃ©er le premier Ã©vÃ©nement
-            </Button>
+            <Text color="gray.500" fontSize="lg">Aucun événement trouvé</Text>
+            <HStack spacing={3}>
+              <Button leftIcon={<FiEdit />} colorScheme="purple" variant="outline" onClick={testAPIConnection}>
+                Tester API
+              </Button>
+              <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+                Créer le premier événement
+              </Button>
+            </HStack>
           </VStack>
         </Center>
       ) : viewMode === 'cards' ? (
@@ -848,20 +947,20 @@ const Evenements = () => {
         <TableView />
       )}
 
-      {/* Modal de crÃ©ation/Ã©dition corrigÃ© */}
+      {/* Modal de création/édition corrigé */}
       <Modal isOpen={isOpen} onClose={onClose} size="6xl">
         <ModalOverlay />
         <ModalContent maxH="90vh" overflowY="auto">
           <ModalHeader>
-            {editingEvent ? 'Modifier l\'Ã©vÃ©nement' : 'Nouvel Ã©vÃ©nement'}
+            {editingEvent ? 'Modifier l\'événement' : 'Nouvel événement'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <Tabs>
               <TabList>
-                <Tab>ðŸ“‹ Informations de base</Tab>
-                <Tab>âš™ï¸ Configuration</Tab>
-                <Tab>ðŸŽ¯ Templates</Tab>
+                <Tab>📋 Informations de base</Tab>
+                <Tab>⚙️ Configuration</Tab>
+                <Tab>🎯 Templates</Tab>
               </TabList>
 
               <TabPanels>
@@ -873,7 +972,7 @@ const Evenements = () => {
                       <Input
                         value={formData.title}
                         onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Nom de l'Ã©vÃ©nement"
+                        placeholder="Nom de l'événement"
                       />
                     </FormControl>
 
@@ -901,16 +1000,16 @@ const Evenements = () => {
                       <Input
                         value={formData.location}
                         onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                        placeholder="Lieu de l'Ã©vÃ©nement"
+                        placeholder="Lieu de l'événement"
                       />
                     </FormControl>
 
                     <FormControl>
-                      <FormLabel>VÃ©hicule participant</FormLabel>
+                      <FormLabel>Véhicule participant</FormLabel>
                       <Select
                         value={formData.vehicleId}
                         onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
-                        placeholder="SÃ©lectionner un vÃ©hicule (optionnel)"
+                        placeholder="Sélectionner un véhicule (optionnel)"
                       >
                         {vehicles.map(vehicle => (
                           <option key={vehicle.parc} value={vehicle.parc}>
@@ -925,19 +1024,19 @@ const Evenements = () => {
                       <Textarea
                         value={formData.description}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Description de l'Ã©vÃ©nement"
+                        placeholder="Description de l'événement"
                         rows={4}
                       />
                     </FormControl>
                   </VStack>
                 </TabPanel>
 
-                {/* Onglet 2: Configuration corrigÃ©e */}
+                {/* Onglet 2: Configuration corrigée */}
                 <TabPanel>
                   <VStack spacing={6}>
-                    {/* VisibilitÃ© */}
+                    {/* Visibilité */}
                     <Box w="100%" p={4} borderWidth="1px" borderRadius="md" bg="gray.50">
-                      <Heading size="sm" mb={3}>ðŸ‘ï¸ VisibilitÃ©</Heading>
+                      <Heading size="sm" mb={3}>👁️ Visibilité</Heading>
                       <FormControl>
                         <HStack>
                           <Switch
@@ -950,8 +1049,8 @@ const Evenements = () => {
                           <AlertIcon />
                           <Text fontSize="sm">
                             {formData.isVisible 
-                              ? "âœ… L'Ã©vÃ©nement apparaÃ®tra sur la page Events du site externe" 
-                              : "ðŸ”’ Ã‰vÃ©nement privÃ©, visible seulement dans l'interface interne"}
+                              ? "✅ L'événement apparaîtra sur la page Events du site externe" 
+                              : "🔒 Événement privé, visible seulement dans l'interface interne"}
                           </Text>
                         </Alert>
                       </FormControl>
@@ -959,7 +1058,7 @@ const Evenements = () => {
 
                     {/* Inscription */}
                     <Box w="100%" p={4} borderWidth="1px" borderRadius="md" bg="gray.50">
-                      <Heading size="sm" mb={3}>ðŸ“ Gestion des inscriptions</Heading>
+                      <Heading size="sm" mb={3}>📝 Gestion des inscriptions</Heading>
                       <VStack spacing={4} align="start">
                         <FormControl>
                           <HStack>
@@ -973,8 +1072,8 @@ const Evenements = () => {
                             <AlertIcon />
                             <Text fontSize="sm">
                               {formData.requiresRegistration 
-                                ? "ðŸ“ Une inscription sera nÃ©cessaire pour participer Ã  cet Ã©vÃ©nement" 
-                                : "ðŸŒ Bouton 'Ouvert au public' - Aucune inscription nÃ©cessaire"}
+                                ? "📝 Une inscription sera nécessaire pour participer à cet événement" 
+                                : "🌍 Bouton 'Ouvert au public' - Aucune inscription nécessaire"}
                             </Text>
                           </Alert>
                         </FormControl>
@@ -992,8 +1091,8 @@ const Evenements = () => {
                               <AlertIcon />
                               <Text fontSize="sm">
                                 {formData.allowPublicRegistration 
-                                  ? "âœ… Bouton d'inscription disponible sur le site externe" 
-                                  : "ðŸ“ž Bouton 'Contacter l'association' - Inscription via contact uniquement"}
+                                  ? "✅ Bouton d'inscription disponible sur le site externe" 
+                                  : "📞 Bouton 'Contacter l'association' - Inscription via contact uniquement"}
                               </Text>
                             </Alert>
                           </FormControl>
@@ -1005,7 +1104,7 @@ const Evenements = () => {
 
                     {/* Tarification */}
                     <Box w="100%" p={4} borderWidth="1px" borderRadius="md" bg="gray.50">
-                      <Heading size="sm" mb={3}>ðŸ’° Tarification</Heading>
+                      <Heading size="sm" mb={3}>💰 Tarification</Heading>
                       <VStack spacing={3} align="start">
                         <FormControl>
                           <HStack>
@@ -1018,14 +1117,14 @@ const Evenements = () => {
                                 childPrice: e.target.checked ? '' : prev.childPrice
                               }))}
                             />
-                            <FormLabel mb={0}>Ã‰vÃ©nement gratuit</FormLabel>
+                            <FormLabel mb={0}>Événement gratuit</FormLabel>
                           </HStack>
                         </FormControl>
 
                         {!formData.isFree && (
                           <HStack w="100%" spacing={4}>
                             <FormControl>
-                              <FormLabel>Prix adulte (â‚¬)</FormLabel>
+                              <FormLabel>Prix adulte (€)</FormLabel>
                               <Input
                                 type="number"
                                 step="0.01"
@@ -1035,7 +1134,7 @@ const Evenements = () => {
                               />
                             </FormControl>
                             <FormControl>
-                              <FormLabel>Prix enfant (â‚¬)</FormLabel>
+                              <FormLabel>Prix enfant (€)</FormLabel>
                               <Input
                                 type="number"
                                 step="0.01"
@@ -1056,17 +1155,17 @@ const Evenements = () => {
                         onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                       >
                         <option value="DRAFT">Brouillon</option>
-                        <option value="PUBLISHED">PubliÃ©</option>
+                        <option value="PUBLISHED">Publié</option>
                       </Select>
                     </FormControl>
                   </VStack>
                 </TabPanel>
 
-                {/* Onglet 3: Templates corrigÃ©s */}
+                {/* Onglet 3: Templates corrigés */}
                 <TabPanel>
                   <VStack spacing={4}>
                     <Text fontSize="lg" fontWeight="bold" mb={4}>
-                      ðŸŽ¯ Choisissez un template pour configurer rapidement votre Ã©vÃ©nement
+                      🎯 Choisissez un template pour configurer rapidement votre événement
                     </Text>
                     
                     <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="100%">
@@ -1092,7 +1191,7 @@ const Evenements = () => {
                                 {template.description}
                               </Text>
                               {selectedTemplate === key && (
-                                <Badge colorScheme={template.color}>SÃ©lectionnÃ©</Badge>
+                                <Badge colorScheme={template.color}>Sélectionné</Badge>
                               )}
                             </VStack>
                           </CardBody>
@@ -1104,9 +1203,9 @@ const Evenements = () => {
                       <Alert status="info" borderRadius="md">
                         <AlertIcon />
                         <VStack align="start" spacing={1}>
-                          <Text fontWeight="bold">Template appliquÃ©</Text>
+                          <Text fontWeight="bold">Template appliqué</Text>
                           <Text fontSize="sm">
-                            Vous pouvez maintenant personnaliser les paramÃ¨tres dans l'onglet "Configuration"
+                            Vous pouvez maintenant personnaliser les paramètres dans l'onglet "Configuration"
                           </Text>
                         </VStack>
                       </Alert>
@@ -1121,7 +1220,7 @@ const Evenements = () => {
               Annuler
             </Button>
             <Button colorScheme="blue" onClick={handleSave} isLoading={saving}>
-              {editingEvent ? 'Modifier' : 'CrÃ©er'}
+              {editingEvent ? 'Modifier' : 'Créer'}
             </Button>
           </ModalFooter>
         </ModalContent>
