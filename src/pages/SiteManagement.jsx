@@ -232,6 +232,25 @@ const NewsManagement = () => {
         </Box>
       </Alert>
 
+      {debugInfo && (
+        <Card bg="gray.50" variant="outline">
+          <CardBody>
+            <VStack align="start" spacing={2} fontSize="sm">
+              <Text fontWeight="bold">🔍 Informations Debug:</Text>
+              <Text>Token présent: {debugInfo.hasToken ? '✅ Oui' : '❌ Non'}</Text>
+              {debugInfo.hasToken && <Text>Token length: {debugInfo.tokenLength} chars</Text>}
+              {debugInfo.user && (
+                <>
+                  <Text>Utilisateur: {debugInfo.user.username || debugInfo.user.email}</Text>
+                  <Text>Rôle: {debugInfo.user.roles ? debugInfo.user.roles.join(', ') : 'N/A'}</Text>
+                </>
+              )}
+              <Text>API URL: {debugInfo.apiUrl || 'Relative (proxy)'}</Text>
+            </VStack>
+          </CardBody>
+        </Card>
+      )}
+
       {news.length === 0 ? (
         <Card>
           <CardBody>
