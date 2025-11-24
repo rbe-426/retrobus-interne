@@ -1315,7 +1315,15 @@ const AdminFinance = () => {
       onDocClose();
       toast({ status: 'success', title: isEdit ? 'Document modifié' : 'Document créé' });
     } catch (e) {
-      // Fallback local
+      console.error('❌ Erreur création document:', e);
+      
+      // Afficher l'erreur API si disponible
+      if (e.message) {
+        toast({ status: 'error', title: 'Erreur', description: `API: ${e.message}` });
+        return;
+      }
+
+      // Fallback local si vraiment impossible
       const genId = editingDocument?.id || `local-${Date.now()}`;
       const amount = parseFloat(docForm.amount) || 0;
 
