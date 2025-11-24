@@ -441,7 +441,27 @@ const FinanceInvoicing = () => {
       };
 
       // Générer PDF
-      html2pdf().set(opt).from(element).toPdf().output("datauristring", (pdfDataUri) => {
+      html2pdf().set(opt).from(element).toPdf().output("datauristring", async (pdfDataUri) => {
+        // Sauvegarder le PDF généré dans la base de données
+        if (editingDocument?.id) {
+          try {
+            const token = localStorage.getItem("token");
+            await fetch(
+              (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/finance/documents/${editingDocument.id}/save-pdf`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ pdfDataUri, htmlContent: generatedHtml })
+              }
+            );
+          } catch (e) {
+            console.warn("⚠️ Impossible de sauvegarder le PDF:", e.message);
+          }
+        }
+
         // Ouvrir aperçu dans une nouvelle fenêtre
         const newWindow = window.open("", "_blank");
         newWindow.document.write(`
@@ -634,6 +654,21 @@ const FinanceInvoicing = () => {
                                   onClick={() => handleViewDocument(doc)}
                                   title="Voir"
                                 />
+                                {doc.documentUrl && (
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
+                                    icon={<FiDownload />}
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = doc.documentUrl;
+                                      link.download = `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`;
+                                      link.click();
+                                    }}
+                                    title="Télécharger PDF"
+                                  />
+                                )}
                                 <Select
                                   size="xs"
                                   width="auto"
@@ -743,6 +778,21 @@ const FinanceInvoicing = () => {
                                   onClick={() => handleViewDocument(doc)}
                                   title="Imprimer"
                                 />
+                                {doc.documentUrl && (
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
+                                    icon={<FiDownload />}
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = doc.documentUrl;
+                                      link.download = `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`;
+                                      link.click();
+                                    }}
+                                    title="Télécharger PDF"
+                                  />
+                                )}
                                 <Select
                                   size="xs"
                                   width="auto"
