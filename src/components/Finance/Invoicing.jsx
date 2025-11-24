@@ -55,7 +55,8 @@ const FinanceInvoicing = () => {
     notes: "",
     paymentMethod: "",
     paymentDate: "",
-    amountPaid: ""
+    amountPaid: "",
+    htmlContent: ""
   });
 
   const toast = useToast();
@@ -111,7 +112,8 @@ const FinanceInvoicing = () => {
       notes: "",
       paymentMethod: "",
       paymentDate: "",
-      amountPaid: ""
+      amountPaid: "",
+      htmlContent: ""
     });
     onOpen();
   };
@@ -139,7 +141,8 @@ const FinanceInvoicing = () => {
       notes: doc.notes || "",
       paymentMethod: doc.paymentMethod || "",
       paymentDate: doc.paymentDate ? doc.paymentDate.slice(0, 10) : "",
-      amountPaid: String(doc.amountPaid || "")
+      amountPaid: String(doc.amountPaid || ""),
+      htmlContent: doc.htmlContent || ""
     });
     onOpen();
   };
@@ -218,6 +221,7 @@ const FinanceInvoicing = () => {
         destinataireContacts: "",
         notes: "",
         paymentMethod: "",
+        htmlContent: "",
         paymentDate: "",
         amountPaid: ""
       });
@@ -412,12 +416,24 @@ const FinanceInvoicing = () => {
         DEVIS_LINES_TR: devisLinesTr
       };
 
-      // Générer le PDF (intégration avec print)
-      console.log("📄 Génération du document avec données:", previewData);
+      // Générer l'HTML en remplaçant les placeholders
+      let generatedHtml = selectedTemplate.htmlContent;
+      Object.entries(previewData).forEach(([key, value]) => {
+        const placeholder = new RegExp(`{{${key}}}`, "g");
+        generatedHtml = generatedHtml.replace(placeholder, String(value || ""));
+      });
+
+      // Sauvegarder le document avec l'HTML généré
+      setDocForm(prev => ({ ...prev, htmlContent: generatedHtml }));
+
+      // Ouvrir aperçu
+      const newWindow = window.open("", "_blank");
+      newWindow.document.write(generatedHtml);
+      newWindow.document.close();
 
       toast({
         title: "Succès",
-        description: "Document généré. Prêt à imprimer.",
+        description: "Document généré. Une fenêtre d'aperçu s'est ouverte.",
         status: "success"
       });
     } catch (error) {
