@@ -4,2065 +4,482 @@ import {
   Heading, Input, Textarea, FormControl, FormLabel, useToast,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter,
   ModalBody, ModalCloseButton, useDisclosure, Badge, IconButton,
-  Flex, Spacer, Alert, AlertIcon, Spinner, Center, Container,
-  Tabs, TabList, TabPanels, Tab, TabPanel, SimpleGrid, Select,
-  Switch, Table, Thead, Tbody, Tr, Th, Td, InputGroup,
+  Flex, Spacer, Alert, AlertIcon, Spinner, Center,
+  Select, Switch, Table, Thead, Tbody, Tr, Th, Td, InputGroup,
   InputLeftElement, Menu, MenuButton, MenuList, MenuItem,
-  useColorModeValue, Tooltip, Divider, Stat, StatLabel, StatNumber, Image as ChakraImage
+  useColorModeValue, Tooltip, Divider, SimpleGrid, Image as ChakraImage
 } from '@chakra-ui/react';
 import { 
-  FaEdit, FaTrash, FaPlus, FaUsers, FaKey, FaEye,
-  FaUserCheck, FaUserTimes, FaLink, FaUnlink, FaSearch,
-  FaGlobe, FaLock, FaUnlock
-} from 'react-icons/fa';
-import { 
-  FiEdit, FiTrash2, FiPlus, FiUsers, FiKey, FiEye, FiShield,
-  FiUserCheck, FiUserX, FiLink, FiSearch, FiGlobe, FiLock,
-  FiUnlock, FiRefreshCw, FiSettings, FiActivity, FiMail, FiBell,
-  FiChevronLeft, FiChevronRight, FiArrowUpRight, FiShare
+  FiEdit, FiTrash2, FiPlus, FiUsers, FiSettings, FiGlobe, FiMail,
+  FiShare, FiChevronLeft, FiChevronRight, FiArrowUpRight, FiSearch,
+  FiRefreshCw, FiShield, FiLock, FiUnlock, FiActivity
 } from 'react-icons/fi';
+import { FaEdit, FaTrash, FaPlus, FaEye } from 'react-icons/fa';
+
+import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
 import { apiClient } from '../api/config';
 import { API_BASE_URL } from '../api/config';
 import { displayNameFromUser, formatMemberLabel } from '../lib/names';
 import { useUser } from '../context/UserContext';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
-import {
-  ENDPOINTS,
-  getUsersPath, getMembersPath, getSiteConfigPath,
-  getUsersOrigin, getMembersOrigin, getSiteConfigOrigin, getGlobalOrigin,
-  clean, getApiPrefix, isAbsoluteUrl, ensureJsonResponse, buildCandidates
-} from '../api/endpoints';
 
-// === API Helpers - Use apiClient directly, no localStorage overrides ===
-// This ensures consistent API behavior without manual misconfiguration
-
-const buildCandidatesLegacy = (baseCandidates, overridePath, extraSuffix = '', overrideOrigin) => {
-  const suffix = clean(extraSuffix);
-  const API_PREFIX = getApiPrefix();
-  const list = new Set();
-  const isHttpOrigin = (o) => /^https?:\/\//i.test(o || '');
-  const sameOrigin = (typeof window !== 'undefined' && window.location?.origin)
-    ? window.location.origin.replace(/\/+$/,'')
-    : '';
-  // Évite d'appeler le serveur Vite (localhost:5173) qui ne sert pas l’API → 404 HTML
-  const skipSameOrigin = !!sameOrigin && /localhost:5173$/i.test(sameOrigin);
-
-  const pushEntries = (relPath) => {
-    const parts = [clean(relPath)];
-    if (suffix) parts.push(suffix);
-    const rel = parts.filter(Boolean).join('/');
-    if (!rel) return;
-
-    // Priorité aux URLs relatives pour passer via apiClient (JWT, interceptors)
-    list.add(rel);
-    // Ensuite, absolue avec origin explicite (fallback)
-    if (overrideOrigin && isHttpOrigin(overrideOrigin)) {
-      list.add(`${overrideOrigin.replace(/\/+$/,'')}/${rel}`);
-    }
-    // Enfin, absolue même-origine (éviter en dev Vite)
-    if (!skipSameOrigin && sameOrigin) {
-      list.add(`${sameOrigin}/${rel}`);
-    }
-  };
-
-  const pushPrefixedIfNeeded = (p) => {
-    if (!API_PREFIX) return;
-    const cleaned = clean(p);
-    // Évite double préfixe (/api/api/..., /v1/v1/..., /api/v1/ déjà fournis)
-    if (cleaned.startsWith(`${API_PREFIX}/`)) return;
-    pushEntries(`${API_PREFIX}/${cleaned}`);
-  };
-
-  if (overridePath) pushEntries(overridePath);
-  // Priorité: variantes préfixées d'abord, puis chemins bruts
-  baseCandidates.forEach((p) => pushPrefixedIfNeeded(p));
-  baseCandidates.forEach((p) => pushEntries(p));
-
-  return Array.from(list);
-};
-
-// === helpers HTTP avec fallback ===
-const fetchJson = async (method, url, data, config) => {
-  const headers = { Accept: 'application/json', ...(config?.headers || {}) };
-  const init = { method, headers };
-  if (data !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(data);
-  }
-  const resp = await fetch(url, init);
-  const resHeaders = { 'content-type': resp.headers.get('content-type') || '' };
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    const err = new Error(`HTTP ${resp.status}`);
-    err.response = { status: resp.status, headers: resHeaders, data: text };
-    throw err;
-  }
-
-  // Build a response-like object compatible with ensureJsonResponse + consumers
-  const result = { headers: resHeaders, data: undefined };
-  ensureJsonResponse(result);
-  result.data = await resp.json().catch(() => undefined);
-  return result;
-};
-
-// Fallback helper - tries multiple URLs in order
-const tryUrls = async (urls, method, data) => {
-  if (!Array.isArray(urls)) urls = [urls];
-  const errors = [];
-  
-  for (const url of urls) {
-    try {
-      const cleanUrl = clean(url);
-      if (!cleanUrl) continue;
-      
-      // All URLs should be relative, format with leading slash for apiClient
-      const apiUrl = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
-      
-      let response;
-      if (method === 'GET') {
-        response = await apiClient.get(apiUrl);
-      } else if (method === 'POST') {
-        response = await apiClient.post(apiUrl, data);
-      } else if (method === 'PUT') {
-        response = await apiClient.put(apiUrl, data);
-      } else if (method === 'PATCH') {
-        response = await apiClient.patch(apiUrl, data);
-      } else if (method === 'DELETE') {
-        response = await apiClient.delete(apiUrl);
-      }
-      
-      console.log(`✅ Success with URL: ${apiUrl}`);
-      return { data: response, headers: {}, url: apiUrl };
-    } catch (err) {
-      errors.push(`${url}: ${err.message}`);
-      console.log(`⚠️ Failed URL ${url}: ${err.message}`);
-    }
-  }
-  
-  throw new Error(`All URLs failed: ${errors.join(' | ')}`);
-};
-
-const apiGet = async (urls) => tryUrls(urls, 'GET');
-const apiPost = async (urls, data) => tryUrls(urls, 'POST', data);
-const apiPut = async (urls, data) => tryUrls(urls, 'PUT', data);
-const apiPatch = async (urls, data) => tryUrls(urls, 'PATCH', data);
-const apiDelete = async (urls) => tryUrls(urls, 'DELETE');
-
-// === COMPOSANTS GESTION ACCÈS ===
-function AccessManagement() {
+/**
+ * ============= Composant Access Management =============
+ */
+const AccessManagement = () => {
   const [users, setUsers] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [stats, setStats] = useState({});
-  const [retroNews, setRetroNews] = useState([]);
-  const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
-
-  const {
-    isOpen: isCreateOpen,
-    onOpen: onCreateOpen,
-    onClose: onCreateClose
-  } = useDisclosure();
-
-  const {
-    isOpen: isLinkOpen,
-    onOpen: onLinkOpen,
-    onClose: onLinkClose
-  } = useDisclosure();
-
+  const [loading, setLoading] = useState(false);
   const toast = useToast();
-  const cardBg = useColorModeValue('white', 'gray.800');
 
-  // Chargement des données
   useEffect(() => {
     loadUsers();
-    loadMembers();
-    loadStats();
-    loadRetroNews();
   }, []);
 
-  // Unifier sur apiClient + fallbacks
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await apiGet(
-        buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), '', getUsersOrigin())
-      );
-      const data = response.data;
-      setUsers(Array.isArray(data) ? data : (data?.users || []));
+      const data = await apiClient.get('/api/users');
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Erreur chargement utilisateurs:', error);
+      console.error('Erreur chargement users:', error);
       toast({
-        title: 'Erreur API',
-        description: `${error.message}${error.urlsTried ? ` • Testé: ${error.urlsTried.join(', ')}` : ''}`,
+        title: 'Erreur',
+        description: 'Impossible de charger les utilisateurs',
         status: 'error',
-        duration: 5000
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMembers = async () => {
-    try {
-      const response = await apiGet(
-        buildCandidates(ENDPOINTS.members, getMembersPath(), '', getMembersOrigin()),
-        { params: { status: 'ACTIVE' } }
-      );
-      const data = response.data;
-      setMembers(Array.isArray(data) ? data : (data?.members || []));
-    } catch (error) {
-      console.error('Erreur chargement membres:', error);
-      toast({
-        title: 'Erreur API',
-        description: `${error.message}${error.urlsTried ? ` • Testé: ${error.urlsTried.join(', ')}` : ''}`,
-        status: 'error',
-        duration: 5000
-      });
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const response = await apiGet(
-        buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), 'stats', getUsersOrigin())
-      );
-      setStats(response.data || {});
-    } catch (error) {
-      console.error('Erreur chargement stats:', error);
-      // Fallback: calculer des stats locales à partir de la liste d'utilisateurs si dispo
-      if (Array.isArray(users) && users.length > 0) {
-        const totalUsers = users.length;
-        const activeUsers = users.filter(u => u.isActive).length;
-        const linkedUsers = users.filter(u => !!u.linkedMember).length;
-        const since = Date.now() - 24 * 60 * 60 * 1000;
-        const recentLogins = users.filter(u => u.lastLoginAt && new Date(u.lastLoginAt).getTime() >= since).length;
-        setStats({ totalUsers, activeUsers, linkedUsers, recentLogins });
-        // Optionnel: information non bloquante au lieu d'une erreur
-        toast({
-          title: 'Stats calculées localement',
-          description: 'Endpoint /site-users/stats indisponible, valeurs estimées à partir des utilisateurs chargés.',
-          status: 'info',
-          duration: 4000
-        });
-      } else {
-        toast({
-          title: 'Erreur API',
-          description: `${error.message}${error.urlsTried ? ` • Testé: ${error.urlsTried.join(', ')}` : ''}`,
-          status: 'error',
-          duration: 5000
-        });
-      }
-    }
-  };
-
-  const loadRetroNews = async () => {
-    try {
-      const response = await apiGet(
-        buildCandidates(ENDPOINTS.retroNews, '', '', getGlobalOrigin())
-      );
-      const newsData = response.data || [];
-      setRetroNews(Array.isArray(newsData) ? newsData : []);
-    } catch (error) {
-      console.error('Erreur chargement RétroNews:', error);
-      // En cas d'erreur, on laisse le tableau vide (pas de toast pour ne pas polluer)
-      setRetroNews([]);
-    }
-  };
-
-  // Callback central pour recharger toute la vue après une action
-  const reloadAll = () => {
-    loadUsers();
-    loadMembers();
-    loadStats();
-  };
-
-  // Filtrage des utilisateurs
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesRole = filterRole === 'ALL' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'ALL' || 
-      (filterStatus === 'ACTIVE' && user.isActive) ||
-      (filterStatus === 'INACTIVE' && !user.isActive);
-
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  return (
-    <VStack spacing={6} align="stretch">
-      {/* Header */}
-      <HStack justify="space-between">
-        <VStack align="start" spacing={1}>
-          <Heading size="md">🔐 Gestion des Accès Sites</Heading>
-          <Text fontSize="sm" color="gray.600">
-            Gestion des comptes d'accès aux sites interne et externe
-          </Text>
-        </VStack>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onCreateOpen}>
-          Créer un accès
-        </Button>
-      </HStack>
-
-      {/* Statistiques */}
-      <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
-        <Card bg={cardBg}>
-          <CardBody>
-            <Stat>
-              <StatLabel>Total accès</StatLabel>
-              <StatNumber color="blue.500">{stats.totalUsers || 0}</StatNumber>
-            </Stat>
-          </CardBody>
-        </Card>
-        
-        <Card bg={cardBg}>
-          <CardBody>
-            <Stat>
-              <StatLabel>Liés aux adhésions</StatLabel>
-              <StatNumber color="purple.500">{stats.linkedUsers || 0}</StatNumber>
-            </Stat>
-          </CardBody>
-        </Card>
-        
-        <Card bg={cardBg}>
-          <CardBody>
-            <Stat>
-              <StatLabel>Connexions 24h</StatLabel>
-              <StatNumber color="orange.500">{stats.recentLogins || 0}</StatNumber>
-            </Stat>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
-
-      {/* Carrousel RétroNews */}
-      {retroNews.length > 0 && (
-        <Card bg={cardBg}>
-          <CardHeader>
-            <HStack justify="space-between">
-              <Heading size="sm">📰 RétroNews</Heading>
-              <HStack spacing={2}>
-                <IconButton
-                  icon={<FiChevronLeft />}
-                  size="sm"
-                  onClick={() => setCurrentNewsIndex((prev) => 
-                    prev === 0 ? retroNews.length - 1 : prev - 1
-                  )}
-                  aria-label="News précédente"
-                  isDisabled={retroNews.length <= 1}
-                />
-                <Text fontSize="xs" color="gray.500">
-                  {currentNewsIndex + 1} / {retroNews.length}
-                </Text>
-                <IconButton
-                  icon={<FiChevronRight />}
-                  size="sm"
-                  onClick={() => setCurrentNewsIndex((prev) => 
-                    (prev + 1) % retroNews.length
-                  )}
-                  aria-label="News suivante"
-                  isDisabled={retroNews.length <= 1}
-                />
-              </HStack>
-            </HStack>
-          </CardHeader>
-          <CardBody>
-            <VStack align="start" spacing={2}>
-              <Heading size="md">{retroNews[currentNewsIndex]?.title || 'Sans titre'}</Heading>
-              {retroNews[currentNewsIndex]?.date && (
-                <Text fontSize="sm" color="gray.500">
-                  {new Date(retroNews[currentNewsIndex].date).toLocaleDateString('fr-FR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </Text>
-              )}
-              <Text>{retroNews[currentNewsIndex]?.content || ''}</Text>
-              {retroNews[currentNewsIndex]?.imageUrl && (
-                <ChakraImage
-                  src={retroNews[currentNewsIndex].imageUrl}
-                  alt={retroNews[currentNewsIndex]?.title}
-                  maxH="200px"
-                  objectFit="cover"
-                  borderRadius="md"
-                />
-              )}
-            </VStack>
-          </CardBody>
-        </Card>
-      )}
-
-      {/* Filtres */}
-      <Card bg={cardBg}>
-        <CardBody>
-          <HStack spacing={4}>
-            <InputGroup flex={1}>
-              <InputLeftElement>
-                <FiSearch />
-              </InputLeftElement>
-              <Input
-                placeholder="Rechercher par nom, email ou identifiant..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
-            
-            <Select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              maxW="220px"
-            >
-              <option value="ALL">Tous rôles</option>
-              <option value="PRESIDENT">Président</option>
-              <option value="VICE_PRESIDENT">Vice-Président</option>
-              <option value="TRESORIER">Trésorier</option>
-              <option value="SECRETAIRE_GENERAL">Secrétaire Général</option>
-              <option value="MEMBER">Membre</option>
-              <option value="PRESTATAIRE">Prestataire</option>
-            </Select>
-            
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              maxW="150px"
-            >
-              <option value="ALL">Tous statuts</option>
-              <option value="ACTIVE">Actif</option>
-              <option value="INACTIVE">Inactif</option>
-            </Select>
-            
-            <Button leftIcon={<FiRefreshCw />} onClick={loadUsers} size="sm">
-              Actualiser
-            </Button>
-          </HStack>
-        </CardBody>
-      </Card>
-
-      {/* Liste des utilisateurs */}
-      {loading ? (
-        <Center py={8}>
-          <VStack spacing={4}>
-            <Spinner size="lg" />
-            <Text>Chargement des accès...</Text>
-          </VStack>
-        </Center>
-      ) : (
-        <Card bg={cardBg}>
-          <CardBody>
-            <Table size="sm">
-              <Thead>
-                <Tr>
-                  <Th>Utilisateur</Th>
-                  <Th>Matricule</Th>
-                  <Th>Rôle</Th>
-                  <Th>Accès</Th>
-                  <Th>Adhésion liée</Th>
-                  <Th>Statut</Th>
-                  <Th>Dernière connexion</Th>
-                  <Th>Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {filteredUsers.map(user => (
-                  <UserRow
-                    key={user.id}
-                    user={user}
-                    onEdit={() => handleEditUser(user)}
-                    onToggleStatus={() => handleToggleUserStatus(user)}
-                    onLink={() => handleLinkToMember(user)}
-                    onViewLogs={() => handleViewUserLogs(user)}
-                    onDelete={() => handleDeleteUser(user)}
-                  />
-                ))}
-              </Tbody>
-            </Table>
-            
-            {filteredUsers.length === 0 && (
-              <Alert status="info" mt={4}>
-                <AlertIcon />
-                Aucun utilisateur trouvé avec ces critères
-              </Alert>
-            )}
-          </CardBody>
-        </Card>
-      )}
-
-      {/* Modals */}
-      <CreateAccessModal
-        isOpen={isCreateOpen}
-        onClose={() => { onCreateClose(); setSelectedUser(null); }}
-        members={members}
-        user={selectedUser}
-        onUserSaved={reloadAll}
-      />
-      
-      <LinkMemberModal
-        isOpen={isLinkOpen}
-        onClose={onLinkClose}
-        user={selectedUser}
-        members={members}
-        onLinked={reloadAll}
-      />
-    </VStack>
-  );
-
-  // Handlers
-  function handleEditUser(user) {
-    setSelectedUser(user);
-    onCreateOpen();
-  }
-
-  async function handleToggleUserStatus(user) {
-    try {
-      await apiPatch(
-        buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), `${user.id}`, getUsersOrigin()),
-        { isActive: !user.isActive }
-      );
-      toast({
-        title: 'Succès',
-        description: `Accès ${!user.isActive ? 'activé' : 'désactivé'}`,
-        status: 'success',
         duration: 3000,
-      });
-      reloadAll();
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: 'Erreur',
-        description: `${e.message}${e.urlsTried ? ` • Testé: ${e.urlsTried.join(', ')}` : ''}`,
-        status: 'error',
-        duration: 4000,
-      });
-    }
-  }
-
-  function handleLinkToMember(user) {
-    setSelectedUser(user);
-    onLinkOpen();
-  }
-
-  function handleViewUserLogs(user) {
-    toast({
-      title: 'Info',
-      description: `Affichage des logs pour ${user.username} à venir`,
-      status: 'info',
-      duration: 3000,
-    });
-  }
-
-  async function handleDeleteUser(user) {
-    if (!window.confirm(`Supprimer définitivement l'accès de ${displayNameFromUser(user)} (${user.username}) ?`)) {
-      return;
-    }
-    try {
-      await apiDelete(
-        buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), `${user.id}`, getUsersOrigin())
-      );
-      toast({
-        title: 'Accès supprimé',
-        description: `L\'utilisateur ${user.username} a été supprimé`,
-        status: 'success',
-        duration: 3000,
-      });
-      reloadAll();
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: 'Erreur',
-        description: `${e.message}${e.urlsTried ? ` • Testé: ${e.urlsTried.join(', ')}` : ''}`,
-        status: 'error',
-        duration: 4000,
-      });
-    }
-  }
-}
-
-// Composant ligne utilisateur
-function UserRow({ user, onEdit, onToggleStatus, onLink, onViewLogs, onDelete }) {
-  const ROLE_LABELS = {
-    PRESIDENT: 'Président',
-    VICE_PRESIDENT: 'Vice-Président',
-    TRESORIER: 'Trésorier',
-    SECRETAIRE_GENERAL: 'Secrétaire Général',
-    MEMBER: 'Membre'
-  };
-
-  const getRoleColor = (role) => {
-    const colors = {
-      PRESIDENT: 'red',
-      VICE_PRESIDENT: 'pink',
-      TRESORIER: 'green',
-      SECRETAIRE_GENERAL: 'purple',
-      MEMBER: 'blue'
-    };
-    return colors[role] || 'gray';
-  };
-
-  return (
-    <Tr>
-      <Td>
-        <VStack align="start" spacing={0}>
-          <Text fontWeight="medium" fontSize="sm">
-            {displayNameFromUser(user)}
-          </Text>
-          <Text fontSize="xs" color="gray.500">{user.email}</Text>
-        </VStack>
-      </Td>
-      <Td>
-        <Text fontFamily="mono" fontSize="sm">{user.username}</Text>
-      </Td>
-      <Td>
-        <Badge colorScheme={getRoleColor(user.role)} size="sm">
-          {ROLE_LABELS[user.role] || user.role}
-        </Badge>
-      </Td>
-      <Td>
-        <VStack align="start" spacing={1}>
-          {user.hasInternalAccess && (
-            <Badge colorScheme="blue" size="xs">Interne</Badge>
-          )}
-          {user.hasExternalAccess && (
-            <Badge colorScheme="green" size="xs">Externe</Badge>
-          )}
-        </VStack>
-      </Td>
-      <Td>
-        {user.linkedMember ? (
-          <VStack align="start" spacing={0}>
-            <Text fontSize="sm" color="green.600">
-              {formatMemberLabel(user.linkedMember)}
-            </Text>
-            {user.linkedMember.memberNumber && (
-              <Text fontSize="xs" color="gray.500">
-                #{user.linkedMember.memberNumber}
-              </Text>
-            )}
-          </VStack>
-        ) : (
-          <Button size="xs" variant="outline" onClick={onLink}>
-            <FiLink style={{ marginRight: '4px' }} />
-            Fusionner
-          </Button>
-        )}
-      </Td>
-      <Td>
-        <Badge colorScheme={user.isActive ? 'green' : 'red'} size="sm">
-          {user.isActive ? 'Actif' : 'Inactif'}
-        </Badge>
-      </Td>
-      <Td>
-        <Text fontSize="xs">
-          {user.lastLoginAt ? 
-            new Date(user.lastLoginAt).toLocaleDateString('fr-FR') : 
-            'Jamais'
-          }
-        </Text>
-      </Td>
-      <Td>
-        <Menu>
-          <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" />
-          <MenuList>
-            <MenuItem icon={<FiEdit />} onClick={onEdit}>
-              Modifier
-            </MenuItem>
-            <MenuItem icon={<FiActivity />} onClick={onViewLogs}>
-              Logs de connexion
-            </MenuItem>
-            <MenuItem 
-              icon={user.isActive ? <FiLock /> : <FiUnlock />}
-              onClick={onToggleStatus}
-              color={user.isActive ? 'red.500' : 'green.500'}
-            >
-              {user.isActive ? 'Désactiver' : 'Activer'}
-            </MenuItem>
-            <MenuItem icon={<FiTrash2 />} onClick={onDelete} color="red.600">
-              Supprimer
-            </MenuItem>
-          </MenuList>
-        </Menu>
-      </Td>
-    </Tr>
-  );
-}
-
-// Modal de création/édition d'accès
-function CreateAccessModal({ isOpen, onClose, members, onUserSaved, user }) {
-  const isEdit = !!user;
-  const STORAGE_KEY = 'access_form_draft';
-  
-  const [formData, setFormData] = useState({
-    username: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    role: 'MEMBER',
-    hasInternalAccess: true,
-    hasExternalAccess: false,
-    linkedMemberId: '',
-    generatePassword: true,
-    customPassword: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const toast = useToast();
-  
-  // Save to localStorage when form changes
-  const handleFormChange = (updates) => {
-    const newData = { ...formData, ...updates };
-    setFormData(newData);
-    setIsDirty(true);
-    // Auto-save to localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-  };
-
-  // Prefill on edit or restore from localStorage
-  useEffect(() => {
-    if (isEdit) {
-      // Mode édition: charger depuis user
-      const editData = {
-        username: user?.username || '',
-        firstName: user?.firstName || '',
-        lastName: user?.lastName || '',
-        email: user?.email || '',
-        role: user?.role || 'MEMBER',
-        hasInternalAccess: !!user?.hasInternalAccess,
-        hasExternalAccess: !!user?.hasExternalAccess,
-        linkedMemberId: user?.linkedMember?.id || '',
-        generatePassword: false,
-        customPassword: ''
-      };
-      setFormData(editData);
-      localStorage.removeItem(STORAGE_KEY);
-      setIsDirty(false);
-    } else if (isOpen) {
-      // Mode création: essayer restaurer depuis localStorage
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        try {
-          const parsed = JSON.parse(savedData);
-          setFormData(parsed);
-          setIsDirty(false);
-        } catch (e) {
-          console.error('Erreur lors de la restauration des données:', e);
-          resetForm();
-        }
-      } else {
-        resetForm();
-      }
-    }
-  }, [isEdit, user, isOpen]);
-  
-  const resetForm = () => {
-    setFormData({
-      username: '',
-      firstName: '',
-      lastName: '',
-      email: '',
-      role: 'MEMBER',
-      hasInternalAccess: true,
-      hasExternalAccess: false,
-      linkedMemberId: '',
-      generatePassword: true,
-      customPassword: ''
-    });
-    setIsDirty(false);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const handleSubmit = async () => {
-    try {
-      setLoading(true);
-
-      // Construire le payload propre
-      const payload = {
-        username: formData.username,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        role: formData.role,
-        hasInternalAccess: formData.hasInternalAccess,
-        hasExternalAccess: formData.hasExternalAccess,
-        linkedMemberId: formData.linkedMemberId || null
-      };
-
-      if (!isEdit) {
-        // Création: gestion du mot de passe
-        payload.generatePassword = !!formData.generatePassword;
-        if (!formData.generatePassword && formData.customPassword) {
-          payload.customPassword = formData.customPassword;
-        }
-        const response = await apiPost(
-          buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), '', getUsersOrigin()),
-          payload
-        );
-        const data = response.data;
-        toast({
-          title: 'Accès créé',
-          description: data?.temporaryPassword
-            ? `Mot de passe temporaire: ${data.temporaryPassword}`
-            : "L'utilisateur a été créé avec succès",
-          status: 'success',
-          duration: data?.temporaryPassword ? 10000 : 5000,
-          isClosable: true
-        });
-      } else {
-        // Edition
-        if (formData.customPassword?.trim()) {
-          payload.password = formData.customPassword.trim();
-        }
-        await apiPut(
-          buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), `${user.id}`, getUsersOrigin()),
-          payload
-        );
-        toast({
-          title: 'Accès mis à jour',
-          description: "L'utilisateur a été mis à jour avec succès",
-          status: 'success',
-          duration: 3000
-        });
-      }
-
-      // Clear localStorage after success
-      localStorage.removeItem(STORAGE_KEY);
-      resetForm();
-      onUserSaved?.();
-      onClose();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Erreur',
-        description: `${error?.response?.data?.message || error.message}${error.urlsTried ? ` • Testé: ${error.urlsTried.join(', ')}` : ''}`,
-        status: 'error',
-        duration: 6000
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>{isEdit ? '✏️ Modifier un accès aux sites' : '🔐 Créer un accès aux sites'}</ModalHeader>
-        <ModalCloseButton />
-        
-        <ModalBody>
-          <VStack spacing={4}>
-            <Alert status="info">
-              <AlertIcon />
-              <Text fontSize="sm">
-                {isEdit
-                  ? "Mettez à jour le profil d'accès. Le matricule est l'identifiant utilisé sur le site."
-                  : "Créez un compte d'accès aux sites. Le matricule est l'identifiant utilisé sur le site."}
-              </Text>
-            </Alert>
-
-            <SimpleGrid columns={2} spacing={4} w="full">
-              <FormControl isRequired>
-                <FormLabel>Prénom</FormLabel>
-                <Input
-                  value={formData.firstName}
-                  onChange={(e) => handleFormChange({ firstName: e.target.value })}
-                  placeholder="Prénom"
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Nom</FormLabel>
-                <Input
-                  value={formData.lastName}
-                  onChange={(e) => handleFormChange({ lastName: e.target.value })}
-                  placeholder="Nom"
-                />
-              </FormControl>
-            </SimpleGrid>
-
-            <FormControl isRequired>
-              <FormLabel>Matricule (identifiant de connexion)</FormLabel>
-              <Input
-                value={formData.username}
-                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                placeholder="Ex: w.belaidi"
-              />
-              <Text fontSize="xs" color="gray.500">
-                Format recommandé: première lettre du prénom + point + nom
-              </Text>
-            </FormControl>
-
-            <FormControl isRequired>
-              <FormLabel>Email</FormLabel>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="email@example.com"
-              />
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Rôle Métier</FormLabel>
-              <Select
-                value={formData.role}
-                onChange={(e) => handleFormChange({ role: e.target.value })}
-              >
-                <option value="PRESIDENT">Président</option>
-                <option value="VICE_PRESIDENT">Vice-Président</option>
-                <option value="TRESORIER">Trésorier</option>
-                <option value="SECRETAIRE_GENERAL">Secrétaire Général</option>
-                <option value="MEMBER">Membre</option>
-                <option value="PRESTATAIRE">Prestataire</option>
-                <option value="CLIENT">Client</option>
-              </Select>
-              <Text fontSize="xs" color="gray.500" mt={1}>
-                Le rôle métier est à titre informatif. Les permissions d'accès aux modules sont gérées individuellement ci-dessous.
-              </Text>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Lier à une adhésion existante (optionnel)</FormLabel>
-              <Select
-                value={formData.linkedMemberId}
-                onChange={(e) => handleFormChange({ linkedMemberId: e.target.value })}
-              >
-                <option value="">Aucune liaison</option>
-                {members.map(member => (
-                  <option key={member.id} value={member.id}>
-                    {formatMemberLabel(member)}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Divider />
-
-            <VStack align="start" spacing={3} w="full">
-              <Text fontWeight="medium">Autorisations d'accès</Text>
-              
-              <HStack w="full" justify="space-between">
-                <Text fontSize="sm">Accès site interne</Text>
-                <Switch
-                  isChecked={formData.hasInternalAccess}
-                  onChange={(e) => setFormData(prev => ({ ...prev, hasInternalAccess: e.target.checked }))}
-                />
-              </HStack>
-              
-              <HStack w="full" justify="space-between">
-                <Text fontSize="sm">Accès site externe</Text>
-                <Switch
-                  isChecked={formData.hasExternalAccess}
-                  onChange={(e) => setFormData(prev => ({ ...prev, hasExternalAccess: e.target.checked }))}
-                />
-              </HStack>
-            </VStack>
-
-            {!isEdit && (
-              <>
-                <Divider />
-                <VStack align="start" spacing={3} w="full">
-                  <Text fontWeight="medium">Mot de passe</Text>
-                  
-                  <HStack w="full" justify="space-between">
-                    <Text fontSize="sm">Générer automatiquement</Text>
-                    <Switch
-                      isChecked={formData.generatePassword}
-                      onChange={(e) => setFormData(prev => ({ ...prev, generatePassword: e.target.checked }))}
-                    />
-                  </HStack>
-                  
-                  {!formData.generatePassword && (
-                    <FormControl>
-                      <FormLabel>Mot de passe personnalisé</FormLabel>
-                      <Input
-                        type="password"
-                        value={formData.customPassword}
-                        onChange={(e) => setFormData(prev => ({ ...prev, customPassword: e.target.value }))}
-                        placeholder="Minimum 6 caractères"
-                      />
-                    </FormControl>
-                  )}
-                </VStack>
-              </>
-            )}
-
-            {isEdit && (
-              <>
-                <Divider />
-                <VStack align="start" spacing={3} w="full">
-                  <Text fontWeight="medium">Changer le mot de passe (optionnel)</Text>
-                  <FormControl>
-                    <FormLabel>Nouveau mot de passe</FormLabel>
-                    <Input
-                      type="password"
-                      value={formData.customPassword}
-                      onChange={(e) => setFormData(prev => ({ ...prev, customPassword: e.target.value }))}
-                      placeholder="Laissez vide pour ne pas changer"
-                    />
-                  </FormControl>
-                </VStack>
-              </>
-            )}
-          </VStack>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose}>
-            Annuler
-          </Button>
-          <Button 
-            colorScheme="blue" 
-            onClick={handleSubmit}
-            isLoading={loading}
-            loadingText={isEdit ? 'Enregistrement...' : 'Création...'}
-          >
-            {isEdit ? 'Enregistrer' : "Créer l'accès"}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-// Modal de liaison avec membre
-function LinkMemberModal({ isOpen, onClose, user, members, onLinked }) {
-  const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [availableMembers, setAvailableMembers] = useState(members || []);
-  const toast = useToast();
-
-  useEffect(() => {
-    // Charge/rafraîchit la liste des adhérents à l'ouverture pour éviter un jeu de données obsolète
-    const fetchMembers = async () => {
-      try {
-        const response = await apiGet(
-          buildCandidates(ENDPOINTS.members, getMembersPath(), '', getMembersOrigin())
-        );
-        const data = response.data;
-        const list = Array.isArray(data) ? data : (data?.members || []);
-        setAvailableMembers(list);
-      } catch (e) {
-        console.warn('Chargement membres (fusion) échoué, utilisation des props existantes');
-        setAvailableMembers(members || []);
-      }
-    };
-    if (isOpen) fetchMembers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
-
-  const handleLink = async () => {
-    if (!selectedMemberId) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez sélectionner un membre",
-        status: "error",
-        duration: 3000
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await apiPost(
-        buildCandidates(ENDPOINTS.siteUsers, getUsersPath(), `${user.id}/link-member`, getUsersOrigin()),
-        { memberId: selectedMemberId }
-      );
-
-      toast({
-        title: "Liaison créée",
-        description: "Accès lié à l'adhésion. L'utilisateur verra la page Mon Adhésion après actualisation ou reconnexion.",
-        status: "success",
-        duration: 5000
-      });
-
-      onLinked?.();
-      onClose();
-      setSelectedMemberId('');
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: `${error?.response?.data?.message || error.message}${error.urlsTried ? ` • Testé: ${error.urlsTried.join(', ')}` : ''}`,
-        status: "error",
-        duration: 6000
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>🔗 Fusionner avec une adhésion</ModalHeader>
-        <ModalCloseButton />
-        
-        <ModalBody>
-          <VStack spacing={4}>
-            <Alert status="info">
-              <AlertIcon />
-              <Text fontSize="sm">
-                Fusionner l'accès de <strong>{displayNameFromUser(user)}</strong> avec une adhésion existante.
-              </Text>
-            </Alert>
-
-            <FormControl>
-              <FormLabel>Sélectionner une adhésion</FormLabel>
-              <Select
-                value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                placeholder="Choisir un membre..."
-              >
-                {(availableMembers || [])
-                  .filter(member => !member.hasLinkedAccess) // Seulement les membres sans accès lié
-                  .map(member => (
-                    <option key={member.id} value={member.id}>
-                      {formatMemberLabel(member)}{member.email ? ` (${member.email})` : ''}
-                    </option>
-                  ))
-                }
-              </Select>
-              <Text fontSize="xs" color="gray.500" mt={2}>
-                Seuls les membres sans accès déjà lié sont affichés
-              </Text>
-            </FormControl>
-            <HStack w="full" justify="flex-end">
-              <Button size="sm" variant="outline" onClick={async ()=>{
-                try {
-                  const response = await apiGet(
-                    buildCandidates(ENDPOINTS.members, getMembersPath(), '', getMembersOrigin())
-                  );
-                  const data = response.data;
-                  setAvailableMembers(Array.isArray(data) ? data : (data?.members || []));
-                  toast({ title:'Liste mise à jour', status:'success', duration:2000 });
-                } catch (e) {
-                  toast({ title:'Erreur rafraîchissement', description:e.message, status:'error', duration:3000 });
-                }
-              }}>Actualiser</Button>
-            </HStack>
-          </VStack>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose}>
-            Annuler
-          </Button>
-          <Button 
-            colorScheme="blue" 
-            onClick={handleLink}
-            isLoading={loading}
-            loadingText="Fusion..."
-          >
-            Fusionner
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-}
-
-// === COMPOSANT PRINCIPAL ===
-export default function SiteManagement() {
-  const { user, roles } = useUser();
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const [retroNews, setRetroNews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedRetroNews, setSelectedRetroNews] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    excerpt: '',
-    imageUrl: '',
-    author: '',
-    published: false,
-    featured: false,
-    showOnExternal: false
-  });
-  // Nouveau: configuration HelloAsso (navbar externe)
-  const [helloAssoLink, setHelloAssoLink] = useState(
-    localStorage.getItem('rbe_site_helloasso_url') || 'https://www.helloasso.com/associations/retrobus-essonne'
-  );
-  // State pour RétroActus diffusion
-  const [diffusionForm, setDiffusionForm] = useState({
-    title: '',
-    content: '',
-    destinationUrl: ''
-  });
-  
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const {
-    isOpen: isHeaderOpen,
-    onOpen: onOpenHeaderConfig,
-    onClose: onCloseHeaderConfig
-  } = useDisclosure();
-  const {
-    isOpen: isTemplatesOpen,
-    onOpen: onOpenTemplates,
-    onClose: onCloseTemplates
-  } = useDisclosure();
-  const {
-    isOpen: isDiffusionOpen,
-    onOpen: onOpenDiffusionModal,
-    onClose: onCloseDiffusionModal
-  } = useDisclosure();
-  const toast = useToast();
-
-  // Charger les RetroNews avec gestion d'erreur améliorée
-  const fetchRetroNews = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/api/retro-news/admin/all');
-      const data = Array.isArray(response.data) ? response.data : [];
-      setRetroNews(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des RetroNews:', error);
-      setRetroNews([]);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de charger les actualités',
-        status: 'error',
-        duration: 5000,
         isClosable: true,
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchRetroNews();
-  }, []);
-
-  // --- Header config state & lifecycle ---
-  const [headerConfig, setHeaderConfig] = useState({
-    headerBgFocalX: 50,
-    headerBgFocalY: 50,
-    headerBgSize: 'cover',
-    logoWidth: 44
-  });
-
-  const loadSiteConfig = async () => {
-    try {
-      const res = await apiGet(
-        buildCandidates(ENDPOINTS.siteConfig, getSiteConfigPath(), '', getSiteConfigOrigin())
-      );
-      const data = res?.data || {};
-      setHeaderConfig(prev => ({
-        ...prev,
-        headerBgFocalX: Number.isFinite(data.headerBgFocalX) ? data.headerBgFocalX : prev.headerBgFocalX,
-        headerBgFocalY: Number.isFinite(data.headerBgFocalY) ? data.headerBgFocalY : prev.headerBgFocalY,
-        headerBgSize: data.headerBgSize || prev.headerBgSize,
-        logoWidth: Number.isFinite(data.logoWidth) ? data.logoWidth : prev.logoWidth
-      }));
-    } catch (e) {
-      console.warn('Chargement site-config (header) échoué:', e?.message || e);
-    }
-  };
-
-  useEffect(() => {
-    if (isHeaderOpen) loadSiteConfig();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHeaderOpen]);
-
-  const saveHeaderConfig = async () => {
-    try {
-      // Sauvegarder uniquement la config (focal, size, logo width)
-      const payload = {
-        headerBgFocalX: headerConfig.headerBgFocalX,
-        headerBgFocalY: headerConfig.headerBgFocalY,
-        headerBgSize: headerConfig.headerBgSize,
-        logoWidth: headerConfig.logoWidth
-      };
-      await apiPut(
-        buildCandidates(ENDPOINTS.siteConfig, getSiteConfigPath(), '', getSiteConfigOrigin()),
-        payload
-      );
-      toast({ title: 'Configuration du header mise à jour', status: 'success', duration: 2500 });
-      onCloseHeaderConfig();
-    } catch (e) {
-      toast({ title: 'Erreur sauvegarde Header', description: `${e.message}${e.urlsTried ? ` • Testé: ${e.urlsTried.join(', ')}` : ''}`, status: 'error', duration: 6000 });
-    }
-  };
-
-  // --- Gestion sauvegarde HelloAsso ---
-  const saveHelloAsso = async () => {
-    try {
-      if (!helloAssoLink || !/^https?:\/\//i.test(helloAssoLink)) {
-        toast({ title: 'Lien invalide', description: 'Fournissez une URL complète commençant par http(s)://', status: 'error', duration: 3000 });
-        return;
-      }
-      // Mémoriser en local également
-      localStorage.setItem('rbe_site_helloasso_url', helloAssoLink);
-
-      // Publier vers l'API publique (Railway) si disponible
-      const candidates = buildCandidates(ENDPOINTS.siteConfig, getSiteConfigPath(), '', getSiteConfigOrigin());
-      const res = await apiPut(candidates, { helloAssoUrl: helloAssoLink });
-      toast({ title: 'Lien mis à jour', description: 'Le bouton "Soutenir" utilisera le nouveau lien.', status: 'success', duration: 3000 });
-      return res;
-    } catch (e) {
-      console.error('Erreur sauvegarde HelloAsso:', e);
-      toast({ title: 'Erreur', description: `${e.message}${e.urlsTried ? ` • Testé: ${e.urlsTried.join(', ')}` : ''}`, status: 'error', duration: 6000 });
-    }
-  };
-
-  const testHelloAsso = async () => {
-    try {
-      const candidates = buildCandidates(ENDPOINTS.siteConfig, getSiteConfigPath(), '', getSiteConfigOrigin());
-      const res = await apiGet(candidates);
-      const data = res?.data || {};
-      toast({ title: 'Config détectée', description: `helloAssoUrl=${data.helloAssoUrl || 'non défini'}`, status: 'success', duration: 3000 });
-    } catch (e) {
-      toast({ title: 'Config indisponible', description: `${e.message}${e.urlsTried ? ` • Testé: ${e.urlsTried.join(', ')}` : ''}`, status: 'warning', duration: 5000 });
-    }
-  };
-
-  // Diffuser une RétroActus
-  const handleDiffuseRetroActus = async () => {
-    try {
-      if (!diffusionForm.title.trim() || !diffusionForm.content.trim()) {
-        toast({
-          title: 'Erreur de validation',
-          description: 'Le titre et le contenu sont requis',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-
-      // Utiliser Web Share API si disponible
-      if (navigator.share) {
-        await navigator.share({
-          title: diffusionForm.title,
-          text: diffusionForm.content,
-          url: diffusionForm.destinationUrl || window.location.href
-        });
-      } else {
-        // Fallback: créer un lien de partage
-        const shareText = `${diffusionForm.title}\n\n${diffusionForm.content}\n\n${diffusionForm.destinationUrl || ''}`;
-        const encodedShare = encodeURIComponent(shareText);
-        const subject = encodeURIComponent(`RétroActus: ${diffusionForm.title}`);
-        
-        // Ouvrir email avec contenu pré-rempli
-        window.location.href = `mailto:?subject=${subject}&body=${encodedShare}`;
-      }
-
-      toast({
-        title: 'Succès',
-        description: 'RétroActus diffusée avec succès',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-
-      // Réinitialiser et fermer
-      setDiffusionForm({ title: '', content: '', destinationUrl: '' });
-      onCloseDiffusionModal();
-    } catch (error) {
-      console.error('Erreur diffusion:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de diffuser la RétroActus',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
-  // Réinitialiser le formulaire
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      content: '',
-      excerpt: '',
-      imageUrl: '',
-      author: '',
-      published: false,
-      featured: false,
-      showOnExternal: false
-    });
-    setSelectedRetroNews(null);
-  };
-
-  // Ouvrir le modal pour créer
-  const handleCreate = () => {
-    resetForm();
-    onOpen();
-  };
-
-  // Ouvrir le modal pour éditer
-  const handleEdit = (news) => {
-    setSelectedRetroNews(news);
-    setFormData({
-      title: news.title || '',
-      content: news.content || '',
-      excerpt: news.excerpt || '',
-      imageUrl: news.imageUrl || '',
-      author: news.author || '',
-      published: !!news.published,
-      featured: !!news.featured,
-      showOnExternal: !!news.showOnExternal
-    });
-    onOpen();
-  };
-
-  // Ajouter une nouvelle ligne de changement
-  const addChange = () => {
-    setFormData(prev => ({
-      ...prev,
-      changes: [...prev.changes, { tag: 'update', text: '' }]
-    }));
-  };
-
-  // Supprimer une ligne de changement
-  const removeChange = (index) => {
-    if (formData.changes.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        changes: prev.changes.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  // Mettre à jour une ligne de changement
-  const updateChange = (index, value) => {
-    setFormData(prev => ({
-      ...prev,
-      changes: prev.changes.map((change, i) => i === index ? { ...change, text: value } : change)
-    }));
-  };
-
-  const updateChangeTag = (index, tag) => {
-    setFormData(prev => ({
-      ...prev,
-      changes: prev.changes.map((change, i) => i === index ? { ...change, tag } : change)
-    }));
-  };
-
-  const TAGS = [
-    { key: 'feature', label: 'Fonctionnalité', emoji: '✨' },
-    { key: 'fix', label: 'Correction', emoji: '🐛' },
-    { key: 'update', label: 'Mise à jour', emoji: '🔄' },
-    { key: 'security', label: 'Sécurité', emoji: '🔒' },
-    { key: 'perf', label: 'Performance', emoji: '🚀' },
-    { key: 'ui', label: 'Interface', emoji: '🎨' },
-    { key: 'content', label: 'Contenu', emoji: '📝' },
-    { key: 'deps', label: 'Dépendances', emoji: '📦' },
-    { key: 'docs', label: 'Documentation', emoji: '📚' }
-  ];
-  const getEmojiForTag = (tag) => (TAGS.find(t => t.key === tag)?.emoji || '•');
-
-  // Sauvegarder la RetroNews
-  const handleSave = async () => {
-    try {
-      // Validation
-      if (!formData.title.trim() || !formData.content.trim()) {
-        toast({
-          title: 'Erreur de validation',
-          description: 'Le titre et le contenu sont requis',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-
-      const payload = {
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        excerpt: formData.excerpt ? formData.excerpt.trim() : null,
-        imageUrl: formData.imageUrl || null,
-        author: formData.author || user?.name || user?.email || 'Admin',
-        published: formData.published,
-        featured: formData.featured,
-        showOnExternal: formData.showOnExternal
-      };
-
-      if (selectedRetroNews) {
-        // Mise à jour
-        await apiClient.put(`/api/retro-news/${selectedRetroNews.id}`, payload);
-        toast({
-          title: 'Succès',
-          description: 'Actualité mise à jour avec succès',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      } else {
-        // Création
-        await apiClient.post('/api/retro-news', payload);
-        toast({
-          title: 'Succès',
-          description: 'Actualité créée avec succès',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-
-      fetchRetroNews();
-      onClose();
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
-      toast({
-        title: 'Erreur',
-        description: error.response?.data?.error || error.message || 'Impossible de sauvegarder',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette actualité ?')) {
-      return;
-    }
-
-    try {
-      await apiClient.delete(`/api/retro-news/${id}`);
-      toast({
-        title: 'Succès',
-        description: 'Actualité supprimée avec succès',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      fetchRetroNews();
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      toast({
-        title: 'Erreur',
-        description: error.response?.data?.error || error.message || 'Impossible de supprimer',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  // Fonction pour afficher les changements de manière sécurisée
-  const renderChanges = (changes) => {
-    if (!changes) return null;
-    
-    let changesList = [];
-    if (Array.isArray(changes)) {
-      changesList = changes;
-    } else if (typeof changes === 'string') {
-      try {
-        const parsed = JSON.parse(changes);
-        changesList = Array.isArray(parsed) ? parsed : [changes];
-      } catch {
-        changesList = [changes];
-      }
-    }
-    
-    return changesList.map((change, index) => (
-      <Text key={index} fontSize="sm">
-        • {change}
-      </Text>
-    ));
   };
 
   if (loading) {
     return (
-      <Center minH="400px">
-        <VStack>
-          <Spinner size="xl" color="var(--rbe-red)" />
-          <Text>Chargement des actualités...</Text>
-        </VStack>
+      <Center py={20}>
+        <Spinner size="lg" color="var(--rbe-red)" />
       </Center>
     );
   }
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        <Heading size="xl" display="flex" alignItems="center">
-          <FiGlobe style={{ marginRight: '12px' }} />
-          Gestion du Site Web
-        </Heading>
-        
-        <Tabs variant="enclosed" colorScheme="blue">
-          <TabList>
-            <Tab>🔐 Accès aux Sites</Tab>
-            <Tab>📰 RétroNews</Tab>
-            <Tab>⚙️ Configuration</Tab>
-            <Tab>📄 Modèles de Documents</Tab>
-          </TabList>
+    <VStack spacing={6} align="stretch">
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Gestion des accès</Text>
+          <Text fontSize="sm">Consultez et gérez les utilisateurs du système</Text>
+        </Box>
+      </Alert>
 
-          <TabPanels>
-            <TabPanel>
-              <AccessManagement />
-            </TabPanel>
-
-            <TabPanel>
-              <Flex mb={6} align="center">
-                <Heading size="lg">📰 Créer des Actualités</Heading>
-                <Spacer />
-                <Button leftIcon={<FaPlus />} colorScheme="blue" onClick={handleCreate}>
-                  Nouvelle actualité
-                </Button>
-              </Flex>
-
-              <Alert status="info" mb={6}>
-                <AlertIcon />
-                <Box>
-                  <Text fontWeight="bold">ℹ️ Comment ça marche ?</Text>
-                  <Text fontSize="sm">Créez vos actualités ici. Elles s'afficheront ensuite dans la modale <strong>RétroActus</strong> sur le Dashboard pour être partagées.</Text>
-                </Box>
-              </Alert>
-
-              <VStack spacing={4} align="stretch">
-                {retroNews.length === 0 ? (
-                  <Alert status="info">
-                    <AlertIcon />
-                    Aucune actualité. Créez la première !
-                  </Alert>
-                ) : (
-                  retroNews.map((news) => (
-                    <Card key={news.id} variant="outline">
-                      <CardHeader pb={2}>
-                        <Flex align="start" justify="space-between">
-                          <VStack align="start" spacing={1} flex={1}>
-                            <Heading size="sm">{news.title}</Heading>
-                            <HStack spacing={2} fontSize="xs">
-                              {news.published ? (
-                                <Badge colorScheme="green">✅ Publié</Badge>
-                              ) : (
-                                <Badge colorScheme="gray">📝 Brouillon</Badge>
-                              )}
-                              {news.featured && <Badge colorScheme="purple">⭐ Vedette</Badge>}
-                              {news.showOnExternal && <Badge colorScheme="blue">🌐 Externe</Badge>}
-                            </HStack>
-                          </VStack>
-                          <HStack spacing={1}>
-                            <IconButton
-                              icon={<FaEdit />}
-                              size="sm"
-                              colorScheme="blue"
-                              variant="outline"
-                              onClick={() => handleEdit(news)}
-                              aria-label="Modifier"
-                            />
-                            <IconButton
-                              icon={<FaTrash />}
-                              size="sm"
-                              colorScheme="red"
-                              variant="outline"
-                              onClick={() => handleDelete(news.id)}
-                              aria-label="Supprimer"
-                            />
-                          </HStack>
-                        </Flex>
-                      </CardHeader>
-                      <CardBody pt={0}>
-                        {news.excerpt && (
-                          <Text fontSize="sm" color="gray.600" mb={2}>
-                            <strong>Résumé:</strong> {news.excerpt}
-                          </Text>
-                        )}
-                        <Text fontSize="sm" noOfLines={2} color="gray.700">
-                          {news.content}
-                        </Text>
-                      </CardBody>
-                    </Card>
-                  ))
-                )}
-              </VStack>
-            </TabPanel>
-
-            <TabPanel>
-              {/* Outils de gestion du site web (déplacés depuis Gestion Administrative) */}
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                <Card bg={cardBg}>
-                  <CardHeader>
-                    <Heading size="sm">📄 Pages et contenu</Heading>
-                  </CardHeader>
-                  <CardBody>
-                    <VStack spacing={3} align="stretch">
-                      <Button leftIcon={<FiEdit />} size="sm" variant="outline" onClick={onOpenHeaderConfig}>
-                        Modifier le Header
-                      </Button>
-                      <Button leftIcon={<FiEdit />} size="sm" variant="outline">
-                        Gérer les événements
-                      </Button>
-                      <Button leftIcon={<FiEdit />} size="sm" variant="outline">
-                        Mettre à jour "À propos"
-                      </Button>
-
-                      <Divider my={2} />
-                      <Heading size="xs">Bouton "Soutenir l'association" (Navbar externe)</Heading>
-                      <Text fontSize="xs" color="gray.600">
-                        Configure le lien HelloAsso utilisé sur la navbar du site public.
-                      </Text>
-                      <HStack>
-                        <Input
-                          value={helloAssoLink}
-                          onChange={(e) => setHelloAssoLink(e.target.value)}
-                          placeholder="https://www.helloasso.com/associations/retrobus-essonne"
-                        />
-                        <Button size="sm" colorScheme="blue" onClick={saveHelloAsso}>Enregistrer</Button>
-                        <Button size="sm" variant="outline" onClick={testHelloAsso}>Tester</Button>
-                      </HStack>
-                    </VStack>
-                  </CardBody>
-                </Card>
-
-                <Card bg={cardBg}>
-                  <CardHeader>
-                    <Heading size="sm">⚙️ Configuration</Heading>
-                  </CardHeader>
-                  <CardBody>
-                    <VStack spacing={3} align="stretch">
-                      <Button leftIcon={<FiBell />} size="sm" variant="outline">
-                        Notifications Flash
-                      </Button>
-                      <Button leftIcon={<FiMail />} size="sm" variant="outline">
-                        Configuration Newsletter
-                      </Button>
-                      <Button leftIcon={<FiSettings />} size="sm" variant="outline">
-                        Paramètres généraux
-                      </Button>
-                      <Divider my={2} />
-                      <Button 
-                        leftIcon={<FiMail />} 
-                        size="sm" 
-                        variant="outline"
-                        colorScheme="purple"
-                        onClick={onOpenTemplates}
-                      >
-                        📧 Gérer les templates d'email
-                      </Button>
-                    </VStack>
-                  </CardBody>
-                </Card>
-
-                <Card bg={cardBg}>
-                  <CardHeader>
-                    <Heading size="sm">📰 Diffusion RétroActus</Heading>
-                  </CardHeader>
-                  <CardBody>
-                    <VStack spacing={3} align="stretch">
-                      <Text fontSize="xs" color="gray.600">
-                        Partagez une actualité sur le site externe
-                      </Text>
-                      <Button 
-                        leftIcon={<FiArrowUpRight />} 
-                        size="sm" 
-                        variant="outline"
-                        colorScheme="orange"
-                        onClick={onOpenDiffusionModal}
-                      >
-                        📢 Diffuser une RétroActus
-                      </Button>
-                    </VStack>
-                  </CardBody>
-                </Card>
-              </SimpleGrid>
-            </TabPanel>
-
-            {/* Onglet Modèles de Documents */}
-            <TabPanel>
-              <VStack spacing={6} align="stretch">
-                <Box>
-                  <Heading size="lg" mb={2}>📋 Gestion des Modèles de Documents</Heading>
-                  <Text color="gray.600">Créez et gérez les templates HTML pour vos devis et factures avec variables personnalisables</Text>
-                </Box>
-                <TemplateManagementInline />
-              </VStack>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-
-        {/* Modal Templates d'Email */}
-        <Modal isOpen={isTemplatesOpen} onClose={onCloseTemplates} size="4xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>📧 Gestion des Templates d'Email</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody maxH="80vh" overflowY="auto">
-              <EmailTemplateManager token={localStorage.getItem('token')} />
-            </ModalBody>
-          </ModalContent>
-        </Modal>
-        <Modal isOpen={isHeaderOpen} onClose={onCloseHeaderConfig} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>🎛️ Modifier le Header</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={6} align="stretch">
-                <Card>
-                  <CardHeader>
-                    <Heading size="sm">Image de fond</Heading>
-                  </CardHeader>
-                  <CardBody>
-                    <VStack align="stretch" spacing={3}>
-                      <Alert status="info" fontSize="sm">
-                        <AlertIcon />
-                        Pour modifier l'image : éditez manuellement <strong>externe/public/assets/header.jpg</strong>
-                      </Alert>
-                      <HStack>
-                        <FormControl maxW="220px">
-                          <FormLabel>Taille d'affichage</FormLabel>
-                          <Select
-                            value={headerConfig.headerBgSize}
-                            onChange={(e) => setHeaderConfig(prev => ({ ...prev, headerBgSize: e.target.value }))}
-                          >
-                            <option value="cover">Cover (remplit tout)</option>
-                            <option value="contain">Contain (contient tout)</option>
-                          </Select>
-                        </FormControl>
-                      </HStack>
-
-                      <Box>
-                        <Text fontSize="sm" color="gray.600" mb={2}>Point focal (cliquez/glissez pour ajuster)</Text>
-                        <Box
-                          position="relative"
-                          borderRadius="md"
-                          overflow="hidden"
-                          border="1px solid"
-                          borderColor="gray.200"
-                          w="100%"
-                          h="180px"
-                          style={{
-                            backgroundImage: `url(/assets/header.jpg?t=${Date.now()})`,
-                            backgroundSize: headerConfig.headerBgSize || 'cover',
-                            backgroundPosition: `${headerConfig.headerBgFocalX}% ${headerConfig.headerBgFocalY}%`
-                          }}
-                          onMouseDown={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = ((e.clientX - rect.left) / rect.width) * 100;
-                            const y = ((e.clientY - rect.top) / rect.height) * 100;
-                            setHeaderConfig(prev => ({ ...prev, headerBgFocalX: Math.round(x), headerBgFocalY: Math.round(y) }));
-                          }}
-                          onMouseMove={(e) => {
-                            if (e.buttons !== 1) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = ((e.clientX - rect.left) / rect.width) * 100;
-                            const y = ((e.clientY - rect.top) / rect.height) * 100;
-                            setHeaderConfig(prev => ({ ...prev, headerBgFocalX: Math.round(Math.max(0, Math.min(100, x))), headerBgFocalY: Math.round(Math.max(0, Math.min(100, y))) }));
-                          }}
-                        >
-                          <Box
-                            position="absolute"
-                            left={`calc(${headerConfig.headerBgFocalX}% - 6px)`}
-                            top={`calc(${headerConfig.headerBgFocalY}% - 6px)`}
-                            w="12px"
-                            h="12px"
-                            borderRadius="full"
-                            bg="var(--rbe-red)"
-                            border="2px solid white"
-                            boxShadow="sm"
-                            pointerEvents="none"
-                          />
-                        </Box>
-                        <HStack mt={2} fontSize="xs" color="gray.500">
-                          <Text>Position: {headerConfig.headerBgFocalX}% , {headerConfig.headerBgFocalY}%</Text>
-                        </HStack>
-                      </Box>
-                    </VStack>
-                  </CardBody>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <Heading size="sm">Logo</Heading>
-                  </CardHeader>
-                  <CardBody>
-                    <VStack align="stretch" spacing={3}>
-                      <Alert status="info" fontSize="sm">
-                        <AlertIcon />
-                        Pour modifier le logo : éditez manuellement les fichiers dans <strong>externe/src/assets/</strong>
-                      </Alert>
-                      <HStack>
-                        <FormControl maxW="240px">
-                          <FormLabel>Hauteur du logo (px)</FormLabel>
-                          <Input
-                            type="number"
-                            min={24}
-                            max={240}
-                            value={headerConfig.logoWidth}
-                            onChange={(e) => setHeaderConfig(prev => ({ ...prev, logoWidth: parseInt(e.target.value || '44', 10) }))}
-                          />
-                        </FormControl>
-                      </HStack>
-                    </VStack>
-                  </CardBody>
-                </Card>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onCloseHeaderConfig}>Annuler</Button>
-              <Button colorScheme="blue" onClick={saveHeaderConfig}>Enregistrer</Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-
-        {/* Modal de création/édition de RetroNews */}
-        <Modal isOpen={isOpen} onClose={onClose} size="lg">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>{selectedRetroNews ? '✏️ Modifier l\'actualité' : '🆕 Nouvelle actualité'}</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl isRequired>
-                  <FormLabel>Titre</FormLabel>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Titre de l'actualité"
-                  />
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel>Contenu</FormLabel>
-                  <Textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="Contenu détaillé..."
-                    minH="150px"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>Résumé court (pour affichage liste)</FormLabel>
-                  <Textarea
-                    value={formData.excerpt}
-                    onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                    placeholder="Courte description"
-                    minH="60px"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>Auteur</FormLabel>
-                  <Input
-                    value={formData.author}
-                    onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                    placeholder="Nom de l'auteur"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>URL image (optionnel)</FormLabel>
-                  <Input
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                    placeholder="https://..."
-                    type="url"
-                  />
-                </FormControl>
-
-                <VStack align="stretch" spacing={3} borderTop="1px solid" borderColor="gray.200" pt={4}>
-                  <FormControl display="flex" alignItems="center">
-                    <FormLabel mb="0" flex={1}>Publier</FormLabel>
-                    <Switch
-                      isChecked={formData.published}
-                      onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
-                    />
-                  </FormControl>
-
-                  <FormControl display="flex" alignItems="center">
-                    <FormLabel mb="0" flex={1}>Vedette (priorité d'affichage)</FormLabel>
-                    <Switch
-                      isChecked={formData.featured}
-                      onChange={(e) => setFormData(prev => ({ ...prev, featured: e.target.checked }))}
-                    />
-                  </FormControl>
-
-                  <FormControl display="flex" alignItems="center">
-                    <FormLabel mb="0" flex={1}>Afficher sur site externe</FormLabel>
-                    <Switch
-                      isChecked={formData.showOnExternal}
-                      onChange={(e) => setFormData(prev => ({ ...prev, showOnExternal: e.target.checked }))}
-                    />
-                  </FormControl>
-                </VStack>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onClose}>Annuler</Button>
-              <Button colorScheme="blue" onClick={handleSave}>Enregistrer</Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-
-        {/* Modal Diffusion RétroActus */}
-        <Modal isOpen={isDiffusionOpen} onClose={onCloseDiffusionModal} size="lg">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>📢 Diffuser une RétroActus</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4}>
-                <FormControl isRequired>
-                  <FormLabel>Titre</FormLabel>
-                  <Input
-                    placeholder="Titre de l'actualité..."
-                    value={diffusionForm.title}
-                    onChange={(e) => setDiffusionForm(prev => ({ ...prev, title: e.target.value }))}
-                  />
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel>Contenu</FormLabel>
-                  <Textarea
-                    placeholder="Contenu à partager..."
-                    value={diffusionForm.content}
-                    onChange={(e) => setDiffusionForm(prev => ({ ...prev, content: e.target.value }))}
-                    rows={6}
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>URL de destination (optionnelle)</FormLabel>
-                  <Input
-                    type="url"
-                    placeholder="https://..."
-                    value={diffusionForm.destinationUrl}
-                    onChange={(e) => setDiffusionForm(prev => ({ ...prev, destinationUrl: e.target.value }))}
-                  />
-                </FormControl>
-
-                <Alert status="info">
-                  <AlertIcon />
-                  <Text fontSize="sm">
-                    Votre RétroActus sera partagée via email ou les fonctions de partage disponibles
-                  </Text>
-                </Alert>
-              </VStack>
-            </ModalBody>
-
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onCloseDiffusionModal}>
-                Annuler
-              </Button>
-              <Button colorScheme="orange" onClick={handleDiffuseRetroActus}>
-                📤 Diffuser
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-      </VStack>
-    </Container>
+      <Card variant="outline">
+        <CardBody>
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr bg="gray.50">
+                <Th>Utilisateur</Th>
+                <Th>Email</Th>
+                <Th>Rôle</Th>
+                <Th>Créé</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {users.map((user) => (
+                <Tr key={user.id}>
+                  <Td fontWeight="medium">{displayNameFromUser(user)}</Td>
+                  <Td fontSize="sm">{user.email}</Td>
+                  <Td>
+                    <Badge colorScheme={user.role === 'admin' ? 'red' : 'blue'}>
+                      {user.role}
+                    </Badge>
+                  </Td>
+                  <Td fontSize="sm">
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : '-'}
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </CardBody>
+      </Card>
+    </VStack>
   );
-}
+};
 
 /**
- * Wrapper pour TemplateManagement utilisé dans l'onglet de SiteManagement
+ * ============= Composant News Management =============
  */
-const TemplateManagementInline = () => {
-  return <TemplateManagement />;
+const NewsManagement = () => {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const toast = useToast();
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    featured: false,
+    published: false,
+    showOnExternal: false,
+  });
+  const [debugInfo, setDebugInfo] = useState(null);
+
+  useEffect(() => {
+    loadNews();
+    // Afficher les infos de debug
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    setDebugInfo({
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      user: user ? JSON.parse(user) : null,
+      apiUrl: apiClient.baseURL
+    });
+  }, []);
+
+  const loadNews = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.get('/api/retro-news');
+      setNews(Array.isArray(data) ? data : data?.news || []);
+    } catch (error) {
+      console.error('Erreur chargement news:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = () => {
+    setEditingId(null);
+    setFormData({ title: '', content: '', featured: false, published: false, showOnExternal: false });
+    onCreateOpen();
+  };
+
+  const handleEdit = (item) => {
+    setEditingId(item.id);
+    setFormData({
+      title: item.title,
+      content: item.content,
+      featured: item.featured || false,
+      published: item.published || false,
+      showOnExternal: item.showOnExternal || false,
+    });
+    onCreateOpen();
+  };
+
+  const handleSave = async () => {
+    if (!formData.title || !formData.content) {
+      toast({
+        title: 'Erreur',
+        description: 'Le titre et le contenu sont requis',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await apiClient.put(`/api/retro-news/${editingId}`, formData);
+        toast({ title: 'Succès', description: 'Actualité mise à jour', status: 'success' });
+      } else {
+        await apiClient.post('/api/retro-news', formData);
+        toast({ title: 'Succès', description: 'Actualité créée', status: 'success' });
+      }
+      loadNews();
+      onCreateClose();
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Impossible de sauvegarder', status: 'error' });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer?')) return;
+    try {
+      await apiClient.delete(`/api/retro-news/${id}`);
+      toast({ title: 'Succès', description: 'Actualité supprimée', status: 'success' });
+      loadNews();
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Impossible de supprimer', status: 'error' });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Center py={20}>
+        <Spinner size="lg" color="var(--rbe-red)" />
+      </Center>
+    );
+  }
+
+  return (
+    <VStack spacing={6} align="stretch">
+      <Flex justify="space-between" align="center">
+        <Heading size="md">📰 Actualités RétroBus</Heading>
+        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+          Nouvelle actualité
+        </Button>
+      </Flex>
+
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">À propos des actualités</Text>
+          <Text fontSize="sm">
+            Les actualités créées ici seront disponibles dans la modale RétroActus et peuvent être partagées
+          </Text>
+        </Box>
+      </Alert>
+
+      {news.length === 0 ? (
+        <Card>
+          <CardBody>
+            <Center py={10} flexDirection="column">
+              <Text mb={4} color="gray.500">Aucune actualité pour le moment</Text>
+              <Button leftIcon={<FiPlus />} colorScheme="blue" size="sm" onClick={handleCreate}>
+                Créer la première
+              </Button>
+            </Center>
+          </CardBody>
+        </Card>
+      ) : (
+        <SimpleGrid spacing={4} columns={{ base: 1, md: 2, lg: 3 }}>
+          {news.map((item) => (
+            <Card key={item.id} variant="outline" _hover={{ boxShadow: 'md' }} transition="all 0.2s">
+              <CardHeader pb={3}>
+                <VStack align="start" spacing={2}>
+                  <Heading size="sm" noOfLines={2}>{item.title}</Heading>
+                  <HStack spacing={2} flexWrap="wrap">
+                    {item.published && <Badge colorScheme="green">Publié</Badge>}
+                    {item.featured && <Badge colorScheme="purple">Vedette</Badge>}
+                    {item.showOnExternal && <Badge colorScheme="blue">Externe</Badge>}
+                  </HStack>
+                </VStack>
+              </CardHeader>
+              <CardBody>
+                <Text fontSize="sm" noOfLines={3} color="gray.600">
+                  {item.content}
+                </Text>
+              </CardBody>
+              <Divider />
+              <CardBody>
+                <HStack spacing={2} justify="flex-end">
+                  <IconButton
+                    icon={<FiEdit />}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEdit(item)}
+                    aria-label="Éditer"
+                  />
+                  <IconButton
+                    icon={<FiTrash2 />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="red"
+                    onClick={() => handleDelete(item.id)}
+                    aria-label="Supprimer"
+                  />
+                </HStack>
+              </CardBody>
+            </Card>
+          ))}
+        </SimpleGrid>
+      )}
+
+      {/* Modal Création/Édition */}
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {editingId ? '✏️ Modifier une actualité' : '✨ Nouvelle actualité'}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Titre</FormLabel>
+                <Input
+                  placeholder="Titre de l'actualité..."
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Contenu</FormLabel>
+                <Textarea
+                  placeholder="Contenu..."
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  rows={6}
+                />
+              </FormControl>
+
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb={0}>Vedette (affichage prioritaire)</FormLabel>
+                <Switch
+                  isChecked={formData.featured}
+                  onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                  ml={2}
+                />
+              </FormControl>
+
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb={0}>Publié</FormLabel>
+                <Switch
+                  isChecked={formData.published}
+                  onChange={(e) => setFormData({ ...formData, published: e.target.checked })}
+                  ml={2}
+                />
+              </FormControl>
+
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb={0}>Afficher sur le site externe</FormLabel>
+                <Switch
+                  isChecked={formData.showOnExternal}
+                  onChange={(e) => setFormData({ ...formData, showOnExternal: e.target.checked })}
+                  ml={2}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCreateClose}>
+              Annuler
+            </Button>
+            <Button colorScheme="blue" onClick={handleSave}>
+              {editingId ? 'Mettre à jour' : 'Créer'}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </VStack>
+  );
 };
+
+/**
+ * ============= Composant Settings =============
+ */
+const SiteSettings = () => {
+  const [settings, setSettings] = useState({
+    siteName: '',
+    siteDescription: '',
+    maintenanceMode: false,
+  });
+
+  return (
+    <VStack spacing={6} align="stretch">
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Paramètres du site</Text>
+          <Text fontSize="sm">Configuration générale de RétroBus</Text>
+        </Box>
+      </Alert>
+
+      <Card variant="outline">
+        <CardHeader>
+          <Heading size="md">Configuration générale</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack spacing={4}>
+            <FormControl>
+              <FormLabel>Nom du site</FormLabel>
+              <Input placeholder="RétroBus Essonne" value={settings.siteName} />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Description</FormLabel>
+              <Textarea placeholder="Description du site..." value={settings.siteDescription} />
+            </FormControl>
+
+            <FormControl display="flex" alignItems="center">
+              <FormLabel mb={0}>Mode maintenance</FormLabel>
+              <Switch ml={2} isChecked={settings.maintenanceMode} />
+            </FormControl>
+
+            <Button colorScheme="blue" alignSelf="flex-start">
+              Enregistrer les paramètres
+            </Button>
+          </VStack>
+        </CardBody>
+      </Card>
+    </VStack>
+  );
+};
+
+/**
+ * ============= Composant Documents Management =============
+ */
+const DocumentsManagement = () => {
+  return (
+    <VStack spacing={6} align="stretch">
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Gestion des modèles de documents</Text>
+          <Text fontSize="sm">Templates pour emails, lettres, et autres documents</Text>
+        </Box>
+      </Alert>
+
+      <TemplateManagement />
+    </VStack>
+  );
+};
+
+/**
+ * ============= Page Principale SiteManagement =============
+ */
+const SiteManagement = () => {
+  const { user } = useUser();
+
+  const sections = [
+    {
+      id: 'access',
+      label: '🔐 Accès utilisateurs',
+      icon: FiShield,
+      render: () => <AccessManagement />,
+    },
+    {
+      id: 'news',
+      label: '📰 Actualités',
+      icon: FiGlobe,
+      render: () => <NewsManagement />,
+    },
+    {
+      id: 'emails',
+      label: '📧 Modèles d\'email',
+      icon: FiMail,
+      render: () => <EmailTemplateManager />,
+    },
+    {
+      id: 'documents',
+      label: '📄 Documents',
+      icon: FiActivity,
+      render: () => <DocumentsManagement />,
+    },
+    {
+      id: 'settings',
+      label: '⚙️ Paramètres',
+      icon: FiSettings,
+      render: () => <SiteSettings />,
+    },
+  ];
+
+  return (
+    <WorkspaceLayout
+      title="Gestion du Site Web"
+      subtitle="Accès, actualités, templates et configuration"
+      sections={sections}
+      defaultSectionId="access"
+      sidebarTitle="Site Web"
+      sidebarSubtitle="Administration"
+      sidebarTitleIcon={FiGlobe}
+      versionLabel="Site Management v2"
+    />
+  );
+};
+
+export default SiteManagement;
