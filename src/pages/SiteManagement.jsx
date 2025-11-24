@@ -39,7 +39,7 @@ const AccessManagement = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.get('/api/users');
+      const data = await apiClient.get('/api/admin/users');
       setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erreur chargement users:', error);
