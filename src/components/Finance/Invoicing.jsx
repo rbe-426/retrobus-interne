@@ -518,10 +518,10 @@ const FinanceInvoicing = () => {
         });
       }
     } catch (error) {
-      console.error("❌ Erreur génération:", error);
+      console.error("❌ Erreur globale génération:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de générer le PDF",
+        description: "Impossible de générer le document",
         status: "error"
       });
     }
