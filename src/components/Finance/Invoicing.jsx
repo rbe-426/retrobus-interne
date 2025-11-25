@@ -496,6 +496,8 @@ const FinanceInvoicing = () => {
       setDocForm(prev => ({ ...prev, htmlContent: generatedHtml }));
 
       console.log("📄 Envoi au serveur pour génération PDF avec Puppeteer...");
+      console.log(`📏 Taille HTML à envoyer: ${(generatedHtml.length / 1024).toFixed(2)} KB`);
+      console.log("🔍 Premiers 500 chars du HTML:", generatedHtml.substring(0, 500));
 
       // Appeler l'endpoint serveur pour générer le PDF
       const token = localStorage.getItem("token");
