@@ -804,10 +804,11 @@ const FinanceInvoicing = () => {
                               <HStack spacing={1}>
                                 <IconButton
                                   size={{ base: "xs", md: "sm" }}
-                                  icon={<FiPrinter />}
+                                  icon={<FiEye />}
                                   variant="ghost"
-                                  onClick={() => handleViewDocument(doc)}
-                                  title="Imprimer"
+                                  colorScheme="blue"
+                                  onClick={() => handleViewPDF(doc)}
+                                  title="Visualiser PDF"
                                 />
                                 {doc.documentUrl && (
                                   <IconButton
