@@ -448,9 +448,20 @@ const FinanceInvoicing = () => {
   // Helper pour ouvrir/visualiser un PDF dans une nouvelle fenêtre (aperçu)
   const downloadPDF = (dataUri, filename) => {
     try {
-      // Ouvrir directement la data URI dans une nouvelle fenêtre
-      // Cela fonctionne mieux que la blob URL pour les PDFs
-      const pdfWindow = window.open();
+      // Convertir data URI base64 en blob
+      const byteCharacters = atob(dataUri.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      
+      // Créer une URL blob
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Ouvrir dans une nouvelle fenêtre avec l'URL blob
+      const pdfWindow = window.open(blobUrl, '_blank');
       if (!pdfWindow) {
         console.warn('⚠️ Impossible d\'ouvrir une nouvelle fenêtre');
         toast({
@@ -461,14 +472,10 @@ const FinanceInvoicing = () => {
         return;
       }
       
-      // Écrire directement le contenu PDF dans la fenêtre
-      // Cela crée un document avec le PDF correctement chargé
-      pdfWindow.document.write('<html><head><title>' + filename + '</title></head><body>');
-      pdfWindow.document.write('<embed src="' + dataUri + '" type="application/pdf" width="100%" height="100%" />');
-      pdfWindow.document.write('</body></html>');
-      pdfWindow.document.close();
-      
       console.log(`✅ PDF ouvert pour aperçu: ${filename}`);
+      
+      // Nettoyer l'URL blob après un délai
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     } catch (error) {
       console.error('❌ Erreur ouverture PDF:', error);
       toast({
