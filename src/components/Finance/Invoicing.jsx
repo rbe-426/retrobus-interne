@@ -448,22 +448,9 @@ const FinanceInvoicing = () => {
   // Helper pour ouvrir/visualiser un PDF dans une nouvelle fenêtre (aperçu)
   const downloadPDF = (dataUri, filename) => {
     try {
-      // Convertir la data URI en blob pour éviter les problèmes avec les gros fichiers
-      const byteCharacters = atob(dataUri.split(',')[1]); // Récupérer la partie base64
-      const byteNumbers = new Array(byteCharacters.length);
-      
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      
-      // Créer une URL blob
-      const blobUrl = URL.createObjectURL(blob);
-      
-      // Ouvrir dans une nouvelle fenêtre pour aperçu/consultation
-      const pdfWindow = window.open(blobUrl, '_blank');
+      // Ouvrir directement la data URI dans une nouvelle fenêtre
+      // Cela fonctionne mieux que la blob URL pour les PDFs
+      const pdfWindow = window.open();
       if (!pdfWindow) {
         console.warn('⚠️ Impossible d\'ouvrir une nouvelle fenêtre');
         toast({
@@ -471,7 +458,15 @@ const FinanceInvoicing = () => {
           description: "Vérifiez que les popups ne sont pas bloquées par votre navigateur",
           status: "warning"
         });
+        return;
       }
+      
+      // Écrire directement le contenu PDF dans la fenêtre
+      // Cela crée un document avec le PDF correctement chargé
+      pdfWindow.document.write('<html><head><title>' + filename + '</title></head><body>');
+      pdfWindow.document.write('<embed src="' + dataUri + '" type="application/pdf" width="100%" height="100%" />');
+      pdfWindow.document.write('</body></html>');
+      pdfWindow.document.close();
       
       console.log(`✅ PDF ouvert pour aperçu: ${filename}`);
     } catch (error) {
