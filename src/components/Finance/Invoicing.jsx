@@ -468,7 +468,18 @@ const FinanceInvoicing = () => {
   const handleViewPDF = async (doc) => {
     // Si le PDF est déjà généré, le télécharger
     if (doc.documentUrl) {
-      downloadPDF(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
+      console.log(`📄 Ouverture du PDF pour: ${doc.number}`);
+      try {
+        // Utiliser downloadPDF pour convertir la data URI en blob URL valide
+        downloadPDF(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
+      } catch (error) {
+        console.error("❌ Erreur ouverture PDF:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible d'ouvrir le PDF",
+          status: "error"
+        });
+      }
       return;
     }
 
@@ -535,8 +546,21 @@ const FinanceInvoicing = () => {
   // Helper pour ouvrir/visualiser un PDF dans une nouvelle fenêtre (aperçu)
   const downloadPDF = (dataUri, filename) => {
     try {
+      // Vérifier que c'est une data URI
+      if (!dataUri || !dataUri.startsWith('data:')) {
+        console.error('❌ URL invalide:', dataUri?.substring(0, 50));
+        throw new Error('Format PDF invalide');
+      }
+      
+      console.log(`📦 Conversion de ${filename}...`);
+      
       // Convertir data URI base64 en blob
-      const byteCharacters = atob(dataUri.split(',')[1]);
+      const parts = dataUri.split(',');
+      if (parts.length !== 2) {
+        throw new Error('Format data URI invalide');
+      }
+      
+      const byteCharacters = atob(parts[1]);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -544,8 +568,11 @@ const FinanceInvoicing = () => {
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: 'application/pdf' });
       
-      // Créer une URL blob
+      console.log(`✅ Blob créé: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      // Créer une URL blob valide
       const blobUrl = URL.createObjectURL(blob);
+      console.log(`🔗 Blob URL: ${blobUrl}`);
       
       // Ouvrir dans une nouvelle fenêtre avec l'URL blob
       const pdfWindow = window.open(blobUrl, '_blank');
@@ -556,18 +583,23 @@ const FinanceInvoicing = () => {
           description: "Vérifiez que les popups ne sont pas bloquées par votre navigateur",
           status: "warning"
         });
+        URL.revokeObjectURL(blobUrl);
         return;
       }
       
       console.log(`✅ PDF ouvert pour aperçu: ${filename}`);
       
       // Nettoyer l'URL blob après un délai
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        console.log('🧹 Blob URL nettoyée');
+      }, 100);
     } catch (error) {
-      console.error('❌ Erreur ouverture PDF:', error);
+      console.error('❌ Erreur ouverture PDF:', error.message);
+      console.error('📋 Stack:', error);
       toast({
         title: "Erreur",
-        description: "Impossible d'ouvrir le PDF. Réessayez.",
+        description: "Impossible d'ouvrir le PDF. " + error.message,
         status: "error"
       });
     }
