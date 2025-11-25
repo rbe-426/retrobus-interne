@@ -344,6 +344,74 @@ const FinanceInvoicing = () => {
     }
   };
 
+  // Visualiser le PDF via Puppeteer (génération côté serveur)
+  const handleViewPDF = async (doc) => {
+    // Si le PDF est déjà généré, l'ouvrir directement
+    if (doc.documentUrl) {
+      window.open(doc.documentUrl, "_blank");
+      return;
+    }
+
+    // Sinon, générer le PDF d'abord
+    if (!doc.htmlContent) {
+      toast({
+        title: "Attention",
+        description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
+        status: "warning"
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "Génération en cours...",
+        description: "Génération du PDF...",
+        status: "info"
+      });
+
+      const token = localStorage.getItem("token");
+      const generateResponse = await fetch(
+        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/finance/documents/${doc.id}/generate-pdf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ htmlContent: doc.htmlContent })
+        }
+      );
+
+      if (!generateResponse.ok) {
+        const error = await generateResponse.json();
+        throw new Error(error.error || "Erreur lors de la génération du PDF");
+      }
+
+      const generateResult = await generateResponse.json();
+      const pdfDataUri = generateResult.pdfDataUri;
+
+      if (!pdfDataUri) {
+        throw new Error("Impossible de générer le PDF - résultat vide du serveur");
+      }
+
+      // Ouvrir le PDF dans la visionneuse native du navigateur
+      window.open(pdfDataUri, "_blank");
+
+      toast({
+        title: "Succès",
+        description: "PDF affiché dans la visionneuse!",
+        status: "success"
+      });
+    } catch (error) {
+      console.error("❌ Erreur visualisation PDF:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le PDF: " + error.message,
+        status: "error"
+      });
+    }
+  };
+
   // Générer un document depuis un template HTML
   const generateFromTemplate = async () => {
     if (!selectedTemplate) {
@@ -613,8 +681,9 @@ const FinanceInvoicing = () => {
                                   size={{ base: "xs", md: "sm" }}
                                   icon={<FiEye />}
                                   variant="ghost"
-                                  onClick={() => handleViewDocument(doc)}
-                                  title="Voir"
+                                  colorScheme="blue"
+                                  onClick={() => handleViewPDF(doc)}
+                                  title="Visualiser PDF"
                                 />
                                 {doc.documentUrl && (
                                   <IconButton
