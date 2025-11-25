@@ -854,7 +854,6 @@ const FinanceInvoicing = () => {
                           <Th>Titre</Th>
                           <Th display={{ base: "none", md: "table-cell" }}>Date</Th>
                           <Th isNumeric>Montant</Th>
-                          <Th display={{ base: "none", sm: "table-cell" }} isNumeric>Payé</Th>
                           <Th display={{ base: "none", sm: "table-cell" }}>Statut</Th>
                           <Th>Actions</Th>
                         </Tr>
@@ -873,16 +872,6 @@ const FinanceInvoicing = () => {
                             </Td>
                             <Td isNumeric fontWeight="bold" fontSize={{ base: "xs", md: "md" }}>
                               {parseFloat(doc.amount || 0).toFixed(2)} €
-                            </Td>
-                            <Td display={{ base: "none", sm: "table-cell" }} isNumeric>
-                              <Badge 
-                                colorScheme={
-                                  parseFloat(doc.amountPaid || 0) >= parseFloat(doc.amount || 0) ? 'green' : 'orange'
-                                }
-                                fontSize="xs"
-                              >
-                                {parseFloat(doc.amountPaid || 0).toFixed(2)} €
-                              </Badge>
                             </Td>
                             <Td display={{ base: "none", sm: "table-cell" }}>
                               <Badge colorScheme={statusColors[doc.status]} fontSize="xs">
