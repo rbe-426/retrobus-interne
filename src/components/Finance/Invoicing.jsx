@@ -474,9 +474,17 @@ const FinanceInvoicing = () => {
         if (typeof doc.documentUrl === 'string' && doc.documentUrl.startsWith('data:application/pdf')) {
           downloadPDF(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
         } else {
-          // Si documentUrl n'est pas valide, régénérer le PDF
+          // Si documentUrl n'est pas valide (array de bytes, etc), régénérer le PDF
           console.warn("⚠️ DocumentUrl invalide, régénération...");
-          await regeneratePDF(doc);
+          if (doc.htmlContent) {
+            await regeneratePDF(doc);
+          } else {
+            toast({
+              title: "Attention",
+              description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
+              status: "warning"
+            });
+          }
         }
       } catch (error) {
         console.error("❌ Erreur ouverture PDF:", error);
@@ -511,6 +519,90 @@ const FinanceInvoicing = () => {
         status: "info"
       });
 
+      let htmlContent = doc.htmlContent;
+
+      // Si htmlContent manque, générer depuis le template
+      if (!htmlContent && templates.length > 0) {
+        console.log("📄 htmlContent manque, génération depuis template...");
+        
+        // Trouver le template approprié (Devis ou Facture)
+        const templateName = doc.type === 'QUOTE' 
+          ? 'Template Standard RétroBus' 
+          : 'Template Standard RétroBus - Factures';
+        
+        const template = templates.find(t => t.name === templateName);
+        
+        if (!template || !template.htmlContent) {
+          throw new Error(`Template "${templateName}" non trouvé ou sans contenu HTML`);
+        }
+
+        console.log(`🎨 Template trouvé: ${template.name}`);
+
+        // Charger les lignes du document
+        let devisLinesTr = "";
+        try {
+          const linesResponse = await fetch(
+            (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/devis-lines/${doc.id}`,
+            {
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            }
+          );
+
+          if (linesResponse.ok) {
+            const lines = await linesResponse.json();
+            if (Array.isArray(lines) && lines.length > 0) {
+              devisLinesTr = lines
+                .map(
+                  (line) => `
+                <tr>
+                  <td class="num">${line.quantity}</td>
+                  <td class="desc">${line.description}</td>
+                  <td class="num">${line.unitPrice.toFixed(2)} €</td>
+                  <td class="num">${line.totalPrice.toFixed(2)} €</td>
+                </tr>
+              `
+                )
+                .join("");
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Impossible de charger les lignes:", e.message);
+        }
+
+        // Préparer les données pour la substitution
+        const previewData = {
+          NUM_DEVIS: doc.number || "N/A",
+          NUM_FACTURE: doc.number || "N/A",
+          TITRE: doc.title || "Document",
+          OBJET: doc.title || "Document",
+          DESCRIPTION: doc.description || "",
+          MONTANT: parseFloat(doc.amount || 0).toFixed(2),
+          PRIX_NET: parseFloat(doc.amount || 0).toFixed(2),
+          DATE: new Date(doc.date).toLocaleDateString("fr-FR"),
+          DESTINATAIRE_NOM: doc.destinataireName || "Destinataire",
+          DESTINATAIRE_ADRESSE: doc.destinataireAdresse || "",
+          DESTINATAIRE_SOCIETE: doc.destinataireSociete || "",
+          DESTINATAIRE_CONTACTS: doc.destinataireContacts || "",
+          NOTES: doc.notes || "",
+          LOGO_BIG: template.logoBig || "",
+          LOGO_SMALL: template.logoSmall || "",
+          DEVIS_LINES_TR: devisLinesTr
+        };
+
+        // Générer l'HTML en remplaçant les placeholders
+        htmlContent = template.htmlContent;
+        Object.entries(previewData).forEach(([key, value]) => {
+          const placeholder = new RegExp(`{{${key}}}`, "g");
+          htmlContent = htmlContent.replace(placeholder, String(value || ""));
+        });
+
+        console.log(`✅ HTML généré depuis template: ${(htmlContent.length / 1024).toFixed(2)} KB`);
+      }
+
+      if (!htmlContent) {
+        throw new Error("Impossible de générer l'HTML - aucun template ou htmlContent");
+      }
+
       const token = localStorage.getItem("token");
       const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, '');
       const endpoint = `${apiUrl}/api/finance/documents/${doc.id}/generate-pdf`;
@@ -523,7 +615,7 @@ const FinanceInvoicing = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ htmlContent: doc.htmlContent })
+        body: JSON.stringify({ htmlContent })
       });
 
       console.log(`📊 Réponse status: ${generateResponse.status}`);
