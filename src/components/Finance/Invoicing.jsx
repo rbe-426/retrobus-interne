@@ -466,48 +466,30 @@ const FinanceInvoicing = () => {
 
   // Visualiser le PDF via Puppeteer (génération côté serveur)
   const handleViewPDF = async (doc) => {
-    // Si le PDF est déjà généré, le télécharger
-    if (doc.documentUrl) {
-      console.log(`📄 Ouverture du PDF pour: ${doc.number}`);
-      try {
-        // Vérifier que documentUrl est une valide data URI
-        if (typeof doc.documentUrl === 'string' && doc.documentUrl.startsWith('data:application/pdf')) {
-          downloadPDF(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
-        } else {
-          // Si documentUrl n'est pas valide (array de bytes, etc), régénérer le PDF
-          console.warn("⚠️ DocumentUrl invalide, régénération...");
-          if (doc.htmlContent) {
-            await regeneratePDF(doc);
-          } else {
-            toast({
-              title: "Attention",
-              description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
-              status: "warning"
-            });
-          }
-        }
-      } catch (error) {
-        console.error("❌ Erreur ouverture PDF:", error);
+    console.log(`📄 Ouverture du PDF pour: ${doc.number}`);
+    
+    // TOUJOURS régénérer le PDF (documentUrl en BD est bugué - array de bytes au lieu de base64)
+    // La pdfDataUri retournée par l'API est toujours correcte
+    
+    try {
+      if (!doc.htmlContent && (!selectedTemplate || !templates.length)) {
         toast({
-          title: "Erreur",
-          description: "Impossible d'ouvrir le PDF",
-          status: "error"
+          title: "Attention",
+          description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
+          status: "warning"
         });
+        return;
       }
-      return;
-    }
 
-    // Sinon, générer le PDF d'abord
-    if (!doc.htmlContent) {
+      await regeneratePDF(doc);
+    } catch (error) {
+      console.error("❌ Erreur ouverture PDF:", error);
       toast({
-        title: "Attention",
-        description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
-        status: "warning"
+        title: "Erreur",
+        description: "Impossible d'ouvrir le PDF",
+        status: "error"
       });
-      return;
     }
-
-    await regeneratePDF(doc);
   };
 
   // Helper pour régénérer le PDF
