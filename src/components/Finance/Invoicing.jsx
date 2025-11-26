@@ -730,8 +730,23 @@ const FinanceInvoicing = () => {
   // Helper pour télécharger directement un PDF sans l'ouvrir
   const downloadPDFOnly = (dataUri, filename) => {
     try {
+      if (!dataUri || typeof dataUri !== 'string') {
+        throw new Error('DataURI invalide');
+      }
+
+      // Vérifier que c'est une data URI valide
+      if (!dataUri.startsWith('data:application/pdf')) {
+        throw new Error('Format PDF invalide');
+      }
+
       // Convertir la data URI en blob
-      const byteCharacters = atob(dataUri.split(',')[1]); // Récupérer la partie base64
+      const parts = dataUri.split(',');
+      if (parts.length !== 2) {
+        throw new Error('Format data URI invalide');
+      }
+
+      const base64Data = parts[1];
+      const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
       
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -764,6 +779,55 @@ const FinanceInvoicing = () => {
       toast({
         title: "Erreur",
         description: "Impossible de télécharger le PDF. Réessayez.",
+        status: "error"
+      });
+    }
+  };
+
+  // Télécharger un PDF en le régénérant d'abord (pour éviter les bugs de BD)
+  const handleDownloadPDF = async (doc) => {
+    try {
+      toast({
+        title: "Téléchargement en cours...",
+        description: "Génération du PDF...",
+        status: "info"
+      });
+
+      // Régénérer le PDF pour obtenir une pdfDataUri valide
+      const token = localStorage.getItem("token");
+      const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, '');
+      const endpoint = `${apiUrl}/api/finance/documents/${doc.id}/generate-pdf`;
+      
+      console.log(`🔗 POST ${endpoint}`);
+
+      const generateResponse = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ htmlContent: doc.htmlContent || "" })
+      });
+
+      if (!generateResponse.ok) {
+        const error = await generateResponse.json();
+        throw new Error(error.error || "Erreur lors de la génération du PDF");
+      }
+
+      const generateResult = await generateResponse.json();
+      const pdfDataUri = generateResult.pdfDataUri;
+
+      if (!pdfDataUri) {
+        throw new Error("Impossible de générer le PDF");
+      }
+
+      // Télécharger le PDF valide
+      downloadPDFOnly(pdfDataUri, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
+    } catch (error) {
+      console.error("❌ Erreur téléchargement:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le PDF: " + error.message,
         status: "error"
       });
     }
@@ -1059,16 +1123,14 @@ const FinanceInvoicing = () => {
                                   onClick={() => handleViewPDF(doc)}
                                   title="Visualiser PDF"
                                 />
-                                {doc.documentUrl && (
-                                  <IconButton
-                                    size={{ base: "xs", md: "sm" }}
-                                    icon={<FiDownload />}
-                                    variant="ghost"
-                                    colorScheme="green"
-                                    onClick={() => downloadPDFOnly(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`)}
-                                    title="Télécharger PDF"
-                                  />
-                                )}
+                                <IconButton
+                                  size={{ base: "xs", md: "sm" }}
+                                  icon={<FiDownload />}
+                                  variant="ghost"
+                                  colorScheme="green"
+                                  onClick={() => handleDownloadPDF(doc)}
+                                  title="Télécharger PDF"
+                                />
                                 <Select
                                   size="xs"
                                   width="auto"
@@ -1164,16 +1226,14 @@ const FinanceInvoicing = () => {
                                   onClick={() => handleViewPDF(doc)}
                                   title="Visualiser PDF"
                                 />
-                                {doc.documentUrl && (
-                                  <IconButton
-                                    size={{ base: "xs", md: "sm" }}
-                                    icon={<FiDownload />}
-                                    variant="ghost"
-                                    colorScheme="green"
-                                    onClick={() => downloadPDFOnly(doc.documentUrl, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`)}
-                                    title="Télécharger PDF"
-                                  />
-                                )}
+                                <IconButton
+                                  size={{ base: "xs", md: "sm" }}
+                                  icon={<FiDownload />}
+                                  variant="ghost"
+                                  colorScheme="green"
+                                  onClick={() => handleDownloadPDF(doc)}
+                                  title="Télécharger PDF"
+                                />
                                 <Select
                                   size="xs"
                                   width="auto"
