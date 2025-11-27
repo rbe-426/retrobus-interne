@@ -56,7 +56,7 @@ const EVENT_TEMPLATES = {
     description: "Événement public avec inscription ouverte directement au public"
   },
   private_outing: {
-    name: "Sortie Privée",
+    name: "Évènement Privé",
     icon: FiEyeOff,
     color: "yellow",
     defaults: {
