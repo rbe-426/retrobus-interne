@@ -222,8 +222,8 @@ export default function Header() {
     try {
       if (editing) {
         const updatedFlash = await updateFlash(editing.id, {
-          message: trimmed,
-          category: form.category,
+          content: trimmed,
+          type: form.category,
           active: Boolean(form.active),
           expiresAt: form.expiresAt || null
         });
@@ -231,9 +231,8 @@ export default function Header() {
         toast({ status: "success", title: "Flash modifié" });
       } else {
         const flashData = {
-          id: generateId(),
-          message: trimmed,
-          category: form.category,
+          content: trimmed,
+          type: form.category,
           active: Boolean(form.active),
           expiresAt: form.expiresAt || null
         };
