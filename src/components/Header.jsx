@@ -113,7 +113,7 @@ export default function Header() {
   const [flashes, setFlashes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ message: "", category: "INFO", active: true, expiresAt: "" });
+  const [form, setForm] = useState({ message: "", category: "INFO", active: true, expiresAt: "", publishToExternal: false });
 
   // Fonction de déconnexion
   const handleLogout = () => {
@@ -539,8 +539,12 @@ export default function Header() {
                     style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #e2e8f0" }}
                   />
                 </FormControl>
+                <FormControl display="flex" alignItems="center" mb={2}>
+                  <FormLabel mb="0" mr={3}>Publier sur l'externe</FormLabel>
+                  <Switch isChecked={form.publishToExternal} onChange={(e) => setForm(prev => ({ ...prev, publishToExternal: e.target.checked }))} />
+                </FormControl>
                 <HStack gap={2} justify="flex-end">
-                  <Button variant="ghost" onClick={() => { setEditing(null); setForm({ message: "", category: "INFO", active: true, expiresAt: "" }); }}>Réinitialiser</Button>
+                  <Button variant="ghost" onClick={() => { setEditing(null); setForm({ message: "", category: "INFO", active: true, expiresAt: "", publishToExternal: false }); }}>Réinitialiser</Button>
                   <Button colorScheme="blue" onClick={doSave}>{editing ? "Sauvegarder" : "Créer"}</Button>
                 </HStack>
               </Box>
