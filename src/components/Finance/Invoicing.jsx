@@ -1226,9 +1226,17 @@ const FinanceInvoicing = () => {
                                 <Td isNumeric fontWeight="bold">{total.toFixed(2)} €</Td>
                                 <Td isNumeric fontWeight="bold" color={paid > 0 ? "green.600" : "gray.500"}>{paid.toFixed(2)} €</Td>
                                 <Td>
-                                  <Badge colorScheme={statusColors[doc.status]} fontSize="xs">
-                                    {statusLabels[doc.status]}
-                                  </Badge>
+                                  <Select
+                                    size="sm"
+                                    width="100%"
+                                    value={doc.status}
+                                    onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
+                                    cursor="pointer"
+                                  >
+                                    {invoiceStatuses.map(s => (
+                                      <option key={s} value={s}>{statusLabels[s]}</option>
+                                    ))}
+                                  </Select>
                                 </Td>
                                 <Td>
                                   <HStack spacing={1}>
