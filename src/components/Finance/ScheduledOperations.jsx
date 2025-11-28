@@ -12,7 +12,9 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 const FinanceScheduledOps = () => {
   const {
     scheduledOperations,
-    setScheduledOperations,
+    addScheduledOperation,
+    deleteScheduledOperation,
+    approveScheduledOperation,
     loading
   } = useFinanceData();
 
@@ -40,48 +42,30 @@ const FinanceScheduledOps = () => {
 
     setIsAdding(true);
     try {
-      // Simuler l'ajout local (API à intégrer)
-      const newOp = {
-        id: Math.random(),
-        ...formData,
-        amount: parseFloat(formData.amount),
-        totalAmount: parseFloat(formData.totalAmount) || parseFloat(formData.amount),
-        status: "PENDING"
-      };
-      setScheduledOperations([...scheduledOperations, newOp]);
-      toast({
-        title: "Succès",
-        description: "Opération programmée créée",
-        status: "success"
-      });
-      setFormData({
-        type: "SCHEDULED_PAYMENT",
-        amount: "",
-        description: "",
-        frequency: "MONTHLY",
-        nextDate: new Date().toISOString().split("T")[0],
-        totalAmount: ""
-      });
-      onClose();
+      // Appel API réel via le hook
+      const result = await addScheduledOperation(formData);
+      if (result) {
+        setFormData({
+          type: "SCHEDULED_PAYMENT",
+          amount: "",
+          description: "",
+          frequency: "MONTHLY",
+          nextDate: new Date().toISOString().split("T")[0],
+          totalAmount: ""
+        });
+        onClose();
+      }
     } finally {
       setIsAdding(false);
     }
   };
 
   const handleValidate = async (id) => {
-    setScheduledOperations(
-      scheduledOperations.map(op =>
-        op.id === id ? { ...op, status: "APPROVED" } : op
-      )
-    );
-    toast({ title: "Opération validée", status: "success" });
+    await approveScheduledOperation(id);
   };
 
-  const handleReject = async (id) => {
-    setScheduledOperations(
-      scheduledOperations.filter(op => op.id !== id)
-    );
-    toast({ title: "Opération rejetée", status: "warning" });
+  const handleDelete = async (id) => {
+    await deleteScheduledOperation(id);
   };
 
   const pendingCount = (scheduledOperations || []).filter(op => op.status === "PENDING").length;
@@ -151,6 +135,7 @@ const FinanceScheduledOps = () => {
                             colorScheme="green"
                             onClick={() => handleValidate(op.id)}
                             leftIcon={<FiCheck />}
+                            isLoading={loading}
                           >
                             Valider
                           </Button>
@@ -158,8 +143,9 @@ const FinanceScheduledOps = () => {
                             size="sm"
                             variant="ghost"
                             colorScheme="red"
-                            onClick={() => handleReject(op.id)}
+                            onClick={() => handleDelete(op.id)}
                             leftIcon={<FiX />}
+                            isLoading={loading}
                           >
                             Rejeter
                           </Button>
@@ -170,8 +156,9 @@ const FinanceScheduledOps = () => {
                           size="sm"
                           variant="ghost"
                           colorScheme="red"
-                          onClick={() => handleReject(op.id)}
+                          onClick={() => handleDelete(op.id)}
                           leftIcon={<FiTrash2 />}
+                          isLoading={loading}
                         >
                           Supprimer
                         </Button>

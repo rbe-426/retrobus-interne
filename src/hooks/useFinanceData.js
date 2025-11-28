@@ -521,6 +521,95 @@ export const useFinanceData = (currentUser = null) => {
     [userRole, toast]
   );
 
+  // Créer une opération programmée
+  const addScheduledOperation = useCallback(
+    async (operation) => {
+      try {
+        setLoading(true);
+        
+        const res = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({
+            type: operation.type || "SCHEDULED_PAYMENT",
+            amount: parseFloat(operation.amount),
+            description: String(operation.description),
+            frequency: operation.frequency || "MONTHLY",
+            nextDate: operation.nextDate ? new Date(operation.nextDate) : new Date(),
+            totalAmount: parseFloat(operation.totalAmount) || parseFloat(operation.amount)
+          })
+        });
+
+        if (!res.ok) throw new Error("Erreur création opération programmée");
+
+        const data = await res.json();
+        setScheduledOperations([...scheduledOperations, data]);
+        toast({
+          title: "Succès",
+          description: "Opération programmée créée",
+          status: "success"
+        });
+        return data;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [scheduledOperations, toast]
+  );
+
+  // Supprimer une opération programmée
+  const deleteScheduledOperation = useCallback(
+    async (operationId) => {
+      if (!window.confirm("Confirmer la suppression ?")) return false;
+
+      try {
+        setLoading(true);
+        
+        const res = await fetch(
+          `${API_BASE}/api/finance/scheduled-operations/${operationId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        if (!res.ok) throw new Error("Erreur suppression");
+
+        setScheduledOperations(
+          scheduledOperations.filter(op => op.id !== operationId)
+        );
+        toast({
+          title: "Succès",
+          description: "Opération programmée supprimée",
+          status: "success"
+        });
+        return true;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [scheduledOperations, toast]
+  );
+
   // Approuver une opération programmée
   const approveScheduledOperation = useCallback(
     async (operationId) => {
@@ -572,7 +661,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [userRole, scheduledOperations, toast]
+    [userRole, scheduledOperations, toast, loadFinanceData]
   );
 
   // Mettre à jour le statut d'un document
@@ -935,6 +1024,8 @@ export const useFinanceData = (currentUser = null) => {
     setScheduledOperations,
     newScheduled,
     setNewScheduled,
+    addScheduledOperation,
+    deleteScheduledOperation,
     approveScheduledOperation,
     // Notes de frais
     expenseReports,

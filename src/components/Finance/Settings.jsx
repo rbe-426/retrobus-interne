@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Input, Switch, FormControl,
   FormLabel, useToast, Alert, AlertIcon, Divider,
-  Table, Thead, Tbody, Tr, Th, Td, Badge
+  Table, Thead, Tbody, Tr, Th, Td, Badge, Textarea
 } from "@chakra-ui/react";
 import { FiSave, FiLock } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -11,38 +11,37 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 const FinanceSettings = () => {
   const {
     balance,
-    setBalance,
+    updateBalance,
     isBalanceLocked,
-    setIsBalanceLocked
+    setIsBalanceLocked,
+    loading
   } = useFinanceData();
 
   const [newBalance, setNewBalance] = useState(balance);
+  const [balanceReason, setBalanceReason] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [auditLog, setAuditLog] = useState([
-    {
-      id: 1,
-      timestamp: new Date(Date.now() - 86400000).toLocaleString(),
-      user: "Admin",
-      action: "Modification solde",
-      oldValue: "12000.00",
-      newValue: "12450.50",
-      reason: "Correction suite audit"
-    },
-    {
-      id: 2,
-      timestamp: new Date(Date.now() - 172800000).toLocaleString(),
-      user: "Trésorier",
-      action: "Synchronisation",
-      oldValue: "12450.50",
-      newValue: "12450.50",
-      reason: "Sync avec banque"
-    }
-  ]);
-
+  const [auditLog, setAuditLog] = useState([]);
   const toast = useToast();
 
+  // Charger l'historique d'audit depuis localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("financeAuditLog");
+    if (stored) {
+      try {
+        setAuditLog(JSON.parse(stored));
+      } catch (e) {
+        console.warn("Erreur lecture audit log");
+      }
+    }
+  }, []);
+
+  // Garder newBalance synchronisé avec balance
+  useEffect(() => {
+    setNewBalance(balance);
+  }, [balance]);
+
   const handleSaveBalance = async () => {
-    if (newBalance === balance) {
+    if (newBalance === balance && !balanceReason) {
       toast({
         title: "Aucune modification",
         status: "info"
@@ -50,31 +49,43 @@ const FinanceSettings = () => {
       return;
     }
 
+    if (isBalanceLocked) {
+      toast({
+        title: "Erreur",
+        description: "Le solde est verrouillé",
+        status: "error"
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Simuler l'API
-      const oldBalance = balance;
-      setBalance(parseFloat(newBalance));
+      // Appel API pour mettre à jour le solde
+      const success = await updateBalance(parseFloat(newBalance), balanceReason);
       
-      // Ajouter à l'historique d'audit
-      setAuditLog([
-        {
-          id: auditLog.length + 1,
-          timestamp: new Date().toLocaleString(),
+      if (success) {
+        // Ajouter à l'historique d'audit local
+        const newEntry = {
+          id: Date.now(),
+          timestamp: new Date().toLocaleString('fr-FR'),
           user: localStorage.getItem('userName') || "Utilisateur",
           action: "Modification solde",
-          oldValue: oldBalance.toFixed(2),
+          oldValue: balance.toFixed(2),
           newValue: newBalance,
-          reason: "Mise à jour manuelle"
-        },
-        ...auditLog
-      ]);
-
-      toast({
-        title: "Succès",
-        description: "Solde mis à jour",
-        status: "success"
-      });
+          reason: balanceReason || "Mise à jour manuelle"
+        };
+        
+        const updated = [newEntry, ...auditLog];
+        setAuditLog(updated);
+        localStorage.setItem("financeAuditLog", JSON.stringify(updated));
+        
+        setBalanceReason("");
+        toast({
+          title: "Succès",
+          description: "Solde mis à jour",
+          status: "success"
+        });
+      }
     } catch (error) {
       toast({
         title: "Erreur",
@@ -150,9 +161,11 @@ const FinanceSettings = () => {
 
             <FormControl>
               <FormLabel>Raison de la modification (optionnel)</FormLabel>
-              <Input
+              <Textarea
                 placeholder="Ex: Correction suite audit, Synchronisation manuelle..."
                 isDisabled={isBalanceLocked}
+                value={balanceReason}
+                onChange={(e) => setBalanceReason(e.target.value)}
               />
             </FormControl>
 
@@ -160,44 +173,12 @@ const FinanceSettings = () => {
               leftIcon={<FiSave />}
               colorScheme="blue"
               onClick={handleSaveBalance}
-              isLoading={isSaving}
+              isLoading={isSaving || loading}
               isDisabled={isBalanceLocked}
               w="100%"
             >
               Enregistrer le solde
             </Button>
-          </VStack>
-        </CardBody>
-      </Card>
-
-      <Divider />
-
-      {/* Paramètres généraux */}
-      <Card>
-        <CardHeader>
-          <Heading size="md">Paramètres Généraux</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack align="stretch" spacing={4}>
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb={0}>Activer les notifications de solde bas</FormLabel>
-              <Switch defaultChecked={true} />
-            </FormControl>
-
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb={0}>Afficher les graphiques mensuels</FormLabel>
-              <Switch defaultChecked={true} />
-            </FormControl>
-
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb={0}>Exporter automatiquement les rapports</FormLabel>
-              <Switch defaultChecked={false} />
-            </FormControl>
-
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel mb={0}>Mode strict (validation obligatoire)</FormLabel>
-              <Switch defaultChecked={false} />
-            </FormControl>
           </VStack>
         </CardBody>
       </Card>
@@ -210,48 +191,64 @@ const FinanceSettings = () => {
           <Heading size="md">Historique d'Audit du Solde</Heading>
         </CardHeader>
         <CardBody overflowX="auto">
-          <Table variant="simple" size="sm">
-            <Thead>
-              <Tr bg="gray.50">
-                <Th>Date/Heure</Th>
-                <Th>Utilisateur</Th>
-                <Th>Action</Th>
-                <Th>Ancien solde</Th>
-                <Th>Nouveau solde</Th>
-                <Th>Raison</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {auditLog.map(entry => (
-                <Tr key={entry.id} _hover={{ bg: "gray.50" }}>
-                  <Td fontSize="xs">{entry.timestamp}</Td>
-                  <Td fontWeight="500">{entry.user}</Td>
-                  <Td>
-                    <Badge colorScheme="blue">{entry.action}</Badge>
-                  </Td>
-                  <Td isNumeric fontSize="sm">{entry.oldValue} €</Td>
-                  <Td isNumeric fontSize="sm" fontWeight="600">{entry.newValue} €</Td>
-                  <Td fontSize="sm" color="gray.600">{entry.reason}</Td>
+          {auditLog.length > 0 ? (
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr bg="gray.50">
+                  <Th>Date/Heure</Th>
+                  <Th>Utilisateur</Th>
+                  <Th>Action</Th>
+                  <Th>Ancien solde</Th>
+                  <Th>Nouveau solde</Th>
+                  <Th>Raison</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+              <Tbody>
+                {auditLog.map(entry => (
+                  <Tr key={entry.id} _hover={{ bg: "gray.50" }}>
+                    <Td fontSize="xs">{entry.timestamp}</Td>
+                    <Td fontWeight="500">{entry.user}</Td>
+                    <Td>
+                      <Badge colorScheme="blue">{entry.action}</Badge>
+                    </Td>
+                    <Td isNumeric fontSize="sm">{entry.oldValue} €</Td>
+                    <Td isNumeric fontSize="sm" fontWeight="600">{entry.newValue} €</Td>
+                    <Td fontSize="sm" color="gray.600">{entry.reason}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          ) : (
+            <Text color="gray.500" textAlign="center" py={8}>
+              Aucune modification du solde enregistrée
+            </Text>
+          )}
         </CardBody>
       </Card>
 
-      {/* Catégories personnalisées */}
+      <Divider />
+
+      {/* Infos système */}
       <Card>
         <CardHeader>
-          <Heading size="md">Catégories de Transactions</Heading>
+          <Heading size="md">Informations Système</Heading>
         </CardHeader>
         <CardBody>
-          <VStack align="stretch" spacing={2}>
-            {["ADHESION", "DONATION", "TRANSPORT", "MAINTENANCE", "FOURNITURES"].map(cat => (
-              <HStack key={cat} justify="space-between" p={2} borderRadius="md" bg="gray.50">
-                <Text fontWeight="500">{cat}</Text>
-                <Badge colorScheme="gray">Active</Badge>
-              </HStack>
-            ))}
+          <VStack align="stretch" spacing={3}>
+            <HStack justify="space-between" p={2} borderRadius="md" bg="gray.50">
+              <Text fontWeight="500">Version API</Text>
+              <Badge colorScheme="blue">v2.0</Badge>
+            </HStack>
+            <HStack justify="space-between" p={2} borderRadius="md" bg="gray.50">
+              <Text fontWeight="500">Dernière synchronisation</Text>
+              <Text fontSize="sm" color="gray.600">
+                {new Date().toLocaleString('fr-FR')}
+              </Text>
+            </HStack>
+            <HStack justify="space-between" p={2} borderRadius="md" bg="gray.50">
+              <Text fontWeight="500">État du système</Text>
+              <Badge colorScheme="green">En ligne</Badge>
+            </HStack>
           </VStack>
         </CardBody>
       </Card>
