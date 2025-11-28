@@ -1287,7 +1287,8 @@ const FinanceInvoicing = () => {
                               </HStack>
                             </Td>
                           </Tr>
-                        ))}
+                          );
+                        })}
                       </Tbody>
                     </Table>
                   </CardBody>
