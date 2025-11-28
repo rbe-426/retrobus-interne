@@ -1196,78 +1196,87 @@ const FinanceInvoicing = () => {
                           <Th display={{ base: "none", md: "table-cell" }}>Date</Th>
                           <Th isNumeric>Montant</Th>
                           <Th isNumeric display={{ base: "none", sm: "table-cell" }}>Payé</Th>
+                          <Th isNumeric display={{ base: "none", sm: "table-cell" }} color="red.600">Reste</Th>
                           <Th display={{ base: "none", sm: "table-cell" }}>Paiement</Th>
                           <Th display={{ base: "none", sm: "table-cell" }}>Statut</Th>
                           <Th>Actions</Th>
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {invoices.map((doc) => (
-                          <Tr key={doc.id}>
-                            <Td fontWeight="bold" fontSize={{ base: "xs", md: "md" }}>
-                              {doc.number}
-                            </Td>
-                            <Td fontSize={{ base: "xs", md: "md" }}>
-                              {doc.title.substring(0, 20)}
-                            </Td>
-                            <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-                              {new Date(doc.date).toLocaleDateString('fr-FR')}
-                            </Td>
-                            <Td isNumeric fontWeight="bold" fontSize={{ base: "xs", md: "md" }}>
-                              {parseFloat(doc.amount || 0).toFixed(2)} €
-                            </Td>
-                            <Td isNumeric display={{ base: "none", sm: "table-cell" }} fontWeight="bold" color={parseFloat(doc.amountPaid || 0) > 0 ? "green.600" : "gray.500"} fontSize={{ base: "xs", md: "md" }}>
-                              {parseFloat(doc.amountPaid || 0).toFixed(2)} €
-                            </Td>
-                            <Td display={{ base: "none", sm: "table-cell" }} fontSize="xs">
-                              {doc.paymentMethod ? doc.paymentMethod : "-"}
-                            </Td>
-                            <Td display={{ base: "none", sm: "table-cell" }}>
-                              <Badge colorScheme={statusColors[doc.status]} fontSize="xs">
-                                {statusLabels[doc.status]}
-                              </Badge>
-                            </Td>
-                            <Td>
-                              <HStack spacing={1}>
-                                <IconButton
-                                  size={{ base: "xs", md: "sm" }}
-                                  icon={<FiEye />}
-                                  variant="ghost"
-                                  colorScheme="blue"
-                                  onClick={() => handleViewPDF(doc)}
-                                  title="Visualiser PDF"
-                                />
-                                <IconButton
-                                  size={{ base: "xs", md: "sm" }}
-                                  icon={<FiDownload />}
-                                  variant="ghost"
-                                  colorScheme="green"
-                                  onClick={() => handleDownloadPDF(doc)}
-                                  title="Télécharger PDF"
-                                />
-                                <Select
-                                  size="xs"
-                                  width="auto"
-                                  value={doc.status}
-                                  onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
-                                  cursor="pointer"
-                                  display={{ base: "none", sm: "block" }}
-                                >
-                                  {invoiceStatuses.map(s => (
-                                    <option key={s} value={s}>{statusLabels[s]}</option>
-                                  ))}
-                                </Select>
-                                <IconButton
-                                  size={{ base: "xs", md: "sm" }}
-                                  icon={<FiEdit2 />}
-                                  variant="ghost"
-                                  colorScheme="blue"
-                                  onClick={() => handleOpenEdit(doc)}
-                                  title="Modifier"
-                                  display={{ base: "none", sm: "block" }}
-                                />
-                                <IconButton
-                                  size={{ base: "xs", md: "sm" }}
+                        {invoices.map((doc) => {
+                          const total = parseFloat(doc.amount || 0);
+                          const paid = parseFloat(doc.amountPaid || 0);
+                          const remaining = Math.max(0, total - paid);
+                          
+                          return (
+                            <Tr key={doc.id}>
+                              <Td fontWeight="bold" fontSize={{ base: "xs", md: "md" }}>
+                                {doc.number}
+                              </Td>
+                              <Td fontSize={{ base: "xs", md: "md" }}>
+                                {doc.title.substring(0, 20)}
+                              </Td>
+                              <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
+                                {new Date(doc.date).toLocaleDateString('fr-FR')}
+                              </Td>
+                              <Td isNumeric fontWeight="bold" fontSize={{ base: "xs", md: "md" }}>
+                                {total.toFixed(2)} €
+                              </Td>
+                              <Td isNumeric display={{ base: "none", sm: "table-cell" }} fontWeight="bold" color={paid > 0 ? "green.600" : "gray.500"} fontSize={{ base: "xs", md: "md" }}>
+                                {paid.toFixed(2)} €
+                              </Td>
+                              <Td isNumeric display={{ base: "none", sm: "table-cell" }} fontWeight="bold" color={remaining > 0 ? "red.600" : "green.600"} fontSize={{ base: "xs", md: "md" }}>
+                                {remaining.toFixed(2)} €
+                              </Td>
+                              <Td display={{ base: "none", sm: "table-cell" }} fontSize="xs">
+                                {doc.paymentMethod ? doc.paymentMethod : "-"}
+                              </Td>
+                              <Td display={{ base: "none", sm: "table-cell" }}>
+                                <Badge colorScheme={statusColors[doc.status]} fontSize="xs">
+                                  {statusLabels[doc.status]}
+                                </Badge>
+                              </Td>
+                              <Td>
+                                <HStack spacing={1}>
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
+                                    icon={<FiEye />}
+                                    variant="ghost"
+                                    colorScheme="blue"
+                                    onClick={() => handleViewPDF(doc)}
+                                    title="Visualiser PDF"
+                                  />
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
+                                    icon={<FiDownload />}
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={() => handleDownloadPDF(doc)}
+                                    title="Télécharger PDF"
+                                  />
+                                  <Select
+                                    size="xs"
+                                    width="auto"
+                                    value={doc.status}
+                                    onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
+                                    cursor="pointer"
+                                    display={{ base: "none", sm: "block" }}
+                                  >
+                                    {invoiceStatuses.map(s => (
+                                      <option key={s} value={s}>{statusLabels[s]}</option>
+                                    ))}
+                                  </Select>
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
+                                    icon={<FiEdit2 />}
+                                    variant="ghost"
+                                    colorScheme="blue"
+                                    onClick={() => handleOpenEdit(doc)}
+                                    title="Modifier"
+                                    display={{ base: "none", sm: "block" }}
+                                  />
+                                  <IconButton
+                                    size={{ base: "xs", md: "sm" }}
                                   icon={<FiTrash2 />}
                                   variant="ghost"
                                   colorScheme="red"
@@ -1579,6 +1588,74 @@ const FinanceInvoicing = () => {
                         <NumberInputField />
                       </NumberInput>
                     </FormControl>
+
+                    {/* Affichage du montant restant et historique */}
+                    {editingDocument && (
+                      <VStack spacing={2} align="stretch" borderTop="1px solid" borderColor="purple.200" pt={2}>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" fontWeight="bold">Montant total:</Text>
+                          <Text fontSize="sm" fontWeight="bold" color="blue.600">
+                            {parseFloat(docForm.amount || 0).toFixed(2)} €
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" fontWeight="bold">Payé:</Text>
+                          <Text fontSize="sm" fontWeight="bold" color="green.600">
+                            {parseFloat(docForm.amountPaid || 0).toFixed(2)} €
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" fontWeight="bold">Reste à payer:</Text>
+                          <Text 
+                            fontSize="sm" 
+                            fontWeight="bold" 
+                            color={parseFloat(docForm.amount || 0) - parseFloat(docForm.amountPaid || 0) > 0 ? "red.600" : "green.600"}
+                          >
+                            {(parseFloat(docForm.amount || 0) - parseFloat(docForm.amountPaid || 0)).toFixed(2)} €
+                          </Text>
+                        </HStack>
+
+                        {/* Historique des paiements */}
+                        {editingDocument?.paymentHistory && (
+                          <Box borderTop="1px solid" borderColor="purple.200" pt={2}>
+                            <Text fontSize="xs" fontWeight="bold" mb={2}>📜 Historique des paiements:</Text>
+                            <VStack spacing={1} align="stretch">
+                              {(() => {
+                                try {
+                                  const history = typeof editingDocument.paymentHistory === 'string' 
+                                    ? JSON.parse(editingDocument.paymentHistory) 
+                                    : editingDocument.paymentHistory;
+                                  
+                                  return history.length > 0 ? (
+                                    history.map((payment, idx) => (
+                                      <HStack 
+                                        key={idx} 
+                                        justify="space-between" 
+                                        fontSize="xs" 
+                                        p={1} 
+                                        bg="purple.100" 
+                                        borderRadius="md"
+                                      >
+                                        <Text>
+                                          {new Date(payment.date).toLocaleDateString('fr-FR')} - {payment.method}
+                                        </Text>
+                                        <Text fontWeight="bold" color="green.700">
+                                          +{parseFloat(payment.amount).toFixed(2)} €
+                                        </Text>
+                                      </HStack>
+                                    ))
+                                  ) : (
+                                    <Text fontSize="xs" color="gray.500">Aucun paiement enregistré</Text>
+                                  );
+                                } catch (e) {
+                                  return <Text fontSize="xs" color="red.500">Erreur affichage historique</Text>;
+                                }
+                              })()}
+                            </VStack>
+                          </Box>
+                        )}
+                      </VStack>
+                    )}
                   </VStack>
                 </Box>
               )}
