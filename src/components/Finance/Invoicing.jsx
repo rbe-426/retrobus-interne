@@ -1198,6 +1198,7 @@ const FinanceInvoicing = () => {
                           <Th>Titre</Th>
                           <Th isNumeric>Montant</Th>
                           <Th isNumeric>Payé</Th>
+                          <Th>Statut</Th>
                           <Th>Actions</Th>
                         </Tr>
                       </Thead>
@@ -1224,6 +1225,11 @@ const FinanceInvoicing = () => {
                                 <Td>{doc.title.substring(0, 25)}</Td>
                                 <Td isNumeric fontWeight="bold">{total.toFixed(2)} €</Td>
                                 <Td isNumeric fontWeight="bold" color={paid > 0 ? "green.600" : "gray.500"}>{paid.toFixed(2)} €</Td>
+                                <Td>
+                                  <Badge colorScheme={statusColors[doc.status]} fontSize="xs">
+                                    {statusLabels[doc.status]}
+                                  </Badge>
+                                </Td>
                                 <Td>
                                   <HStack spacing={1}>
                                     <IconButton
