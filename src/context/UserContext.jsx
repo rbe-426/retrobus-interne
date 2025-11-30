@@ -183,6 +183,27 @@ export function UserProvider({ children }) {
         if (ok) {
           refreshMember();
           refreshPermissions();
+          // Also refresh user info from /api/me to get the role
+          const apiCandidates = () => {
+            const base = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
+            const arr = [];
+            if (base) arr.push(base);
+            arr.push(''); // same-origin
+            return arr;
+          };
+          const candidates = apiCandidates();
+          for (const base of candidates) {
+            fetch(`${base}/api/me`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(res => res.ok ? res.json() : null)
+              .then(data => {
+                if (data?.user) {
+                  setUser(prev => ({ ...prev, ...data.user }));
+                }
+              })
+              .catch(() => null);
+          }
         }
       });
     } else {
