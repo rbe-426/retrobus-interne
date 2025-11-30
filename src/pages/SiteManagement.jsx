@@ -479,7 +479,7 @@ const PermissionsManagement = () => {
   const cardBg = useColorModeValue('white', 'gray.800');
   
   // Vérifier que l'utilisateur est admin (PRESIDENT ou admin équivalent)
-  const canManage = isAdmin || (user && user.roles && user.roles.some(r => ADMIN_ROLES.includes(r)));
+  const canManage = isAdmin || (roles && roles.some(r => ADMIN_ROLES.includes(r)));
 
   useEffect(() => {
     if (canManage) {
