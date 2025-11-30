@@ -5,7 +5,13 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch ./src/server.js",
-    "start": "node ./src/server.js"
+    "start": "node ./src/server.js",
+    "backup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup.ps1 -Mode quick",
+    "backup:full": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup.ps1 -Mode full",
+    "backups:list": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backups-list.ps1",
+    "restore": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore.ps1",
+    "restore:latest": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore-latest.ps1",
+    "restore:interactive": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/restore-interactive.ps1"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.2.4",
