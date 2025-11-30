@@ -190,7 +190,8 @@ const FinanceInvoicing = () => {
         docId: doc.id,
         amountPaid: paymentFormData.amountPaid,
         paymentMethod: paymentFormData.paymentMethod,
-        paymentDate: paymentFormData.paymentDate
+        paymentDate: paymentFormData.paymentDate,
+        docActuelAmountPaid: doc.amountPaid
       });
 
       // Appel direct à l'API pour ajouter le paiement
@@ -214,11 +215,18 @@ const FinanceInvoicing = () => {
       }
 
       const result = await response.json();
-      console.log("✅ Paiement enregistré:", result);
+      console.log("✅ Paiement enregistré - Document retourné du backend:", {
+        id: result.id,
+        amountPaid: result.amountPaid,
+        paymentHistory: result.paymentHistory,
+        paymentMethod: result.paymentMethod,
+        paymentDate: result.paymentDate,
+        fullResponse: JSON.stringify(result, null, 2)
+      });
 
       toast({
         title: "Succès",
-        description: `Paiement de ${paymentFormData.amountPaid} € enregistré`,
+        description: `Paiement de ${paymentFormData.amountPaid} € enregistré (Backend: ${result.amountPaid}€)`,
         status: "success"
       });
 
@@ -229,8 +237,10 @@ const FinanceInvoicing = () => {
         paymentDate: ""
       });
 
-      // Recharger les données
+      // ✅ Recharger les données et ATTENDRE le résultat
+      console.log("📚 Rechargement des données en cours...");
       await loadFinanceData();
+      console.log("✅ Données rechargées, table mise à jour");
     } catch (error) {
       console.error("❌ Erreur lors de l'enregistrement du paiement:", error);
       toast({
