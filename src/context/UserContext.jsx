@@ -227,9 +227,10 @@ export function UserProvider({ children }) {
   const username = user?.username || '';
   const prenom = user?.prenom || user?.firstName || '';
   const nom = user?.nom || user?.lastName || '';
-  // Support both 'roles' array (old API) and 'role' string (new API)
+  // Backend returns 'role' as a string; normalize to 'roles' array for internal consistency
+  // If old API returns 'roles' array, use it; otherwise convert 'role' string to array
   const rolesArray = user?.roles || (user?.role ? [user.role] : []);
-  const roles = rolesArray.map(r => normRole(r));
+  const roles = rolesArray.map(r => normRole(r)); // normRole handles case normalization
   const isAdmin = roles.includes('ADMIN') || roles.includes('PRESIDENT') || roles.includes('VICE_PRESIDENT') || roles.includes('TRESORIER') || roles.includes('SECRETAIRE_GENERAL');
   const isVolunteer = roles.includes('VOLUNTEER');
   const isDriver = roles.includes('DRIVER');
