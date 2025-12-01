@@ -25,7 +25,9 @@ const Vehicules = () => {
   const fetchList = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const vehicles = await apiClient.get('/vehicles');
+      const response = await apiClient.get('/vehicles');
+      // L'endpoint retourne { vehicles: [...] }, on déstructure
+      const vehicles = response.vehicles || response || [];
       setData(Array.isArray(vehicles) ? vehicles : []);
     } catch (e) {
       if (e.name !== "AbortError") {
