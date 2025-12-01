@@ -9,6 +9,7 @@ import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
 import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
+import AdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
 
 function EtatBadge({ etat }) {
@@ -790,18 +791,63 @@ export default function RetroBus() {
   );
 
   const renderAdministrativeSection = () => (
-    <VStack align="start" spacing={3} py={2}>
+    <VStack align="stretch" spacing={4} py={2}>
       <HStack>
         <FiAlertTriangle />
         <Heading size="sm">Situation administrative</Heading>
       </HStack>
-      <Alert status="warning">
-        <AlertIcon />
-        Cette section sera développée prochainement pour gérer : documents, assurances, contrôle technique, conformité.
-      </Alert>
-      <Text opacity={0.8}>
-        En attendant, vous pouvez ajouter ces informations dans les notes de chaque véhicule via la page d'édition.
-      </Text>
+      
+      {vehicles.length === 0 ? (
+        <Alert status="info">
+          <AlertIcon />
+          Aucun véhicule enregistré
+        </Alert>
+      ) : (
+        <>
+          <Alert status="info">
+            <AlertIcon />
+            <VStack align="start" spacing={1}>
+              <Text fontWeight="600">Gestion administrative</Text>
+              <Text fontSize="sm">
+                Cliquez sur les badges pour gérer les Cartes Grises, Assurances, Contrôles Techniques, Certificats et Échéancier.
+              </Text>
+            </VStack>
+          </Alert>
+          
+          <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} gap={3} w="full">
+            {vehicles.map((v) => {
+              const parc = v.parc || v.id || v.slug;
+              return (
+                <Card key={parc} variant="outline" _hover={{ shadow: 'md' }} p={3}>
+                  <VStack align="start" spacing={2} w="full">
+                    <HStack w="full" justify="space-between">
+                      <VStack align="start" spacing={0}>
+                        <Heading size="sm">{parc}</Heading>
+                        <Text fontSize="xs" color="gray.600">{v.marque} {v.modele}</Text>
+                      </VStack>
+                    </HStack>
+                    <AdminStatus parc={parc} />
+                  </VStack>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+
+          <VStack align="start" w="full" pt={4} borderTop="1px solid" borderTopColor="gray.200">
+            <HStack>
+              <FiFileText />
+              <Heading size="sm">Échéancier global</Heading>
+            </HStack>
+            <Button 
+              colorScheme="blue" 
+              size="sm"
+              onClick={() => navigate('/echancier')}
+            >
+              Voir l'échéancier complet
+            </Button>
+          </VStack>
+        </>
+      )}
     </VStack>
   );
 

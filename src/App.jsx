@@ -42,6 +42,7 @@ import RetroPlanning from "./pages/RetroPlanning";
 import AttendancePage from "./pages/AttendancePage";
 import AttendanceManager from "./pages/AttendanceManager";
 import RetroDemandes from "./pages/RetroDemandes";
+import EchancierPage from "./pages/EchancierPage";
 import PermissionsManager from "./components/PermissionsManager";
 
 export default function App() {
@@ -74,6 +75,7 @@ export default function App() {
         
         {/* 🚗 Routes des véhicules */}
         <Route path="/dashboard/retrobus" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroBus /></RoleProtectedRoute>} />
+        <Route path="/echancier" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EchancierPage /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Vehicules /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/ajouter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RequireCreator><VehiculeCreate /></RequireCreator></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/:parc" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><VehiculeShow /></RoleProtectedRoute>} />
