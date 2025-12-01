@@ -7,7 +7,7 @@ import {
 import { DeleteIcon, DownloadIcon, EditIcon } from '@chakra-ui/icons';
 import { apiClient } from '../../api/config';
 
-export const VehicleAdministrationPanel = ({ parc }) => {
+const VehicleAdministrationPanel = ({ parc }) => {
   const [carteGrise, setCarteGrise] = useState(null);
   const [assurance, setAssurance] = useState(null);
   const [ct, setControleTechnique] = useState(null);
@@ -527,3 +527,5 @@ export const VehicleAdministrationPanel = ({ parc }) => {
     }
   }
 };
+
+export default VehicleAdministrationPanel;

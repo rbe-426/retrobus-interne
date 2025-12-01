@@ -9,7 +9,7 @@ import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
 import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
-import AdminStatus from '../components/vehicle/AdminStatus.jsx';
+import VehicleAdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
 
 function EtatBadge({ etat }) {
@@ -826,7 +826,7 @@ export default function RetroBus() {
                         <Text fontSize="xs" color="gray.600">{v.marque} {v.modele}</Text>
                       </VStack>
                     </HStack>
-                    <AdminStatus parc={parc} />
+                    <VehicleAdminStatus parc={parc} />
                   </VStack>
                 </Card>
               );

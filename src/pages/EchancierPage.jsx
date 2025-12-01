@@ -6,7 +6,7 @@ import {
 } from '@chakra-ui/react';
 import { vehicleAdminAPI } from '../api/vehicleAdmin';
 
-export const EchancierPage = () => {
+const EchancierPage = () => {
   const [echancier, setEchancier] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -257,3 +257,5 @@ function getTypeColor(type) {
          type === 'ct' ? 'orange' :
          type === 'cg' ? 'blue' : 'gray';
 }
+
+export default EchancierPage;

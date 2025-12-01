@@ -5,9 +5,9 @@ import {
 } from '@chakra-ui/react';
 import { CheckCircleIcon, WarningIcon, TimeIcon } from '@chakra-ui/icons';
 import { vehicleAdminAPI } from '../../api/vehicleAdmin';
-import { VehicleAdministrationPanel } from './AdministrationPanel';
+import VehicleAdministrationPanel from './AdministrationPanel';
 
-export const VehicleAdminStatus = ({ parc }) => {
+const VehicleAdminStatus = ({ parc }) => {
   const [status, setStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -92,3 +92,5 @@ export const VehicleAdminStatus = ({ parc }) => {
     </>
   );
 };
+
+export default VehicleAdminStatus;
