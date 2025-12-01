@@ -177,7 +177,7 @@ const AccessManagement = () => {
                   <Td fontWeight="medium">{displayNameFromUser(user)}</Td>
                   <Td fontSize="sm">{user.email}</Td>
                   <Td>
-                    <Badge colorScheme={user.role === 'admin' ? 'red' : 'blue'}>
+                    <Badge colorScheme={user.role === 'ADMIN' ? 'red' : 'blue'}>
                       {user.role}
                     </Badge>
                   </Td>
