@@ -204,8 +204,9 @@ const Evenements = () => {
     try {
       setLoading(true);
       
-      const data = await eventsAPI.getAll();
-      setEvents(Array.isArray(data) ? data : []);
+      const response = await eventsAPI.getAll();
+      const events = response.events || response || [];
+      setEvents(Array.isArray(events) ? events : []);
     } catch (e) {
       console.error('Erreur events API:', e);
       
@@ -238,8 +239,9 @@ const Evenements = () => {
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const data = await vehiculesAPI.getAll();
-      setVehicles(Array.isArray(data) ? data : []);
+      const response = await vehiculesAPI.getAll();
+      const vehicles = response.vehicles || response || [];
+      setVehicles(Array.isArray(vehicles) ? vehicles : []);
     } catch (e) {
       console.error(e);
       setVehicles([]);
