@@ -33,7 +33,7 @@ export async function login(username, password) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email: username, password })
     });
     if (res.ok) {
       return await res.json();
