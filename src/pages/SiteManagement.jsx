@@ -123,9 +123,13 @@ const AccessManagement = () => {
     email: '',
     firstName: '',
     lastName: '',
-    role: 'USER'
+    matricule: '',
+    role: 'USER',
+    passwordOption: 'generate',
+    password: ''
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -150,11 +154,31 @@ const AccessManagement = () => {
     }
   };
 
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let pwd = '';
+    for (let i = 0; i < 12; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setGeneratedPassword(pwd);
+    return pwd;
+  };
+
   const handleCreateUser = async () => {
-    if (!formData.email) {
+    if (!formData.email || !formData.matricule) {
       toast({
         title: 'Erreur',
-        description: 'L\'email est requis',
+        description: 'L\'email et le matricule sont requis',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (formData.passwordOption === 'custom' && !formData.password) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez entrer un mot de passe',
         status: 'error',
         duration: 3000,
       });
@@ -163,11 +187,15 @@ const AccessManagement = () => {
 
     try {
       setIsCreating(true);
+      const pwd = formData.passwordOption === 'generate' ? generatedPassword : formData.password;
+      
       await apiClient.post('/api/admin/users', {
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        role: formData.role
+        matricule: formData.matricule,
+        role: formData.role,
+        password: pwd
       });
       
       toast({
@@ -177,7 +205,16 @@ const AccessManagement = () => {
         duration: 3000,
       });
       
-      setFormData({ email: '', firstName: '', lastName: '', role: 'USER' });
+      setFormData({
+        email: '',
+        firstName: '',
+        lastName: '',
+        matricule: '',
+        role: 'USER',
+        passwordOption: 'generate',
+        password: ''
+      });
+      setGeneratedPassword('');
       onClose();
       await loadUsers();
     } catch (error) {
@@ -191,6 +228,11 @@ const AccessManagement = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleOpenModal = () => {
+    setGeneratedPassword(generatePassword());
+    onOpen();
   };
 
   if (loading) {
@@ -207,13 +249,13 @@ const AccessManagement = () => {
         <AlertIcon />
         <Box>
           <Text fontWeight="bold">Gestion des accès utilisateurs</Text>
-          <Text fontSize="sm">Créez et gérez les accès indépendamment des adhésions (partenaires, etc.)</Text>
+          <Text fontSize="sm">Créez et gérez les accès indépendamment des adhésions (partenaires, administrateurs, etc.)</Text>
         </Box>
       </Alert>
 
       <HStack justify="space-between">
         <Heading size="md">Utilisateurs</Heading>
-        <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onOpen}>
+        <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={handleOpenModal}>
           Créer un accès
         </Button>
       </HStack>
@@ -228,6 +270,7 @@ const AccessManagement = () => {
                 <Tr bg="gray.50">
                   <Th>Utilisateur</Th>
                   <Th>Email</Th>
+                  <Th>Matricule</Th>
                   <Th>Rôle</Th>
                   <Th>Créé</Th>
                 </Tr>
@@ -237,8 +280,13 @@ const AccessManagement = () => {
                   <Tr key={user.id}>
                     <Td fontWeight="medium">{displayNameFromUser(user)}</Td>
                     <Td fontSize="sm">{user.email}</Td>
+                    <Td fontSize="sm">{user.matricule || '-'}</Td>
                     <Td>
-                      <Badge colorScheme={user.role === 'ADMIN' ? 'red' : 'blue'}>
+                      <Badge colorScheme={
+                        user.role === 'ADMIN' ? 'red' : 
+                        user.role === 'PARTENAIRE' ? 'orange' : 
+                        'blue'
+                      }>
                         {user.role}
                       </Badge>
                     </Td>
@@ -253,7 +301,7 @@ const AccessManagement = () => {
         </CardBody>
       </Card>
 
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered size="lg">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Créer un nouvel accès utilisateur</ModalHeader>
@@ -269,6 +317,16 @@ const AccessManagement = () => {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                 />
               </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Matricule</FormLabel>
+                <Input
+                  placeholder="Ex: P001, A123, etc."
+                  value={formData.matricule}
+                  onChange={(e) => setFormData({...formData, matricule: e.target.value})}
+                />
+              </FormControl>
+
               <FormControl>
                 <FormLabel>Prénom</FormLabel>
                 <Input
@@ -277,6 +335,7 @@ const AccessManagement = () => {
                   onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                 />
               </FormControl>
+
               <FormControl>
                 <FormLabel>Nom</FormLabel>
                 <Input
@@ -285,16 +344,70 @@ const AccessManagement = () => {
                   onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                 />
               </FormControl>
-              <FormControl>
+
+              <FormControl isRequired>
                 <FormLabel>Rôle</FormLabel>
                 <Select
                   value={formData.role}
                   onChange={(e) => setFormData({...formData, role: e.target.value})}
                 >
                   <option value="USER">Utilisateur</option>
+                  <option value="PARTENAIRE">Partenaire</option>
                   <option value="ADMIN">Administrateur</option>
                 </Select>
               </FormControl>
+
+              <Divider />
+
+              <FormControl isRequired>
+                <FormLabel>Mot de passe</FormLabel>
+                <Select
+                  value={formData.passwordOption}
+                  onChange={(e) => {
+                    setFormData({...formData, passwordOption: e.target.value});
+                    if (e.target.value === 'generate') {
+                      setGeneratedPassword(generatePassword());
+                    }
+                  }}
+                >
+                  <option value="generate">Générer un mot de passe</option>
+                  <option value="custom">Entrer un mot de passe personnalisé</option>
+                </Select>
+              </FormControl>
+
+              {formData.passwordOption === 'generate' ? (
+                <Box w="100%" p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+                  <Text fontSize="sm" color="blue.700" mb={2}>
+                    <b>Mot de passe généré:</b>
+                  </Text>
+                  <HStack>
+                    <Input 
+                      value={generatedPassword} 
+                      isReadOnly 
+                      fontFamily="monospace"
+                      bg="white"
+                    />
+                    <IconButton
+                      icon={<FiRefreshCw />}
+                      onClick={() => setGeneratedPassword(generatePassword())}
+                      title="Regénérer"
+                      size="sm"
+                    />
+                  </HStack>
+                  <Text fontSize="xs" color="blue.600" mt={2}>
+                    Ce mot de passe sera envoyé à l'utilisateur
+                  </Text>
+                </Box>
+              ) : (
+                <FormControl isRequired>
+                  <Input
+                    type="password"
+                    placeholder="Entrez le mot de passe"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  />
+                </FormControl>
+              )}
             </VStack>
           </ModalBody>
           <ModalFooter>
