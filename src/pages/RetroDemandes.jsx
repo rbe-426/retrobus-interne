@@ -54,7 +54,10 @@ import {
 import {
   FiPlus,
   FiDownload,
-  FiFileText
+  FiFileText,
+  FiUpload,
+  FiFile,
+  FiX
 } from "react-icons/fi";
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
@@ -78,6 +81,7 @@ const RetroDemandes = () => {
     category: "GENERAL",
     priority: "NORMAL"
   });
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   // Vérifier si l'utilisateur peut accéder à l'onglet Récapitulatif
   const canViewRecap = useCallback(() => {
@@ -156,15 +160,19 @@ const RetroDemandes = () => {
 
     try {
       setLoading(true);
+      let requestId;
+      
       if (editingId) {
         await apiClient.put(`/api/retro-requests/${editingId}`, formData);
+        requestId = editingId;
         toast({
           title: "Succès",
           description: "Demande modifiée",
           status: "success"
         });
       } else {
-        await apiClient.post("/api/retro-requests", formData);
+        const response = await apiClient.post("/api/retro-requests", formData);
+        requestId = response.request.id;
         toast({
           title: "Succès",
           description: "Demande créée",
@@ -172,7 +180,18 @@ const RetroDemandes = () => {
         });
       }
       
+      // Upload files if any
+      if (uploadedFiles.length > 0 && requestId) {
+        for (const file of uploadedFiles) {
+          if (file.file) { // Only upload new files (not already uploaded)
+            const event = { target: { files: [file.file] } };
+            await handleFileUpload(event, requestId);
+          }
+        }
+      }
+      
       setFormData({ title: "", description: "", category: "GENERAL", priority: "NORMAL" });
+      setUploadedFiles([]);
       setEditingId(null);
       onClose();
       await loadMyRequests();
@@ -191,6 +210,7 @@ const RetroDemandes = () => {
   const handleNew = () => {
     setEditingId(null);
     setFormData({ title: "", description: "", category: "GENERAL", priority: "NORMAL" });
+    setUploadedFiles([]);
     onOpen();
   };
 
@@ -264,6 +284,85 @@ const RetroDemandes = () => {
   const handleViewDetails = (request) => {
     setSelectedRequest(request);
     onPreviewOpen();
+  };
+
+  const handleFileUpload = async (event, requestId) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`/api/retro-requests/${requestId}/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        const data = await response.json();
+        setUploadedFiles([...uploadedFiles, data.file]);
+        toast({
+          title: "Succès",
+          description: `${file.name} uploadé`,
+          status: "success"
+        });
+      }
+
+      // Recharger la demande
+      if (requestId) {
+        const req = await apiClient.get(`/api/retro-requests/${requestId}`);
+        setSelectedRequest(req.request);
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'uploader le fichier",
+        status: "error"
+      });
+    }
+  };
+
+  const handleDeleteFile = async (requestId, fileId) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce fichier ?")) return;
+
+    try {
+      setLoading(true);
+      await apiClient.delete(`/api/retro-requests/${requestId}/files/${fileId}`);
+      toast({
+        title: "Succès",
+        description: "Fichier supprimé",
+        status: "success"
+      });
+      
+      // Mettre à jour la liste des fichiers
+      if (selectedRequest) {
+        const updatedRequest = {
+          ...selectedRequest,
+          retro_request_file: selectedRequest.retro_request_file.filter(f => f.id !== fileId)
+        };
+        setSelectedRequest(updatedRequest);
+      }
+      setUploadedFiles(uploadedFiles.filter(f => f.id !== fileId));
+    } catch (error) {
+      console.error("Erreur suppression fichier:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le fichier",
+        status: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -652,6 +751,68 @@ const RetroDemandes = () => {
                   </Select>
                 </FormControl>
               </Grid>
+
+              <Divider />
+              
+              <Box width="100%" borderWidth="1px" borderRadius="md" p={4} borderColor="gray.200" bg="gray.50">
+                <VStack align="stretch" spacing={3}>
+                  <HStack>
+                    <FiUpload />
+                    <FormLabel mb={0} fontWeight="bold">Pièces jointes</FormLabel>
+                  </HStack>
+                  
+                  <Input
+                    type="file"
+                    multiple
+                    accept="*"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files) {
+                        const newFiles = Array.from(files).map(file => ({
+                          id: Math.random().toString(36).substr(2, 9),
+                          fileName: file.name,
+                          fileSize: file.size,
+                          mimeType: file.type,
+                          file: file
+                        }));
+                        setUploadedFiles([...uploadedFiles, ...newFiles]);
+                      }
+                    }}
+                    placeholder="Sélectionner des fichiers"
+                  />
+
+                  {uploadedFiles.length > 0 && (
+                    <VStack align="stretch" spacing={2} mt={3}>
+                      <Text fontSize="sm" fontWeight="bold">
+                        Fichiers sélectionnés ({uploadedFiles.length}):
+                      </Text>
+                      {uploadedFiles.map((file) => (
+                        <HStack key={file.id} justify="space-between" p={2} bg="white" borderRadius="md" borderWidth="1px">
+                          <HStack spacing={2} flex="1" minWidth="0">
+                            <FiFile fontSize="18px" />
+                            <VStack align="start" spacing={0} flex="1" minWidth="0">
+                              <Text fontSize="sm" fontWeight="500" noOfLines={1}>
+                                {file.fileName}
+                              </Text>
+                              <Text fontSize="xs" color="gray.500">
+                                {(file.fileSize / 1024).toFixed(2)} KB
+                              </Text>
+                            </VStack>
+                          </HStack>
+                          <IconButton
+                            icon={<FiX />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => setUploadedFiles(uploadedFiles.filter(f => f.id !== file.id))}
+                            aria-label="Supprimer"
+                          />
+                        </HStack>
+                      ))}
+                    </VStack>
+                  )}
+                </VStack>
+              </Box>
             </VStack>
           </ModalBody>
 
@@ -745,6 +906,55 @@ const RetroDemandes = () => {
                     </Select>
                   </HStack>
                 </Box>
+
+                {selectedRequest.retro_request_file && selectedRequest.retro_request_file.length > 0 && (
+                  <>
+                    <Divider />
+                    <Box width="100%">
+                      <Text fontWeight="bold" fontSize="sm" mb={3}>
+                        📎 Pièces jointes ({selectedRequest.retro_request_file.length})
+                      </Text>
+                      <VStack align="stretch" spacing={2}>
+                        {selectedRequest.retro_request_file.map((file) => (
+                          <HStack key={file.id} justify="space-between" p={3} bg="gray.50" borderRadius="md" borderWidth="1px">
+                            <HStack spacing={3} flex="1" minWidth="0">
+                              <FiFile fontSize="20px" color="blue.500" />
+                              <VStack align="start" spacing={0} flex="1" minWidth="0">
+                                <Text fontSize="sm" fontWeight="500" noOfLines={2}>
+                                  {file.fileName}
+                                </Text>
+                                <Text fontSize="xs" color="gray.500">
+                                  {(file.fileSize / 1024).toFixed(2)} KB • {new Date(file.uploadedAt).toLocaleDateString()}
+                                </Text>
+                              </VStack>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <IconButton
+                                icon={<FiDownload />}
+                                size="sm"
+                                variant="ghost"
+                                colorScheme="blue"
+                                as="a"
+                                href={file.filePath}
+                                download
+                                aria-label="Télécharger"
+                              />
+                              <IconButton
+                                icon={<FiX />}
+                                size="sm"
+                                variant="ghost"
+                                colorScheme="red"
+                                onClick={() => handleDeleteFile(selectedRequest.id, file.id)}
+                                aria-label="Supprimer"
+                                isLoading={loading}
+                              />
+                            </HStack>
+                          </HStack>
+                        ))}
+                      </VStack>
+                    </Box>
+                  </>
+                )}
               </VStack>
             )}
           </ModalBody>
