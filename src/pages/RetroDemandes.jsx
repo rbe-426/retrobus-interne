@@ -982,7 +982,6 @@ const RetroDemandes = () => {
                 <Box width="100%">
                   <Heading size="sm" mb={4}>📋 Suivi de la demande</Heading>
                   <VStack align="stretch" spacing={3}>
-                    {/* Timeline entry for creation */}
                     <HStack align="flex-start" spacing={4}>
                       <Box width="40px" height="40px" borderRadius="full" bg="blue.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
                         <Text fontSize="sm" fontWeight="bold">✅</Text>
@@ -996,7 +995,6 @@ const RetroDemandes = () => {
                       </VStack>
                     </HStack>
 
-                    {/* Current status */}
                     <HStack align="flex-start" spacing={4}>
                       <Box 
                         width="40px" 
@@ -1049,7 +1047,6 @@ const RetroDemandes = () => {
                       </VStack>
                     </HStack>
 
-                    {/* Coûts estimés */}
                     {(selectedRequest.estimatedCost || selectedRequest.actualCost) && (
                       <HStack align="flex-start" spacing={4}>
                         <Box width="40px" height="40px" borderRadius="full" bg="yellow.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
@@ -1067,7 +1064,6 @@ const RetroDemandes = () => {
                       </HStack>
                     )}
 
-                    {/* Notes */}
                     {selectedRequest.notes && (
                       <HStack align="flex-start" spacing={4}>
                         <Box width="40px" height="40px" borderRadius="full" bg="purple.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
@@ -1082,7 +1078,6 @@ const RetroDemandes = () => {
                   </VStack>
                 </Box>
 
-                {/* Documents liés (Devis & Factures) */}
                 <Box width="100%">
                   <Heading size="sm" mb={4}>📄 Documents associés</Heading>
                   <VStack align="stretch" spacing={2}>
@@ -1115,5 +1110,3 @@ const RetroDemandes = () => {
 };
 
 export default RetroDemandes;
-
-```
