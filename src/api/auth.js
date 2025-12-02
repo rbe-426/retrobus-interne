@@ -72,23 +72,46 @@ export const authAPI = {
 
 // Connexion membre (matricule/email + mot de passe interne)
 export async function memberLogin(identifier, password) {
-  // 1) Essai API distante si dispo
+  // 1️⃣ Essayer l'API distante si dispo
   const base = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
   const url = `${base}/auth/member-login`;
+  
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password })
     });
-    if (res.ok) {
-      return await res.json();
+    
+    // Si on a une réponse, utiliser sa réponse (200 ou 401, peu importe)
+    // Ne PAS tomber en fallback local si l'API a répondu
+    if (res.status === 200) {
+      const data = await res.json();
+      if (data.token && data.user) {
+        return data;
+      }
     }
-  } catch (_e) {
-    // réseau KO -> fallback
+    
+    // API a répondu mais 401 -> c'est une erreur d'auth, pas un problème réseau
+    if (res.status === 401) {
+      const data = await res.json();
+      throw new Error(data?.error || 'Échec de connexion');
+    }
+    
+    // Autre statut d'erreur HTTP
+    throw new Error(`HTTP ${res.status}`);
+  } catch (e) {
+    // SEULEMENT si c'est une erreur réseau ou de parsing (pas une erreur HTTP 401)
+    if (e.message.includes('HTTP 401') || e.message.includes('Échec')) {
+      throw e; // Laisser passer l'erreur auth
+    }
+    
+    console.warn('⚠️ API distante unavailable, essai fallback local:', e.message);
+    // Fallback local uniquement si le serveur est complètement inaccessible
   }
 
-  // 2) Fallback local: traite l'identifiant comme un username connu
+  // 2️⃣ Fallback local STRICT: seulement si le serveur est down
+  // (Pas de fallback sur 401 auth error!)
   const key = String(identifier || '').toLowerCase();
   const found = USERS[key];
   if (!found || found.password !== password) {
