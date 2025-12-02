@@ -865,10 +865,11 @@ const Evenements = () => {
                     <FormControl>
                       <FormLabel>Véhicule participant</FormLabel>
                       <Select
-                        value={formData.vehicleId}
+                        value={formData.vehicleId || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
                         placeholder="Sélectionner un véhicule (optionnel)"
                       >
+                        <option value="">-- Aucun véhicule --</option>
                         {vehicles.map(vehicle => (
                           <option key={vehicle.parc} value={vehicle.parc}>
                             {vehicle.parc} - {vehicle.modele} ({vehicle.marque})
