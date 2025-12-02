@@ -118,6 +118,14 @@ const AccessManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [formData, setFormData] = useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    role: 'USER'
+  });
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -127,7 +135,7 @@ const AccessManagement = () => {
     try {
       setLoading(true);
       const data = await apiClient.get('/api/admin/users');
-      setUsers(Array.isArray(data) ? data : []);
+      setUsers(Array.isArray(data) ? data : (data?.users || []));
     } catch (error) {
       console.error('Erreur chargement users:', error);
       toast({
@@ -139,6 +147,49 @@ const AccessManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!formData.email) {
+      toast({
+        title: 'Erreur',
+        description: 'L\'email est requis',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      await apiClient.post('/api/admin/users', {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role
+      });
+      
+      toast({
+        title: 'Succès',
+        description: 'Accès utilisateur créé avec succès',
+        status: 'success',
+        duration: 3000,
+      });
+      
+      setFormData({ email: '', firstName: '', lastName: '', role: 'USER' });
+      onClose();
+      await loadUsers();
+    } catch (error) {
+      console.error('Erreur création user:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de créer l\'utilisateur',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -155,41 +206,105 @@ const AccessManagement = () => {
       <Alert status="info">
         <AlertIcon />
         <Box>
-          <Text fontWeight="bold">Gestion des accès</Text>
-          <Text fontSize="sm">Consultez et gérez les utilisateurs du système</Text>
+          <Text fontWeight="bold">Gestion des accès utilisateurs</Text>
+          <Text fontSize="sm">Créez et gérez les accès indépendamment des adhésions (partenaires, etc.)</Text>
         </Box>
       </Alert>
 
+      <HStack justify="space-between">
+        <Heading size="md">Utilisateurs</Heading>
+        <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onOpen}>
+          Créer un accès
+        </Button>
+      </HStack>
+
       <Card variant="outline">
         <CardBody>
-          <Table size="sm" variant="simple">
-            <Thead>
-              <Tr bg="gray.50">
-                <Th>Utilisateur</Th>
-                <Th>Email</Th>
-                <Th>Rôle</Th>
-                <Th>Créé</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {users.map((user) => (
-                <Tr key={user.id}>
-                  <Td fontWeight="medium">{displayNameFromUser(user)}</Td>
-                  <Td fontSize="sm">{user.email}</Td>
-                  <Td>
-                    <Badge colorScheme={user.role === 'ADMIN' ? 'red' : 'blue'}>
-                      {user.role}
-                    </Badge>
-                  </Td>
-                  <Td fontSize="sm">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : '-'}
-                  </Td>
+          {users.length === 0 ? (
+            <Text color="gray.500" textAlign="center" py={8}>Aucun utilisateur créé</Text>
+          ) : (
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr bg="gray.50">
+                  <Th>Utilisateur</Th>
+                  <Th>Email</Th>
+                  <Th>Rôle</Th>
+                  <Th>Créé</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+              <Tbody>
+                {users.map((user) => (
+                  <Tr key={user.id}>
+                    <Td fontWeight="medium">{displayNameFromUser(user)}</Td>
+                    <Td fontSize="sm">{user.email}</Td>
+                    <Td>
+                      <Badge colorScheme={user.role === 'ADMIN' ? 'red' : 'blue'}>
+                        {user.role}
+                      </Badge>
+                    </Td>
+                    <Td fontSize="sm">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : '-'}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
         </CardBody>
       </Card>
+
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Créer un nouvel accès utilisateur</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  type="email"
+                  placeholder="utilisateur@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Prénom</FormLabel>
+                <Input
+                  placeholder="Prénom"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Nom</FormLabel>
+                <Input
+                  placeholder="Nom"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Rôle</FormLabel>
+                <Select
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                >
+                  <option value="USER">Utilisateur</option>
+                  <option value="ADMIN">Administrateur</option>
+                </Select>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onClose}>Annuler</Button>
+            <Button colorScheme="blue" isLoading={isCreating} onClick={handleCreateUser}>
+              Créer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </VStack>
   );
 };
