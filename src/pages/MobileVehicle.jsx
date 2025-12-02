@@ -1,7 +1,8 @@
 import {
   Box, Heading, Text, Button, Stack, Input, Textarea, VStack, HStack,
   Spinner, Center, useToast, Modal, ModalOverlay, ModalContent, ModalHeader,
-  ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel
+  ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Card, CardBody,
+  Badge, Divider, SimpleGrid, Container
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -326,79 +327,200 @@ export default function MobileVehicle() {
   };
 
   // If loading show spinner, if no vehicle and no token -> show authentication form (matricule)
-  if (loading) return <Center p={8}><Spinner size="lg" /></Center>;
+  if (loading) return <Center minH="100vh"><Spinner size="lg" color="blue.500" /></Center>;
 
   return (
-    <Box p={4} maxW="720px" mx="auto">
+    <Box bg="gray.50" minH="100vh" pb={8}>
       {(!veh) ? (
-        <Box textAlign="center" py={8}>
-          <Heading size="md">Accès restreint</Heading>
-          <Text mt={2} opacity={0.8}>
-            Ce carnet est accessible uniquement via le QR code du véhicule ou après authentification.
-          </Text>
+        <Container maxW="md" py={8}>
+          <Box textAlign="center" py={8}>
+            <Heading size="lg" mb={4}>🔐 Accès restreint</Heading>
+            <Text fontSize="sm" opacity={0.8} mb={8}>
+              Ce carnet est accessible uniquement via le QR code du véhicule ou après authentification.
+            </Text>
 
-          <Box mt={6} as="form" onSubmit={onAuthenticate} maxW="360px" mx="auto">
-            <VStack spacing={3}>
-              <FormControl>
-                <FormLabel>Matricule</FormLabel>
-                <Input value={inputMatricule} onChange={e => setInputMatricule(e.target.value)} placeholder="ex: w.belaidi" />
-              </FormControl>
-              <HStack>
-                <Button colorScheme="blue" onClick={onAuthenticate} isLoading={authLoading}>Se connecter</Button>
-                <Button variant="ghost" onClick={() => nav(-1)}>Retour</Button>
-              </HStack>
-            </VStack>
+            <Box as="form" onSubmit={onAuthenticate} bg="white" p={6} borderRadius="lg" boxShadow="sm">
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel fontWeight="bold">Votre matricule</FormLabel>
+                  <Input 
+                    size="lg"
+                    value={inputMatricule} 
+                    onChange={e => setInputMatricule(e.target.value)} 
+                    placeholder="ex: w.belaidi"
+                    autoFocus
+                  />
+                </FormControl>
+                <Button 
+                  colorScheme="blue" 
+                  onClick={onAuthenticate} 
+                  isLoading={authLoading}
+                  w="full"
+                  size="lg"
+                >
+                  Se connecter
+                </Button>
+                <Button variant="ghost" onClick={() => nav(-1)} w="full">
+                  Retour
+                </Button>
+              </VStack>
+            </Box>
+
+            <Text mt={6} fontSize="xs" opacity={0.6}>
+              💡 Astuce : scannez le QR code sur le véhicule pour accéder sans authentification.
+            </Text>
           </Box>
-
-          <Text mt={4} fontSize="sm" opacity={0.8}>
-            Astuce : scannez le QR sur le véhicule pour accéder sans vous connecter.
-          </Text>
-        </Box>
+        </Container>
       ) : (
         // Main mobile dashboard
-        <Box>
-          <Heading size="md">{veh.modele || `Parc ${veh.parc}`}</Heading>
-          <Text mt={1} opacity={0.8}>{veh.immat ? `${veh.immat} · Parc ${veh.parc}` : `Parc ${veh.parc}`}</Text>
+        <Container maxW="md" py={4}>
+          {/* En-tête du véhicule */}
+          <Card mb={6} bg="white" boxShadow="md">
+            <CardBody>
+              <VStack align="start" spacing={2}>
+                <HStack w="full" justify="space-between" align="flex-start">
+                  <VStack align="start" spacing={1} flex={1}>
+                    <Heading size="lg">{veh.modele || `Parc ${veh.parc}`}</Heading>
+                    <Text fontSize="sm" color="gray.600">
+                      {veh.immat ? `${veh.immat}` : ''}
+                    </Text>
+                  </VStack>
+                  <Badge colorScheme="blue" fontSize="md" px={3} py={2}>
+                    {veh.parc}
+                  </Badge>
+                </HStack>
+                {veh.etat && (
+                  <Badge colorScheme="green" fontSize="sm">
+                    État: {veh.etat}
+                  </Badge>
+                )}
+              </VStack>
+            </CardBody>
+          </Card>
 
-          <Stack spacing={4} mt={6}>
-            <Button colorScheme="red" onClick={() => setShowAnomaly(true)}>Signaler une anomalie</Button>
-            {!currentUsageId && (
-              <Button colorScheme="orange" onClick={() => { setFinishMode(false); setShowPassage(true); }}>Démarrer un pointage</Button>
+          {/* Actions principales */}
+          <VStack spacing={3} mb={6}>
+            {!currentUsageId ? (
+              <Button 
+                colorScheme="orange" 
+                size="lg"
+                w="full"
+                onClick={() => { setFinishMode(false); setShowPassage(true); }}
+                fontSize="md"
+                py={6}
+              >
+                🚗 Démarrer un pointage
+              </Button>
+            ) : (
+              <Button 
+                colorScheme="green" 
+                size="lg"
+                w="full"
+                onClick={() => { setFinishMode(true); setShowPassage(true); }}
+                fontSize="md"
+                py={6}
+              >
+                ✓ Terminer le pointage
+              </Button>
             )}
-            {currentUsageId && (
-              <Button colorScheme="green" onClick={() => { setFinishMode(true); setShowPassage(true); }}>Terminer le pointage</Button>
-            )}
-            <Button colorScheme="blue" onClick={() => setShowEvent(true)}>Ajouter un évènement au véhicule</Button>
-          </Stack>
+            
+            <Button 
+              colorScheme="red" 
+              variant="outline"
+              size="lg"
+              w="full"
+              onClick={() => setShowAnomaly(true)}
+              fontSize="md"
+              py={6}
+            >
+              ⚠️ Signaler une anomalie
+            </Button>
+            
+            <Button 
+              colorScheme="blue" 
+              variant="outline"
+              size="lg"
+              w="full"
+              onClick={() => setShowEvent(true)}
+              fontSize="md"
+              py={6}
+            >
+              📝 Ajouter un événement
+            </Button>
+          </VStack>
 
-          <Box mt={6}>
-            <Heading size="sm" mb={2}>Derniers événements</Heading>
-            <VStack spacing={2} align="stretch">
-              {events.length === 0 && <Text opacity={0.7}>Aucun événement</Text>}
-              {events.map(ev => (
-                <Box key={ev.id} p={3} border="1px solid #eee" borderRadius="md">
-                  <Text fontSize="sm"><b>{ev.type}</b> · {new Date(ev.date).toLocaleString()}</Text>
-                  {ev.note && <Text mt={1} fontSize="sm">{ev.note}</Text>}
-                  <Text mt={1} fontSize="xs" opacity={0.7}>Ajouté par {ev.createdBy || '—'}</Text>
-                </Box>
-              ))}
-            </VStack>
-          </Box>
+          {/* Derniers événements */}
+          <Card mb={6} bg="white" boxShadow="sm">
+            <CardBody>
+              <Heading size="sm" mb={4}>📋 Derniers événements</Heading>
+              <Divider mb={4} />
+              <VStack spacing={3} align="stretch">
+                {events.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+                    Aucun événement
+                  </Text>
+                ) : (
+                  events.slice(0, 5).map(ev => (
+                    <Box key={ev.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #3182ce">
+                      <HStack justify="space-between" mb={1}>
+                        <Text fontWeight="bold" fontSize="sm">{ev.type}</Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {new Date(ev.date).toLocaleDateString()}
+                        </Text>
+                      </HStack>
+                      {ev.note && <Text fontSize="sm" mt={2}>{ev.note}</Text>}
+                      <Text fontSize="xs" color="gray.600" mt={2}>
+                        Par {ev.createdBy || '—'}
+                      </Text>
+                    </Box>
+                  ))
+                )}
+                {events.length > 5 && (
+                  <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
+                    +{events.length - 5} autre(s) événement(s)
+                  </Text>
+                )}
+              </VStack>
+            </CardBody>
+          </Card>
 
-          <Box mt={6}>
-            <Heading size="sm" mb={2}>Derniers passages</Heading>
-            <VStack spacing={2} align="stretch">
-              {usages.length === 0 && <Text opacity={0.7}>Aucun passage</Text>}
-              {usages.map(u => (
-                <Box key={u.id} p={3} border="1px solid #eee" borderRadius="md">
-                  <Text fontSize="sm">{u.conducteur || '—'} · {u.km ? `${u.km} km` : '—'} · {u.durationMin ? `${u.durationMin} min` : ''}</Text>
-                  {u.note && <Text mt={1} fontSize="sm">{u.note}</Text>}
-                  <Text mt={1} fontSize="xs" opacity={0.7}>Ajouté par {u.createdBy || '—'}</Text>
-                </Box>
-              ))}
-            </VStack>
-          </Box>
-        </Box>
+          {/* Derniers passages */}
+          <Card bg="white" boxShadow="sm">
+            <CardBody>
+              <Heading size="sm" mb={4}>🚦 Derniers passages</Heading>
+              <Divider mb={4} />
+              <VStack spacing={3} align="stretch">
+                {usages.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+                    Aucun passage
+                  </Text>
+                ) : (
+                  usages.slice(0, 5).map(u => (
+                    <Box key={u.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #ed8936">
+                      <HStack justify="space-between" mb={1}>
+                        <Text fontWeight="bold" fontSize="sm">{u.conducteur || 'Conducteur'}</Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {u.startedAt ? new Date(u.startedAt).toLocaleDateString() : '—'}
+                        </Text>
+                      </HStack>
+                      {u.participants && (
+                        <Text fontSize="xs" color="gray.600" mt={1}>
+                          👥 {u.participants}
+                        </Text>
+                      )}
+                      {u.note && <Text fontSize="xs" mt={2} color="gray.700">{u.note}</Text>}
+                    </Box>
+                  ))
+                )}
+                {usages.length > 5 && (
+                  <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
+                    +{usages.length - 5} autre(s) passage(s)
+                  </Text>
+                )}
+              </VStack>
+            </CardBody>
+          </Card>
+        </Container>
       )}
 
       {/* Modals */}
