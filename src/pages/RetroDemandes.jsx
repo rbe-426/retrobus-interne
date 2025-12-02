@@ -587,6 +587,16 @@ const RetroDemandes = () => {
                           {new Date(req.createdAt).toLocaleDateString()}
                         </Text>
                       </HStack>
+                      <HStack pt={2} width="100%">
+                        <IconButton
+                          icon={<ViewIcon />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={() => handleViewDetails(req)}
+                          title="Voir détails et suivi"
+                        />
+                      </HStack>
                     </VStack>
                   </CardBody>
                 </Card>
@@ -603,6 +613,7 @@ const RetroDemandes = () => {
                     <Th>Priorité</Th>
                     <Th>Statut</Th>
                     <Th>Date</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -629,6 +640,16 @@ const RetroDemandes = () => {
                       <Td>{getStatusBadge(req.status)}</Td>
                       <Td fontSize="sm">
                         {new Date(req.createdAt).toLocaleDateString()}
+                      </Td>
+                      <Td>
+                        <IconButton
+                          icon={<ViewIcon />}
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={() => handleViewDetails(req)}
+                          title="Voir détails et suivi"
+                        />
                       </Td>
                     </Tr>
                   ))}
@@ -833,14 +854,14 @@ const RetroDemandes = () => {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isPreviewOpen} onClose={onPreviewClose} size="2xl">
+      <Modal isOpen={isPreviewOpen} onClose={onPreviewClose} size="4xl">
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Détails de la demande</ModalHeader>
+        <ModalContent maxH="90vh">
+          <ModalHeader>Détails et suivi de la demande</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody overflowY="auto">
             {selectedRequest && (
-              <VStack spacing={4} align="start" width="100%">
+              <VStack spacing={6} align="start" width="100%">
                 <Box>
                   <Text fontWeight="bold">Titre:</Text>
                   <Text>{selectedRequest.title}</Text>
@@ -955,9 +976,138 @@ const RetroDemandes = () => {
                     </Box>
                   </>
                 )}
+
+                <Divider />
+
+                <Box width="100%">
+                  <Heading size="sm" mb={4}>📋 Suivi de la demande</Heading>
+                  <VStack align="stretch" spacing={3}>
+                    {/* Timeline entry for creation */}
+                    <HStack align="flex-start" spacing={4}>
+                      <Box width="40px" height="40px" borderRadius="full" bg="blue.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                        <Text fontSize="sm" fontWeight="bold">✅</Text>
+                      </Box>
+                      <VStack align="start" spacing={1} flex="1">
+                        <Text fontWeight="bold" fontSize="sm">Demande créée</Text>
+                        <Text fontSize="xs" color="gray.500">
+                          Par {selectedRequest.userName} • {new Date(selectedRequest.createdAt).toLocaleString()}
+                        </Text>
+                        <Text fontSize="xs">Catégorie: {categoryLabel(selectedRequest.category)}</Text>
+                      </VStack>
+                    </HStack>
+
+                    {/* Current status */}
+                    <HStack align="flex-start" spacing={4}>
+                      <Box 
+                        width="40px" 
+                        height="40px" 
+                        borderRadius="full" 
+                        bg={
+                          selectedRequest.status === 'COMPLETED' || selectedRequest.status === 'CLOSED' ? 'green.100' :
+                          selectedRequest.status === 'REJECTED' ? 'red.100' :
+                          selectedRequest.status === 'IN_PROGRESS' ? 'orange.100' :
+                          'blue.100'
+                        }
+                        display="flex" 
+                        alignItems="center" 
+                        justifyContent="center"
+                        flexShrink={0}
+                      >
+                        <Text fontSize="sm">
+                          {selectedRequest.status === 'COMPLETED' || selectedRequest.status === 'CLOSED' ? '🎉' :
+                           selectedRequest.status === 'REJECTED' ? '❌' :
+                           selectedRequest.status === 'IN_PROGRESS' ? '⏳' :
+                           selectedRequest.status === 'ASSIGNED' ? '👤' :
+                           '⏰'}
+                        </Text>
+                      </Box>
+                      <VStack align="start" spacing={2} flex="1">
+                        <HStack width="100%">
+                          <Text fontWeight="bold" fontSize="sm">
+                            Statut actuel: {selectedRequest.status}
+                          </Text>
+                          {!selectedRequest.closedAt && (
+                            <Select
+                              size="sm"
+                              width="150px"
+                              value={selectedRequest.status}
+                              onChange={(e) => handleStatusChange(e.target.value)}
+                              isDisabled={loading}
+                            >
+                              <option value="PENDING">⏳ En attente</option>
+                              <option value="ASSIGNED">👤 Assignée</option>
+                              <option value="IN_PROGRESS">🔄 En cours</option>
+                              <option value="COMPLETED">✅ Complétée</option>
+                              <option value="CLOSED">🔒 Fermée</option>
+                              <option value="REJECTED">❌ Rejetée</option>
+                            </Select>
+                          )}
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500">
+                          Mise à jour: {new Date(selectedRequest.updatedAt).toLocaleString()}
+                        </Text>
+                      </VStack>
+                    </HStack>
+
+                    {/* Coûts estimés */}
+                    {(selectedRequest.estimatedCost || selectedRequest.actualCost) && (
+                      <HStack align="flex-start" spacing={4}>
+                        <Box width="40px" height="40px" borderRadius="full" bg="yellow.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                          <Text fontSize="sm">💰</Text>
+                        </Box>
+                        <VStack align="start" spacing={1} flex="1">
+                          <Text fontWeight="bold" fontSize="sm">Coûts</Text>
+                          {selectedRequest.estimatedCost && (
+                            <Text fontSize="xs">Estimé: {selectedRequest.estimatedCost}€</Text>
+                          )}
+                          {selectedRequest.actualCost && (
+                            <Text fontSize="xs">Réel: {selectedRequest.actualCost}€</Text>
+                          )}
+                        </VStack>
+                      </HStack>
+                    )}
+
+                    {/* Notes */}
+                    {selectedRequest.notes && (
+                      <HStack align="flex-start" spacing={4}>
+                        <Box width="40px" height="40px" borderRadius="full" bg="purple.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                          <Text fontSize="sm">📝</Text>
+                        </Box>
+                        <VStack align="start" spacing={1} flex="1">
+                          <Text fontWeight="bold" fontSize="sm">Remarques</Text>
+                          <Text fontSize="xs" whiteSpace="pre-wrap">{selectedRequest.notes}</Text>
+                        </VStack>
+                      </HStack>
+                    )}
+                  </VStack>
+                </Box>
+
+                {/* Documents liés (Devis & Factures) */}
+                <Box width="100%">
+                  <Heading size="sm" mb={4}>📄 Documents associés</Heading>
+                  <VStack align="stretch" spacing={2}>
+                    <Button size="sm" variant="outline" leftIcon={<FiFileText />}>
+                      Créer un devis
+                    </Button>
+                    <Button size="sm" variant="outline" leftIcon={<FiFileText />}>
+                      Créer une facture
+                    </Button>
+                    <Text fontSize="xs" color="gray.500" mt={2}>
+                      Les devis et factures associés à cette demande apparaîtront ici
+                    </Text>
+                  </VStack>
+                </Box>
               </VStack>
             )}
           </ModalBody>
+
+          <ModalFooter>
+            <HStack spacing={2}>
+              <Button variant="outline" onClick={onPreviewClose}>
+                Fermer
+              </Button>
+            </HStack>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </>
@@ -965,3 +1115,5 @@ const RetroDemandes = () => {
 };
 
 export default RetroDemandes;
+
+```
