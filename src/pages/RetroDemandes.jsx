@@ -1,9 +1,9 @@
-/**
- * Page RétroDemandes unifiée
- * - Onglet "RétroDemande" : pour TOUS (clients/partenaires/adhérents)
- * - Onglet "Récapitulatif" : pour ADHÉRENTS avec rôle PRÉSIDENT, VICE-PRÉSIDENT ou TRÉSORIER
- * - Style cohérent avec Finance
- * - Optimisée pour mobile
+﻿/**
+ * Page RÃ©troDemandes unifiÃ©e
+ * - Onglet "RÃ©troDemande" : pour TOUS (clients/partenaires/adhÃ©rents)
+ * - Onglet "RÃ©capitulatif" : pour ADHÃ‰RENTS avec rÃ´le PRÃ‰SIDENT, VICE-PRÃ‰SIDENT ou TRÃ‰SORIER
+ * - Style cohÃ©rent avec Finance
+ * - OptimisÃ©e pour mobile
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -68,12 +68,16 @@ const RetroDemandes = () => {
   const { user } = useUser();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
+  const { isOpen: isLinkDevisOpen, onOpen: onLinkDevisOpen, onClose: onLinkDevisClose } = useDisclosure();
+  const { isOpen: isLinkFactureOpen, onOpen: onLinkFactureOpen, onClose: onLinkFactureClose } = useDisclosure();
   
   const [requests, setRequests] = useState([]);
   const [allRequests, setAllRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [devis, setDevis] = useState([]);
+  const [factures, setFactures] = useState([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -83,7 +87,7 @@ const RetroDemandes = () => {
   });
   const [uploadedFiles, setUploadedFiles] = useState([]);
 
-  // Vérifier si l'utilisateur peut accéder à l'onglet Récapitulatif
+  // VÃ©rifier si l'utilisateur peut accÃ©der Ã  l'onglet RÃ©capitulatif
   const canViewRecap = useCallback(() => {
     if (!user) return false;
     const roles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
@@ -115,7 +119,7 @@ const RetroDemandes = () => {
     }
   }, [toast]);
 
-  // Charger toutes les demandes (pour récapitulatif)
+  // Charger toutes les demandes (pour rÃ©capitulatif)
   const loadAllRequests = useCallback(async () => {
     if (!canViewRecap()) return;
     try {
@@ -145,7 +149,7 @@ const RetroDemandes = () => {
     }
   }, [loadMyRequests, loadAllRequests, canViewRecap]);
 
-  // Créer une nouvelle demande
+  // CrÃ©er une nouvelle demande
   const handleSubmit = async (e) => {
     e?.preventDefault();
     
@@ -166,16 +170,16 @@ const RetroDemandes = () => {
         await apiClient.put(`/api/retro-requests/${editingId}`, formData);
         requestId = editingId;
         toast({
-          title: "Succès",
-          description: "Demande modifiée",
+          title: "SuccÃ¨s",
+          description: "Demande modifiÃ©e",
           status: "success"
         });
       } else {
         const response = await apiClient.post("/api/retro-requests", formData);
         requestId = response.request.id;
         toast({
-          title: "Succès",
-          description: "Demande créée",
+          title: "SuccÃ¨s",
+          description: "Demande crÃ©Ã©e",
           status: "success"
         });
       }
@@ -226,14 +230,14 @@ const RetroDemandes = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette demande ?")) return;
+    if (!window.confirm("ÃŠtes-vous sÃ»r de vouloir supprimer cette demande ?")) return;
     
     try {
       setLoading(true);
       await apiClient.delete(`/api/retro-requests/${id}`);
       toast({
-        title: "Succès",
-        description: "Demande supprimée",
+        title: "SuccÃ¨s",
+        description: "Demande supprimÃ©e",
         status: "success"
       });
       await loadMyRequests();
@@ -259,11 +263,11 @@ const RetroDemandes = () => {
         reason: "Changement de statut"
       });
       toast({
-        title: "Succès",
-        description: "Statut modifié",
+        title: "SuccÃ¨s",
+        description: "Statut modifiÃ©",
         status: "success"
       });
-      // Mettre à jour selectedRequest avec le nouveau statut
+      // Mettre Ã  jour selectedRequest avec le nouveau statut
       setSelectedRequest({
         ...selectedRequest,
         status: newStatus
@@ -311,8 +315,8 @@ const RetroDemandes = () => {
         const data = await response.json();
         setUploadedFiles([...uploadedFiles, data.file]);
         toast({
-          title: "Succès",
-          description: `${file.name} uploadé`,
+          title: "SuccÃ¨s",
+          description: `${file.name} uploadÃ©`,
           status: "success"
         });
       }
@@ -333,18 +337,18 @@ const RetroDemandes = () => {
   };
 
   const handleDeleteFile = async (requestId, fileId) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce fichier ?")) return;
+    if (!window.confirm("ÃŠtes-vous sÃ»r de vouloir supprimer ce fichier ?")) return;
 
     try {
       setLoading(true);
       await apiClient.delete(`/api/retro-requests/${requestId}/files/${fileId}`);
       toast({
-        title: "Succès",
-        description: "Fichier supprimé",
+        title: "SuccÃ¨s",
+        description: "Fichier supprimÃ©",
         status: "success"
       });
       
-      // Mettre à jour la liste des fichiers
+      // Mettre Ã  jour la liste des fichiers
       if (selectedRequest) {
         const updatedRequest = {
           ...selectedRequest,
@@ -367,12 +371,12 @@ const RetroDemandes = () => {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      PENDING: { label: "⏳ En attente", color: "orange" },
-      ASSIGNED: { label: "👤 Assignée", color: "blue" },
-      IN_PROGRESS: { label: "🔄 En cours", color: "blue" },
-      COMPLETED: { label: "✅ Complétée", color: "green" },
-      CLOSED: { label: "🔒 Fermée", color: "gray" },
-      REJECTED: { label: "❌ Rejetée", color: "red" }
+      PENDING: { label: "â³ En attente", color: "orange" },
+      ASSIGNED: { label: "ðŸ‘¤ AssignÃ©e", color: "blue" },
+      IN_PROGRESS: { label: "ðŸ”„ En cours", color: "blue" },
+      COMPLETED: { label: "âœ… ComplÃ©tÃ©e", color: "green" },
+      CLOSED: { label: "ðŸ”’ FermÃ©e", color: "gray" },
+      REJECTED: { label: "âŒ RejetÃ©e", color: "red" }
     };
     const s = statusMap[status] || { label: status, color: "gray" };
     return <Badge colorScheme={s.color}>{s.label}</Badge>;
@@ -380,11 +384,11 @@ const RetroDemandes = () => {
 
   const categoryLabel = (cat) => {
     const cats = {
-      GENERAL: "Général",
-      REPAIR: "Réparation",
+      GENERAL: "GÃ©nÃ©ral",
+      REPAIR: "RÃ©paration",
       MAINTENANCE: "Maintenance",
       SERVICE: "Service",
-      CUSTOM: "Personnalisé"
+      CUSTOM: "PersonnalisÃ©"
     };
     return cats[cat] || cat;
   };
@@ -398,7 +402,7 @@ const RetroDemandes = () => {
         <CardHeader pb={0}>
           <VStack align="flex-start" spacing={1}>
             <Heading size="md">Mes demandes</Heading>
-            <Text color="gray.600">Suivez, modifiez ou créez vos RétroDemandes.</Text>
+            <Text color="gray.600">Suivez, modifiez ou crÃ©ez vos RÃ©troDemandes.</Text>
           </VStack>
         </CardHeader>
         <CardBody>
@@ -415,7 +419,7 @@ const RetroDemandes = () => {
                 leftIcon={<FiPlus />}
                 onClick={handleNew}
               >
-                Créer une demande
+                CrÃ©er une demande
               </Button>
             </Box>
           ) : isMobile ? (
@@ -443,7 +447,7 @@ const RetroDemandes = () => {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleViewDetails(req)}
-                          title="Voir détails"
+                          title="Voir dÃ©tails"
                         />
                         {req.status === "PENDING" && (
                           <>
@@ -453,7 +457,7 @@ const RetroDemandes = () => {
                               variant="ghost"
                               colorScheme="blue"
                               onClick={() => handleEdit(req)}
-                              title="Éditer"
+                              title="Ã‰diter"
                             />
                             <IconButton
                               icon={<DeleteIcon />}
@@ -477,8 +481,8 @@ const RetroDemandes = () => {
                 <Thead>
                   <Tr>
                     <Th>Titre</Th>
-                    <Th>Catégorie</Th>
-                    <Th>Priorité</Th>
+                    <Th>CatÃ©gorie</Th>
+                    <Th>PrioritÃ©</Th>
                     <Th>Statut</Th>
                     <Th>Date</Th>
                     <Th>Actions</Th>
@@ -515,7 +519,7 @@ const RetroDemandes = () => {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleViewDetails(req)}
-                            title="Voir détails"
+                            title="Voir dÃ©tails"
                           />
                           {req.status === "PENDING" && (
                             <>
@@ -525,7 +529,7 @@ const RetroDemandes = () => {
                                 variant="ghost"
                                 colorScheme="blue"
                                 onClick={() => handleEdit(req)}
-                                title="Éditer"
+                                title="Ã‰diter"
                               />
                               <IconButton
                                 icon={<DeleteIcon />}
@@ -555,8 +559,8 @@ const RetroDemandes = () => {
       <Card>
         <CardHeader pb={0}>
           <VStack align="flex-start" spacing={1}>
-            <Heading size="md">Récapitulatif global</Heading>
-            <Text color="gray.600">Vue consolidée pour le bureau.</Text>
+            <Heading size="md">RÃ©capitulatif global</Heading>
+            <Text color="gray.600">Vue consolidÃ©e pour le bureau.</Text>
           </VStack>
         </CardHeader>
         <CardBody>
@@ -594,7 +598,7 @@ const RetroDemandes = () => {
                           variant="ghost"
                           colorScheme="blue"
                           onClick={() => handleViewDetails(req)}
-                          title="Voir détails et suivi"
+                          title="Voir dÃ©tails et suivi"
                         />
                       </HStack>
                     </VStack>
@@ -609,8 +613,8 @@ const RetroDemandes = () => {
                   <Tr>
                     <Th>Titre</Th>
                     <Th>Utilisateur</Th>
-                    <Th>Catégorie</Th>
-                    <Th>Priorité</Th>
+                    <Th>CatÃ©gorie</Th>
+                    <Th>PrioritÃ©</Th>
                     <Th>Statut</Th>
                     <Th>Date</Th>
                     <Th>Actions</Th>
@@ -648,7 +652,7 @@ const RetroDemandes = () => {
                           variant="ghost"
                           colorScheme="blue"
                           onClick={() => handleViewDetails(req)}
-                          title="Voir détails et suivi"
+                          title="Voir dÃ©tails et suivi"
                         />
                       </Td>
                     </Tr>
@@ -667,7 +671,7 @@ const RetroDemandes = () => {
       id: "my-requests",
       label: "Mes demandes",
       icon: FiFileText,
-      description: "Création & suivi",
+      description: "CrÃ©ation & suivi",
       render: renderMyRequestsSection
     }
   ];
@@ -675,7 +679,7 @@ const RetroDemandes = () => {
   if (canViewRecap()) {
     sections.push({
       id: "recap",
-      label: "Récapitulatif",
+      label: "RÃ©capitulatif",
       icon: FiDownload,
       description: "Vue bureau",
       render: renderRecapSection
@@ -697,14 +701,14 @@ const RetroDemandes = () => {
   return (
     <>
       <WorkspaceLayout
-        title="RétroDemandes"
+        title="RÃ©troDemandes"
         subtitle="Gestion de vos demandes et suivi global"
         sections={sections}
         defaultSectionId="my-requests"
-        sidebarTitle="RétroDemandes"
+        sidebarTitle="RÃ©troDemandes"
         sidebarSubtitle="Support & demandes"
         sidebarTitleIcon={FiFileText}
-        versionLabel="RétroDemandes v2"
+        versionLabel="RÃ©troDemandes v2"
         headerActions={headerActions}
       />
 
@@ -731,7 +735,7 @@ const RetroDemandes = () => {
               <FormControl isRequired>
                 <FormLabel>Description</FormLabel>
                 <Textarea
-                  placeholder="Détails de votre demande"
+                  placeholder="DÃ©tails de votre demande"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
@@ -742,23 +746,23 @@ const RetroDemandes = () => {
 
               <Grid templateColumns="1fr 1fr" gap={4} width="100%">
                 <FormControl>
-                  <FormLabel>Catégorie</FormLabel>
+                  <FormLabel>CatÃ©gorie</FormLabel>
                   <Select
                     value={formData.category}
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value })
                     }
                   >
-                    <option value="GENERAL">Général</option>
-                    <option value="REPAIR">Réparation</option>
+                    <option value="GENERAL">GÃ©nÃ©ral</option>
+                    <option value="REPAIR">RÃ©paration</option>
                     <option value="MAINTENANCE">Maintenance</option>
                     <option value="SERVICE">Service</option>
-                    <option value="CUSTOM">Personnalisé</option>
+                    <option value="CUSTOM">PersonnalisÃ©</option>
                   </Select>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Priorité</FormLabel>
+                  <FormLabel>PrioritÃ©</FormLabel>
                   <Select
                     value={formData.priority}
                     onChange={(e) =>
@@ -767,7 +771,7 @@ const RetroDemandes = () => {
                   >
                     <option value="LOW">Basse</option>
                     <option value="NORMAL">Normal</option>
-                    <option value="HIGH">Élevée</option>
+                    <option value="HIGH">Ã‰levÃ©e</option>
                     <option value="URGENT">Urgent</option>
                   </Select>
                 </FormControl>
@@ -779,7 +783,7 @@ const RetroDemandes = () => {
                 <VStack align="stretch" spacing={3}>
                   <HStack>
                     <FiUpload />
-                    <FormLabel mb={0} fontWeight="bold">Pièces jointes</FormLabel>
+                    <FormLabel mb={0} fontWeight="bold">PiÃ¨ces jointes</FormLabel>
                   </HStack>
                   
                   <Input
@@ -799,13 +803,13 @@ const RetroDemandes = () => {
                         setUploadedFiles([...uploadedFiles, ...newFiles]);
                       }
                     }}
-                    placeholder="Sélectionner des fichiers"
+                    placeholder="SÃ©lectionner des fichiers"
                   />
 
                   {uploadedFiles.length > 0 && (
                     <VStack align="stretch" spacing={2} mt={3}>
                       <Text fontSize="sm" fontWeight="bold">
-                        Fichiers sélectionnés ({uploadedFiles.length}):
+                        Fichiers sÃ©lectionnÃ©s ({uploadedFiles.length}):
                       </Text>
                       {uploadedFiles.map((file) => (
                         <HStack key={file.id} justify="space-between" p={2} bg="white" borderRadius="md" borderWidth="1px">
@@ -847,7 +851,7 @@ const RetroDemandes = () => {
                 onClick={handleSubmit}
                 isLoading={loading}
               >
-                {editingId ? "Modifier" : "Créer"}
+                {editingId ? "Modifier" : "CrÃ©er"}
               </Button>
             </HStack>
           </ModalFooter>
@@ -857,7 +861,7 @@ const RetroDemandes = () => {
       <Modal isOpen={isPreviewOpen} onClose={onPreviewClose} size="4xl">
         <ModalOverlay />
         <ModalContent maxH="90vh">
-          <ModalHeader>Détails et suivi de la demande</ModalHeader>
+          <ModalHeader>DÃ©tails et suivi de la demande</ModalHeader>
           <ModalCloseButton />
           <ModalBody overflowY="auto">
             {selectedRequest && (
@@ -885,13 +889,13 @@ const RetroDemandes = () => {
                   </Box>
                   <Box>
                     <Text fontWeight="bold" fontSize="sm">
-                      Catégorie:
+                      CatÃ©gorie:
                     </Text>
                     <Text>{categoryLabel(selectedRequest.category)}</Text>
                   </Box>
                   <Box>
                     <Text fontWeight="bold" fontSize="sm">
-                      Priorité:
+                      PrioritÃ©:
                     </Text>
                     <Text>{selectedRequest.priority}</Text>
                   </Box>
@@ -918,12 +922,12 @@ const RetroDemandes = () => {
                       onChange={(e) => handleStatusChange(e.target.value)}
                       isDisabled={loading}
                     >
-                      <option value="PENDING">⏳ En attente</option>
-                      <option value="ASSIGNED">👤 Assignée</option>
-                      <option value="IN_PROGRESS">🔄 En cours</option>
-                      <option value="COMPLETED">✅ Complétée</option>
-                      <option value="CLOSED">🔒 Fermée</option>
-                      <option value="REJECTED">❌ Rejetée</option>
+                      <option value="PENDING">â³ En attente</option>
+                      <option value="ASSIGNED">ðŸ‘¤ AssignÃ©e</option>
+                      <option value="IN_PROGRESS">ðŸ”„ En cours</option>
+                      <option value="COMPLETED">âœ… ComplÃ©tÃ©e</option>
+                      <option value="CLOSED">ðŸ”’ FermÃ©e</option>
+                      <option value="REJECTED">âŒ RejetÃ©e</option>
                     </Select>
                   </HStack>
                 </Box>
@@ -933,7 +937,7 @@ const RetroDemandes = () => {
                     <Divider />
                     <Box width="100%">
                       <Text fontWeight="bold" fontSize="sm" mb={3}>
-                        📎 Pièces jointes ({selectedRequest.retro_request_file.length})
+                        ðŸ“Ž PiÃ¨ces jointes ({selectedRequest.retro_request_file.length})
                       </Text>
                       <VStack align="stretch" spacing={2}>
                         {selectedRequest.retro_request_file.map((file) => (
@@ -945,7 +949,7 @@ const RetroDemandes = () => {
                                   {file.fileName}
                                 </Text>
                                 <Text fontSize="xs" color="gray.500">
-                                  {(file.fileSize / 1024).toFixed(2)} KB • {new Date(file.uploadedAt).toLocaleDateString()}
+                                  {(file.fileSize / 1024).toFixed(2)} KB â€¢ {new Date(file.uploadedAt).toLocaleDateString()}
                                 </Text>
                               </VStack>
                             </HStack>
@@ -958,7 +962,7 @@ const RetroDemandes = () => {
                                 as="a"
                                 href={file.filePath}
                                 download
-                                aria-label="Télécharger"
+                                aria-label="TÃ©lÃ©charger"
                               />
                               <IconButton
                                 icon={<FiX />}
@@ -980,18 +984,18 @@ const RetroDemandes = () => {
                 <Divider />
 
                 <Box width="100%">
-                  <Heading size="sm" mb={4}>📋 Suivi de la demande</Heading>
+                  <Heading size="sm" mb={4}>ðŸ“‹ Suivi de la demande</Heading>
                   <VStack align="stretch" spacing={3}>
                     <HStack align="flex-start" spacing={4}>
                       <Box width="40px" height="40px" borderRadius="full" bg="blue.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-                        <Text fontSize="sm" fontWeight="bold">✅</Text>
+                        <Text fontSize="sm" fontWeight="bold">âœ…</Text>
                       </Box>
                       <VStack align="start" spacing={1} flex="1">
-                        <Text fontWeight="bold" fontSize="sm">Demande créée</Text>
+                        <Text fontWeight="bold" fontSize="sm">Demande crÃ©Ã©e</Text>
                         <Text fontSize="xs" color="gray.500">
-                          Par {selectedRequest.userName} • {new Date(selectedRequest.createdAt).toLocaleString()}
+                          Par {selectedRequest.userName} â€¢ {new Date(selectedRequest.createdAt).toLocaleString()}
                         </Text>
-                        <Text fontSize="xs">Catégorie: {categoryLabel(selectedRequest.category)}</Text>
+                        <Text fontSize="xs">CatÃ©gorie: {categoryLabel(selectedRequest.category)}</Text>
                       </VStack>
                     </HStack>
 
@@ -1012,11 +1016,11 @@ const RetroDemandes = () => {
                         flexShrink={0}
                       >
                         <Text fontSize="sm">
-                          {selectedRequest.status === 'COMPLETED' || selectedRequest.status === 'CLOSED' ? '🎉' :
-                           selectedRequest.status === 'REJECTED' ? '❌' :
-                           selectedRequest.status === 'IN_PROGRESS' ? '⏳' :
-                           selectedRequest.status === 'ASSIGNED' ? '👤' :
-                           '⏰'}
+                          {selectedRequest.status === 'COMPLETED' || selectedRequest.status === 'CLOSED' ? 'ðŸŽ‰' :
+                           selectedRequest.status === 'REJECTED' ? 'âŒ' :
+                           selectedRequest.status === 'IN_PROGRESS' ? 'â³' :
+                           selectedRequest.status === 'ASSIGNED' ? 'ðŸ‘¤' :
+                           'â°'}
                         </Text>
                       </Box>
                       <VStack align="start" spacing={2} flex="1">
@@ -1032,17 +1036,17 @@ const RetroDemandes = () => {
                               onChange={(e) => handleStatusChange(e.target.value)}
                               isDisabled={loading}
                             >
-                              <option value="PENDING">⏳ En attente</option>
-                              <option value="ASSIGNED">👤 Assignée</option>
-                              <option value="IN_PROGRESS">🔄 En cours</option>
-                              <option value="COMPLETED">✅ Complétée</option>
-                              <option value="CLOSED">🔒 Fermée</option>
-                              <option value="REJECTED">❌ Rejetée</option>
+                              <option value="PENDING">â³ En attente</option>
+                              <option value="ASSIGNED">ðŸ‘¤ AssignÃ©e</option>
+                              <option value="IN_PROGRESS">ðŸ”„ En cours</option>
+                              <option value="COMPLETED">âœ… ComplÃ©tÃ©e</option>
+                              <option value="CLOSED">ðŸ”’ FermÃ©e</option>
+                              <option value="REJECTED">âŒ RejetÃ©e</option>
                             </Select>
                           )}
                         </HStack>
                         <Text fontSize="xs" color="gray.500">
-                          Mise à jour: {new Date(selectedRequest.updatedAt).toLocaleString()}
+                          Mise Ã  jour: {new Date(selectedRequest.updatedAt).toLocaleString()}
                         </Text>
                       </VStack>
                     </HStack>
@@ -1050,63 +1054,17 @@ const RetroDemandes = () => {
                     {(selectedRequest.estimatedCost || selectedRequest.actualCost) && (
                       <HStack align="flex-start" spacing={4}>
                         <Box width="40px" height="40px" borderRadius="full" bg="yellow.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-                          <Text fontSize="sm">💰</Text>
+                          <Text fontSize="sm">ðŸ’°</Text>
                         </Box>
                         <VStack align="start" spacing={1} flex="1">
-                          <Text fontWeight="bold" fontSize="sm">Coûts</Text>
+                          <Text fontWeight="bold" fontSize="sm">CoÃ»ts</Text>
                           {selectedRequest.estimatedCost && (
-                            <Text fontSize="xs">Estimé: {selectedRequest.estimatedCost}€</Text>
+                            <Text fontSize="xs">EstimÃ©: {selectedRequest.estimatedCost}â‚¬</Text>
                           )}
                           {selectedRequest.actualCost && (
-                            <Text fontSize="xs">Réel: {selectedRequest.actualCost}€</Text>
+                            <Text fontSize="xs">RÃ©el: {selectedRequest.actualCost}â‚¬</Text>
                           )}
                         </VStack>
                       </HStack>
-                    )}
-
-                    {selectedRequest.notes && (
-                      <HStack align="flex-start" spacing={4}>
-                        <Box width="40px" height="40px" borderRadius="full" bg="purple.100" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-                          <Text fontSize="sm">📝</Text>
-                        </Box>
-                        <VStack align="start" spacing={1} flex="1">
-                          <Text fontWeight="bold" fontSize="sm">Remarques</Text>
-                          <Text fontSize="xs" whiteSpace="pre-wrap">{selectedRequest.notes}</Text>
-                        </VStack>
-                      </HStack>
-                    )}
-                  </VStack>
-                </Box>
-
-                <Box width="100%">
-                  <Heading size="sm" mb={4}>📄 Documents associés</Heading>
-                  <VStack align="stretch" spacing={2}>
-                    <Button size="sm" variant="outline" leftIcon={<FiFileText />}>
-                      Créer un devis
-                    </Button>
-                    <Button size="sm" variant="outline" leftIcon={<FiFileText />}>
-                      Créer une facture
-                    </Button>
-                    <Text fontSize="xs" color="gray.500" mt={2}>
-                      Les devis et factures associés à cette demande apparaîtront ici
-                    </Text>
-                  </VStack>
-                </Box>
-              </VStack>
-            )}
-          </ModalBody>
-
-          <ModalFooter>
-            <HStack spacing={2}>
-              <Button variant="outline" onClick={onPreviewClose}>
-                Fermer
-              </Button>
-            </HStack>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    </>
-  );
-};
 
 export default RetroDemandes;
