@@ -130,6 +130,16 @@ const AccessManagement = () => {
   });
   const [isCreating, setIsCreating] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    role: 'USER'
+  });
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const [userToDelete, setUserToDelete] = useState(null);
 
   useEffect(() => {
     loadUsers();
@@ -235,6 +245,95 @@ const AccessManagement = () => {
     onOpen();
   };
 
+  const handleOpenEditModal = (user) => {
+    setEditingUserId(user.id);
+    setEditFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      role: user.role || 'USER'
+    });
+    onEditOpen();
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editFormData.firstName || !editFormData.lastName) {
+      toast({
+        title: 'Erreur',
+        description: 'Le prénom et le nom sont requis',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      setIsEditingUser(true);
+      await apiClient.put(`/api/admin/users/${editingUserId}`, {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        role: editFormData.role
+      });
+
+      toast({
+        title: 'Succès',
+        description: 'Utilisateur modifié avec succès',
+        status: 'success',
+        duration: 3000,
+      });
+
+      setEditingUserId(null);
+      setEditFormData({
+        firstName: '',
+        lastName: '',
+        role: 'USER'
+      });
+      onEditClose();
+      await loadUsers();
+    } catch (error) {
+      console.error('Erreur modification user:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de modifier l\'utilisateur',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setIsEditingUser(false);
+    }
+  };
+
+  const handleOpenDeleteModal = (user) => {
+    setUserToDelete(user);
+    onDeleteOpen();
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await apiClient.delete(`/api/admin/users/${userToDelete.id}`);
+
+      toast({
+        title: 'Succès',
+        description: 'Utilisateur supprimé avec succès',
+        status: 'success',
+        duration: 3000,
+      });
+
+      setUserToDelete(null);
+      onDeleteClose();
+      await loadUsers();
+    } catch (error) {
+      console.error('Erreur suppression user:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de supprimer l\'utilisateur',
+        status: 'error',
+        duration: 3000,
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Center py={20}>
@@ -273,6 +372,7 @@ const AccessManagement = () => {
                   <Th>Matricule</Th>
                   <Th>Rôle</Th>
                   <Th>Créé</Th>
+                  <Th>Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -292,6 +392,28 @@ const AccessManagement = () => {
                     </Td>
                     <Td fontSize="sm">
                       {user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : '-'}
+                    </Td>
+                    <Td>
+                      <HStack spacing={2}>
+                        <Tooltip label="Modifier">
+                          <IconButton
+                            size="sm"
+                            icon={<FiEdit />}
+                            variant="ghost"
+                            colorScheme="blue"
+                            onClick={() => handleOpenEditModal(user)}
+                          />
+                        </Tooltip>
+                        <Tooltip label="Supprimer">
+                          <IconButton
+                            size="sm"
+                            icon={<FiTrash2 />}
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => handleOpenDeleteModal(user)}
+                          />
+                        </Tooltip>
+                      </HStack>
                     </Td>
                   </Tr>
                 ))}
@@ -414,6 +536,81 @@ const AccessManagement = () => {
             <Button variant="ghost" mr={3} onClick={onClose}>Annuler</Button>
             <Button colorScheme="blue" isLoading={isCreating} onClick={handleCreateUser}>
               Créer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal d'édition */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} isCentered size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Modifier l'utilisateur</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Prénom</FormLabel>
+                <Input
+                  placeholder="Prénom"
+                  value={editFormData.firstName}
+                  onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})}
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Nom</FormLabel>
+                <Input
+                  placeholder="Nom"
+                  value={editFormData.lastName}
+                  onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Rôle</FormLabel>
+                <Select
+                  value={editFormData.role}
+                  onChange={(e) => setEditFormData({...editFormData, role: e.target.value})}
+                >
+                  <option value="USER">Utilisateur</option>
+                  <option value="PARTENAIRE">Partenaire</option>
+                  <option value="ADMIN">Administrateur</option>
+                </Select>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditClose}>Annuler</Button>
+            <Button colorScheme="blue" isLoading={isEditingUser} onClick={handleSaveEdit}>
+              Enregistrer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal de confirmation de suppression */}
+      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Confirmer la suppression</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Alert status="warning" borderRadius="md" mb={4}>
+              <AlertIcon />
+              Êtes-vous sûr de vouloir supprimer cet utilisateur ?
+            </Alert>
+            {userToDelete && (
+              <VStack align="start" spacing={2}>
+                <Text><b>Utilisateur:</b> {displayNameFromUser(userToDelete)}</Text>
+                <Text><b>Email:</b> {userToDelete.email}</Text>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onDeleteClose}>Annuler</Button>
+            <Button colorScheme="red" onClick={handleDeleteUser}>
+              Supprimer
             </Button>
           </ModalFooter>
         </ModalContent>
