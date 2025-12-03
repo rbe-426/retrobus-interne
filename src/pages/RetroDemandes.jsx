@@ -1550,7 +1550,7 @@ const RetroDemandes = () => {
                               selectedRequest.status
                             }
                           </Text>
-                          {!selectedRequest.closedAt && (
+                          {!selectedRequest.closedAt && isUserAdmin() && (
                             <Select
                               size="sm"
                               width="150px"
@@ -1699,8 +1699,6 @@ const RetroDemandes = () => {
           </ModalBody>
         </ModalContent>
       </Modal>
-
-      {/* Modal for linking devis */}
       <Modal isOpen={isLinkDevisOpen} onClose={onLinkDevisClose} size="2xl">
         <ModalOverlay />
         <ModalContent>
