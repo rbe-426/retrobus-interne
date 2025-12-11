@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useContext } from "react";
 import {
   FiDollarSign,
   FiTrendingUp,
@@ -23,7 +23,7 @@ import ExpenseReports from "../components/Finance/ExpenseReports";
 import ExpenseReportsManagement from "../components/Finance/ExpenseReportsManagement";
 import Simulations from "../components/Finance/Simulations";
 import { useFinanceData } from "../hooks/useFinanceData";
-import { useAuth } from "../hooks/useAuth"; // Hook pour récupérer l'utilisateur courant
+import { UserContext } from "../context/UserContext";
 
 /**
  * FinanceNew - Nouvelle page Finance avec sidebar navigation
@@ -33,14 +33,14 @@ import { useAuth } from "../hooks/useAuth"; // Hook pour récupérer l'utilisate
 const FinanceNew = () => {
   // Charger les données Finance une fois au mount
   const { loadFinanceData } = useFinanceData();
-  const { currentUser } = useAuth(); // Récupérer l'utilisateur pour vérifier les droits
+  const { user } = useContext(UserContext); // Récupérer l'utilisateur pour vérifier les droits
 
   useEffect(() => {
     loadFinanceData();
   }, [loadFinanceData]);
 
   // Vérifier si l'utilisateur a accès à la gestion des notes
-  const hasExpenseReportsManagementAccess = currentUser?.roles?.some(role =>
+  const hasExpenseReportsManagementAccess = user?.roles?.some(role =>
     ["PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
   );
 
@@ -83,7 +83,7 @@ const FinanceNew = () => {
             label: "Gestion des notes",
             icon: FiShoppingCart,
             render: () => (
-              <ExpenseReportsManagement currentUser={currentUser} />
+              <ExpenseReportsManagement currentUser={user} />
             )
           }
         ]
