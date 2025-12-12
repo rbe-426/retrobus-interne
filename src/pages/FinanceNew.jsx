@@ -41,7 +41,7 @@ const FinanceNew = () => {
 
   // Vérifier si l'utilisateur a accès à la gestion des notes
   const hasExpenseReportsManagementAccess = roles?.some(role =>
-    ["PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
+    ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
   );
 
   const sections = [
