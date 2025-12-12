@@ -582,7 +582,7 @@ export const useFinanceData = (currentUser = null) => {
           });
           if (schedRes.ok) {
             const schedData = await schedRes.json();
-            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.scheduledOperations || []);
+            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.operations || schedData.scheduledOperations || []);
           }
         } catch (err) {
           console.warn("⚠️ Erreur rechargement opérations programmées:", err.message);
@@ -639,7 +639,7 @@ export const useFinanceData = (currentUser = null) => {
           });
           if (schedRes.ok) {
             const schedData = await schedRes.json();
-            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.scheduledOperations || []);
+            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.operations || schedData.scheduledOperations || []);
           }
         } catch (err) {
           console.warn("⚠️ Erreur rechargement opérations programmées:", err.message);
