@@ -5,10 +5,12 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Alert, AlertIcon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, FormControl, FormLabel, Input, NumberInput,
   NumberInputField, NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper,
-  Select, useDisclosure, Spinner, Flex, Tooltip, Progress
+  Select, useDisclosure, Spinner, Flex, Tooltip, Progress, Menu, MenuButton, MenuList, MenuItem, MenuDivider
 } from "@chakra-ui/react";
-import { FiCheck, FiX, FiPlus, FiTrash2, FiClock, FiTrendingUp } from "react-icons/fi";
+import { FiCheck, FiX, FiPlus, FiTrash2, FiClock, FiTrendingUp, FiMoreVertical } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 /**
  * ScheduledOperations - Opérations programmées avec progression visuelle
@@ -33,8 +35,16 @@ const FinanceScheduledOps = () => {
     nextDate: new Date().toISOString().split("T")[0],
     totalAmount: ""
   });
+  
+  // State pour ajouter un paiement supplémentaire
+  const [selectedOperationId, setSelectedOperationId] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [isAddingPayment, setIsAddingPayment] = useState(false);
+  
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isPaymentOpen, onOpen: onPaymentOpen, onClose: onPaymentClose } = useDisclosure();
 
   // Charger les données au montage du composant
   useEffect(() => {
@@ -100,6 +110,64 @@ const FinanceScheduledOps = () => {
     }
   }, [deleteScheduledOperation, toast, loadFinanceData]);
 
+  const handleAddPayment = useCallback(async () => {
+    if (!paymentAmount || !selectedOperationId) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir un montant",
+        status: "error"
+      });
+      return;
+    }
+
+    setIsAddingPayment(true);
+    try {
+      const operation = scheduledOperations.find(op => op.id === selectedOperationId);
+      if (!operation) throw new Error("Opération introuvable");
+
+      // Décrémenter remainingTotalAmount du montant payé
+      const newRemaining = Math.max(
+        (operation.remainingTotalAmount ?? operation.totalAmount) - parseFloat(paymentAmount),
+        0
+      );
+
+      // Mettre à jour l'opération
+      await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({
+          ...operation,
+          remainingTotalAmount: newRemaining
+        })
+      });
+
+      setPaymentAmount("");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      onPaymentClose();
+      
+      toast({
+        title: "Paiement enregistré",
+        status: "success",
+        duration: 2000,
+        isClosable: true
+      });
+      
+      // Recharger les données
+      await loadFinanceData();
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'enregistrer le paiement",
+        status: "error"
+      });
+    } finally {
+      setIsAddingPayment(false);
+    }
+  }, [paymentAmount, selectedOperationId, scheduledOperations, toast, loadFinanceData]);
+
   const handleToggle = async (id, currentStatus) => {
     try {
       await toggleScheduledOperation(id, currentStatus);
@@ -128,10 +196,13 @@ const FinanceScheduledOps = () => {
       Number.isFinite(operation.totalAmount) &&
       operation.totalAmount > 0
     ) {
-      const paid = Math.max(
-        operation.totalAmount - (operation.remainingTotalAmount || 0),
-        0
-      );
+      // remainingTotalAmount = ce qui reste à payer
+      // Au départ, remainingTotalAmount = totalAmount (rien n'a été payé)
+      // Donc: progress = 0%
+      // Après 1er paiement: remainingTotalAmount = totalAmount - amount
+      // Donc: progress = amount / totalAmount
+      const remaining = operation.remainingTotalAmount ?? operation.totalAmount;
+      const paid = Math.max(operation.totalAmount - remaining, 0);
       return Math.min(1, paid / operation.totalAmount);
     }
 
@@ -140,9 +211,9 @@ const FinanceScheduledOps = () => {
       Number.isFinite(operation.plannedCountYear) &&
       operation.plannedCountYear > 0
     ) {
+      const remainingCount = operation.remainingCountYear ?? 0;
       const paidCount = Math.max(
-        (operation.plannedCountYear || 0) -
-          (operation.remainingCountYear || 0),
+        (operation.plannedCountYear || 0) - remainingCount,
         0
       );
       return Math.min(1, paidCount / operation.plannedCountYear);
