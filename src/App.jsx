@@ -21,7 +21,6 @@ import VehiculeShow from "./pages/VehiculeShow";
 import VehiculeCreate from "./pages/VehiculeCreate";
 import RetroBus from "./pages/RetroBus";
 import Evenements from "./pages/Evenements";
-import EventsHub from "./pages/EventsHub";
 import EventsManagement from "./pages/EventsManagement";
 import EventsCreation from "./pages/EventsCreation";
 import TestEventsPage from "./pages/TestEventsPage";
@@ -82,7 +81,7 @@ export default function App() {
         
         {/* 📅 Routes des événements */}
         <Route path="/dashboard/evenements" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Evenements /></RoleProtectedRoute>} />
-        <Route path="/dashboard/events-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsHub /></RoleProtectedRoute>} />
+        <Route path="/dashboard/events-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsManagement /></RoleProtectedRoute>} />
         <Route path="/dashboard/events-creation" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
         {/* Route de test pour diagnostiquer */}
         <Route path="/dashboard/test-events" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><TestEventsPage /></RoleProtectedRoute>} />
