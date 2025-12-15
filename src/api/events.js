@@ -90,5 +90,18 @@ export const eventsAPI = {
 
   deletePlanification: async (planId) => {
     return apiClient.delete(`/planifications/${planId}`);
+  },
+
+  // TRANSACTIONS LIÉES À L'ÉVÉNEMENT
+  getTransactions: async (eventId) => {
+    return apiClient.get(`/events/${eventId}/transactions`);
+  },
+
+  linkTransaction: async (eventId, transactionId) => {
+    return apiClient.post(`/events/${eventId}/transactions/${transactionId}`);
+  },
+
+  unlinkTransaction: async (eventId, transactionId) => {
+    return apiClient.delete(`/events/${eventId}/transactions/${transactionId}`);
   }
 };

@@ -48,6 +48,7 @@ export default function EventsManagement() {
   const [routes, setRoutes] = useState([]);
   const [fin, setFin] = useState({ revenue: 0, expenses: 0, profit: 0, capacity: 0, occupancy: 0, rate: 0, breakdown: null });
   const [ha, setHa] = useState({ url: "", org: "", event: "" });
+  const [relatedTransactions, setRelatedTransactions] = useState([]);
 
   // Planification
   const [planifications, setPlanifications] = useState([]);
@@ -163,6 +164,15 @@ export default function EventsManagement() {
     } catch (err) {
       console.warn('Erreur chargement routes:', err);
       setRoutes([]);
+    }
+
+    try {
+      // Charger transactions liées
+      const transData = await eventsAPI.getTransactions(e.id);
+      setRelatedTransactions(Array.isArray(transData) ? transData : []);
+    } catch (err) {
+      console.warn('Erreur chargement transactions:', err);
+      setRelatedTransactions([]);
     }
     
     setHa({ url: e.helloAssoUrl || "", org: e.helloAssoOrg || "", event: e.helloAssoEvent || "" });
@@ -460,6 +470,42 @@ export default function EventsManagement() {
             </CardBody>
           </Card>
         </SimpleGrid>
+
+        {/* Transactions liées */}
+        <Card>
+          <CardHeader>
+            <Heading size="sm">Transactions liées ({relatedTransactions.length})</Heading>
+          </CardHeader>
+          <CardBody>
+            {relatedTransactions.length === 0 ? (
+              <Text color="gray.500" fontSize="sm">Aucune transaction liée à cet événement</Text>
+            ) : (
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr bg="gray.50">
+                    <Th>Date</Th>
+                    <Th>Description</Th>
+                    <Th>Type</Th>
+                    <Th isNumeric>Montant</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {relatedTransactions.map((t) => (
+                    <Tr key={t.id}>
+                      <Td fontSize="sm">{formatDate(t.date)}</Td>
+                      <Td fontSize="sm">{t.description}</Td>
+                      <Td><Badge colorScheme={t.type === 'CREDIT' ? 'green' : 'red'} fontSize="xs">{t.type === 'CREDIT' ? 'Recette' : 'Dépense'}</Badge></Td>
+                      <Td isNumeric fontWeight="bold" color={t.type === 'CREDIT' ? 'green.600' : 'red.600'}>{t.type === 'CREDIT' ? '+' : '-'}{Math.abs(t.amount)}€</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+            <Button as="a" href="/dashboard/finance" target="_blank" size="sm" mt={3} colorScheme="blue" variant="outline">
+              Gérer dans les Finances
+            </Button>
+          </CardBody>
+        </Card>
       </VStack>
     );
 

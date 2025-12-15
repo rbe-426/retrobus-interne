@@ -27,6 +27,10 @@ import DevisLinesManager from '../components/DevisLinesManager';
 
 
 const AdminFinance = () => {
+  // === ÉTATS DE NAVIGATION ===
+  const [activeMainSection, setActiveMainSection] = useState("dashboard"); // dashboard, transactions, documents, ndf, scheduled, reports, settings
+  const [activeNdfSubTab, setActiveNdfSubTab] = useState("my-notes"); // my-notes, management
+
   // === ÉTATS PRINCIPAUX ===
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -47,12 +51,14 @@ const AdminFinance = () => {
   
   // États des transactions
   const [transactions, setTransactions] = useState([]);
+  const [events, setEvents] = useState([]);
   const [newTransaction, setNewTransaction] = useState({
     type: 'CREDIT',
     amount: '',
     description: '',
     category: 'ADHESION',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    eventId: ''
   });
   const [transactionAllocations, setTransactionAllocations] = useState([]); // Allocations pour la transaction actuelle
   const [newAllocationInForm, setNewAllocationInForm] = useState({
@@ -284,7 +290,8 @@ const AdminFinance = () => {
         loadExpenseReports(),
         loadDocuments(),
         loadReports(reportYear),
-        loadFinanceCategories()
+        loadFinanceCategories(),
+        loadEvents()
       ]);
       
     } catch (error) {
@@ -404,6 +411,28 @@ const AdminFinance = () => {
     } catch (error) {
       console.error('❌ Erreur chargement opérations programmées:', error);
       setScheduledOperations([]);
+    }
+  };
+
+  const loadEvents = async () => {
+    try {
+      const response = await fetch(apiUrl('/api/events'), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setEvents(Array.isArray(data) ? data : data?.events || []);
+      } else {
+        console.warn('⚠️ Événements non disponibles');
+        setEvents([]);
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement événements:', error);
+      setEvents([]);
     }
   };
 
@@ -3791,6 +3820,22 @@ const AdminFinance = () => {
                       value={newTransaction.date}
                       onChange={(e) => setNewTransaction(prev => ({ ...prev, date: e.target.value }))}
                     />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Événement associé (optionnel)</FormLabel>
+                    <Select
+                      value={newTransaction.eventId || ''}
+                      onChange={(e) => setNewTransaction(prev => ({ ...prev, eventId: e.target.value }))}
+                      placeholder="Sélectionner un événement..."
+                    >
+                      <option value="">— Aucun événement —</option>
+                      {events.map(evt => (
+                        <option key={evt.id} value={evt.id}>
+                          {evt.title} ({formatDate(evt.date)})
+                        </option>
+                      ))}
+                    </Select>
                   </FormControl>
                 </VStack>
 
