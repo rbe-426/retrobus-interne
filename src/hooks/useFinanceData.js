@@ -553,6 +553,9 @@ export const useFinanceData = (currentUser = null) => {
       try {
         setLoading(true);
         
+        // Calculer le totalAmount correctement
+        const totalAmount = parseFloat(operation.totalAmount) || parseFloat(operation.amount);
+        
         const res = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
           method: "POST",
           headers: {
@@ -565,7 +568,8 @@ export const useFinanceData = (currentUser = null) => {
             description: String(operation.description),
             frequency: operation.frequency || "MONTHLY",
             nextDate: operation.nextDate ? new Date(operation.nextDate) : new Date(),
-            totalAmount: parseFloat(operation.totalAmount) || parseFloat(operation.amount)
+            totalAmount: totalAmount,
+            remainingTotalAmount: totalAmount  // ← IMPORTANT: Initialiser à totalAmount
           })
         });
 
