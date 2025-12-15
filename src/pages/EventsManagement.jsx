@@ -61,8 +61,10 @@ export default function EventsManagement() {
       setLoading(true);
       try {
         const data = await eventsAPI.getAll();
-        setEvents(Array.isArray(data) ? data : []);
+        console.log('📅 Événements chargés:', data);
+        setEvents(Array.isArray(data) ? data : data?.events || []);
       } catch (e) {
+        console.error('❌ Erreur chargement événements:', e);
         toast({ status: "error", title: "Erreur", description: "Impossible de charger les événements" });
       } finally {
         setLoading(false);
@@ -123,6 +125,11 @@ export default function EventsManagement() {
   const filtered = useMemo(() => {
     const t = searchTerm.trim().toLowerCase();
     return (events || []).filter((e) => {
+      // Si pas de recherche, tout passe
+      if (!t) {
+        return filterStatus === "ALL" || e.status === filterStatus;
+      }
+      // Si recherche, chercher dans title ou location
       const mSearch = e.title?.toLowerCase().includes(t) || e.location?.toLowerCase().includes(t);
       const mStatus = filterStatus === "ALL" || e.status === filterStatus;
       return mSearch && mStatus;
