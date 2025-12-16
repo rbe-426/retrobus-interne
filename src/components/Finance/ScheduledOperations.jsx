@@ -131,6 +131,11 @@ const FinanceScheduledOps = () => {
         0
       );
 
+      // Calculer la prochaine date (ajouter 1 mois à la date actuelle de nextDate)
+      const currentNextDate = new Date(operation.nextDate);
+      const newNextDate = new Date(currentNextDate);
+      newNextDate.setMonth(newNextDate.getMonth() + 1);
+
       // Mettre à jour l'opération
       await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}`, {
         method: "PUT",
@@ -140,7 +145,8 @@ const FinanceScheduledOps = () => {
         },
         body: JSON.stringify({
           ...operation,
-          remainingTotalAmount: newRemaining
+          remainingTotalAmount: newRemaining,
+          nextDate: newNextDate.toISOString().split("T")[0]
         })
       });
 
@@ -232,6 +238,45 @@ const FinanceScheduledOps = () => {
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
     return new Date(dateStr).toLocaleDateString("fr-FR");
+  };
+
+  const calculateTheoreticalEnd = (operation) => {
+    if (!operation) return null;
+
+    // Cas 1: Si totalAmount est défini, calculer basé sur montant
+    if (Number.isFinite(operation.totalAmount) && operation.totalAmount > 0) {
+      const remaining = operation.remainingTotalAmount ?? operation.totalAmount;
+      const monthlyAmount = operation.amount || 0;
+
+      if (monthlyAmount <= 0) return null;
+
+      const monthsRemaining = Math.ceil(remaining / monthlyAmount);
+      const startDate = new Date(operation.nextDate);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + monthsRemaining);
+
+      return endDate;
+    }
+
+    // Cas 2: Si plannedCountYear est défini, calculer basé sur nombre de paiements
+    if (Number.isFinite(operation.plannedCountYear) && operation.plannedCountYear > 0) {
+      const remainingCount = operation.remainingCountYear ?? 0;
+      const startDate = new Date(operation.nextDate);
+      const endDate = new Date(startDate);
+      
+      const frequency = operation.frequency || "MONTHLY";
+      const monthsPerPeriod = 
+        frequency === "MONTHLY" ? 1 :
+        frequency === "QUARTERLY" ? 3 :
+        frequency === "SEMI_ANNUAL" ? 6 :
+        frequency === "YEARLY" ? 12 :
+        frequency === "WEEKLY" ? 0.25 : 1;
+
+      endDate.setMonth(endDate.getMonth() + Math.ceil(remainingCount * monthsPerPeriod));
+      return endDate;
+    }
+
+    return null;
   };
 
   const getFrequencyLabel = (frequency) => {
@@ -425,6 +470,18 @@ const FinanceScheduledOps = () => {
                         {formatDate(op.nextDate)}
                       </Text>
                     </HStack>
+
+                    {/* Fin théorique */}
+                    {calculateTheoreticalEnd(op) && (
+                      <HStack justify="space-between">
+                        <Text fontSize="sm" color="gray.600">
+                          Fin théorique
+                        </Text>
+                        <Text fontSize="sm" fontWeight="500" color="blue.600">
+                          {formatDate(calculateTheoreticalEnd(op).toISOString().split("T")[0])}
+                        </Text>
+                      </HStack>
+                    )}
 
                     {/* Progression visuelle */}
                     {percent !== null && (
