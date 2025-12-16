@@ -136,19 +136,23 @@ const FinanceScheduledOps = () => {
       const newNextDate = new Date(currentNextDate);
       newNextDate.setMonth(newNextDate.getMonth() + 1);
 
-      // Mettre à jour l'opération
-      await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}`, {
+      const updatedOperation = {
+        ...operation,
+        remainingTotalAmount: newRemaining,
+        nextDate: newNextDate.toISOString().split("T")[0]
+      };
+
+      // Mettre à jour l'opération sur le serveur
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify({
-          ...operation,
-          remainingTotalAmount: newRemaining,
-          nextDate: newNextDate.toISOString().split("T")[0]
-        })
+        body: JSON.stringify(updatedOperation)
       });
+
+      if (!response.ok) throw new Error("Erreur lors de la mise à jour");
 
       setPaymentAmount("");
       setPaymentDate(new Date().toISOString().split("T")[0]);
@@ -161,8 +165,8 @@ const FinanceScheduledOps = () => {
         isClosable: true
       });
       
-      // Recharger les données
-      await loadFinanceData();
+      // Recharger immédiatement les données sans attendre
+      loadFinanceData();
     } catch (error) {
       toast({
         title: "Erreur",
