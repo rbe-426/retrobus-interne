@@ -366,16 +366,40 @@ const FinanceScheduledOps = () => {
                         </Badge>
                       </HStack>
                     </VStack>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      isActive={op.isActive !== false}
-                      onClick={() =>
-                        handleToggle(op.id, op.isActive !== false)
-                      }
-                    >
-                      {op.isActive !== false ? "✓" : "⊘"}
-                    </Button>
+                    <Menu>
+                      <MenuButton
+                        as={Button}
+                        size="sm"
+                        variant="ghost"
+                        icon={<FiMoreVertical />}
+                      >
+                        <FiMoreVertical />
+                      </MenuButton>
+                      <MenuList>
+                        <MenuItem
+                          icon={<FiPlus />}
+                          onClick={() => {
+                            setSelectedOperationId(op.id);
+                            onPaymentOpen();
+                          }}
+                        >
+                          Ajouter un paiement
+                        </MenuItem>
+                        <MenuDivider />
+                        <MenuItem
+                          onClick={() => handleToggle(op.id, op.isActive !== false)}
+                        >
+                          {op.isActive !== false ? "Désactiver" : "Activer"}
+                        </MenuItem>
+                        <MenuItem
+                          icon={<FiTrash2 />}
+                          color="red.500"
+                          onClick={() => handleDelete(op.id)}
+                        >
+                          Supprimer
+                        </MenuItem>
+                      </MenuList>
+                    </Menu>
                   </HStack>
                 </CardHeader>
 
@@ -483,16 +507,16 @@ const FinanceScheduledOps = () => {
 
                     {/* Actions */}
                     <HStack spacing={2} pt={2}>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        leftIcon={<FiTrash2 />}
-                        onClick={() => handleDelete(op.id)}
-                        isLoading={loading}
-                      >
-                        Supprimer
-                      </Button>
+                      <Tooltip label="Détails" placement="top">
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="blue"
+                          isDisabled
+                        >
+                          Détails
+                        </Button>
+                      </Tooltip>
                     </HStack>
                   </VStack>
                 </CardBody>
@@ -627,6 +651,67 @@ const FinanceScheduledOps = () => {
               isLoading={isAdding}
             >
               Créer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal Ajouter un paiement */}
+      <Modal isOpen={isPaymentOpen} onClose={onPaymentClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Ajouter un paiement à l'échéancier
+          </ModalHeader>
+          <ModalBody>
+            <VStack spacing={4}>
+              <Box w="100%" p={3} bg="blue.50" borderRadius="md" borderLeft="4px" borderLeftColor="blue.500">
+                <Text fontSize="sm" fontWeight="bold">
+                  {scheduledOperations?.find(op => op.id === selectedOperationId)?.description}
+                </Text>
+                <Text fontSize="xs" color="gray.600" mt={1}>
+                  Montant de l'opération: {formatCurrency(scheduledOperations?.find(op => op.id === selectedOperationId)?.amount)}
+                </Text>
+              </Box>
+
+              <FormControl isRequired>
+                <FormLabel>Montant du paiement (€)</FormLabel>
+                <NumberInput
+                  value={paymentAmount}
+                  onChange={(value) => setPaymentAmount(value)}
+                  precision={2}
+                  step={0.01}
+                >
+                  <NumberInputField placeholder="0.00" />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Date du paiement</FormLabel>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onPaymentClose}>
+              Annuler
+            </Button>
+            <Button
+              colorScheme="green"
+              onClick={handleAddPayment}
+              isLoading={isAddingPayment}
+              isDisabled={!paymentAmount || paymentAmount <= 0}
+            >
+              Valider le paiement
             </Button>
           </ModalFooter>
         </ModalContent>
