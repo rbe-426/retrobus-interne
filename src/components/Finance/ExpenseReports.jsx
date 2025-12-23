@@ -23,6 +23,10 @@ const ExpenseReports = () => {
   } = useFinanceData();
 
   console.log('💰 ExpenseReports Component - expenseReports:', expenseReports);
+  console.log('💰 Length:', expenseReports?.length);
+  
+  const myReports = expenseReports.filter(r => r.isOwn || !r.userId); // Mes notes
+  console.log('💰 myReports after filter:', myReports);
 
   const [formData, setFormData] = useState({
     description: "",

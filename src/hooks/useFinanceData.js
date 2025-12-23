@@ -187,8 +187,10 @@ export const useFinanceData = (currentUser = null) => {
         console.log(`📄 GET /api/finance/expense-reports: ${expenseRes.status}`);
         if (expenseRes.ok) {
           const data = await expenseRes.json();
-          console.log(`✅ Notes de frais chargées:`, data);
+          console.log(`✅ Notes de frais brutes:`, JSON.stringify(data, null, 2));
+          console.log(`✅ data.reports:`, data.reports);
           setExpenseReports(data.reports || []);
+          console.log(`✅ State mis à jour avec ${(data.reports || []).length} notes`);
         } else {
           console.warn(`⚠️ Expense reports response not ok:`, expenseRes.status);
         }
