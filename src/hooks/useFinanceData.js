@@ -824,7 +824,8 @@ export const useFinanceData = (currentUser = null) => {
 
         if (!res.ok) throw new Error("Erreur mise à jour");
 
-        const updated = await res.json();
+        const data = await res.json();
+        const updated = data.report || data;
         setExpenseReports(expenseReports.map(r => r.id === id ? updated : r));
         toast({
           title: "Succès",
