@@ -786,7 +786,8 @@ export const useFinanceData = (currentUser = null) => {
 
         if (!res.ok) throw new Error("Erreur création");
 
-        const newReport = await res.json();
+        const data = await res.json();
+        const newReport = data.report || data;
         setExpenseReports([...expenseReports, newReport]);
         toast({
           title: "Succès",
