@@ -22,6 +22,8 @@ const ExpenseReports = () => {
     loading
   } = useFinanceData();
 
+  console.log('💰 ExpenseReports Component - expenseReports:', expenseReports);
+
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
