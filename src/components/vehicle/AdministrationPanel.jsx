@@ -12,6 +12,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
   const [assurance, setAssurance] = useState(null);
   const [ct, setControleTechnique] = useState(null);
   const [certificat, setCertificat] = useState(null);
+  const [certificatTemporaire, setCertificatTemporaire] = useState(null);
   const [echancier, setEchancier] = useState([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
@@ -25,11 +26,12 @@ const VehicleAdministrationPanel = ({ parc }) => {
   const loadAdministration = async () => {
     try {
       setLoading(true);
-      const [cgRes, assRes, ctRes, certRes, echRes] = await Promise.all([
+      const [cgRes, assRes, ctRes, certRes, certTempRes, echRes] = await Promise.all([
         apiClient.get(`/vehicles/${parc}/cg`),
         apiClient.get(`/vehicles/${parc}/assurance`),
         apiClient.get(`/vehicles/${parc}/ct`),
         apiClient.get(`/vehicles/${parc}/certificat-cession`),
+        apiClient.get(`/vehicles/${parc}/certificat-temporaire`),
         apiClient.get(`/vehicles/${parc}/echancier`)
       ]);
 
@@ -37,6 +39,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
       setAssurance(assRes);
       setControleTechnique(ctRes.latestCT);
       setCertificat(certRes);
+      setCertificatTemporaire(certTempRes);
       setEchancier(Array.isArray(echRes) ? echRes : []);
     } catch (error) {
       toast({ status: 'error', title: 'Erreur de chargement', description: error.message });
@@ -52,6 +55,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
       <Tabs variant="enclosed">
         <TabList>
           <Tab>Cartes Grises</Tab>
+          <Tab>Certificat Temporaire {certificatTemporaire?.isActive ? '✅' : '⭕'}</Tab>
           <Tab>Assurance {assurance?.isActive ? '✅' : '❌'}</Tab>
           <Tab>Contrôle Technique {ct?.ctStatus === 'passed' ? '✅' : '⚠️'}</Tab>
           <Tab>Certificat de Cession {certificat?.imported ? '✅' : '⭕'}</Tab>
@@ -63,6 +67,19 @@ const VehicleAdministrationPanel = ({ parc }) => {
           <TabPanel>
             <VStack spacing={4} align="stretch">
               <CarteGriseForm parc={parc} data={carteGrise} onSave={loadAdministration} />
+            </VStack>
+          </TabPanel>
+
+          {/* CERTIFICAT TEMPORAIRE */}
+          <TabPanel>
+            <VStack spacing={4} align="stretch">
+              <CertificatTemporaireForm parc={parc} data={certificatTemporaire} onSave={loadAdministration} />
+              {certificatTemporaire?.isActive && (
+                <Alert status="warning">
+                  <AlertIcon />
+                  Certificat temporaire valide du {new Date(certificatTemporaire.dateDebut).toLocaleDateString('fr-FR')} au {new Date(certificatTemporaire.dateFin).toLocaleDateString('fr-FR')}
+                </Alert>
+              )}
             </VStack>
           </TabPanel>
 
@@ -234,6 +251,58 @@ const VehicleAdministrationPanel = ({ parc }) => {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </FormControl>
+
+            <Button colorScheme="blue" onClick={handleSubmit}>Enregistrer</Button>
+          </VStack>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  function CertificatTemporaireForm({ parc, data, onSave }) {
+    const [form, setForm] = useState(data || { dateDebut: '', dateFin: '' });
+
+    const handleSubmit = async () => {
+      try {
+        await apiClient.post(`/vehicles/${parc}/certificat-temporaire`, form);
+        toast({ status: 'success', title: 'Certificat temporaire enregistré' });
+        onSave();
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur', description: error.message });
+      }
+    };
+
+    return (
+      <Card>
+        <CardHeader>
+          <Heading size="md">Certificat Temporaire</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>Date Début</FormLabel>
+              <Input
+                type="date"
+                value={form.dateDebut || ''}
+                onChange={(e) => setForm({ ...form, dateDebut: e.target.value })}
+              />
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Date Fin</FormLabel>
+              <Input
+                type="date"
+                value={form.dateFin || ''}
+                onChange={(e) => setForm({ ...form, dateFin: e.target.value })}
+              />
+            </FormControl>
+
+            {data?.isActive && (
+              <Alert status="info">
+                <AlertIcon />
+                Valide du {new Date(data.dateDebut).toLocaleDateString('fr-FR')} au {new Date(data.dateFin).toLocaleDateString('fr-FR')}
+              </Alert>
+            )}
 
             <Button colorScheme="blue" onClick={handleSubmit}>Enregistrer</Button>
           </VStack>

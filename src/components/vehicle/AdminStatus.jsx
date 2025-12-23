@@ -20,18 +20,20 @@ const VehicleAdminStatus = ({ parc }) => {
   const loadStatus = async () => {
     try {
       setLoading(false);
-      const [cgRes, assRes, ctRes, certRes] = await Promise.all([
+      const [cgRes, assRes, ctRes, certRes, certTempRes] = await Promise.all([
         vehicleAdminAPI.getCarteGrise(parc).catch(() => null),
         vehicleAdminAPI.getAssurance(parc).catch(() => null),
         vehicleAdminAPI.getControleTechnique(parc).catch(() => null),
-        vehicleAdminAPI.getCertificatCession(parc).catch(() => null)
+        vehicleAdminAPI.getCertificatCession(parc).catch(() => null),
+        vehicleAdminAPI.getCertificatTemporaire(parc).catch(() => null)
       ]);
 
       setStatus({
-        carteGrise: cgRes?.newCGPath ? 'ok' : 'missing',
+        carteGrise: cgRes?.newCGPath ? 'ok' : cgRes?.oldCGPath && certTempRes?.isActive ? 'tempCert' : 'missing',
         assurance: assRes?.isActive ? 'ok' : assRes?.dateValidityEnd ? 'expired' : 'missing',
         controleTechnique: ctRes?.latestCT ? (ctRes.latestCT.ctStatus === 'passed' ? 'ok' : 'warning') : 'missing',
-        certificatCession: certRes?.imported ? 'ok' : 'missing'
+        certificatCession: certRes?.imported ? 'ok' : 'missing',
+        certificatTemporaire: certTempRes?.isActive ? 'ok' : 'missing'
       });
     } catch (error) {
       console.error('Error loading vehicle admin status:', error);
@@ -49,16 +51,19 @@ const VehicleAdminStatus = ({ parc }) => {
 
   const getStatusColor = (statusKey) => {
     const s = status[statusKey];
+    if (statusKey === 'carteGrise' && s === 'tempCert') return 'orange';
     return s === 'ok' ? 'green' : s === 'warning' ? 'yellow' : s === 'expired' ? 'red' : 'gray';
   };
 
   const getStatusIcon = (statusKey) => {
     const s = status[statusKey];
+    if (statusKey === 'carteGrise' && s === 'tempCert') return '⏳';
     return s === 'ok' ? '✅' : s === 'warning' ? '⚠️' : s === 'expired' ? '❌' : '⭕';
   };
 
   const getStatusText = (statusKey) => {
     const s = status[statusKey];
+    if (statusKey === 'carteGrise' && s === 'tempCert') return 'Tempor.';
     return s === 'ok' ? 'À jour' : s === 'warning' ? 'Attn.' : s === 'expired' ? 'Expiré' : 'Manquant';
   };
 

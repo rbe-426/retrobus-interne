@@ -170,7 +170,6 @@ const ExpenseReports = () => {
     return new Date(dateStr).toLocaleDateString("fr-FR");
   };
 
-  const myReports = expenseReports.filter(r => r.isOwn || !r.userId); // Mes notes
   const totalAmount = myReports.reduce((sum, r) => sum + (r.amount || 0), 0);
 
   return (
