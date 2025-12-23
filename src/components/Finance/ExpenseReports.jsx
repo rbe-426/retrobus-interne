@@ -245,6 +245,7 @@ const ExpenseReports = () => {
                   <Th>Description</Th>
                   <Th isNumeric>Montant</Th>
                   <Th>Statut</Th>
+                  <Th>Auteur</Th>
                   <Th>Actions</Th>
                 </Tr>
               </Thead>
@@ -268,6 +269,9 @@ const ExpenseReports = () => {
                       {formatCurrency(report.amount)}
                     </Td>
                     <Td>{getStatusBadge(report.status)}</Td>
+                    <Td fontSize="xs" color="gray.600">
+                      {report.createdBy || 'Anon'}
+                    </Td>
                     <Td>
                       {report.status === "PENDING" && (
                         <Button
