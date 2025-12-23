@@ -145,12 +145,16 @@ const ExpenseReports = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
+      open: { colorScheme: "yellow", label: "Ouverte" },
+      closed: { colorScheme: "blue", label: "Clôturée" },
+      reimbursed: { colorScheme: "green", label: "Remboursée" },
+      // Anciens statuts pour compatibilité
       PENDING: { colorScheme: "yellow", label: "En attente" },
       APPROVED: { colorScheme: "blue", label: "Approuvée" },
       PAID: { colorScheme: "green", label: "Payée" },
       REJECTED: { colorScheme: "red", label: "Rejetée" }
     };
-    const config = statusConfig[status] || statusConfig.PENDING;
+    const config = statusConfig[status] || statusConfig.open;
     return <Badge colorScheme={config.colorScheme}>{config.label}</Badge>;
   };
 
@@ -203,15 +207,15 @@ const ExpenseReports = () => {
               <Box>
                 <Text fontSize="sm" color="gray.500">Notes en attente</Text>
                 <Heading size="md" color="yellow.600">
-                  {myReports.filter(r => r.status === "PENDING").length}
+                  {myReports.filter(r => r.status === "open").length}
                 </Heading>
               </Box>
               <Box>
-                <Text fontSize="sm" color="gray.500">Notes payées</Text>
+                <Text fontSize="sm" color="gray.500">Notes remboursées</Text>
                 <Heading size="md" color="green.600">
                   {formatCurrency(
                     myReports
-                      .filter(r => r.status === "PAID")
+                      .filter(r => r.status === "reimbursed")
                       .reduce((sum, r) => sum + (r.amount || 0), 0)
                   )}
                 </Heading>
