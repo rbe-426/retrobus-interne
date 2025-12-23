@@ -22,11 +22,22 @@ const ExpenseReports = () => {
     loading
   } = useFinanceData();
 
-  console.log('💰 ExpenseReports Component - expenseReports:', expenseReports);
-  console.log('💰 Length:', expenseReports?.length);
-  
-  const myReports = expenseReports.filter(r => r.isOwn || !r.userId); // Mes notes
-  console.log('💰 myReports after filter:', myReports);
+  // Récupérer l'utilisateur courant depuis localStorage
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch (e) {
+      return {};
+    }
+  })();
+
+  // Afficher les notes de l'utilisateur courant OU les notes sans userId
+  const myReports = expenseReports.filter(r => 
+    !r.userId || // Si pas de userId (anciennement créées)
+    r.userId === currentUser.id || // Si créée par l'utilisateur courant
+    r.createdBy === currentUser.id // Alternative: par createdBy
+  );
+  console.log(`💰 ${myReports.length}/${expenseReports.length} notes de frais affichées`);
 
   const [formData, setFormData] = useState({
     description: "",

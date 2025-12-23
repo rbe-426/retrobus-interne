@@ -184,15 +184,13 @@ export const useFinanceData = (currentUser = null) => {
             Authorization: `Bearer ${token}`
           }
         });
-        console.log(`📄 GET /api/finance/expense-reports: ${expenseRes.status}`);
         if (expenseRes.ok) {
           const data = await expenseRes.json();
-          console.log(`✅ Notes de frais brutes:`, JSON.stringify(data, null, 2));
-          console.log(`✅ data.reports:`, data.reports);
-          setExpenseReports(data.reports || []);
-          console.log(`✅ State mis à jour avec ${(data.reports || []).length} notes`);
+          const reports = data.reports || [];
+          setExpenseReports(reports);
+          console.log(`✅ ${reports.length} notes de frais chargées`);
         } else {
-          console.warn(`⚠️ Expense reports response not ok:`, expenseRes.status);
+          console.warn(`⚠️ Erreur chargement notes de frais:`, expenseRes.status);
         }
       } catch (err) {
         console.warn("⚠️ Erreur chargement notes de frais:", err.message);
