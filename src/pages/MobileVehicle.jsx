@@ -190,7 +190,10 @@ export default function MobileVehicle() {
       } catch (err) {
         // token invalid or other error — clear vehicle so user must auth
         console.warn("fetch vehicle failed:", err);
-        setVeh(null);
+        // Only clear veh if we have no fallback auth (matricule from UserContext)
+        if (!authToken && !matricule) {
+          setVeh(null);
+        }
         setEvents([]);
         setUsages([]);
       } finally {
@@ -198,51 +201,21 @@ export default function MobileVehicle() {
       }
     })();
     return () => { stop = true; };
-  }, [parc, token]);
+  }, [parc, token, matricule]);
 
   const onAuthenticate = async (e) => {
     e?.preventDefault?.();
     if (!inputMatricule?.trim()) return toast({ status: "warning", title: "Matricule requis" });
     try {
       setAuthLoading(true);
-      // simulate auth — here simply store matricule in context
-      // if you have server auth, replace this by an API call
-      setMatricule(inputMatricule.trim());
-      toast({ status: "success", title: "Connecté", description: inputMatricule.trim() });
-      // re-fetch using matricule header
-      setToken(""); // ensure using matricule
-      setTimeout(() => {
-        // small delay to let header propagate
-        (async () => {
-          try {
-            setLoading(true);
-            const h = headersFor('', inputMatricule.trim());
-            const basePath = getVehiclesPath();
-            const vehUrls = buildCandidates(`${basePath}/${encodeURIComponent(parc)}`);
-            const evUrls = buildCandidates(`${basePath}/${encodeURIComponent(parc)}/reports`);
-            const usUrls = buildCandidates(`${basePath}/${encodeURIComponent(parc)}/usages`);
-            const [rv, re, ru] = await Promise.all([
-              fetchJsonFirst(vehUrls, { headers: h }),
-              fetchJsonFirst(evUrls, { headers: h }).catch(() => []),
-              fetchJsonFirst(usUrls, { headers: h }).catch(() => []),
-            ]);
-            setVeh(rv);
-            const normalizedEvents = Array.isArray(re) ? re.map(r => ({
-              id: r.id,
-              type: r.type || 'Rapport',
-              date: r.createdAt || r.date || new Date().toISOString(),
-              note: r.description || r.note || '',
-              createdBy: r.createdBy || r.author || '—',
-            })) : [];
-            setEvents(normalizedEvents);
-            setUsages(Array.isArray(ru) ? ru : []);
-          } catch (err) {
-            toast({ status: "error", title: "Accès refusé" });
-          } finally {
-            setLoading(false);
-          }
-        })();
-      }, 250);
+      // Store matricule in context — this will trigger useEffect to refetch
+      const trimmedMatricule = inputMatricule.trim();
+      setMatricule(trimmedMatricule);
+      setToken(""); // ensure using matricule from context
+      toast({ status: "success", title: "Connecté", description: trimmedMatricule });
+      // useEffect will handle refetch automatically when matricule changes
+    } catch (err) {
+      toast({ status: "error", title: "Erreur", description: err.message });
     } finally {
       setAuthLoading(false);
     }
@@ -331,7 +304,7 @@ export default function MobileVehicle() {
 
   return (
     <Box bg="gray.50" minH="100vh" pb={8}>
-      {(!veh) ? (
+      {(!veh && !authToken && !matricule) ? (
         <Container maxW="md" py={8}>
           <Box textAlign="center" py={8}>
             <Heading size="lg" mb={4}>🔐 Accès restreint</Heading>
@@ -380,13 +353,13 @@ export default function MobileVehicle() {
               <VStack align="start" spacing={2}>
                 <HStack w="full" justify="space-between" align="flex-start">
                   <VStack align="start" spacing={1} flex={1}>
-                    <Heading size="lg">{veh.modele || `Parc ${veh.parc}`}</Heading>
+                    <Heading size="lg">{veh.modele || `Parc - ${parc}`}</Heading>
                     <Text fontSize="sm" color="gray.600">
                       {veh.immat ? `${veh.immat}` : ''}
                     </Text>
                   </VStack>
                   <Badge colorScheme="blue" fontSize="md" px={3} py={2}>
-                    {veh.parc}
+                    {parc}
                   </Badge>
                 </HStack>
                 {veh.etat && (
