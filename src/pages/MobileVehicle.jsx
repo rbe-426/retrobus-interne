@@ -54,7 +54,7 @@ export default function MobileVehicle() {
   const nav = useNavigate();
 
   const tokenFromUrl = searchParams.get("t") || "";
-  const { matricule, setMatricule, token: authToken } = useUser();
+  const { matricule, setMatricule, token: authToken, user, prenom, nom, roles } = useUser();
 
   const [token, setToken] = useState(tokenFromUrl || "");
   const [veh, setVeh] = useState(null);
@@ -82,9 +82,11 @@ export default function MobileVehicle() {
   // arrival/departure & actions
   const [arrDate, setArrDate] = useState("");
   const [arrTime, setArrTime] = useState("");
+  const [arrLieu, setArrLieu] = useState("");
   const [depDate, setDepDate] = useState("");
   const [depTime, setDepTime] = useState("");
   const [actionsText, setActionsText] = useState("");
+  const [kilometrage, setKilometrage] = useState("");
   const [arrLoc, setArrLoc] = useState(null);
   const [depLoc, setDepLoc] = useState(null);
 
@@ -304,7 +306,14 @@ export default function MobileVehicle() {
 
   return (
     <Box bg="gray.50" minH="100vh" pb={8}>
-      {(!veh && !authToken && !matricule) ? (
+      {loading && !veh ? (
+        <Container maxW="md" py={12}>
+          <VStack spacing={4} justify="center" h="60vh">
+            <Spinner size="lg" color="blue.400" />
+            <Text>Chargement des données du véhicule...</Text>
+          </VStack>
+        </Container>
+      ) : (!veh && !authToken && !matricule) ? (
         <Container maxW="md" py={8}>
           <Box textAlign="center" py={8}>
             <Heading size="lg" mb={4}>🔐 Accès restreint</Heading>
@@ -348,28 +357,40 @@ export default function MobileVehicle() {
         // Main mobile dashboard
         <Container maxW="md" py={4}>
           {/* En-tête du véhicule */}
-          <Card mb={6} bg="white" boxShadow="md">
-            <CardBody>
-              <VStack align="start" spacing={2}>
-                <HStack w="full" justify="space-between" align="flex-start">
-                  <VStack align="start" spacing={1} flex={1}>
-                    <Heading size="lg">{veh.modele || `Parc - ${parc}`}</Heading>
-                    <Text fontSize="sm" color="gray.600">
-                      {veh.immat ? `${veh.immat}` : ''}
-                    </Text>
-                  </VStack>
-                  <Badge colorScheme="blue" fontSize="md" px={3} py={2}>
-                    {parc}
-                  </Badge>
-                </HStack>
-                {veh.etat && (
-                  <Badge colorScheme="green" fontSize="sm">
-                    État: {veh.etat}
-                  </Badge>
-                )}
+          {veh ? (
+            <Card mb={6} bg="white" boxShadow="md">
+              <CardBody>
+                <VStack align="start" spacing={2}>
+                  <HStack w="full" justify="space-between" align="flex-start">
+                    <VStack align="start" spacing={1} flex={1}>
+                      <Heading size="lg">{veh.modele || `Parc - ${parc}`}</Heading>
+                      <Text fontSize="sm" color="gray.600">
+                        {veh.immat ? `${veh.immat}` : ''}
+                      </Text>
+                    </VStack>
+                    <Badge colorScheme="blue" fontSize="md" px={3} py={2}>
+                      {parc}
+                    </Badge>
+                  </HStack>
+                  {veh.etat && (
+                    <Badge colorScheme="green" fontSize="sm">
+                      État: {veh.etat}
+                    </Badge>
+                  )}
               </VStack>
             </CardBody>
           </Card>
+          ) : (
+            <Card mb={6} bg="red.50" borderColor="red.200" borderWidth="1px">
+              <CardBody>
+                <VStack align="center" spacing={2}>
+                  <Text fontSize="sm" color="red.600" fontWeight="bold">⚠️ Erreur de chargement</Text>
+                  <Text fontSize="xs" color="gray.600">Impossible de charger le véhicule. Vérifiez votre connexion.</Text>
+                  <Button size="sm" colorScheme="blue" onClick={() => window.location.reload()}>Réessayer</Button>
+                </VStack>
+              </CardBody>
+            </Card>
+          )}
 
           {/* Actions principales */}
           <VStack spacing={3} mb={6}>
@@ -543,10 +564,16 @@ export default function MobileVehicle() {
           <ModalBody>
             <VStack spacing={3} align="stretch">
               <Text fontSize="sm" opacity={0.8}>Véhicule : <b>{veh?.parc}</b> {veh?.immat ? `· ${veh.immat}` : ""}</Text>
-              <FormControl>
-                <FormLabel>Conducteur</FormLabel>
-                <Input id="pass-conducteur" placeholder="Nom ou matricule" />
-              </FormControl>
+              
+              {/* Initiateur (auto-filled from logged-in user) */}
+              <Box bg="blue.50" p={3} borderRadius="md" borderLeft="4px solid" borderLeftColor="blue.400">
+                <Text fontSize="xs" fontWeight="bold" color="blue.700" mb={1}>INITIATEUR DU POINTAGE</Text>
+                <Text fontSize="sm" fontWeight="bold">{prenom || nom ? `${prenom} ${nom}`.trim() : user?.email || 'Non identifié'}</Text>
+                {roles && roles.length > 0 && (
+                  <Text fontSize="xs" color="blue.600" mt={1}>Rôle: {roles.join(', ')}</Text>
+                )}
+              </Box>
+
               {!finishMode && (
                 <>
                   <HStack>
@@ -559,6 +586,14 @@ export default function MobileVehicle() {
                       <Input type="time" value={arrTime} onChange={(e)=>setArrTime(e.target.value)} />
                     </FormControl>
                   </HStack>
+                  <FormControl>
+                    <FormLabel>Lieu d'arrivée</FormLabel>
+                    <Input 
+                      placeholder="ex: Centre de Versailles, Dépôt ESSONNE" 
+                      value={arrLieu} 
+                      onChange={(e)=>setArrLieu(e.target.value)} 
+                    />
+                  </FormControl>
                   {arrLoc && <Text fontSize="sm" color="gray.600">📍 Arrivée GPS: {arrLoc.lat.toFixed(5)},{arrLoc.lng.toFixed(5)} (±{Math.round(arrLoc.accuracy)}m)</Text>}
                 </>
               )}
@@ -628,6 +663,15 @@ export default function MobileVehicle() {
                   <Input value={guestLastName} onChange={(e)=>setGuestLastName(e.target.value)} placeholder="Nom invité" />
                 </FormControl>
               </HStack>
+              <FormControl>
+                <FormLabel>Relevé kilométrique</FormLabel>
+                <Input 
+                  type="number" 
+                  placeholder="ex: 45230" 
+                  value={kilometrage} 
+                  onChange={(e)=>setKilometrage(e.target.value)} 
+                />
+              </FormControl>
               {finishMode && (
                 <FormControl>
                   <FormLabel>Actions réalisées</FormLabel>
@@ -640,13 +684,11 @@ export default function MobileVehicle() {
           <ModalFooter>
             <Button variant="ghost" onClick={() => setShowPassage(false)}>Annuler</Button>
             <Button colorScheme={finishMode ? 'green' : 'orange'} onClick={async () => {
-              const conducteur = document.getElementById("pass-conducteur")?.value || "";
               // Build participants string from selected members + guest
               const selectedMembers = members.filter(m => selectedMemberIds.includes(m.id));
               const memberNames = selectedMembers.map(m => `${m.firstName || ''} ${m.lastName || ''}`.trim()).filter(Boolean);
               const guestName = (guestFirstName || guestLastName) ? `Invité: ${[guestFirstName, guestLastName].filter(Boolean).join(' ')}` : '';
               const participantsStr = [
-                conducteur ? `Conducteur: ${conducteur}` : '',
                 ...memberNames,
                 guestName
               ].filter(Boolean).join('; ');
@@ -665,10 +707,19 @@ export default function MobileVehicle() {
               try {
                 if (!finishMode) {
                   // Start pointage
-                  const arrivalNote = arrLoc ? `\nArrivée GPS: ${arrLoc.lat?.toFixed(5)},${arrLoc.lng?.toFixed(5)} (±${Math.round(arrLoc.accuracy||0)}m)` : '';
+                  const arrivalNote = [
+                    arrLieu ? `Lieu: ${arrLieu}` : '',
+                    kilometrage ? `Km: ${kilometrage}` : '',
+                    arrLoc ? `Arrivée GPS: ${arrLoc.lat?.toFixed(5)},${arrLoc.lng?.toFixed(5)} (±${Math.round(arrLoc.accuracy||0)}m)` : ''
+                  ].filter(Boolean).join('\n');
                   const created = await postUsage({
                     startedAt: startedAtISO || new Date().toISOString(),
-                    conducteur: conducteur || null,
+                    initiateur: {
+                      prenom: prenom || '',
+                      nom: nom || '',
+                      roles: roles || [],
+                      matricule: matricule || ''
+                    },
                     participants: participantsStr || null,
                     note: arrivalNote || ''
                   });
@@ -681,7 +732,6 @@ export default function MobileVehicle() {
                   const actionsNote = actionsText ? `\nActions:\n${actionsText}` : '';
                   await updateUsage(currentUsageId, {
                     endedAt: endedAtISO || new Date().toISOString(),
-                    conducteur: conducteur || null,
                     participants: participantsStr || null,
                     note: `${actionsNote}${exitNote}`.trim()
                   });
@@ -690,7 +740,8 @@ export default function MobileVehicle() {
                 }
                 setShowPassage(false);
                 setSelectedMemberIds([]); setGuestFirstName(''); setGuestLastName(''); setMemberSearch('');
-                setArrDate(''); setArrTime(''); setDepDate(''); setDepTime(''); setActionsText(''); setArrLoc(null); setDepLoc(null);
+                setArrDate(''); setArrTime(''); setArrLieu(''); setDepDate(''); setDepTime(''); setActionsText(''); setKilometrage('');
+                setArrLoc(null); setDepLoc(null);
               } catch {}
             }}>Signaler</Button>
           </ModalFooter>
