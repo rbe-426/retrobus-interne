@@ -2,7 +2,7 @@ import {
   Box, Heading, Text, Button, Stack, Input, Textarea, VStack, HStack,
   Spinner, Center, useToast, Modal, ModalOverlay, ModalContent, ModalHeader,
   ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Card, CardBody,
-  Badge, Divider, SimpleGrid, Container
+  Badge, Divider, SimpleGrid, Container, Tabs, TabList, TabPanels, Tab, TabPanel
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -67,6 +67,7 @@ export default function MobileVehicle() {
   const [showPassage, setShowPassage] = useState(false);
   const [finishMode, setFinishMode] = useState(false);
   const [showEvent, setShowEvent] = useState(false);
+  const [activeTab, setActiveTab] = useState(0); // 0: Vue d'ensemble, 1: Pointages, 2: Anomalies
 
   // auth form (matricule) for fallback
   const [inputMatricule, setInputMatricule] = useState(matricule || "");
@@ -443,77 +444,194 @@ export default function MobileVehicle() {
             </Button>
           </VStack>
 
-          {/* Derniers événements */}
-          <Card mb={6} bg="white" boxShadow="sm">
-            <CardBody>
-              <Heading size="sm" mb={4}>📋 Derniers événements</Heading>
-              <Divider mb={4} />
-              <VStack spacing={3} align="stretch">
-                {events.length === 0 ? (
-                  <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
-                    Aucun événement
-                  </Text>
-                ) : (
-                  events.slice(0, 5).map(ev => (
-                    <Box key={ev.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #3182ce">
-                      <HStack justify="space-between" mb={1}>
-                        <Text fontWeight="bold" fontSize="sm">{ev.type}</Text>
-                        <Text fontSize="xs" color="gray.500">
-                          {new Date(ev.date).toLocaleDateString()}
-                        </Text>
-                      </HStack>
-                      {ev.note && <Text fontSize="sm" mt={2}>{ev.note}</Text>}
-                      <Text fontSize="xs" color="gray.600" mt={2}>
-                        Par {ev.createdBy || '—'}
-                      </Text>
-                    </Box>
-                  ))
-                )}
-                {events.length > 5 && (
-                  <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
-                    +{events.length - 5} autre(s) événement(s)
-                  </Text>
-                )}
-              </VStack>
-            </CardBody>
-          </Card>
+          {/* Onglets */}
+          <Tabs index={activeTab} onChange={setActiveTab} variant="soft-rounded" colorScheme="blue">
+            <TabList mb={4}>
+              <Tab>Vue d'ensemble</Tab>
+              <Tab>Pointages</Tab>
+              <Tab>Anomalies</Tab>
+            </TabList>
 
-          {/* Derniers passages */}
-          <Card bg="white" boxShadow="sm">
-            <CardBody>
-              <Heading size="sm" mb={4}>🚦 Derniers passages</Heading>
-              <Divider mb={4} />
-              <VStack spacing={3} align="stretch">
-                {usages.length === 0 ? (
-                  <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
-                    Aucun passage
-                  </Text>
-                ) : (
-                  usages.slice(0, 5).map(u => (
-                    <Box key={u.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #ed8936">
-                      <HStack justify="space-between" mb={1}>
-                        <Text fontWeight="bold" fontSize="sm">{u.conducteur || 'Conducteur'}</Text>
-                        <Text fontSize="xs" color="gray.500">
-                          {u.startedAt ? new Date(u.startedAt).toLocaleDateString() : '—'}
+            <TabPanels>
+              {/* Onglet 1: Vue d'ensemble */}
+              <TabPanel>
+                <VStack spacing={4} align="stretch">
+                  {/* Derniers événements */}
+                  <Card bg="white" boxShadow="sm">
+                    <CardBody>
+                      <Heading size="sm" mb={4}>📋 Événements récents</Heading>
+                      <Divider mb={4} />
+                      <VStack spacing={3} align="stretch">
+                        {events.length === 0 ? (
+                          <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+                            Aucun événement
+                          </Text>
+                        ) : (
+                          events.slice(0, 5).map(ev => (
+                            <Box key={ev.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #3182ce">
+                              <HStack justify="space-between" mb={1}>
+                                <Text fontWeight="bold" fontSize="sm">{ev.type}</Text>
+                                <Text fontSize="xs" color="gray.500">
+                                  {new Date(ev.date).toLocaleDateString()}
+                                </Text>
+                              </HStack>
+                              {ev.note && <Text fontSize="sm" mt={2}>{ev.note}</Text>}
+                              <Text fontSize="xs" color="gray.600" mt={2}>
+                                Par {ev.createdBy || '—'}
+                              </Text>
+                            </Box>
+                          ))
+                        )}
+                        {events.length > 5 && (
+                          <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
+                            +{events.length - 5} autre(s) événement(s)
+                          </Text>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* Derniers passages */}
+                  <Card bg="white" boxShadow="sm">
+                    <CardBody>
+                      <Heading size="sm" mb={4}>🚦 Passages récents</Heading>
+                      <Divider mb={4} />
+                      <VStack spacing={3} align="stretch">
+                        {usages.length === 0 ? (
+                          <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+                            Aucun passage
+                          </Text>
+                        ) : (
+                          usages.slice(0, 5).map(u => (
+                            <Box key={u.id} p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid #ed8936">
+                              <HStack justify="space-between" mb={1}>
+                                <Text fontWeight="bold" fontSize="sm">{u.conducteur || 'Conducteur'}</Text>
+                                <Text fontSize="xs" color="gray.500">
+                                  {u.startedAt ? new Date(u.startedAt).toLocaleDateString() : '—'}
+                                </Text>
+                              </HStack>
+                              {u.participants && (
+                                <Text fontSize="xs" color="gray.600" mt={1}>
+                                  👥 {u.participants}
+                                </Text>
+                              )}
+                              {u.note && <Text fontSize="xs" mt={2} color="gray.700">{u.note}</Text>}
+                            </Box>
+                          ))
+                        )}
+                        {usages.length > 5 && (
+                          <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
+                            +{usages.length - 5} autre(s) passage(s)
+                          </Text>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </VStack>
+              </TabPanel>
+
+              {/* Onglet 2: Pointages */}
+              <TabPanel>
+                <Card bg="white" boxShadow="sm">
+                  <CardBody>
+                    <Heading size="sm" mb={4}>📊 Historique des pointages</Heading>
+                    <Divider mb={4} />
+                    <VStack spacing={3} align="stretch">
+                      {usages.length === 0 ? (
+                        <Text fontSize="sm" color="gray.500" textAlign="center" py={8}>
+                          Aucun pointage enregistré
                         </Text>
-                      </HStack>
-                      {u.participants && (
-                        <Text fontSize="xs" color="gray.600" mt={1}>
-                          👥 {u.participants}
-                        </Text>
+                      ) : (
+                        usages.map(u => (
+                          <Box key={u.id} p={4} bg="gray.50" borderRadius="md" borderLeft="4px solid #ed8936">
+                            <HStack justify="space-between" mb={2}>
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text fontWeight="bold" fontSize="sm">{u.conducteur || 'Conducteur'}</Text>
+                                <Text fontSize="xs" color="gray.600">
+                                  {u.startedAt ? new Date(u.startedAt).toLocaleDateString('fr-FR', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+                                </Text>
+                              </VStack>
+                              {u.startedAt && (
+                                <Badge colorScheme="orange" fontSize="xs">
+                                  {new Date(u.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </Badge>
+                              )}
+                            </HStack>
+                            
+                            {u.participants && (
+                              <Text fontSize="xs" color="gray.600" mb={2}>
+                                👥 Participants: {u.participants}
+                              </Text>
+                            )}
+                            
+                            {u.note && (
+                              <Box bg="white" p={2} borderRadius="sm" mt={2} borderLeft="2px solid #cbd5e0">
+                                <Text fontSize="xs" color="gray.700" whiteSpace="pre-wrap">{u.note}</Text>
+                              </Box>
+                            )}
+
+                            {u.endedAt && (
+                              <Text fontSize="xs" color="green.600" mt={2}>
+                                ✓ Terminé: {new Date(u.endedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                            )}
+                          </Box>
+                        ))
                       )}
-                      {u.note && <Text fontSize="xs" mt={2} color="gray.700">{u.note}</Text>}
-                    </Box>
-                  ))
-                )}
-                {usages.length > 5 && (
-                  <Text fontSize="xs" color="gray.500" textAlign="center" pt={2}>
-                    +{usages.length - 5} autre(s) passage(s)
-                  </Text>
-                )}
-              </VStack>
-            </CardBody>
-          </Card>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </TabPanel>
+
+              {/* Onglet 3: Anomalies */}
+              <TabPanel>
+                <Card bg="white" boxShadow="sm">
+                  <CardBody>
+                    <Heading size="sm" mb={4}>⚠️ Anomalies signalées</Heading>
+                    <Divider mb={4} />
+                    <VStack spacing={3} align="stretch">
+                      {(() => {
+                        const anomalies = events.filter(ev => ev.type && ev.type.startsWith('Anomalie:'));
+                        return anomalies.length === 0 ? (
+                          <Text fontSize="sm" color="gray.500" textAlign="center" py={8}>
+                            Aucune anomalie signalée
+                          </Text>
+                        ) : (
+                          anomalies.map(anom => (
+                            <Box key={anom.id} p={4} bg="red.50" borderRadius="md" borderLeft="4px solid #fc8181">
+                              <HStack justify="space-between" mb={2}>
+                                <VStack align="start" spacing={1} flex={1}>
+                                  <Text fontWeight="bold" fontSize="sm" color="red.700">
+                                    {anom.type.replace('Anomalie: ', '')}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.600">
+                                    {new Date(anom.date).toLocaleDateString('fr-FR', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </Text>
+                                </VStack>
+                                <Badge colorScheme="red" fontSize="xs">
+                                  Anomalie
+                                </Badge>
+                              </HStack>
+                              
+                              {anom.note && (
+                                <Box bg="white" p={2} borderRadius="sm" mt={2} borderLeft="2px solid #fc8181">
+                                  <Text fontSize="xs" color="gray.700" whiteSpace="pre-wrap">{anom.note}</Text>
+                                </Box>
+                              )}
+
+                              <Text fontSize="xs" color="gray.600" mt={2}>
+                                Signalé par: {anom.createdBy || '—'}
+                              </Text>
+                            </Box>
+                          ))
+                        );
+                      })()}
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         </Container>
       )}
 
