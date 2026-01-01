@@ -40,19 +40,25 @@ const ExpenseReports = () => {
         return atob(emailB64);
       }
     } catch (e) {
-      // Silently fail
+      console.error('❌ Erreur décodage token:', e);
     }
     return currentUser.email || currentUser.id || '';
   })();
 
+  console.log('🔍 DEBUG ExpenseReports:');
+  console.log('   Token:', localStorage.getItem('token'));
+  console.log('   Decoded email:', userEmail);
+  console.log('   CurrentUser:', currentUser);
+  console.log('   All reports:', expenseReports);
+
   // Afficher les notes de l'utilisateur courant OU les notes sans userId
-  const myReports = expenseReports.filter(r => 
-    !r.userId || // Si pas de userId (anciennement créées)
-    r.userId === userEmail || // Si créée par l'utilisateur courant (compare par email)
-    r.userId === currentUser.id || // Alternative: par ID localStorage
-    r.createdBy === userEmail || // Alternative: par createdBy (email)
-    r.createdBy === currentUser.email // Alternative: par createdBy (localStorage email)
-  );
+  const myReports = expenseReports.filter(r => {
+    const matches = !r.userId || r.userId === userEmail || r.userId === currentUser.id || r.createdBy === userEmail || r.createdBy === currentUser.email;
+    if (!matches) {
+      console.log(`   ❌ Filtered out:`, r.description, '- userId:', r.userId, '- createdBy:', r.createdBy);
+    }
+    return matches;
+  });
   console.log(`💰 ${myReports.length}/${expenseReports.length} notes de frais affichées (utilisateur: ${userEmail})`);
 
   const [formData, setFormData] = useState({
