@@ -18,7 +18,7 @@ import { useUserRoles } from "../../hooks/useUserRoles";
 const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const {
     expenseReports,
-    updateExpenseReportStatus,
+    updateExpenseReport,
     loading
   } = useFinanceData();
 
@@ -49,10 +49,18 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      await updateExpenseReportStatus(reportId, newStatus);
+      await updateExpenseReport(reportId, { status: newStatus });
+      
+      const statusLabels = {
+        'paid': 'Payée',
+        'approved': 'Acceptée',
+        'open': 'Reçue',
+        'closed': 'Refusée'
+      };
+      
       toast({
         title: "Statut mis à jour",
-        description: `La note est maintenant "${newStatus === "PAID" ? "Payée" : newStatus === "APPROVED" ? "Acceptée" : "Refusée"}"`,
+        description: `La note est maintenant "${statusLabels[newStatus] || newStatus}"`,
         status: "success",
         duration: 2000,
         isClosable: true
