@@ -87,7 +87,7 @@ export default function DashboardHome() {
       
       // Filtrer pour ne garder que les publiés et les trier (vedettes en premier)
       const published = data
-        .filter(news => news.published)
+        .filter(news => news.published || news.status === 'published')
         .sort((a, b) => {
           if (a.featured !== b.featured) return b.featured - a.featured;
           return new Date(b.publishedAt) - new Date(a.publishedAt);
@@ -102,13 +102,13 @@ export default function DashboardHome() {
 
   const shareRetroActu = async (actu) => {
     const subject = encodeURIComponent(`RétroActus: ${actu?.title || 'News'}`);
-    const body = encodeURIComponent(
+    const bodyText = encodeURIComponent(
       `Découvrez cette actualité de RétroBus Essonne:\n\n` +
       `${actu?.title || 'Sans titre'}\n\n` +
-      `${actu?.content || ''}\n\n` +
+      `${actu?.body || actu?.content || ''}\n\n` +
       `Site: https://retrobus-essonne.fr`
     );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:?subject=${subject}&body=${bodyText}`;
   };
 
   const shareOnWeb = async (actu) => {
@@ -117,7 +117,7 @@ export default function DashboardHome() {
       try {
         await navigator.share({
           title: actu?.title || 'RétroActus',
-          text: actu?.content || '',
+          text: actu?.body || actu?.content || '',
           url: 'https://retrobus-essonne.fr'
         });
       } catch (err) {
@@ -127,7 +127,7 @@ export default function DashboardHome() {
       }
     } else {
       // Fallback: copier dans le presse-papiers
-      const textToCopy = `${actu?.title}\n${actu?.content}\nhttps://retrobus-essonne.fr`;
+      const textToCopy = `${actu?.title}\n${actu?.body || actu?.content}\nhttps://retrobus-essonne.fr`;
       navigator.clipboard.writeText(textToCopy).then(() => {
         toast({
           title: "Copié!",
@@ -507,7 +507,7 @@ export default function DashboardHome() {
                       </HStack>
                     )}
                     <Text fontSize="sm" color="gray.700">
-                      {retroActus[currentActuIndex]?.content || ''}
+                      {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
                     </Text>
                     {retroActus[currentActuIndex]?.imageUrl && (
                       <Image
