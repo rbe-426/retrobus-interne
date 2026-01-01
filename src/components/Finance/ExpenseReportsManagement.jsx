@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
-  Tr, Th, Td, Alert, AlertIcon, Select, Flex, SimpleGrid, Stat, StatLabel, StatNumber
+  Tr, Th, Td, Alert, AlertIcon, Select, Flex, SimpleGrid, Stat, StatLabel, StatNumber,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
+  FormControl, FormLabel, Textarea, useDisclosure, Icon
 } from "@chakra-ui/react";
-import { FiCheck, FiX, FiEye } from "react-icons/fi";
+import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 
 /**
@@ -20,6 +22,9 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   } = useFinanceData();
 
   const [filterStatus, setFilterStatus] = useState("PENDING");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedReport, setSelectedReport] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
   // Vérifier les droits d'accès - utiliser userRoles en priorité
@@ -46,7 +51,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
       await updateExpenseReportStatus(reportId, newStatus);
       toast({
         title: "Statut mis à jour",
-        description: `La note est maintenant "${newStatus === "PAID" ? "Payée" : newStatus === "APPROVED" ? "Approuvée" : "Rejetée"}"`,
+        description: `La note est maintenant "${newStatus === "PAID" ? "Payée" : newStatus === "APPROVED" ? "Acceptée" : "Refusée"}"`,
         status: "success",
         duration: 2000,
         isClosable: true
@@ -55,6 +60,53 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le statut",
+        status: "error"
+      });
+    }
+  };
+
+  const handleRejectClick = (report) => {
+    setSelectedReport(report);
+    setRejectionReason("");
+    onOpen();
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!selectedReport) return;
+    
+    try {
+      // Update status to REJECTED
+      await updateExpenseReportStatus(selectedReport.id, "REJECTED");
+      
+      // Send RétroMail to the creator
+      if (selectedReport.userId) {
+        await fetch("/api/retromail/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: selectedReport.userId,
+            subject: `Votre note de frais a été refusée`,
+            body: `Votre note de frais "${selectedReport.description}" (${selectedReport.amount}€) a été refusée.\n\nMotif du refus: ${rejectionReason || "Non spécifié"}`,
+            type: "expense_rejection"
+          })
+        }).catch(e => console.log("RétroMail non disponible:", e));
+      }
+      
+      toast({
+        title: "Note refusée",
+        description: `La note a été refusée et un message a été envoyé au membre dépositaire`,
+        status: "success",
+        duration: 3000,
+        isClosable: true
+      });
+      
+      onClose();
+      setSelectedReport(null);
+      setRejectionReason("");
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de refuser la note",
         status: "error"
       });
     }
@@ -182,7 +234,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
               <Thead>
                 <Tr bg="gray.50">
                   <Th>Date</Th>
-                  <Th>Collaborateur</Th>
+                  <Th>Membre dépositaire</Th>
                   <Th>Description</Th>
                   <Th isNumeric>Montant</Th>
                   <Th>Statut</Th>
@@ -196,7 +248,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                     <Td>
                       <VStack align="start" spacing={0}>
                         <Text fontWeight="bold" fontSize="sm">
-                          {report.userName || "Utilisateur"}
+                          {report.createdBy || report.userName || "Utilisateur"}
                         </Text>
                         <Text fontSize="xs" color="gray.500">
                           {report.userEmail || "N/A"}
@@ -220,29 +272,41 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                     </Td>
                     <Td>{getStatusBadge(report.status)}</Td>
                     <Td>
-                      <HStack spacing={2}>
+                      <HStack spacing={2} wrap="wrap">
                         {report.status === "PENDING" && (
                           <>
                             <Button
                               size="xs"
                               leftIcon={<FiCheck />}
-                              colorScheme="blue"
+                              colorScheme="green"
                               variant="outline"
                               onClick={() => handleStatusChange(report.id, "APPROVED")}
                               isLoading={loading}
                             >
-                              Approuver
+                              Acceptée
                             </Button>
                             <Button
                               size="xs"
                               leftIcon={<FiX />}
                               colorScheme="red"
                               variant="outline"
-                              onClick={() => handleStatusChange(report.id, "REJECTED")}
+                              onClick={() => handleRejectClick(report)}
                               isLoading={loading}
                             >
-                              Rejeter
+                              Refusée
                             </Button>
+                            {!report.status?.includes("RECEIVED") && (
+                              <Button
+                                size="xs"
+                                leftIcon={<FiCheck />}
+                                colorScheme="blue"
+                                variant="outline"
+                                onClick={() => handleStatusChange(report.id, "RECEIVED")}
+                                isLoading={loading}
+                              >
+                                Reçue
+                              </Button>
+                            )}
                           </>
                         )}
 
@@ -258,17 +322,32 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           </Button>
                         )}
 
-                        {report.attachment && (
+                        {report.fileUrl && (
                           <Button
                             size="xs"
                             leftIcon={<FiEye />}
                             variant="ghost"
                             colorScheme="blue"
                             as="a"
+                            href={report.fileUrl}
+                            target="_blank"
+                            title="Voir la pièce jointe"
+                          >
+                            PJ
+                          </Button>
+                        )}
+                        {report.attachment && (
+                          <Button
+                            size="xs"
+                            leftIcon={<FiDownload />}
+                            variant="ghost"
+                            colorScheme="blue"
+                            as="a"
                             href={report.attachment}
                             target="_blank"
+                            title="Télécharger"
                           >
-                            Voir PJ
+                            DL
                           </Button>
                         )}
                       </HStack>
@@ -280,6 +359,52 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
           </CardBody>
         </Card>
       )}
+
+      {/* Modal de refus avec motif */}
+      <Modal isOpen={isOpen} onClose={onClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Refuser la note de frais</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              {selectedReport && (
+                <>
+                  <Box bg="gray.50" p={4} borderRadius="md" w="full">
+                    <Text fontSize="sm" fontWeight="bold" mb={2}>Note à refuser:</Text>
+                    <Text fontSize="sm"><strong>Membre:</strong> {selectedReport.createdBy || selectedReport.userName}</Text>
+                    <Text fontSize="sm"><strong>Description:</strong> {selectedReport.description}</Text>
+                    <Text fontSize="sm"><strong>Montant:</strong> {formatCurrency(selectedReport.amount)}</Text>
+                  </Box>
+                  
+                  <FormControl isRequired>
+                    <FormLabel>Motif du refus</FormLabel>
+                    <Textarea
+                      placeholder="Expliquez pourquoi cette note est refusée..."
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      rows={4}
+                    />
+                  </FormControl>
+                </>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onClose}>
+              Annuler
+            </Button>
+            <Button
+              colorScheme="red"
+              onClick={handleRejectConfirm}
+              isDisabled={!rejectionReason.trim()}
+              isLoading={loading}
+            >
+              Refuser et notifier
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </VStack>
   );
 };
