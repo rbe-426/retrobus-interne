@@ -14,6 +14,7 @@ const FinanceQuotes = () => {
     documents,
     addDocument,
     deleteDocument,
+    updateDocumentStatus,
     loading
   } = useFinanceData();
 
@@ -71,6 +72,18 @@ const FinanceQuotes = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Confirmer la suppression ?")) {
       await deleteDocument(id);
+    }
+  };
+
+  const handleAcceptQuote = async (id) => {
+    if (window.confirm("Accepter ce devis et créer une facture ?")) {
+      await updateDocumentStatus(id, "ACCEPTED");
+    }
+  };
+
+  const handleMarkPaid = async (id) => {
+    if (window.confirm("Marquer cette facture comme payée ?")) {
+      await updateDocumentStatus(id, "PAID");
     }
   };
 
@@ -186,6 +199,26 @@ const FinanceQuotes = () => {
                         <Button size="sm" variant="ghost" leftIcon={<FiDownload />}>
                           PDF
                         </Button>
+                        {doc.type === "QUOTE" && doc.status !== "ACCEPTED" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="green"
+                            onClick={() => handleAcceptQuote(doc.id)}
+                          >
+                            Accepter
+                          </Button>
+                        )}
+                        {doc.type === "INVOICE" && doc.status !== "PAID" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="blue"
+                            onClick={() => handleMarkPaid(doc.id)}
+                          >
+                            Payée
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

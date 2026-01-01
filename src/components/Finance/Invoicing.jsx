@@ -496,19 +496,27 @@ const FinanceInvoicing = () => {
   const handleChangeStatus = async (docId, newStatus) => {
     try {
       const doc = documents.find(d => d.id === docId);
-      await updateDocumentStatus(docId, newStatus);
+      const result = await updateDocumentStatus(docId, newStatus);
       
-      // Suggestion auto-facture quand un devis est accepté
-      if (doc?.type === 'QUOTE' && newStatus === 'ACCEPTED') {
+      // Si facture auto-créée par le serveur
+      if (result?.invoiceCreated) {
+        toast({
+          title: "✅ Succès",
+          description: `Statut mis à jour + Facture auto-créée: ${result.invoiceNumber}`,
+          status: "success"
+        });
+      }
+      // Si facture créée manuellement (ancien comportement)
+      else if (doc?.type === 'QUOTE' && newStatus === 'ACCEPTED') {
         toast({
           title: "Succès",
           description: "Statut mis à jour",
           status: "success"
         });
         
-        // Attendre un peu puis proposer la création de facture
+        // Propose de créer une facture si pas déjà créée auto
         setTimeout(() => {
-          if (window.confirm(`✅ Devis ${doc.number} accepté !\n\nVoulez-vous créer une facture basée sur ce devis pour gagner du temps ?`)) {
+          if (window.confirm(`✅ Devis ${doc.number} accepté !\n\nVoulez-vous créer une facture basée sur ce devis ?`)) {
             // Créer une facture avec les données du devis
             setDocForm({
               type: "INVOICE",
