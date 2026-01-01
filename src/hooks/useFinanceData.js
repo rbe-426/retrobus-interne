@@ -572,6 +572,7 @@ export const useFinanceData = (currentUser = null) => {
             description: String(operation.description),
             frequency: operation.frequency || "MONTHLY",
             nextDate: operation.nextDate ? new Date(operation.nextDate) : new Date(),
+            estimatedEndDate: operation.estimatedEndDate ? new Date(operation.estimatedEndDate) : null,
             totalAmount: totalAmount,
             remainingTotalAmount: totalAmount  // ← IMPORTANT: Initialiser à totalAmount
           })

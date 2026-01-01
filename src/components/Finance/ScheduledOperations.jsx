@@ -33,6 +33,7 @@ const FinanceScheduledOps = () => {
     description: "",
     frequency: "MONTHLY",
     nextDate: new Date().toISOString().split("T")[0],
+    estimatedEndDate: "",
     totalAmount: ""
   });
   
@@ -45,6 +46,8 @@ const FinanceScheduledOps = () => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isPaymentOpen, onOpen: onPaymentOpen, onClose: onPaymentClose } = useDisclosure();
+  const { isOpen: isDetailsOpen, onOpen: onDetailsOpen, onClose: onDetailsClose } = useDisclosure();
+  const [selectedOperationForDetails, setSelectedOperationForDetails] = useState(null);
 
   // Charger les données au montage du composant
   useEffect(() => {
@@ -71,6 +74,7 @@ const FinanceScheduledOps = () => {
           description: "",
           frequency: "MONTHLY",
           nextDate: new Date().toISOString().split("T")[0],
+          estimatedEndDate: "",
           totalAmount: ""
         });
         onClose();
@@ -257,6 +261,11 @@ const FinanceScheduledOps = () => {
 
   const calculateTheoreticalEnd = (operation) => {
     if (!operation) return null;
+
+    // Cas 0: Si estimatedEndDate est défini par l'utilisateur, l'utiliser
+    if (operation.estimatedEndDate) {
+      return new Date(operation.estimatedEndDate);
+    }
 
     // Cas 1: Si totalAmount est défini, calculer basé sur montant
     if (Number.isFinite(operation.totalAmount) && operation.totalAmount > 0) {
@@ -594,12 +603,15 @@ const FinanceScheduledOps = () => {
 
                     {/* Actions */}
                     <HStack spacing={2} pt={2}>
-                      <Tooltip label="Détails" placement="top">
+                      <Tooltip label="Voir les détails" placement="top">
                         <Button
                           size="xs"
                           variant="ghost"
                           colorScheme="blue"
-                          isDisabled
+                          onClick={() => {
+                            setSelectedOperationForDetails(op);
+                            onDetailsOpen();
+                          }}
                         >
                           Détails
                         </Button>
@@ -703,6 +715,23 @@ const FinanceScheduledOps = () => {
               </FormControl>
 
               <FormControl>
+                <FormLabel>Fin théorique (optionnel)</FormLabel>
+                <Input
+                  type="date"
+                  value={formData.estimatedEndDate}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      estimatedEndDate: e.target.value
+                    })
+                  }
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Si renseigné, le système calculera le nombre de paiements nécessaires. Sinon, utilisez le montant total.
+                </Text>
+              </FormControl>
+
+              <FormControl>
                 <FormLabel>Montant total à amortir (optionnel)</FormLabel>
                 <NumberInput
                   value={formData.totalAmount}
@@ -799,6 +828,96 @@ const FinanceScheduledOps = () => {
               isDisabled={!paymentAmount || paymentAmount <= 0}
             >
               Valider le paiement
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal Détails opération programmée */}
+      <Modal isOpen={isDetailsOpen} onClose={onDetailsClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Détails de l'opération programmée
+          </ModalHeader>
+          <ModalBody>
+            {selectedOperationForDetails && (
+              <VStack spacing={4} align="stretch">
+                <Box p={3} bg="blue.50" borderRadius="md" borderLeft="4px" borderLeftColor="blue.500">
+                  <Text fontSize="sm" fontWeight="bold" mb={2}>
+                    {selectedOperationForDetails.description}
+                  </Text>
+                  <SimpleGrid columns={2} spacing={3}>
+                    <Box>
+                      <Text fontSize="xs" color="gray.600">Type</Text>
+                      <Badge colorScheme="blue" mt={1}>{selectedOperationForDetails.type}</Badge>
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" color="gray.600">Fréquence</Text>
+                      <Text fontSize="sm" fontWeight="bold" mt={1}>
+                        {selectedOperationForDetails.frequency}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                </Box>
+
+                <SimpleGrid columns={2} spacing={4}>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" fontWeight="bold">Montant</Text>
+                    <Text fontSize="lg" fontWeight="bold" color="red.600">
+                      -{formatCurrency(selectedOperationForDetails.amount)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" fontWeight="bold">Montant total</Text>
+                    <Text fontSize="sm" mt={1}>
+                      {selectedOperationForDetails.totalAmount ? formatCurrency(selectedOperationForDetails.totalAmount) : "—"}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" fontWeight="bold">Prochaine date</Text>
+                    <Text fontSize="sm" mt={1}>
+                      {selectedOperationForDetails.nextDate ? formatDate(new Date(selectedOperationForDetails.nextDate)) : "—"}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.600" fontWeight="bold">Fin théorique</Text>
+                    <Text fontSize="sm" mt={1}>
+                      {calculateTheoreticalEnd(selectedOperationForDetails) 
+                        ? formatDate(calculateTheoreticalEnd(selectedOperationForDetails))
+                        : "—"}
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+
+                {selectedOperationForDetails.remainingTotalAmount !== undefined && (
+                  <Box p={3} bg="green.50" borderRadius="md">
+                    <SimpleGrid columns={2} spacing={3}>
+                      <Box>
+                        <Text fontSize="xs" color="gray.600">Montant restant</Text>
+                        <Text fontSize="sm" fontWeight="bold" color="green.600" mt={1}>
+                          {formatCurrency(selectedOperationForDetails.remainingTotalAmount)}
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="xs" color="gray.600">Payées</Text>
+                        <Text fontSize="sm" fontWeight="bold" mt={1}>
+                          {selectedOperationForDetails.paymentsCount ?? 0}
+                        </Text>
+                      </Box>
+                    </SimpleGrid>
+                  </Box>
+                )}
+
+                <Text fontSize="xs" color="gray.500">
+                  Créée le {formatDate(new Date(selectedOperationForDetails.createdAt))}
+                </Text>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onDetailsClose}>
+              Fermer
             </Button>
           </ModalFooter>
         </ModalContent>
