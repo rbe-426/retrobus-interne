@@ -693,10 +693,18 @@ const NewsManagement = () => {
 
     try {
       if (editingId) {
-        await apiClient.put(`/api/retro-news/${editingId}`, formData);
+        await apiClient.put(`/api/retro-news/${editingId}`, { 
+          title: formData.title,
+          body: formData.content,  // ← Envoyer 'body' au lieu de 'content'
+          status: formData.published ? 'published' : 'draft'
+        });
         toast({ title: 'Succès', description: 'Actualité mise à jour', status: 'success' });
       } else {
-        await apiClient.post('/api/retro-news', formData);
+        await apiClient.post('/api/retro-news', { 
+          title: formData.title,
+          body: formData.content,  // ← Envoyer 'body' au lieu de 'content'
+          status: formData.published ? 'published' : 'draft'
+        });
         toast({ title: 'Succès', description: 'Actualité créée', status: 'success' });
       }
       loadNews();
