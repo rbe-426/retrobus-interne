@@ -672,7 +672,7 @@ const NewsManagement = () => {
     setEditingId(item.id);
     setFormData({
       title: item.title,
-      content: item.content,
+      content: item.content || item.body || '',  // Support content OU body
       featured: item.featured || false,
       published: item.published || false,
       showOnExternal: item.showOnExternal || false,
@@ -798,7 +798,7 @@ const NewsManagement = () => {
               </CardHeader>
               <CardBody>
                 <Text fontSize="sm" noOfLines={3} color="gray.600">
-                  {item.content}
+                  {item.body || item.content || '(vide)'}
                 </Text>
               </CardBody>
               <Divider />
