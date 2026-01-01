@@ -27,9 +27,11 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
-  // Vérifier les droits d'accès - utiliser userRoles en priorité
-  const hasAccess = (userRoles || currentUser?.roles)?.some(role =>
-    ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
+  // Vérifier les droits d'accès - utiliser userRoles en priorité, sinon essayer currentUser
+  const allowedRoles = ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"];
+  const userRolesArray = userRoles || currentUser?.roles || (currentUser?.role ? [currentUser.role] : []);
+  const hasAccess = userRolesArray.some(role =>
+    allowedRoles.includes(role)
   );
 
   if (!hasAccess) {
