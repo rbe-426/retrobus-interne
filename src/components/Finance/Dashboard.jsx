@@ -39,7 +39,19 @@ const FinanceDashboard = () => {
   const scheduledMonthlyImpact = (scheduledOperations || [])
     .filter(op => op.isActive !== false) // Ne compter que les actives
     .reduce((sum, op) => {
-      // Appliquer le multiplicateur de fréquence
+      // ⚠️ Opérations ponctuelles (ONE_SHOT) : pas d'annualisation
+      if (op.frequency === "ONE_SHOT") {
+        // Une dépense ponctuelle ne compte que si elle est ce mois
+        const opDate = new Date(op.nextDate || op.date);
+        const today = new Date();
+        if (opDate.getMonth() === today.getMonth() && opDate.getFullYear() === today.getFullYear()) {
+          const impact = op.type === "SCHEDULED_CREDIT" ? (op.amount || 0) : -(op.amount || 0);
+          return sum + impact;
+        }
+        return sum; // Pas de projection sur 12 mois
+      }
+
+      // Appliquer le multiplicateur de fréquence pour les récurrents
       const frequencyMultiplier = 
         op.frequency === "MONTHLY" ? 1 :
         op.frequency === "QUARTERLY" ? 1/3 :

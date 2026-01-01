@@ -346,7 +346,7 @@ const FinanceScheduledOps = () => {
         <Box>
           <Heading size="lg">Opérations programmées</Heading>
           <Text color="gray.500" fontSize="sm">
-            Gestion des paiements récurrents et échéanciers
+            Paiements dûs de l'association
           </Text>
         </Box>
         <Button

@@ -31,13 +31,29 @@ const ExpenseReports = () => {
     }
   })();
 
+  // Récupérer l'email depuis le token
+  const userEmail = (() => {
+    try {
+      const token = localStorage.getItem('token') || '';
+      if (token.startsWith('stub.')) {
+        const emailB64 = token.slice(5);
+        return atob(emailB64);
+      }
+    } catch (e) {
+      // Silently fail
+    }
+    return currentUser.email || currentUser.id || '';
+  })();
+
   // Afficher les notes de l'utilisateur courant OU les notes sans userId
   const myReports = expenseReports.filter(r => 
     !r.userId || // Si pas de userId (anciennement créées)
-    r.userId === currentUser.id || // Si créée par l'utilisateur courant
-    r.createdBy === currentUser.id // Alternative: par createdBy
+    r.userId === userEmail || // Si créée par l'utilisateur courant (compare par email)
+    r.userId === currentUser.id || // Alternative: par ID localStorage
+    r.createdBy === userEmail || // Alternative: par createdBy (email)
+    r.createdBy === currentUser.email // Alternative: par createdBy (localStorage email)
   );
-  console.log(`💰 ${myReports.length}/${expenseReports.length} notes de frais affichées`);
+  console.log(`💰 ${myReports.length}/${expenseReports.length} notes de frais affichées (utilisateur: ${userEmail})`);
 
   const [formData, setFormData] = useState({
     description: "",
