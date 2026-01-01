@@ -111,7 +111,8 @@ const FinanceScheduledOps = () => {
   }, [deleteScheduledOperation, toast, loadFinanceData]);
 
   const handleAddPayment = useCallback(async () => {
-    if (!paymentAmount || !selectedOperationId) {
+    // Récupérer paymentAmount depuis l'état plutôt que les dépendances
+    if (!selectedOperationId) {
       toast({
         title: "Erreur",
         description: "Veuillez saisir un montant",
@@ -165,8 +166,18 @@ const FinanceScheduledOps = () => {
         isClosable: true
       });
       
-      // Recharger immédiatement les données sans attendre
-      loadFinanceData();
+      // Recharger uniquement les opérations programmées pour plus de réactivité
+      const schedRes = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+      if (schedRes.ok) {
+        const data = await schedRes.json();
+        // Les opérations vont être mises à jour dans le contexte global via loadFinanceData
+        // Mais on force aussi un rechargement complet pour être sûr
+        await loadFinanceData();
+      }
     } catch (error) {
       toast({
         title: "Erreur",
@@ -176,7 +187,7 @@ const FinanceScheduledOps = () => {
     } finally {
       setIsAddingPayment(false);
     }
-  }, [paymentAmount, selectedOperationId, scheduledOperations, toast, loadFinanceData]);
+  }, [selectedOperationId, scheduledOperations, paymentAmount, toast, loadFinanceData]);
 
   const handleToggle = async (id, currentStatus) => {
     try {
