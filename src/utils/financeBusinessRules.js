@@ -74,7 +74,13 @@ export const TRANSACTION_CATEGORIES = {
   'FOURNITURES': 'Fournitures',
   'COTISATION': 'Cotisation',
   'FRAIS_EVENEMENT': 'Frais événement',
-  'ASSURANCE': 'Assurance',
+  'ASSURANCE': 'Assurances',
+  'DÉPENSES_ADMINISTRATIVES': 'Dépenses Administratives',
+  'DÉPENSES_NDF': 'Dépenses via NDF',
+  'SUBVENTION': 'Subvention',
+  'ACTIVITÉS': 'Activités',
+  'ÉCHEANCIER': 'Écheancier',
+  'FACTURE_CHORUS_PRO': 'Facture CHORUS PRO',
   'AUTRE': 'Autre'
 };
 

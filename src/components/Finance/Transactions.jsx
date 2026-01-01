@@ -197,11 +197,9 @@ const FinanceTransactions = () => {
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
-                  <option value="ADHESION">Adhésion</option>
-                  <option value="DONATION">Donation</option>
-                  <option value="TRANSPORT">Transport</option>
-                  <option value="MAINTENANCE">Maintenance</option>
-                  <option value="FOURNITURES">Fournitures</option>
+                  {Object.entries(TRANSACTION_CATEGORIES).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
                 </Select>
               </FormControl>
               <FormControl>
