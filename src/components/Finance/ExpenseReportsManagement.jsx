@@ -76,8 +76,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     if (!selectedReport) return;
     
     try {
-      // Update status to REJECTED
-      await updateExpenseReportStatus(selectedReport.id, "REJECTED");
+      // Update status to closed (which maps to REJECTED)
+      await updateExpenseReportStatus(selectedReport.id, "closed");
       
       // Send RétroMail to the creator
       if (selectedReport.userId) {
@@ -114,13 +114,27 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   };
 
   const getStatusBadge = (status) => {
+    // Mapper les statuts de la BD aux statuts de l'app
+    const statusMap = {
+      'open': 'PENDING',
+      'PENDING': 'PENDING',
+      'approved': 'APPROVED',
+      'APPROVED': 'APPROVED',
+      'paid': 'PAID',
+      'PAID': 'PAID',
+      'closed': 'REJECTED',
+      'REJECTED': 'REJECTED',
+    };
+    
+    const normalizedStatus = statusMap[status] || 'PENDING';
+    
     const statusConfig = {
       PENDING: { colorScheme: "yellow", label: "En attente" },
       APPROVED: { colorScheme: "blue", label: "Approuvée" },
       PAID: { colorScheme: "green", label: "Payée" },
       REJECTED: { colorScheme: "red", label: "Rejetée" }
     };
-    const config = statusConfig[status] || statusConfig.PENDING;
+    const config = statusConfig[normalizedStatus] || statusConfig.PENDING;
     return <Badge colorScheme={config.colorScheme}>{config.label}</Badge>;
   };
 
@@ -136,24 +150,39 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     return new Date(dateStr).toLocaleDateString("fr-FR");
   };
 
+  // Helper pour normaliser le statut
+  const normalizeStatus = (status) => {
+    const map = {
+      'open': 'PENDING',
+      'approved': 'APPROVED',
+      'paid': 'PAID',
+      'closed': 'REJECTED',
+    };
+    return map[status?.toLowerCase()] || status;
+  };
+
   // Filtrer par statut
-  const filteredReports = filterStatus === "ALL"
-    ? expenseReports
-    : expenseReports.filter(r => r.status === filterStatus);
+  const filteredReports = (() => {
+    const normalized = filterStatus === "ALL" ? "ALL" : normalizeStatus(filterStatus);
+    if (normalized === "ALL") {
+      return expenseReports;
+    }
+    return expenseReports.filter(r => normalizeStatus(r.status) === normalized);
+  })();
 
   // Statistiques
   const stats = {
-    pending: expenseReports.filter(r => r.status === "PENDING").length,
+    pending: expenseReports.filter(r => normalizeStatus(r.status) === "PENDING").length,
     pendingAmount: expenseReports
-      .filter(r => r.status === "PENDING")
+      .filter(r => normalizeStatus(r.status) === "PENDING")
       .reduce((sum, r) => sum + (r.amount || 0), 0),
-    approved: expenseReports.filter(r => r.status === "APPROVED").length,
+    approved: expenseReports.filter(r => normalizeStatus(r.status) === "APPROVED").length,
     approvedAmount: expenseReports
-      .filter(r => r.status === "APPROVED")
+      .filter(r => normalizeStatus(r.status) === "APPROVED")
       .reduce((sum, r) => sum + (r.amount || 0), 0),
-    paid: expenseReports.filter(r => r.status === "PAID").length,
+    paid: expenseReports.filter(r => normalizeStatus(r.status) === "PAID").length,
     paidAmount: expenseReports
-      .filter(r => r.status === "PAID")
+      .filter(r => normalizeStatus(r.status) === "PAID")
       .reduce((sum, r) => sum + (r.amount || 0), 0)
   };
 
@@ -274,14 +303,14 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                     <Td>{getStatusBadge(report.status)}</Td>
                     <Td>
                       <HStack spacing={2} wrap="wrap">
-                        {report.status === "PENDING" && (
+                        {normalizeStatus(report.status) === "PENDING" && (
                           <>
                             <Button
                               size="xs"
                               leftIcon={<FiCheck />}
                               colorScheme="green"
                               variant="outline"
-                              onClick={() => handleStatusChange(report.id, "APPROVED")}
+                              onClick={() => handleStatusChange(report.id, "approved")}
                               isLoading={loading}
                             >
                               Acceptée
@@ -296,13 +325,13 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                             >
                               Refusée
                             </Button>
-                            {!report.status?.includes("RECEIVED") && (
+                            {normalizeStatus(report.status) !== "REJECTED" && (
                               <Button
                                 size="xs"
                                 leftIcon={<FiCheck />}
                                 colorScheme="blue"
                                 variant="outline"
-                                onClick={() => handleStatusChange(report.id, "RECEIVED")}
+                                onClick={() => handleStatusChange(report.id, "open")}
                                 isLoading={loading}
                               >
                                 Reçue
@@ -311,12 +340,12 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           </>
                         )}
 
-                        {report.status === "APPROVED" && (
+                        {normalizeStatus(report.status) === "APPROVED" && (
                           <Button
                             size="xs"
                             leftIcon={<FiCheck />}
                             colorScheme="green"
-                            onClick={() => handleStatusChange(report.id, "PAID")}
+                            onClick={() => handleStatusChange(report.id, "paid")}
                             isLoading={loading}
                           >
                             Marquer payée
