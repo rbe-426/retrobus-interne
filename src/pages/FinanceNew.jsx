@@ -26,6 +26,7 @@ import ExpenseReportsManagement from "../components/Finance/ExpenseReportsManage
 import Simulations from "../components/Finance/Simulations";
 import { useFinanceData } from "../hooks/useFinanceData";
 import { useUser } from "../context/UserContext";
+import { useUserRoles } from "../hooks/useUserRoles";
 
 /**
  * FinanceNew - Nouvelle page Finance avec sidebar navigation
@@ -40,6 +41,7 @@ const FinanceNew = () => {
   // Charger les données Finance une fois au mount
   const { loadFinanceData } = useFinanceData();
   const { user, roles } = useUser(); // Récupérer l'utilisateur et ses rôles
+  const userRolesHook = useUserRoles(); // Hook centralisé pour les rôles
 
   useEffect(() => {
     loadFinanceData();
@@ -59,10 +61,8 @@ const FinanceNew = () => {
     return () => clearInterval(interval);
   }, [loadFinanceData]);
 
-  // Vérifier si l'utilisateur a accès à la gestion des notes
-  const hasExpenseReportsManagementAccess = roles?.some(role =>
-    ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
-  );
+  // Vérifier si l'utilisateur a accès à la gestion des notes - utiliser le hook centralisé
+  const hasExpenseReportsManagementAccess = userRolesHook.hasFinanceAccess();
 
   // Sections principales
   const sections = [

@@ -8,6 +8,7 @@ import {
 } from "@chakra-ui/react";
 import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
+import { useUserRoles } from "../../hooks/useUserRoles";
 
 /**
  * ExpenseReportsManagement - Gestion des notes de frais
@@ -21,18 +22,16 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     loading
   } = useFinanceData();
 
+  const userRolesHook = useUserRoles();
+
   const [filterStatus, setFilterStatus] = useState("PENDING");
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
-  // Vérifier les droits d'accès - utiliser userRoles en priorité, sinon essayer currentUser
-  const allowedRoles = ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"];
-  const userRolesArray = userRoles || currentUser?.roles || (currentUser?.role ? [currentUser.role] : []);
-  const hasAccess = userRolesArray.some(role =>
-    allowedRoles.includes(role)
-  );
+  // Vérifier les droits d'accès - utiliser le nouveau hook qui centralise tout
+  const hasAccess = userRolesHook.hasFinanceAccess();
 
   if (!hasAccess) {
     return (

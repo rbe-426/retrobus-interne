@@ -58,10 +58,12 @@ import {
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
 import { useUser } from "../context/UserContext";
+import { useUserRoles } from "../hooks/useUserRoles";
 
 const RetroDemandes = () => {
   const toast = useToast();
   const { user } = useUser();
+  const userRolesHook = useUserRoles();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
     isOpen: isPreviewOpen,
@@ -96,31 +98,15 @@ const RetroDemandes = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState([]);
 
-  // Vérifier si l'utilisateur est admin
+  // Vérifier si l'utilisateur est admin - utiliser le hook centralisé
   const isUserAdmin = useCallback(() => {
-    if (!user) return false;
-    const roles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
-    return roles.includes('ADMIN');
-  }, [user]);
+    return userRolesHook.hasRole('ADMIN');
+  }, [userRolesHook]);
 
-  // Vérifier si l'utilisateur peut accéder à l'onglet Récapitulatif
+  // Vérifier si l'utilisateur peut accéder à l'onglet Récapitulatif - utiliser le hook centralisé
   const canViewRecap = useCallback(() => {
-    if (!user) return false;
-    const roles = Array.isArray(user.roles)
-      ? user.roles
-      : user.role
-      ? [user.role]
-      : [];
-    const hasAdminRole = roles.some(
-      (r) =>
-        r === "ADMIN" ||
-        r === "PRESIDENT" ||
-        r === "VICE_PRESIDENT" ||
-        r === "TRESORIER" ||
-        r === "SECRETAIRE_GENERAL"
-    );
-    return hasAdminRole;
-  }, [user]);
+    return userRolesHook.hasAdminAccess();
+  }, [userRolesHook]);
 
   // Charger les demandes de l'utilisateur
   const loadMyRequests = useCallback(async () => {

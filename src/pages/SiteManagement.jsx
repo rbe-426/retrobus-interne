@@ -23,11 +23,9 @@ import { apiClient } from '../api/config';
 import { API_BASE_URL } from '../api/config';
 import { displayNameFromUser, formatMemberLabel } from '../lib/names';
 import { useUser } from '../context/UserContext';
+import { useUserRoles, ADMIN_ROLES } from '../hooks/useUserRoles';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
-
-// === ADMIN ROLES ===
-const ADMIN_ROLES = ['ADMIN', 'PRESIDENT', 'VICE_PRESIDENT', 'TRESORIER', 'SECRETAIRE_GENERAL'];
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -903,6 +901,7 @@ const NewsManagement = () => {
  */
 const PermissionsManagement = () => {
   const { user, roles, isAdmin } = useUser();
+  const userRolesHook = useUserRoles();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -911,8 +910,8 @@ const PermissionsManagement = () => {
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.800');
   
-  // Vérifier que l'utilisateur est admin (PRESIDENT ou admin équivalent)
-  const canManage = isAdmin || (roles && roles.some(r => ADMIN_ROLES.includes(r)));
+  // Vérifier que l'utilisateur est admin - utiliser le hook centralisé
+  const canManage = userRolesHook.hasAdminAccess();
 
   useEffect(() => {
     if (canManage) {
