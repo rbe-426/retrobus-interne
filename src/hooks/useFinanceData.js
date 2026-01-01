@@ -294,6 +294,11 @@ export const useFinanceData = (currentUser = null) => {
 
         const data = await res.json();
         
+        // Mettre à jour le solde immédiatement si retourné
+        if (data.newBalance !== undefined) {
+          setBalance(data.newBalance);
+        }
+        
         // MÉTIER: Sauvegarder les allocations si présentes
         if (allocations.length > 0) {
           try {
