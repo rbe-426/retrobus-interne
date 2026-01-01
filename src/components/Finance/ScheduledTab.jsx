@@ -53,6 +53,41 @@ const ScheduledTab = () => {
     setLoading(false);
   };
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "N/A";
+    return new Date(dateStr).toLocaleDateString("fr-FR");
+  };
+
+  const calculateDynamicNextDate = (operation) => {
+    if (!operation || !operation.nextDate) return null;
+    
+    let current = new Date(operation.nextDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    if (!operation.frequency) {
+      return current.toISOString().split("T")[0];
+    }
+    
+    const frequencyMap = {
+      'WEEKLY': 7,
+      'MONTHLY': 30,
+      'QUARTERLY': 90,
+      'SEMI_ANNUAL': 180,
+      'YEARLY': 365,
+      'ONE_SHOT': null
+    };
+    
+    const days = frequencyMap[operation.frequency];
+    if (!days) return current.toISOString().split("T")[0];
+    
+    while (current < now) {
+      current.setDate(current.getDate() + days);
+    }
+    
+    return current.toISOString().split("T")[0];
+  };
+
   const handleAddScheduledOperation = async () => {
     if (!newScheduled.amount || !newScheduled.description) {
       toast({ status: "error", title: "Erreur", description: "Remplissez les champs obligatoires" });
@@ -233,7 +268,7 @@ const ScheduledTab = () => {
                       <Text fontSize="sm" color="gray.600">
                         Prochaine date
                       </Text>
-                      <Text fontWeight="medium">{formatDate(op.nextDate)}</Text>
+                      <Text fontWeight="medium">{formatDate(calculateDynamicNextDate(op))}</Text>
                     </HStack>
                     <HStack justify="space-between" mb={2}>
                       <Text fontSize="sm" color="gray.600">

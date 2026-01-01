@@ -259,6 +259,38 @@ const FinanceScheduledOps = () => {
     return new Date(dateStr).toLocaleDateString("fr-FR");
   };
 
+  const calculateDynamicNextDate = (operation) => {
+    if (!operation || !operation.nextDate) return null;
+    
+    let current = new Date(operation.nextDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    if (!operation.frequency) {
+      return current.toISOString().split("T")[0];
+    }
+    
+    // Avancer la date tant qu'elle est dans le passé
+    const frequencyMap = {
+      'WEEKLY': 7,
+      'MONTHLY': 30,  // Approximation
+      'QUARTERLY': 90,
+      'SEMI_ANNUAL': 180,
+      'YEARLY': 365,
+      'ONE_SHOT': null
+    };
+    
+    const days = frequencyMap[operation.frequency];
+    if (!days) return current.toISOString().split("T")[0];  // ONE_SHOT ou inconnu
+    
+    // Avancer jusqu'à ce que la date soit aujourd'hui ou demain
+    while (current < now) {
+      current.setDate(current.getDate() + days);
+    }
+    
+    return current.toISOString().split("T")[0];
+  };
+
   const calculateTheoreticalEnd = (operation) => {
     if (!operation) return null;
 
@@ -506,7 +538,7 @@ const FinanceScheduledOps = () => {
                         Prochaine date
                       </Text>
                       <Text fontSize="sm" fontWeight="500">
-                        {formatDate(op.nextDate)}
+                        {formatDate(calculateDynamicNextDate(op))}
                       </Text>
                     </HStack>
 
@@ -877,7 +909,7 @@ const FinanceScheduledOps = () => {
                   <Box>
                     <Text fontSize="xs" color="gray.600" fontWeight="bold">Prochaine date</Text>
                     <Text fontSize="sm" mt={1}>
-                      {selectedOperationForDetails.nextDate ? formatDate(new Date(selectedOperationForDetails.nextDate)) : "—"}
+                      {selectedOperationForDetails.nextDate ? formatDate(calculateDynamicNextDate(selectedOperationForDetails)) : "—"}
                     </Text>
                   </Box>
                   <Box>
