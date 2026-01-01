@@ -254,10 +254,25 @@ const FinanceScheduledOps = () => {
 
       if (monthlyAmount <= 0) return null;
 
-      const monthsRemaining = Math.ceil(remaining / monthlyAmount);
+      const frequency = operation.frequency || "MONTHLY";
+      
+      // Convertir la fréquence en intervalle en mois
+      const monthsPerPeriod = 
+        frequency === "MONTHLY" ? 1 :
+        frequency === "QUARTERLY" ? 3 :
+        frequency === "SEMI_ANNUAL" ? 6 :
+        frequency === "YEARLY" ? 12 :
+        frequency === "WEEKLY" ? 0.25 : 1;
+
+      // Nombre de périodes restantes (pas de mois)
+      const periodsRemaining = Math.ceil(remaining / monthlyAmount);
+      
+      // Convertir en mois réels basé sur la fréquence
+      const monthsRemaining = periodsRemaining * monthsPerPeriod;
+
       const startDate = new Date(operation.nextDate);
       const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + monthsRemaining);
+      endDate.setMonth(endDate.getMonth() + Math.ceil(monthsRemaining));
 
       return endDate;
     }

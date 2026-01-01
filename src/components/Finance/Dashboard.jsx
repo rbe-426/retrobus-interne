@@ -37,7 +37,20 @@ const FinanceDashboard = () => {
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const scheduledMonthlyImpact = (scheduledOperations || [])
-    .reduce((sum, op) => sum + (op.amount || 0), 0);
+    .filter(op => op.isActive !== false) // Ne compter que les actives
+    .reduce((sum, op) => {
+      // Appliquer le multiplicateur de fréquence
+      const frequencyMultiplier = 
+        op.frequency === "MONTHLY" ? 1 :
+        op.frequency === "QUARTERLY" ? 1/3 :
+        op.frequency === "SEMI_ANNUAL" ? 1/6 :
+        op.frequency === "YEARLY" ? 1/12 :
+        op.frequency === "WEEKLY" ? 4.33 : 1;
+      
+      const monthlyAmount = (op.amount || 0) * frequencyMultiplier;
+      const impact = op.type === "SCHEDULED_CREDIT" ? monthlyAmount : -monthlyAmount;
+      return sum + impact;
+    }, 0);
 
   return (
     <VStack align="stretch" spacing={6}>

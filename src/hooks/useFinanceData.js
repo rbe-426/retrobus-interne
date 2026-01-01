@@ -729,6 +729,61 @@ export const useFinanceData = (currentUser = null) => {
     [userRole, scheduledOperations, toast, loadFinanceData]
   );
 
+  // Activer ou désactiver une opération programmée
+  const toggleScheduledOperation = useCallback(
+    async (operationId, isActive) => {
+      try {
+        setLoading(true);
+        
+        const res = await fetch(
+          `${API_BASE}/api/finance/scheduled-operations/${operationId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify({ isActive: !isActive })
+          }
+        );
+
+        if (!res.ok) throw new Error("Erreur mise à jour");
+
+        // Recharger les données depuis l'API
+        try {
+          const schedRes = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          });
+          if (schedRes.ok) {
+            const schedData = await schedRes.json();
+            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.operations || schedData.scheduledOperations || []);
+          }
+        } catch (err) {
+          console.warn("⚠️ Erreur rechargement opérations programmées:", err.message);
+        }
+        
+        toast({
+          title: "Succes",
+          description: isActive ? "Opération désactivée" : "Opération activée",
+          status: "success"
+        });
+        return true;
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: error.message,
+          status: "error"
+        });
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast]
+  );
+
   // Mettre à jour le statut d'un document
   const updateDocumentStatus = useCallback(
     async (documentId, newStatus) => {
@@ -1291,6 +1346,7 @@ export const useFinanceData = (currentUser = null) => {
     setNewScheduled,
     addScheduledOperation,
     deleteScheduledOperation,
+    toggleScheduledOperation,
     approveScheduledOperation,
     // Notes de frais
     expenseReports,
