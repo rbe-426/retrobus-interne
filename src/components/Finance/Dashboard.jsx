@@ -2,13 +2,13 @@ import React from "react";
 import {
   Box, VStack, HStack, Card, CardBody, CardHeader,
   Heading, Text, Stat, StatLabel, StatNumber, StatHelpText,
-  Grid, GridItem, useColorModeValue, SimpleGrid, Icon
+  Grid, GridItem, useColorModeValue, SimpleGrid, Icon, Button, Spinner
 } from "@chakra-ui/react";
-import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiCalendar } from "react-icons/fi";
+import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiCalendar, FiRefreshCw } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 
 const FinanceDashboard = () => {
-  const { stats, balance, transactions, scheduledOperations, loading } = useFinanceData();
+  const { stats, balance, transactions, scheduledOperations, loading, loadFinanceData } = useFinanceData();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -55,12 +55,23 @@ const FinanceDashboard = () => {
   return (
     <VStack align="stretch" spacing={6}>
       {/* Header */}
-      <Box>
-        <Heading size="lg">Tableau de Bord Finances</Heading>
-        <Text color="gray.500" fontSize="sm">
-          Vue d'ensemble de votre trésorerie
-        </Text>
-      </Box>
+      <HStack justify="space-between" align="start">
+        <Box>
+          <Heading size="lg">Tableau de Bord Finances</Heading>
+          <Text color="gray.500" fontSize="sm">
+            Vue d'ensemble de votre trésorerie
+          </Text>
+        </Box>
+        <Button
+          leftIcon={loading ? <Spinner size="sm" /> : <Icon as={FiRefreshCw} />}
+          variant="outline"
+          onClick={loadFinanceData}
+          isDisabled={loading}
+          size="sm"
+        >
+          {loading ? "Chargement..." : "Rafraîchir"}
+        </Button>
+      </HStack>
 
       {/* Statistiques principales */}
       <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>

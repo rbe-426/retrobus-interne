@@ -45,6 +45,20 @@ const FinanceNew = () => {
     loadFinanceData();
   }, [loadFinanceData]);
 
+  // Recharger les données quand on change de section pour assurer la fraîcheur des données
+  useEffect(() => {
+    loadFinanceData();
+  }, [activeMainSection, loadFinanceData]);
+
+  // Recharger les données automatiquement toutes les 30 secondes pour maintenir la fraîcheur
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadFinanceData();
+    }, 30000); // 30 secondes
+
+    return () => clearInterval(interval);
+  }, [loadFinanceData]);
+
   // Vérifier si l'utilisateur a accès à la gestion des notes
   const hasExpenseReportsManagementAccess = roles?.some(role =>
     ["ADMIN", "PRESIDENT", "VICE_PRESIDENT", "TRESORIER"].includes(role)
