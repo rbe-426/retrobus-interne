@@ -92,6 +92,9 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
       // Update status to closed (which maps to REJECTED)
       await updateExpenseReportStatus(selectedReport.id, "closed");
       
+      // Recharger les données pour refléter le changement
+      await loadFinanceData();
+      
       // Send RétroMail to the creator
       if (selectedReport.userId) {
         await fetch("/api/retromail/send", {
