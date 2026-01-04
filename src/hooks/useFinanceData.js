@@ -587,22 +587,11 @@ export const useFinanceData = (currentUser = null) => {
 
         const data = await res.json();
         
-        // Recharger les opérations programmées depuis l'API
-        try {
-          const schedRes = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`
-            }
-          });
-          if (schedRes.ok) {
-            const schedData = await schedRes.json();
-            setScheduledOperations(Array.isArray(schedData) ? schedData : schedData.operations || schedData.scheduledOperations || []);
-          }
-        } catch (err) {
-          console.warn("⚠️ Erreur rechargement opérations programmées:", err.message);
-          // Fallback: au moins ajouter l'objet créé localement
-          setScheduledOperations(prev => [...prev, data]);
-        }
+        // Ajouter l'objet créé au state immédiatement
+        setScheduledOperations(prev => [...prev, data]);
+        
+        // Recharger les données complètes pour synchroniser
+        await loadFinanceData();
         
         toast({
           title: "Succès",
@@ -621,7 +610,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [toast]
+    [toast, loadFinanceData]
   );
 
   // Supprimer une opération programmée
@@ -852,7 +841,7 @@ export const useFinanceData = (currentUser = null) => {
         if (!res.ok) throw new Error("Erreur création");
 
         const data = await res.json();
-        const newReport = data.report || data;
+        const newReport = data;
         setExpenseReports([...expenseReports, newReport]);
         toast({
           title: "Succès",
