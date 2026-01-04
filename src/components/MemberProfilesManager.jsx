@@ -783,4 +783,8 @@ export default function MemberProfilesManager() {
           </ModalFooter>
         </ModalContent>
       </Modal>
-        
+        </>
+      ) : null}
+    </VStack>
+  );
+}
