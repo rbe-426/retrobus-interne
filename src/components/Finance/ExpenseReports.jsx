@@ -27,15 +27,6 @@ const ExpenseReports = () => {
   useEffect(() => {
     console.log('📍 ExpenseReports component mounted, loading data...');
     loadFinanceData();
-    
-    // Polling pour rafraîchir les données toutes les 5 secondes
-    // Cela permet au dépositaire de voir les changements de statut en temps quasi-réel
-    const interval = setInterval(() => {
-      console.log('🔄 Polling: rechargement des NDFs...');
-      loadFinanceData();
-    }, 5000); // 5 secondes
-    
-    return () => clearInterval(interval);
   }, [loadFinanceData]);
 
   // Récupérer l'utilisateur courant depuis localStorage

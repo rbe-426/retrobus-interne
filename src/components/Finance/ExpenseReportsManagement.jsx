@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
@@ -34,22 +34,6 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
 
   // Vérifier les droits d'accès - utiliser le nouveau hook qui centralise tout
   const hasAccess = userRolesHook.hasFinanceAccess();
-
-  // Polling pour rafraîchir les NDFs toutes les 5 secondes
-  // Permet à plusieurs admins de voir les changements en quasi temps réel
-  useEffect(() => {
-    if (!hasAccess) return;
-    
-    console.log('📍 ExpenseReportsManagement mounted, loading data...');
-    loadFinanceData();
-    
-    const interval = setInterval(() => {
-      console.log('🔄 Polling: rechargement des NDFs en gestion...');
-      loadFinanceData();
-    }, 5000); // 5 secondes
-    
-    return () => clearInterval(interval);
-  }, [hasAccess, loadFinanceData]);
 
   if (!hasAccess) {
     return (
