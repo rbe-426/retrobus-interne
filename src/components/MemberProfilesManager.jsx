@@ -95,26 +95,16 @@ export default function MemberProfilesManager() {
   const loadMembers = async () => {
     try {
       setLoadingMembers(true);
-      const token = localStorage.getItem('token');
       
-      try {
-        const response = await fetch('/api/members', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const membersList = Array.isArray(data) ? data : (data.members || []);
-          setMembers(membersList);
-          if (membersList.length > 0 && !selectedMemberId) {
-            setSelectedMemberId(membersList[0].id);
-          }
-          return;
+      // Utilise l'API membre qui gère tous les endpoints
+      const result = await membersAPI.getAll();
+      
+      if (result?.members && result.members.length > 0) {
+        setMembers(result.members);
+        if (!selectedMemberId) {
+          setSelectedMemberId(result.members[0].id);
         }
-      } catch (apiError) {
-        console.log('API non disponible, utilisation des données mockées');
+        return;
       }
 
       // Fallback avec données mockées
@@ -129,10 +119,22 @@ export default function MemberProfilesManager() {
       }
     } catch (error) {
       console.error('Erreur chargement membres:', error);
+      
+      // Fallback avec données mockées même en cas d'erreur
+      const mockMembers = [
+        { id: '1', firstName: 'Jean', lastName: 'Dupont', matricule: 'MAT001', memberNumber: 'ADH001' },
+        { id: '2', firstName: 'Marie', lastName: 'Martin', matricule: 'MAT002', memberNumber: 'ADH002' },
+        { id: '3', firstName: 'Pierre', lastName: 'Bernard', matricule: 'MAT003', memberNumber: 'ADH003' }
+      ];
+      setMembers(mockMembers);
+      if (!selectedMemberId) {
+        setSelectedMemberId(mockMembers[0].id);
+      }
+      
       toast({
-        status: 'warning',
-        title: 'Avertissement',
-        description: 'Impossible de charger la liste des adhérents'
+        status: 'info',
+        title: 'Mode hors ligne',
+        description: 'Utilisation des données d\'exemple'
       });
     } finally {
       setLoadingMembers(false);
