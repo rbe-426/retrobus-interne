@@ -859,6 +859,10 @@ export const useFinanceData = (currentUser = null) => {
           description: "Note de frais créée",
           status: "success"
         });
+        
+        // 🔄 Recharger les données pour synchroniser
+        await loadFinanceData();
+        
         return newReport;
       } catch (error) {
         toast({
@@ -871,7 +875,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [expenseReports, toast]
+    [expenseReports, toast, loadFinanceData]
   );
 
   const updateExpenseReport = useCallback(
@@ -897,6 +901,10 @@ export const useFinanceData = (currentUser = null) => {
           description: "Note de frais mise à jour",
           status: "success"
         });
+        
+        // 🔄 Recharger les données pour synchroniser TOUS les clients
+        await loadFinanceData();
+        
         return updated;
       } catch (error) {
         toast({
@@ -909,7 +917,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [expenseReports, toast]
+    [expenseReports, toast, loadFinanceData]
   );
 
   const deleteExpenseReport = useCallback(
@@ -931,6 +939,9 @@ export const useFinanceData = (currentUser = null) => {
           description: "Note de frais supprimée",
           status: "success"
         });
+        
+        // 🔄 Recharger les données pour synchroniser
+        await loadFinanceData();
       } catch (error) {
         toast({
           title: "Erreur",
@@ -941,7 +952,7 @@ export const useFinanceData = (currentUser = null) => {
         setLoading(false);
       }
     },
-    [expenseReports, toast]
+    [expenseReports, toast, loadFinanceData]
   );
 
   // ===== SIMULATIONS =====
