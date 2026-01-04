@@ -286,100 +286,130 @@ export default function Header() {
   };
 
   return (
-    <Box as="header" w="100%" bg="white" position="sticky" top="0" zIndex="1000" borderBottom="1px solid #3a3a3aff">
-      <Box position="relative" h={{ base: HEADER_H_M, md: HEADER_H_D }} overflow="visible">
-        {/* Dégradé fluide (derrière le logo) */}
-        <Box
-          position="absolute"
-          left="0"
-          right="0"
-          top="0"
-          bottom="0"
-          zIndex={0}
-          pointerEvents="none"
-          style={{
-            background: `linear-gradient(90deg,
-              ${WIN.red} 0%,
-              ${WIN.yellow} 22%,
-              ${WIN.green} 70%,
-              ${WIN.blue} 100%
-            )`
-          }}
-        />
-
-        {/* Logo à gauche (au-dessus du dégradé) */}
+    <Box as="header" w="100%" bg="gray.900" position="sticky" top="0" zIndex="1000" borderBottom="1px solid" borderColor="gray.700">
+      <Box 
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        h={{ base: "80px", md: "120px" }}
+        px={{ base: 3, md: 5 }}
+        gap={4}
+      >
+        {/* Logo à gauche - fixe */}
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={{ base: LOGO_H_M, md: LOGO_H_D }}
+          height={{ base: "70px", md: "110px" }}
+          w="auto"
           objectFit="contain"
-          position="absolute"
-          left={{ base: 3, md: 5 }}
-          top="50%"
-          transform="translateY(-50%)"
-          zIndex={2}
-          draggable={false}
+          flexShrink={0}
         />
 
-        {/* Actions à droite */}
-        <Box position="absolute" right={{ base: 2, md: 6 }} top="50%" transform="translateY(-50%)" zIndex={2}>
-          {isMobile ? (
-            <IconButton
-              aria-label="Menu"
-              icon={
-                <Box as="span" display="inline-block" w="18px" h="2px" bg="white" position="relative" _before={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'-6px',left:0}} _after={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'6px',left:0}} />
-              }
-              size="sm"
-              variant="ghost"
+        {/* Navigation - cachée sur mobile */}
+        {!isMobile && (
+          <HStack spacing={8} flex={1} justify="center">
+            <Text 
+              fontSize="lg" 
               color="white"
-              onClick={navDrawer.onOpen}
-              title="Ouvrir le menu"
-            />
-          ) : (
-            <HStack spacing={2}>
-              {/* Megaphone — only admin can manage */}
-              <Tooltip label={isAdmin ? "Gérer les flashs" : "Vous n'êtes pas autorisé"}>
-                <span>
-                  <IconButton
-                    aria-label="Annonces (gestion)"
-                    icon={<MegaphoneIcon />}
-                    size="sm"
-                    variant="ghost"
-                    color="white"
-                    onClick={() => { if (isAdmin) manage.onOpen(); }}
-                    title="Annonces"
-                    isDisabled={!isAdmin}
-                  />
-                </span>
-              </Tooltip>
+              cursor="pointer" 
+              _hover={{ color: 'rbe.500' }} 
+              transition="color 0.2s"
+              onClick={() => navigate('/dashboard')}
+            >
+              Dashboard
+            </Text>
+            <Text 
+              fontSize="lg" 
+              color="white"
+              cursor="pointer" 
+              _hover={{ color: 'rbe.500' }} 
+              transition="color 0.2s"
+              onClick={() => navigate('/dashboard/vehicules')}
+            >
+              Véhicules
+            </Text>
+            <Text 
+              fontSize="lg" 
+              color="white"
+              cursor="pointer" 
+              _hover={{ color: 'rbe.500' }} 
+              transition="color 0.2s"
+              onClick={() => navigate('/dashboard/evenements')}
+            >
+              Événements
+            </Text>
+            <Text 
+              fontSize="lg" 
+              color="white"
+              cursor="pointer" 
+              _hover={{ color: 'rbe.500' }} 
+              transition="color 0.2s"
+              onClick={() => navigate('/dashboard/myrbe')}
+            >
+              MyRBE
+            </Text>
+          </HStack>
+        )}
 
-              {/* RétroBus Mail Notifications */}
-              <NotificationCenter />
+        {/* Actions à droite */}
+        {isMobile ? (
+          <IconButton
+            aria-label="Menu"
+            icon={
+              <Box as="span" display="inline-block" w="18px" h="2px" bg="white" position="relative" _before={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'-6px',left:0}} _after={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'6px',left:0}} />
+            }
+            size="sm"
+            variant="ghost"
+            color="white"
+            onClick={navDrawer.onOpen}
+            title="Ouvrir le menu"
+            flexShrink={0}
+          />
+        ) : (
+          <HStack spacing={3} flexShrink={0}>
+            {/* Megaphone - admin only */}
+            <Tooltip label={isAdmin ? "Gérer les flashs" : "Vous n'êtes pas autorisé"}>
+              <span>
+                <IconButton
+                  aria-label="Annonces"
+                  icon={<MegaphoneIcon />}
+                  size="sm"
+                  variant="ghost"
+                  color="white"
+                  onClick={() => { if (isAdmin) manage.onOpen(); }}
+                  title="Annonces"
+                  isDisabled={!isAdmin}
+                />
+              </span>
+            </Tooltip>
 
-              <Menu>
-                <MenuButton as={Button} colorScheme="red">
-                  Bonjour, {prenom || 'Utilisateur'}
-                </MenuButton>
-                <MenuList>
-                  <MenuItem as={RouterLink} to="/adhesion">
-                    Mon Adhésion
-                  </MenuItem>
-                  <MenuItem as={RouterLink} to="/retromail">
-                    RétroMail
-                  </MenuItem>
-                  <MenuItem onClick={handleLogout} color="red.500">
-                    Déconnexion
-                  </MenuItem>
-                </MenuList>
-              </Menu>
-            </HStack>
-          )}
-        </Box>
-      </Box>
+            {/* Notifications */}
+            <NotificationCenter />
 
-      {/* Barre de navigation (cachée sur mobile) */}
-      <Box display={{ base: 'none', md: 'block' }}>
-        <Navigation />
+            {/* Bonjour [Prénom] */}
+            <Text fontSize="sm" color="gray.300" fontWeight="500">
+              Bonjour, {prenom || 'Utilisateur'}
+            </Text>
+
+            {/* Menu utilisateur */}
+            <Menu>
+              <MenuButton as={Button} variant="ghost" color="white" _hover={{ bg: 'gray.800' }} size="sm">
+                ⚙️
+              </MenuButton>
+              <MenuList>
+                <MenuItem as={RouterLink} to="/adhesion">
+                  Mon Adhésion
+                </MenuItem>
+                <MenuItem as={RouterLink} to="/retromail">
+                  RétroMail
+                </MenuItem>
+                <MenuItem onClick={handleLogout} color="red.500">
+                  Déconnexion
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          </HStack>
+        )}
       </Box>
 
       {/* Drawer mobile navigation */}

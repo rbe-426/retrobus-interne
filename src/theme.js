@@ -25,16 +25,16 @@ const theme = extendTheme({
   colors: {
     // Couleurs officielles RBE
     rbe: {
-      50: '#fef2f4',
-      100: '#fde2e7',
+      50: '#fef1f5',
+      100: '#fde4eb',
       200: '#facbd4',
       300: '#f5a3b2',
-      400: '#ed7189',
-      500: '#e14964', // Couleur principale RBE
-      600: '#be003c', // Rouge RBE officiel
-      700: '#9f1d3d',
-      800: '#881b38',
-      900: '#751a35',
+      400: '#f07a91',
+      500: '#d30c4c', // Couleur principale RBE officielle
+      600: '#c10744', // Rouge RBE foncé
+      700: '#9f063a',
+      800: '#7d0530',
+      900: '#5b0326',
     },
     // Palette complémentaire moderne
     brand: {

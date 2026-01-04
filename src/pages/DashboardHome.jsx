@@ -40,6 +40,7 @@ function loadFlashes() {
 
 export default function DashboardHome() {
   const user = useUser();
+  const footerBg = useColorModeValue('gray.900', 'gray.950');
   const [flashes, setFlashes] = useState([]);
   const [stats, setStats] = useState({
     vehicles: { total: 0, active: 0, loading: true },
@@ -355,26 +356,26 @@ export default function DashboardHome() {
   }
 
   return (
-    <Container maxW="container.xl" py={8} fontFamily="Montserrat, sans-serif">
+    <Container maxW="container.xl" py={4} fontFamily="Montserrat, sans-serif">
       {/* En-tête avec salutation */}
       <Box
-        bgGradient={gradientBg}
+        bg={footerBg}
         color="white"
-        p={8}
-        borderRadius="xl"
-        mb={8}
+        p={6}
+        borderRadius="lg"
+        mb={6}
         textAlign="center"
       >
-        <Heading size="xl" mb={4}>
+        <Heading size="lg" mb={2}>
           {getGreeting()}, {user?.prenom || user?.email || 'Utilisateur'} ! 👋
         </Heading>
-        <Text fontSize="lg" opacity={0.9}>
+        <Text fontSize="base" opacity={0.9}>
           Voici un aperçu de votre activité RétroBus Essonne
         </Text>
       </Box>
 
       {/* Grille principale */}
-      <SimpleGrid columns={{ base: 1, lg: 4 }} spacing={8}>
+      <SimpleGrid columns={{ base: 1, lg: 4 }} spacing={6}>
         {/* Contenu principal */}
         <GridItem colSpan={{ base: 1, lg: 3 }}>
           <VStack spacing={8} align="stretch">
@@ -665,18 +666,6 @@ export default function DashboardHome() {
               </CardBody>
             </Card>
 
-            {/* Informations système */}
-            <Alert status="info" borderRadius="md">
-              <AlertIcon />
-              <VStack align="start" spacing={1}>
-                <Text fontWeight="bold" fontSize="sm">
-                  APIs disponibles
-                </Text>
-                <Text fontSize="xs">
-                  Les données sont récupérées en temps réel quand les APIs sont disponibles.
-                </Text>
-              </VStack>
-            </Alert>
           </VStack>
         </GridItem>
       </SimpleGrid>

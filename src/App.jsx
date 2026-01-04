@@ -1,7 +1,9 @@
 import React from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Box } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
 import Header from "./components/Header";
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -42,6 +44,7 @@ import AttendancePage from "./pages/AttendancePage";
 import AttendanceManager from "./pages/AttendanceManager";
 import RetroDemandes from "./pages/RetroDemandes";
 import EchancierPage from "./pages/EchancierPage";
+import ThemeShowcase from "./pages/ThemeShowcase";
 import PermissionsManager from "./components/PermissionsManager";
 
 export default function App() {
@@ -54,11 +57,15 @@ export default function App() {
   const showHeader = isAuthenticated && location.pathname !== '/login';
 
   return (
-    <>
+    <Box display="flex" flexDirection="column" minH="100vh">
       {showHeader && <Header />}
-      <Routes>
+      <Box flex="1">
+        <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
+        
+        {/* Route de test du thème */}
+        <Route path="/test-theme" element={<ThemeShowcase />} />
         
         {/* Routes du dashboard principal */}
         <Route path="/dashboard/home" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
@@ -121,6 +128,8 @@ export default function App() {
         <Route path="/" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
         <Route path="*" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
       </Routes>
-    </>
+      </Box>
+      {showHeader && <Footer />}
+    </Box>
   );
 }

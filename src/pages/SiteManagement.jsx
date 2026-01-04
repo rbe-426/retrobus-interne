@@ -26,6 +26,7 @@ import { useUser } from '../context/UserContext';
 import { useUserRoles, ADMIN_ROLES } from '../hooks/useUserRoles';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
+import MemberProfilesManager from '../components/MemberProfilesManager';
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -633,19 +634,9 @@ const NewsManagement = () => {
     published: false,
     showOnExternal: false,
   });
-  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     loadNews();
-    // Afficher les infos de debug
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    setDebugInfo({
-      hasToken: !!token,
-      tokenLength: token ? token.length : 0,
-      user: user ? JSON.parse(user) : null,
-      apiUrl: apiClient.baseURL
-    });
   }, []);
 
   const loadNews = async () => {
@@ -749,25 +740,6 @@ const NewsManagement = () => {
           </Text>
         </Box>
       </Alert>
-
-      {debugInfo && (
-        <Card bg="gray.50" variant="outline">
-          <CardBody>
-            <VStack align="start" spacing={2} fontSize="sm">
-              <Text fontWeight="bold">🔍 Informations Debug:</Text>
-              <Text>Token présent: {debugInfo.hasToken ? '✅ Oui' : '❌ Non'}</Text>
-              {debugInfo.hasToken && <Text>Token length: {debugInfo.tokenLength} chars</Text>}
-              {debugInfo.user && (
-                <>
-                  <Text>Utilisateur: {debugInfo.user.username || debugInfo.user.email}</Text>
-                  <Text>Rôle: {debugInfo.user.roles ? debugInfo.user.roles.join(', ') : 'N/A'}</Text>
-                </>
-              )}
-              <Text>API URL: {debugInfo.apiUrl || 'Relative (proxy)'}</Text>
-            </VStack>
-          </CardBody>
-        </Card>
-      )}
 
       {news.length === 0 ? (
         <Card>
@@ -1261,57 +1233,6 @@ const PermissionsManagement = () => {
 };
 
 /**
- * ============= Composant Settings =============
- */
-const SiteSettings = () => {
-  const [settings, setSettings] = useState({
-    siteName: '',
-    siteDescription: '',
-    maintenanceMode: false,
-  });
-
-  return (
-    <VStack spacing={6} align="stretch">
-      <Alert status="info">
-        <AlertIcon />
-        <Box>
-          <Text fontWeight="bold">Paramètres du site</Text>
-          <Text fontSize="sm">Configuration générale de RétroBus</Text>
-        </Box>
-      </Alert>
-
-      <Card variant="outline">
-        <CardHeader>
-          <Heading size="md">Configuration générale</Heading>
-        </CardHeader>
-        <CardBody>
-          <VStack spacing={4}>
-            <FormControl>
-              <FormLabel>Nom du site</FormLabel>
-              <Input placeholder="RétroBus Essonne" value={settings.siteName} />
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Description</FormLabel>
-              <Textarea placeholder="Description du site..." value={settings.siteDescription} />
-            </FormControl>
-
-            <FormControl display="flex" alignItems="center">
-              <FormLabel mb={0}>Mode maintenance</FormLabel>
-              <Switch ml={2} isChecked={settings.maintenanceMode} />
-            </FormControl>
-
-            <Button colorScheme="blue" alignSelf="flex-start">
-              Enregistrer les paramètres
-            </Button>
-          </VStack>
-        </CardBody>
-      </Card>
-    </VStack>
-  );
-};
-
-/**
  * ============= Composant Documents Management =============
  */
 const DocumentsManagement = () => {
@@ -1359,19 +1280,19 @@ const SiteManagement = () => {
       id: 'emails',
       label: '📧 Modèles d\'email',
       icon: FiMail,
-      render: () => <EmailTemplateManager />,
+      render: () => <EmailTemplateManager token={localStorage.getItem('token')} />,
+    },
+    {
+      id: 'member-profiles',
+      label: '👥 Profils Adhérents',
+      icon: FiUsers,
+      render: () => <MemberProfilesManager />,
     },
     {
       id: 'documents',
       label: '📄 Documents',
       icon: FiActivity,
       render: () => <DocumentsManagement />,
-    },
-    {
-      id: 'settings',
-      label: '⚙️ Paramètres',
-      icon: FiSettings,
-      render: () => <SiteSettings />,
     },
   ];
 

@@ -75,14 +75,14 @@ const Vehicules = () => {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 4, md: 6 }}>
       <Flex justify="space-between" align="center" mb={6}>
-        <Heading>Véhicules</Heading>
+        <Heading color="black" size="lg">Véhicules</Heading>
         <Button
           as={RouterLink}
           to="/dashboard/vehicules/ajouter"
           leftIcon={<FiPlus />}
-          colorScheme="blue"
+          colorScheme="rbe"
         >
           Ajouter un véhicule
         </Button>
@@ -94,20 +94,21 @@ const Vehicules = () => {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           maxW="400px"
+          borderColor="gray.200"
         />
       </Box>
 
       {loading ? (
         <Center py={20}>
-          <Spinner size="xl" />
+          <Spinner size="xl" color="rbe.500" />
         </Center>
       ) : (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
           {filtered.map((vehicle) => (
-            <Card key={vehicle.parc} shadow="md">
+            <Card key={vehicle.parc} shadow="sm" borderColor="gray.200" borderWidth="1px">
               <CardHeader pb={2}>
                 <HStack justify="space-between">
-                  <Heading size="md">{vehicle.parc}</Heading>
+                  <Heading size="sm" color="black">{vehicle.parc}</Heading>
                   <Badge colorScheme={vehicle.etat === 'disponible' ? 'green' : 'orange'}>
                     {vehicle.etat}
                   </Badge>

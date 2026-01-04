@@ -200,7 +200,7 @@ export default function MyRBE() {
         subtitle="Les outils d'administration RétroBus Essonne"
         bgGradient="linear(to-r, blue.500, purple.600)"
       >
-        <VStack spacing={4} py={8}>
+        <VStack spacing={2} py={2}>
           <Spinner size="lg" />
           <Text>Chargement des permissions...</Text>
         </VStack>
@@ -213,18 +213,18 @@ export default function MyRBE() {
       title="Espace MyRBE"
       subtitle="Les outils d'administration RétroBus Essonne"
       headerVariant="card"
-      bgGradient="linear(to-r, blue.500, purple.600)"
-      titleSize="xl"
+      bgGradient="linear(to-r, rbe.600, rbe.800)"
+      titleSize="lg"
       titleWeight="700"
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard/home" },
         { label: "MyRBE", href: "/dashboard/myrbe" }
       ]}
     >
-      <VStack spacing={8} align="stretch">
+      <VStack spacing={2} align="stretch">
         {/* Grille des fonctionnalités */}
         {visibleCards.length > 0 ? (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                 {visibleCards.map((card) => (
                   <ModernCard
                     key={card.title}
@@ -249,9 +249,9 @@ export default function MyRBE() {
                 borderColor={useColorModeValue('gray.300', 'gray.600')}
               >
                 <HStack justify="center" mb={3}>
-                  <FiAlertCircle size={32} />
+                  <FiAlertCircle size={32} color="gray.600" />
                 </HStack>
-                <Heading size="md" mb={2}>Accès limité</Heading>
+                <Heading size="md" mb={2} color="black">Accès limité</Heading>
                 <Text color="gray.600" mb={4}>
                   Vous n'avez pas accès aux fonctionnalités de MyRBE avec votre rôle et vos permissions actuels.
                 </Text>
@@ -261,69 +261,7 @@ export default function MyRBE() {
               </Box>
             )}
         
-        {/* Section d'aide */}
-        {visibleCards.length > 0 && (
-          <VStack spacing={6}>
-            <Box 
-              bg={alertBg}
-              p={6}
-              borderRadius="xl" 
-              borderLeft="4px solid"
-              borderLeftColor={alertBorder}
-              w="full"
-            >
-              <VStack spacing={3} align="start">
-                <HStack>
-                  <Text fontSize="lg" fontWeight="600" color="blue.700">
-                    💡 Guide d'utilisation
-                  </Text>
-                </HStack>
-                <Text color="blue.600" lineHeight="relaxed" fontSize="sm">
-                  Votre vue MyRBE est personnalisée selon vos permissions individuelles et votre rôle. 
-                  Les cartes affichées correspondent à vos droits d'accès. 
-                  Les modifications que vous effectuez sont automatiquement sauvegardées 
-                  et synchronisées avec les autres membres de l'équipe.
-                </Text>
-                <HStack spacing={3} pt={2}>
-                  <Button size="sm" variant="secondary" colorScheme="blue">
-                    Guide complet
-                  </Button>
-                  <Button size="sm" variant="modern" as={RouterLink} to="/dashboard/support">
-                    Support technique
-                  </Button>
-                </HStack>
-              </VStack>
-            </Box>
-            
-            {/* Stats rapides */}
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} w="full">
-              <ModernCard 
-                title="Cartes visibles" 
-                description={`${visibleCards.length}`}
-                color="blue"
-                variant="modern"
-              />
-              <ModernCard 
-                title="Votre rôle" 
-                description={userRole}
-                color="green"
-                variant="modern"
-              />
-              <ModernCard 
-                title="Permissions individuelles" 
-                description={`${userPermissions.length}`}
-                color="orange"
-                variant="modern"
-              />
-              <ModernCard 
-                title="Version" 
-                description="v2.2.0" 
-                color="purple"
-                variant="modern"
-              />
-            </SimpleGrid>
-          </VStack>
-        )}
+
       </VStack>
     </PageLayout>
   );

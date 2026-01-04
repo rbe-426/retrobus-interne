@@ -39,7 +39,7 @@ const PageLayout = ({
         <Box
           bgGradient={headerBg}
           color="white"
-          py={{ base: 12, md: 16 }}
+          py={{ base: 6, md: 8 }}
           position="relative"
           overflow="hidden"
         >
@@ -75,7 +75,7 @@ const PageLayout = ({
               )}
 
               {/* Titre et sous-titre */}
-              <VStack spacing={4} textAlign="center">
+              <VStack spacing={2} textAlign="center">
                 <Heading 
                   as="h1" 
                   size={titleSize}
@@ -107,7 +107,7 @@ const PageLayout = ({
           </Container>
         </Box>
       ) : (
-        <Container maxW={maxW} py={{ base: 6, md: 8 }}>
+        <Container maxW={maxW} py={{ base: 3, md: 4 }}>
           {/* Breadcrumb au-dessus de la carte */}
           {breadcrumbs.length > 0 && (
             <Breadcrumb 
@@ -153,7 +153,7 @@ const PageLayout = ({
       )}
 
       {/* Contenu principal */}
-      <Container maxW={maxW} py={{ base: 8, md: 12 }}>
+      <Container maxW={maxW} py={{ base: 2, md: 4 }}>
         {children}
       </Container>
     </Box>

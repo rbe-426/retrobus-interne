@@ -759,10 +759,10 @@ const Evenements = () => {
   );
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 4, md: 6 }}>
       <Flex justify="space-between" align="center" mb={6}>
         <VStack align="start" spacing={1}>
-          <Heading>📝 Création des Événements</Heading>
+          <Heading color="black" size="lg">📝 Création des Événements</Heading>
           <Text fontSize="sm" color="gray.600">
             Créez et configurez de nouveaux événements pour l'association
           </Text>
@@ -772,13 +772,12 @@ const Evenements = () => {
             leftIcon={viewMode === 'cards' ? <FiList /> : <FiGrid />}
             size="sm"
             variant="outline"
-            onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')}
           >
             {viewMode === 'cards' ? 'Vue tableau' : 'Vue cartes'}
           </Button>
           <Button
             leftIcon={<FiPlus />}
-            colorScheme="blue"
+            colorScheme="rbe"
             onClick={handleCreate}
           >
             Nouvel événement
@@ -788,13 +787,13 @@ const Evenements = () => {
 
       {loading ? (
         <Center py={20}>
-          <Spinner size="xl" />
+          <Spinner size="xl" color="rbe.500" />
         </Center>
       ) : events.length === 0 ? (
         <Center py={20}>
           <VStack spacing={4}>
             <Text color="gray.500" fontSize="lg">Aucun événement trouvé</Text>
-            <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+            <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
               Créer le premier événement
             </Button>
           </VStack>
