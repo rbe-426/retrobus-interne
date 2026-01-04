@@ -66,12 +66,15 @@ const ExpenseReports = () => {
   console.log('   Decoded email:', userEmail);
   console.log('   CurrentUser:', currentUser);
   console.log('   All reports:', expenseReports);
+  console.log('   Reports count:', expenseReports?.length || 0);
 
   // Afficher les notes de l'utilisateur courant OU les notes sans userId
   const myReports = expenseReports.filter(r => {
     const matches = !r.userId || r.userId === userEmail || r.userId === currentUser.id || r.createdBy === userEmail || r.createdBy === currentUser.email;
     if (!matches) {
-      console.log(`   ❌ Filtered out:`, r.description, '- userId:', r.userId, '- createdBy:', r.createdBy);
+      console.log(`   ❌ Filtered out:`, r.description, '- userId:', r.userId, '- createdBy:', r.createdBy, '- userEmail:', userEmail);
+    } else {
+      console.log(`   ✅ Included:`, r.description, '- Statut:', r.status);
     }
     return matches;
   });

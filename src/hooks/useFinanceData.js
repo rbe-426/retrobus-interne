@@ -189,6 +189,9 @@ export const useFinanceData = (currentUser = null) => {
           const reports = data.reports || [];
           setExpenseReports(reports);
           console.log(`✅ ${reports.length} notes de frais chargées`);
+          reports.forEach((r, i) => {
+            console.log(`   ${i + 1}. ${r.id} - ${r.description} - Statut: ${r.status} - userId: ${r.userId}`);
+          });
         } else {
           console.warn(`⚠️ Erreur chargement notes de frais:`, expenseRes.status);
         }
