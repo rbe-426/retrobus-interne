@@ -75,6 +75,11 @@ export default function MyMembership() {
     setLoading(ctxMemberLoading);
     setLastError(ctxMemberError);
     setApiBase(ctxApiBase || null);
+    
+    // Charger les données configurées par l'admin (MemberProfilesManager)
+    if (ctxMember && ctxMember.id) {
+      loadAdminProfileData(ctxMember.id);
+    }
   }, [ctxMember, ctxMemberLoading, ctxMemberError, ctxApiBase]);
 
   useEffect(() => {
@@ -89,6 +94,47 @@ export default function MyMembership() {
   const fetchMemberData = async () => {
     // Keep a manual refresh route for the Retry button
     await refreshMember(true);
+  };
+
+  // Charger les données configurées par l'admin (MemberProfilesManager)
+  const loadAdminProfileData = async (memberId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Essayer l'API d'abord
+      try {
+        const response = await fetch(`/api/settings/member-profiles/${memberId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.memberProfile) {
+            // Fusionner les données configurées par l'admin avec les données actuelles
+            setMemberData(prev => ({ ...prev, ...data.memberProfile }));
+          }
+          return;
+        }
+      } catch (apiError) {
+        console.log('API profil admin non disponible');
+      }
+
+      // Fallback localStorage
+      const stored = localStorage.getItem(`memberProfile_${memberId}`);
+      if (stored) {
+        try {
+          const adminData = JSON.parse(stored);
+          // Fusionner les données configurées par l'admin
+          setMemberData(prev => ({ ...prev, ...adminData }));
+        } catch (parseError) {
+          console.error('Erreur parsing données admin:', parseError);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur chargement profil admin:', error);
+    }
   };
 
   const handleEditProfile = () => {
