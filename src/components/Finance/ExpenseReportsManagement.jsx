@@ -4,7 +4,7 @@ import {
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
   Tr, Th, Td, Alert, AlertIcon, Select, Flex, SimpleGrid, Stat, StatLabel, StatNumber,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  FormControl, FormLabel, Textarea, useDisclosure, Icon
+  FormControl, FormLabel, Textarea, useDisclosure, Icon, Link
 } from "@chakra-ui/react";
 import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -57,10 +57,10 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
       await loadFinanceData();
       
       const statusLabels = {
-        'paid': 'Payée',
-        'approved': 'Acceptée',
-        'open': 'Reçue',
-        'closed': 'Refusée'
+        'paid': '✅ Payée',
+        'approved': '⏳ En cours de traitement',
+        'open': '✉️ Envoyée',
+        'closed': '❌ NDF refusée'
       };
       
       toast({
@@ -89,8 +89,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     if (!selectedReport) return;
     
     try {
-      // Update status to closed (which maps to REJECTED)
-      await updateExpenseReportStatus(selectedReport.id, "closed");
+      // Update status to closed (which maps to REJECTED) with reason
+      await updateExpenseReportStatus(selectedReport.id, "closed", rejectionReason);
       
       // Recharger les données pour refléter le changement
       await loadFinanceData();
@@ -145,10 +145,10 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     const normalizedStatus = statusMap[status] || 'PENDING';
     
     const statusConfig = {
-      PENDING: { colorScheme: "yellow", label: "En attente" },
-      APPROVED: { colorScheme: "blue", label: "Approuvée" },
-      PAID: { colorScheme: "green", label: "Payée" },
-      REJECTED: { colorScheme: "red", label: "Rejetée" }
+      PENDING: { colorScheme: "yellow", label: "✉️ Envoyée" },
+      APPROVED: { colorScheme: "blue", label: "⏳ En cours de traitement" },
+      PAID: { colorScheme: "green", label: "✅ Payée" },
+      REJECTED: { colorScheme: "red", label: "❌ NDF refusée" }
     };
     const config = statusConfig[normalizedStatus] || statusConfig.PENDING;
     return <Badge colorScheme={config.colorScheme}>{config.label}</Badge>;
@@ -302,13 +302,38 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                       </VStack>
                     </Td>
                     <Td>
-                      <VStack align="start" spacing={0}>
+                      <VStack align="start" spacing={1}>
                         <Text fontWeight="bold" fontSize="sm">
                           {report.description}
                         </Text>
                         {report.notes && (
                           <Text fontSize="xs" color="gray.500">
-                            {report.notes}
+                            Remarques: {report.notes}
+                          </Text>
+                        )}
+                        {report.statusNotes && (
+                          <Text fontSize="xs" color="red.600">
+                            Motif: {report.statusNotes}
+                          </Text>
+                        )}
+                        {report.attachmentUrl && (
+                          <HStack spacing={2} mt={1}>
+                            <Icon as={FiDownload} boxSize={3} color="blue.500" />
+                            <Link
+                              href={report.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              color="blue.500"
+                              fontSize="xs"
+                              fontWeight="500"
+                            >
+                              {report.attachmentFileName || "Voir pièce jointe"}
+                            </Link>
+                          </HStack>
+                        )}
+                        {!report.attachmentUrl && (
+                          <Text fontSize="xs" color="orange.600">
+                            ⚠️ Pas de pièce jointe
                           </Text>
                         )}
                       </VStack>
@@ -329,7 +354,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                               onClick={() => handleStatusChange(report.id, "approved")}
                               isLoading={loading}
                             >
-                              Acceptée
+                              En cours de traitement
                             </Button>
                             <Button
                               size="xs"
@@ -339,20 +364,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                               onClick={() => handleRejectClick(report)}
                               isLoading={loading}
                             >
-                              Refusée
+                              Refuser
                             </Button>
-                            {normalizeStatus(report.status) !== "REJECTED" && (
-                              <Button
-                                size="xs"
-                                leftIcon={<FiCheck />}
-                                colorScheme="blue"
-                                variant="outline"
-                                onClick={() => handleStatusChange(report.id, "open")}
-                                isLoading={loading}
-                              >
-                                Reçue
-                              </Button>
-                            )}
                           </>
                         )}
 

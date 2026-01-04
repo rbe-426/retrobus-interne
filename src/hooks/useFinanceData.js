@@ -957,8 +957,12 @@ export const useFinanceData = (currentUser = null) => {
 
   // Alias pour updateExpenseReport (change de status)
   const updateExpenseReportStatus = useCallback(
-    async (id, status) => {
-      return updateExpenseReport(id, { status });
+    async (id, status, statusNotes = null) => {
+      const updates = { status };
+      if (statusNotes) {
+        updates.statusNotes = statusNotes;
+      }
+      return updateExpenseReport(id, updates);
     },
     [updateExpenseReport]
   );
