@@ -75,12 +75,14 @@ export default function MyMembership() {
     setLoading(ctxMemberLoading);
     setLastError(ctxMemberError);
     setApiBase(ctxApiBase || null);
-    
-    // Charger les données configurées par l'admin (MemberProfilesManager)
-    if (ctxMember && ctxMember.id) {
-      loadAdminProfileData(ctxMember.id);
-    }
   }, [ctxMember, ctxMemberLoading, ctxMemberError, ctxApiBase]);
+
+  // Charger et fusionner les données configurées par l'admin (MemberProfilesManager)
+  useEffect(() => {
+    if (ctxMember && ctxMember.id) {
+      loadAndMergeAdminProfileData(ctxMember.id);
+    }
+  }, [ctxMember?.id]);
 
   useEffect(() => {
     if (memberData && memberData.id) {
@@ -96,10 +98,11 @@ export default function MyMembership() {
     await refreshMember(true);
   };
 
-  // Charger les données configurées par l'admin (MemberProfilesManager)
-  const loadAdminProfileData = async (memberId) => {
+  // Charger les données configurées par l'admin (MemberProfilesManager) et les fusionner une seule fois
+  const loadAndMergeAdminProfileData = async (memberId) => {
     try {
       const token = localStorage.getItem('token');
+      let adminData = null;
       
       // Essayer l'API d'abord
       try {
@@ -111,26 +114,31 @@ export default function MyMembership() {
         
         if (response.ok) {
           const data = await response.json();
-          if (data.memberProfile) {
-            // Fusionner les données configurées par l'admin avec les données actuelles
-            setMemberData(prev => ({ ...prev, ...data.memberProfile }));
-          }
-          return;
+          adminData = data.memberProfile;
         }
       } catch (apiError) {
         console.log('API profil admin non disponible');
       }
 
       // Fallback localStorage
-      const stored = localStorage.getItem(`memberProfile_${memberId}`);
-      if (stored) {
-        try {
-          const adminData = JSON.parse(stored);
-          // Fusionner les données configurées par l'admin
-          setMemberData(prev => ({ ...prev, ...adminData }));
-        } catch (parseError) {
-          console.error('Erreur parsing données admin:', parseError);
+      if (!adminData) {
+        const stored = localStorage.getItem(`memberProfile_${memberId}`);
+        if (stored) {
+          try {
+            adminData = JSON.parse(stored);
+          } catch (parseError) {
+            console.error('Erreur parsing données admin:', parseError);
+          }
         }
+      }
+
+      // Fusionner une seule fois (évite le double rendu)
+      if (adminData) {
+        setMemberData(prev => {
+          if (!prev) return adminData;
+          // Fusionner : données admin + données du contexte (contexte prioritaire pour ID, statut, etc.)
+          return { ...adminData, ...prev, id: prev.id, membershipStatus: prev.membershipStatus };
+        });
       }
     } catch (error) {
       console.error('Erreur chargement profil admin:', error);
