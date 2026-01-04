@@ -43,7 +43,7 @@ const PAYMENT_METHODS = {
 };
 
 export default function MyMembership() {
-  const { user, member: ctxMember, memberLoading: ctxMemberLoading, memberError: ctxMemberError, memberApiBase: ctxApiBase, refreshMember } = useUser();
+  const { user, member: ctxMember, memberLoading: ctxMemberLoading, memberError: ctxMemberError, memberApiBase: ctxApiBase, memberDataReady, refreshMember } = useUser();
   const [memberData, setMemberData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState(null);
@@ -79,10 +79,13 @@ export default function MyMembership() {
 
   // Charger et fusionner les données configurées par l'admin (MemberProfilesManager)
   useEffect(() => {
-    if (ctxMember && ctxMember.id) {
+    console.log('📋 useEffect: memberDataReady=', memberDataReady, 'ctxMember?.id=', ctxMember?.id);
+    if (memberDataReady && ctxMember && ctxMember.id) {
+      console.log('✅ Conditions remplies, appel loadAndMergeAdminProfileData');
+      // Les données du contexte sont maintenant complètes, charger seulement les compléments admin
       loadAndMergeAdminProfileData(ctxMember.id);
     }
-  }, [ctxMember?.id]);
+  }, [memberDataReady, ctxMember?.id]);
 
   useEffect(() => {
     if (memberData && memberData.id) {
@@ -101,6 +104,7 @@ export default function MyMembership() {
   // Charger les données configurées par l'admin (MemberProfilesManager) et les fusionner une seule fois
   const loadAndMergeAdminProfileData = async (memberId) => {
     try {
+      console.log('🔍 Chargement profil admin pour memberId:', memberId);
       const token = localStorage.getItem('token');
       let adminData = null;
       
@@ -115,6 +119,7 @@ export default function MyMembership() {
         if (response.ok) {
           const data = await response.json();
           adminData = data.memberProfile;
+          console.log('✅ Données admin chargées depuis API:', adminData);
         }
       } catch (apiError) {
         console.log('API profil admin non disponible');
@@ -122,10 +127,14 @@ export default function MyMembership() {
 
       // Fallback localStorage
       if (!adminData) {
-        const stored = localStorage.getItem(`memberProfile_${memberId}`);
+        const localStorageKey = `memberProfile_${memberId}`;
+        console.log('📦 Clé localStorage:', localStorageKey);
+        const stored = localStorage.getItem(localStorageKey);
+        console.log('📦 Données localStorage brutes:', stored);
         if (stored) {
           try {
             adminData = JSON.parse(stored);
+            console.log('✅ Données admin chargées depuis localStorage:', adminData);
           } catch (parseError) {
             console.error('Erreur parsing données admin:', parseError);
           }
@@ -134,11 +143,19 @@ export default function MyMembership() {
 
       // Fusionner une seule fois (évite le double rendu)
       if (adminData) {
+        console.log('🔄 Fusion des données...');
         setMemberData(prev => {
-          if (!prev) return adminData;
+          if (!prev) {
+            console.log('❌ prev est null, retour adminData seul');
+            return adminData;
+          }
           // Fusionner : données admin + données du contexte (contexte prioritaire pour ID, statut, etc.)
-          return { ...adminData, ...prev, id: prev.id, membershipStatus: prev.membershipStatus };
+          const merged = { ...adminData, ...prev, id: prev.id, membershipStatus: prev.membershipStatus };
+          console.log('✅ Données fusionnées:', merged);
+          return merged;
         });
+      } else {
+        console.log('⚠️ Aucune donnée admin trouvée');
       }
     } catch (error) {
       console.error('Erreur chargement profil admin:', error);

@@ -26,6 +26,7 @@ export function UserProvider({ children }) {
   const [memberLoading, setMemberLoading] = useState(false);
   const [memberError, setMemberError] = useState(null);
   const [memberApiBase, setMemberApiBase] = useState(null);
+  const [memberDataReady, setMemberDataReady] = useState(false); // Indique que les données sont complètes
   const lastMemberFetchRef = useRef(0);
 
   // Individual permissions
@@ -58,6 +59,7 @@ export function UserProvider({ children }) {
     setMember(null);
     setMemberError(null);
     setMemberApiBase(null);
+    setMemberDataReady(false);
     localStorage.removeItem('user');
     StorageManager.clearAppCache();
   };
@@ -115,6 +117,7 @@ export function UserProvider({ children }) {
             data = await res.json();
             setMember(data);
             setMemberApiBase(base || null);
+            setMemberDataReady(true); // Marquer comme complètes
             ok = true;
             break;
           }
@@ -126,6 +129,7 @@ export function UserProvider({ children }) {
       if (!ok) {
         setMember(null);
         setMemberError(lastStatus);
+        setMemberDataReady(true); // Marquer comme "traité" même en cas d'erreur
         return null;
       }
       return data;  // ✅ Retourner `data` au lieu de `member` (qui n'est pas encore mis à jour)
@@ -262,13 +266,14 @@ export function UserProvider({ children }) {
       memberLoading,
       memberError,
       memberApiBase,
+      memberDataReady,
       refreshMember,
       // Individual permissions
       customPermissions,
       permissionsLoading,
       refreshPermissions,
     }),
-    [token, user, isAuthenticated, username, prenom, nom, roles, isAdmin, isVolunteer, isDriver, isMember, matricule, sessionChecked, member, memberLoading, memberError, memberApiBase, customPermissions, permissionsLoading]
+    [token, user, isAuthenticated, username, prenom, nom, roles, isAdmin, isVolunteer, isDriver, isMember, matricule, sessionChecked, member, memberLoading, memberError, memberApiBase, memberDataReady, customPermissions, permissionsLoading]
   );
 
   return (
