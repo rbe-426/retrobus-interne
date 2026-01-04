@@ -955,6 +955,14 @@ export const useFinanceData = (currentUser = null) => {
     [expenseReports, toast, loadFinanceData]
   );
 
+  // Alias pour updateExpenseReport (change de status)
+  const updateExpenseReportStatus = useCallback(
+    async (id, status) => {
+      return updateExpenseReport(id, { status });
+    },
+    [updateExpenseReport]
+  );
+
   // ===== SIMULATIONS =====
   const createSimulationScenario = useCallback(
     async (scenario) => {
@@ -1372,6 +1380,7 @@ export const useFinanceData = (currentUser = null) => {
     setNewExpenseReport,
     createExpenseReport,
     updateExpenseReport,
+    updateExpenseReportStatus,
     deleteExpenseReport,
     // Simulations
     simulationData,

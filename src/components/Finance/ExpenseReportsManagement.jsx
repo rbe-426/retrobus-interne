@@ -19,6 +19,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const {
     expenseReports,
     updateExpenseReport,
+    updateExpenseReportStatus,
+    loadFinanceData,
     loading
   } = useFinanceData();
 
@@ -50,6 +52,9 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const handleStatusChange = async (reportId, newStatus) => {
     try {
       await updateExpenseReport(reportId, { status: newStatus });
+      
+      // Recharger les données pour refléter le changement
+      await loadFinanceData();
       
       const statusLabels = {
         'paid': 'Payée',
