@@ -176,17 +176,27 @@ const ExpenseReports = () => {
   };
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      open: { colorScheme: "yellow", label: "Ouverte" },
-      closed: { colorScheme: "blue", label: "Clôturée" },
-      reimbursed: { colorScheme: "green", label: "Remboursée" },
-      // Anciens statuts pour compatibilité
-      PENDING: { colorScheme: "yellow", label: "En attente" },
-      APPROVED: { colorScheme: "blue", label: "Approuvée" },
-      PAID: { colorScheme: "green", label: "Payée" },
-      REJECTED: { colorScheme: "red", label: "Rejetée" }
+    // Mapper les statuts de la BD aux statuts de l'app (même que ExpenseReportsManagement)
+    const statusMap = {
+      'open': 'PENDING',
+      'PENDING': 'PENDING',
+      'approved': 'APPROVED',
+      'APPROVED': 'APPROVED',
+      'paid': 'PAID',
+      'PAID': 'PAID',
+      'closed': 'REJECTED',
+      'REJECTED': 'REJECTED',
     };
-    const config = statusConfig[status] || statusConfig.open;
+    
+    const normalizedStatus = statusMap[status] || 'PENDING';
+    
+    const statusConfig = {
+      PENDING: { colorScheme: "yellow", label: "✉️ Envoyée" },
+      APPROVED: { colorScheme: "blue", label: "⏳ En cours de traitement" },
+      PAID: { colorScheme: "green", label: "✅ Payée" },
+      REJECTED: { colorScheme: "red", label: "❌ NDF refusée" }
+    };
+    const config = statusConfig[normalizedStatus] || statusConfig.PENDING;
     return <Badge colorScheme={config.colorScheme}>{config.label}</Badge>;
   };
 
