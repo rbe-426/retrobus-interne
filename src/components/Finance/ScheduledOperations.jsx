@@ -501,7 +501,7 @@ const FinanceScheduledOps = () => {
                     </Box>
                     <VStack align="start" spacing={1} flex={1}>
                       <Text fontSize="sm" color="gray.600">Prochaine date</Text>
-                      <Text fontWeight="medium">{op.nextDate ? formatDate(op.nextDate) : '—'}</Text>
+                      <Text fontWeight="medium">{op.nextDate ? formatDate(calculateDynamicNextDate(op)) : '—'}</Text>
                       <Text fontSize="sm" color="gray.600">Montant</Text>
                       <Text fontWeight="bold" color={op.type === 'SCHEDULED_CREDIT' ? 'green.600' : 'red.600'}>
                         {op.type === 'SCHEDULED_CREDIT' ? '+' : '-'} {formatCurrency(Math.abs(op.amount))}
@@ -519,6 +519,9 @@ const FinanceScheduledOps = () => {
                       </HStack>
                       {op.monthsRemainingTotal && (
                         <Text fontSize="sm" color="gray.600">Mensualités restantes: {op.monthsRemainingTotal}</Text>
+                      )}
+                      {calculateTheoreticalEnd(op) && (
+                        <Text fontSize="sm" color="gray.600">Fin théorique: <Text as="span" fontWeight="bold" color="purple.600">{formatDate(calculateTheoreticalEnd(op))}</Text></Text>
                       )}
                       {op.estimatedEndDate && (
                         <Text fontSize="sm" color="gray.600">Fin estimée: {formatDate(op.estimatedEndDate)}</Text>
