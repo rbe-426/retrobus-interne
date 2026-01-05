@@ -89,6 +89,7 @@ const FinanceScheduledOps = () => {
   const [paymentPeriod, setPaymentPeriod] = useState(new Date().toISOString().split("T")[0]);
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentIntervals, setPaymentIntervals] = useState({}); // Map operationId -> averageDays
   
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -101,6 +102,17 @@ const FinanceScheduledOps = () => {
   useEffect(() => {
     loadFinanceData();
   }, [loadFinanceData]);
+
+  // Calculer les intervalles de paiement pour chaque opération
+  useEffect(() => {
+    if (scheduledOperations && scheduledOperations.length > 0) {
+      scheduledOperations.forEach(op => {
+        if (op.id && !paymentIntervals[op.id]) {
+          calculatePaymentIntervals(op);
+        }
+      });
+    }
+  }, [scheduledOperations, paymentIntervals, calculatePaymentIntervals]);
 
   const handleAdd = useCallback(async () => {
     if (!formData.amount || !formData.description) {
@@ -331,16 +343,49 @@ const FinanceScheduledOps = () => {
 
       // Nombre de mois restants = montant restant / montant mensuel
       const monthsRemaining = remaining / monthlyAmount;
+      
+      // Utiliser l'intervalle réel si disponible, sinon 30 jours par défaut
+      const averageDaysPerPayment = paymentIntervals[operation.id] || 30;
+      const daysRemaining = monthsRemaining * averageDaysPerPayment;
 
       const startDate = new Date(operation.nextDate);
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + Math.ceil(monthsRemaining));
+      const endDate = new Date(startDate.getTime() + daysRemaining * 24 * 60 * 60 * 1000);
 
       return endDate;
     }
 
     return null;
   };
+
+  // Fonction pour calculer l'intervalle moyen entre les paiements
+  const calculatePaymentIntervals = useCallback(async (operation) => {
+    if (!operation || !operation.id) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${operation.id}/payments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      if (response.ok) {
+        const loadedPayments = await response.json();
+        
+        // Si au moins 2 paiements, calculer l'intervalle moyen
+        if (loadedPayments.length >= 2) {
+          const sortedPayments = loadedPayments.sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+          let totalDays = 0;
+          for (let i = 1; i < sortedPayments.length; i++) {
+            const daysDiff = Math.floor(
+              (new Date(sortedPayments[i].paidAt) - new Date(sortedPayments[i - 1].paidAt)) / (1000 * 60 * 60 * 24)
+            );
+            totalDays += daysDiff;
+          }
+          const average = Math.round(totalDays / (sortedPayments.length - 1));
+          setPaymentIntervals(prev => ({ ...prev, [operation.id]: average }));
+        }
+      }
+    } catch (e) {
+      console.log('ℹ️ Could not load payments for interval calculation');
+    }
+  }, []);
 
   const getFrequencyLabel = (frequency) => {
     const labels = {
