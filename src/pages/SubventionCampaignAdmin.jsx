@@ -486,18 +486,14 @@ export default function SubventionCampaignAdmin() {
 
               <FormControl isRequired>
                 <FormLabel>Montant (€)</FormLabel>
-                <NumberInput
+                <Input
+                  type="number"
                   value={expenseForm.amount}
-                  onChange={(val) => setExpenseForm({ ...expenseForm, amount: val })}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, amount: parseFloat(e.target.value) || 0 })}
                   min={0}
                   step={0.01}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementButton />
-                    <NumberDecrementButton />
-                  </NumberInputStepper>
-                </NumberInput>
+                  placeholder="0,00"
+                />
               </FormControl>
 
               <FormControl>
