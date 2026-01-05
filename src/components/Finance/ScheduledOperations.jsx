@@ -5,7 +5,7 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Alert, AlertIcon, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, FormControl, FormLabel, Input, NumberInput,
   NumberInputField, NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper,
-  Select, useDisclosure, Spinner, Flex, Tooltip, Progress, Menu, MenuButton, MenuList, MenuItem, MenuDivider
+  Select, useDisclosure, Spinner, Flex, Tooltip, Progress, Menu, MenuButton, MenuList, MenuItem, MenuDivider, IconButton
 } from "@chakra-ui/react";
 import { FiCheck, FiX, FiPlus, FiTrash2, FiClock, FiTrendingUp, FiMoreVertical } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -82,16 +82,19 @@ const FinanceScheduledOps = () => {
     totalAmount: ""
   });
   
-  // State pour ajouter un paiement supplémentaire
+  // State pour ajouter/voir les paiements
   const [selectedOperationId, setSelectedOperationId] = useState(null);
+  const [payments, setPayments] = useState([]);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentPeriod, setPaymentPeriod] = useState(new Date().toISOString().split("T")[0]);
   const [isAddingPayment, setIsAddingPayment] = useState(false);
+  const [loadingPayments, setLoadingPayments] = useState(false);
   
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isPaymentOpen, onOpen: onPaymentOpen, onClose: onPaymentClose } = useDisclosure();
   const { isOpen: isDetailsOpen, onOpen: onDetailsOpen, onClose: onDetailsClose } = useDisclosure();
+  const { isOpen: isPaymentsListOpen, onOpen: onPaymentsListOpen, onClose: onPaymentsListClose } = useDisclosure();
   const [selectedOperationForDetails, setSelectedOperationForDetails] = useState(null);
 
   // Charger les données au montage du composant
@@ -159,12 +162,36 @@ const FinanceScheduledOps = () => {
     }
   }, [deleteScheduledOperation, toast, loadFinanceData]);
 
-  const handleAddPayment = useCallback(async () => {
-    // Récupérer paymentAmount depuis l'état plutôt que les dépendances
-    if (!selectedOperationId) {
+  const handleLoadPayments = useCallback(async (operationId) => {
+    setLoadingPayments(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${operationId}/payments`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPayments(data);
+        setSelectedOperationId(operationId);
+        onPaymentsListOpen();
+      }
+    } catch (error) {
       toast({
         title: "Erreur",
-        description: "Veuillez saisir un montant",
+        description: "Impossible de charger les paiements",
+        status: "error"
+      });
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [toast, onPaymentsListOpen]);
+
+  const handleAddPayment = useCallback(async () => {
+    if (!selectedOperationId || !paymentAmount) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
         status: "error"
       });
       return;
@@ -172,42 +199,20 @@ const FinanceScheduledOps = () => {
 
     setIsAddingPayment(true);
     try {
-      const operation = scheduledOperations.find(op => op.id === selectedOperationId);
-      if (!operation) throw new Error("Opération introuvable");
-
-      // Décrémenter remainingTotalAmount du montant payé
-      const newRemaining = Math.max(
-        (operation.remainingTotalAmount ?? operation.totalAmount) - parseFloat(paymentAmount),
-        0
-      );
-
-      // Calculer la prochaine date (ajouter 1 mois à la date actuelle de nextDate)
-      const currentNextDate = new Date(operation.nextDate);
-      const newNextDate = new Date(currentNextDate);
-      newNextDate.setMonth(newNextDate.getMonth() + 1);
-
-      const updatedOperation = {
-        ...operation,
-        remainingTotalAmount: newRemaining,
-        nextDate: newNextDate.toISOString().split("T")[0]
-      };
-
-      // Mettre à jour l'opération sur le serveur
-      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}`, {
-        method: "PUT",
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}/payments`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify(updatedOperation)
+        body: JSON.stringify({
+          amount: parseFloat(paymentAmount),
+          period: paymentPeriod
+        })
       });
 
-      if (!response.ok) throw new Error("Erreur lors de la mise à jour");
+      if (!response.ok) throw new Error("Erreur lors de l'enregistrement du paiement");
 
-      setPaymentAmount("");
-      setPaymentDate(new Date().toISOString().split("T")[0]);
-      onPaymentClose();
-      
       toast({
         title: "Paiement enregistré",
         status: "success",
@@ -215,18 +220,13 @@ const FinanceScheduledOps = () => {
         isClosable: true
       });
       
-      // Recharger uniquement les opérations programmées pour plus de réactivité
-      const schedRes = await fetch(`${API_BASE}/api/finance/scheduled-operations`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        }
-      });
-      if (schedRes.ok) {
-        const data = await schedRes.json();
-        // Les opérations vont être mises à jour dans le contexte global via loadFinanceData
-        // Mais on force aussi un rechargement complet pour être sûr
-        await loadFinanceData();
-      }
+      // Recharger les paiements et les données financières
+      await handleLoadPayments(selectedOperationId);
+      await loadFinanceData();
+      
+      setPaymentAmount("");
+      setPaymentPeriod(new Date().toISOString().split("T")[0]);
+      onPaymentClose();
     } catch (error) {
       toast({
         title: "Erreur",
@@ -236,7 +236,39 @@ const FinanceScheduledOps = () => {
     } finally {
       setIsAddingPayment(false);
     }
-  }, [selectedOperationId, scheduledOperations, paymentAmount, toast, loadFinanceData]);
+  }, [selectedOperationId, paymentAmount, paymentPeriod, toast, loadFinanceData, handleLoadPayments, onPaymentClose]);
+
+  const handleDeletePayment = useCallback(async (paymentId) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce paiement ?")) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${selectedOperationId}/payments/${paymentId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      if (!response.ok) throw new Error("Erreur lors de la suppression");
+
+      toast({
+        title: "Paiement supprimé",
+        status: "success",
+        duration: 2000,
+        isClosable: true
+      });
+
+      // Recharger les paiements et les données
+      await handleLoadPayments(selectedOperationId);
+      await loadFinanceData();
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de supprimer le paiement",
+        status: "error"
+      });
+    }
+  }, [selectedOperationId, handleLoadPayments, loadFinanceData, toast]);
 
   const handleToggle = async (id, currentStatus) => {
     try {
@@ -496,8 +528,23 @@ const FinanceScheduledOps = () => {
                 </CardBody>
                 <CardBody pt={0}>
                   <HStack>
-                    <Button size="sm" colorScheme="blue">Déclarer payé</Button>
-                    <Button size="sm" variant="outline">Voir paiements</Button>
+                    <Button 
+                      size="sm" 
+                      colorScheme="blue"
+                      onClick={() => {
+                        setSelectedOperationId(op.id);
+                        onPaymentOpen();
+                      }}
+                    >
+                      Ajouter un paiement
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleLoadPayments(op.id)}
+                    >
+                      Voir paiements
+                    </Button>
                     <IconButton
                       aria-label="Supprimer"
                       icon={<FiTrash2 />}
@@ -685,26 +732,21 @@ const FinanceScheduledOps = () => {
 
               <FormControl isRequired>
                 <FormLabel>Montant du paiement (€)</FormLabel>
-                <NumberInput
+                <Input 
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
                   value={paymentAmount}
-                  onChange={(value) => setPaymentAmount(value)}
-                  precision={2}
-                  step={0.01}
-                >
-                  <NumberInputField placeholder="0.00" />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                />
               </FormControl>
 
               <FormControl isRequired>
                 <FormLabel>Date du paiement</FormLabel>
                 <Input
                   type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
+                  value={paymentPeriod}
+                  onChange={(e) => setPaymentPeriod(e.target.value)}
                 />
               </FormControl>
             </VStack>
@@ -810,6 +852,61 @@ const FinanceScheduledOps = () => {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onDetailsClose}>
+              Fermer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal Voir les paiements */}
+      <Modal isOpen={isPaymentsListOpen} onClose={onPaymentsListClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Historique des paiements
+          </ModalHeader>
+          <ModalBody>
+            {loadingPayments ? (
+              <Flex justify="center" p={8}>
+                <Spinner />
+              </Flex>
+            ) : payments.length === 0 ? (
+              <Alert status="info">
+                <AlertIcon />
+                Aucun paiement enregistré
+              </Alert>
+            ) : (
+              <VStack spacing={3}>
+                {payments.map((payment) => (
+                  <Box key={payment.id} p={3} border="1px solid" borderColor="gray.200" borderRadius="md" w="100%">
+                    <HStack justify="space-between">
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="bold" fontSize="sm">
+                          {formatCurrency(payment.amount)}
+                        </Text>
+                        <Text fontSize="xs" color="gray.600">
+                          Période: {formatDate(payment.period)}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          Payé le {formatDate(payment.paidAt)}
+                        </Text>
+                      </VStack>
+                      <IconButton
+                        aria-label="Supprimer"
+                        icon={<FiTrash2 />}
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="red"
+                        onClick={() => handleDeletePayment(payment.id)}
+                      />
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onPaymentsListClose}>
               Fermer
             </Button>
           </ModalFooter>
