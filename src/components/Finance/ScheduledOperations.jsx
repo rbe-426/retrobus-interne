@@ -111,11 +111,12 @@ const FinanceScheduledOps = () => {
         
         // Si au moins 2 paiements, calculer l'intervalle moyen
         if (loadedPayments.length >= 2) {
-          const sortedPayments = loadedPayments.sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+          // Utiliser le champ 'period' (date réelle du paiement), pas 'paidAt' (quand on l'a enregistré)
+          const sortedPayments = loadedPayments.sort((a, b) => new Date(a.period) - new Date(b.period));
           let totalDays = 0;
           for (let i = 1; i < sortedPayments.length; i++) {
             const daysDiff = Math.floor(
-              (new Date(sortedPayments[i].paidAt) - new Date(sortedPayments[i - 1].paidAt)) / (1000 * 60 * 60 * 24)
+              (new Date(sortedPayments[i].period) - new Date(sortedPayments[i - 1].period)) / (1000 * 60 * 60 * 24)
             );
             totalDays += daysDiff;
           }
