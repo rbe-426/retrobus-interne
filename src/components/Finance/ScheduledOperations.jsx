@@ -98,6 +98,36 @@ const FinanceScheduledOps = () => {
   const { isOpen: isPaymentsListOpen, onOpen: onPaymentsListOpen, onClose: onPaymentsListClose } = useDisclosure();
   const [selectedOperationForDetails, setSelectedOperationForDetails] = useState(null);
 
+  // Fonction pour calculer l'intervalle moyen entre les paiements
+  const calculatePaymentIntervals = useCallback(async (operation) => {
+    if (!operation || !operation.id) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${operation.id}/payments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      if (response.ok) {
+        const loadedPayments = await response.json();
+        
+        // Si au moins 2 paiements, calculer l'intervalle moyen
+        if (loadedPayments.length >= 2) {
+          const sortedPayments = loadedPayments.sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+          let totalDays = 0;
+          for (let i = 1; i < sortedPayments.length; i++) {
+            const daysDiff = Math.floor(
+              (new Date(sortedPayments[i].paidAt) - new Date(sortedPayments[i - 1].paidAt)) / (1000 * 60 * 60 * 24)
+            );
+            totalDays += daysDiff;
+          }
+          const average = Math.round(totalDays / (sortedPayments.length - 1));
+          setPaymentIntervals(prev => ({ ...prev, [operation.id]: average }));
+        }
+      }
+    } catch (e) {
+      console.log('ℹ️ Could not load payments for interval calculation');
+    }
+  }, []);
+
   // Charger les données au montage du composant
   useEffect(() => {
     loadFinanceData();
@@ -356,36 +386,6 @@ const FinanceScheduledOps = () => {
 
     return null;
   };
-
-  // Fonction pour calculer l'intervalle moyen entre les paiements
-  const calculatePaymentIntervals = useCallback(async (operation) => {
-    if (!operation || !operation.id) return;
-
-    try {
-      const response = await fetch(`${API_BASE}/api/finance/scheduled-operations/${operation.id}/payments`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      if (response.ok) {
-        const loadedPayments = await response.json();
-        
-        // Si au moins 2 paiements, calculer l'intervalle moyen
-        if (loadedPayments.length >= 2) {
-          const sortedPayments = loadedPayments.sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
-          let totalDays = 0;
-          for (let i = 1; i < sortedPayments.length; i++) {
-            const daysDiff = Math.floor(
-              (new Date(sortedPayments[i].paidAt) - new Date(sortedPayments[i - 1].paidAt)) / (1000 * 60 * 60 * 24)
-            );
-            totalDays += daysDiff;
-          }
-          const average = Math.round(totalDays / (sortedPayments.length - 1));
-          setPaymentIntervals(prev => ({ ...prev, [operation.id]: average }));
-        }
-      }
-    } catch (e) {
-      console.log('ℹ️ Could not load payments for interval calculation');
-    }
-  }, []);
 
   const getFrequencyLabel = (frequency) => {
     const labels = {
