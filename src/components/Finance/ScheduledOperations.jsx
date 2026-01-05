@@ -322,51 +322,20 @@ const FinanceScheduledOps = () => {
       return new Date(operation.estimatedEndDate);
     }
 
-    // Cas 1: Si totalAmount est défini, calculer basé sur montant
+    // Cas 1: Si totalAmount est défini, calculer simplement
     if (Number.isFinite(operation.totalAmount) && operation.totalAmount > 0) {
       const remaining = operation.remainingTotalAmount ?? operation.totalAmount;
-      const monthlyAmount = operation.amount || 0;
+      const monthlyAmount = Math.abs(operation.amount || 0);
 
       if (monthlyAmount <= 0) return null;
 
-      const frequency = operation.frequency || "MONTHLY";
-      
-      // Convertir la fréquence en intervalle en mois
-      const monthsPerPeriod = 
-        frequency === "MONTHLY" ? 1 :
-        frequency === "QUARTERLY" ? 3 :
-        frequency === "SEMI_ANNUAL" ? 6 :
-        frequency === "YEARLY" ? 12 :
-        frequency === "WEEKLY" ? 0.25 : 1;
-
-      // Nombre de périodes restantes (pas de mois)
-      const periodsRemaining = Math.ceil(remaining / monthlyAmount);
-      
-      // Convertir en mois réels basé sur la fréquence
-      const monthsRemaining = periodsRemaining * monthsPerPeriod;
+      // Nombre de mois restants = montant restant / montant mensuel
+      const monthsRemaining = remaining / monthlyAmount;
 
       const startDate = new Date(operation.nextDate);
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + Math.ceil(monthsRemaining));
 
-      return endDate;
-    }
-
-    // Cas 2: Si plannedCountYear est défini, calculer basé sur nombre de paiements
-    if (Number.isFinite(operation.plannedCountYear) && operation.plannedCountYear > 0) {
-      const remainingCount = operation.remainingCountYear ?? 0;
-      const startDate = new Date(operation.nextDate);
-      const endDate = new Date(startDate);
-      
-      const frequency = operation.frequency || "MONTHLY";
-      const monthsPerPeriod = 
-        frequency === "MONTHLY" ? 1 :
-        frequency === "QUARTERLY" ? 3 :
-        frequency === "SEMI_ANNUAL" ? 6 :
-        frequency === "YEARLY" ? 12 :
-        frequency === "WEEKLY" ? 0.25 : 1;
-
-      endDate.setMonth(endDate.getMonth() + Math.ceil(remainingCount * monthsPerPeriod));
       return endDate;
     }
 
