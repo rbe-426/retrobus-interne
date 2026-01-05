@@ -378,7 +378,9 @@ const FinanceScheduledOps = () => {
       const averageDaysPerPayment = paymentIntervals[operation.id] || 30;
       const daysRemaining = monthsRemaining * averageDaysPerPayment;
 
-      const startDate = new Date(operation.nextDate);
+      // Commencer à partir d'AUJOURD'HUI, pas de nextDate (qui peut être dans le passé)
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
       const endDate = new Date(startDate.getTime() + daysRemaining * 24 * 60 * 60 * 1000);
 
       return endDate;
