@@ -26,6 +26,51 @@ const FinanceScheduledOps = () => {
     loadFinanceData
   } = useFinanceData();
 
+  // SemicircleGauge Component
+  const SemicircleGauge = ({ percent, color = 'gray' }) => {
+    const pct = typeof percent === 'number' ? Math.max(0, Math.min(1, percent)) : null;
+    const r = 50; // radius
+    const cx = 60, cy = 60; // center
+    // Angles in radians for upper semicircle [PI .. 0]
+    const start = Math.PI; // leftmost
+    const end = Math.PI * (1 - (pct ?? 0)); // map 0->PI, 1->0
+    // Start point (left)
+    const x1 = cx + r * Math.cos(start);
+    const y1 = cy - r * Math.sin(start); // use minus to keep arc on upper half
+    // End point according to percent
+    const x2 = cx + r * Math.cos(end);
+    const y2 = cy - r * Math.sin(end);
+    const largeArc = 0; // always <= 180°
+    const sweepFlag = 0; // draw upper arc (counter-clockwise in screen coords)
+    const path = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${x2} ${y2}`;
+    return (
+      <svg viewBox="0 0 120 70" width="100%" height="70" role="img" aria-label={pct != null ? `${Math.round(pct * 100)}%` : 'N/A'}>
+        {/* background arc (full upper semicircle) */}
+        <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 ${sweepFlag} ${cx + r} ${cy}`} stroke="#E2E8F0" strokeWidth="10" fill="none" />
+        {/* foreground arc */}
+        {pct != null && pct > 0 && (
+          <path d={path} stroke={color} strokeWidth="10" fill="none" strokeLinecap="round" />
+        )}
+        {/* percent label */}
+        <text x="60" y="65" textAnchor="middle" fontSize="10" fill="#4A5568">
+          {pct != null ? `${Math.round(pct * 100)}%` : 'N/A'}
+        </text>
+      </svg>
+    );
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(amount || 0);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('fr-FR');
+  };
+
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
     type: "SCHEDULED_PAYMENT",
@@ -203,60 +248,6 @@ const FinanceScheduledOps = () => {
         status: "error"
       });
     }
-  };
-
-  // Fonction pour calculer la progression et la couleur
-  const calculateProgressColor = (percent) => {
-    if (percent === null) return "#A0AEC0"; // gray.400
-    if (percent >= 0.75) return "#22863a"; // green
-    if (percent >= 0.4) return "#f59e0b"; // orange
-    return "#dc2626"; // red
-  };
-
-  const calculateProgressPercent = (operation) => {
-    if (!operation) return null;
-
-    // Si totalAmount est défini, calculer la progression basée sur le montant
-    if (
-      Number.isFinite(operation.totalAmount) &&
-      operation.totalAmount > 0
-    ) {
-      // remainingTotalAmount = ce qui reste à payer
-      // Au départ, remainingTotalAmount = totalAmount (rien n'a été payé)
-      // Donc: progress = 0%
-      // Après 1er paiement: remainingTotalAmount = totalAmount - amount
-      // Donc: progress = amount / totalAmount
-      const remaining = operation.remainingTotalAmount ?? operation.totalAmount;
-      const paid = Math.max(operation.totalAmount - remaining, 0);
-      return Math.min(1, paid / operation.totalAmount);
-    }
-
-    // Sinon, basé sur le nombre de paiements (plan annuel)
-    if (
-      Number.isFinite(operation.plannedCountYear) &&
-      operation.plannedCountYear > 0
-    ) {
-      const remainingCount = operation.remainingCountYear ?? 0;
-      const paidCount = Math.max(
-        (operation.plannedCountYear || 0) - remainingCount,
-        0
-      );
-      return Math.min(1, paidCount / operation.plannedCountYear);
-    }
-
-    return null;
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: "EUR"
-    }).format(amount || 0);
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("fr-FR");
   };
 
   const calculateDynamicNextDate = (operation) => {
@@ -445,211 +436,81 @@ const FinanceScheduledOps = () => {
         </Alert>
       ) : (
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-          {ops.map(op => {
-            const percent = calculateProgressPercent(op);
-            const progressColor = calculateProgressColor(percent);
-            const hasTotal =
-              Number.isFinite(op.totalAmount) && op.totalAmount > 0;
-            const paid = hasTotal
-              ? Math.max(op.totalAmount - (op.remainingTotalAmount || 0), 0)
-              : null;
-            const isCredit = op.type === "SCHEDULED_CREDIT";
+          {ops.map((op, idx) => {
+            const hasTotal = Number.isFinite(op.totalAmount) && op.totalAmount > 0;
+            const paid = hasTotal ? Math.max(op.totalAmount - (op.remainingTotalAmount || 0), 0) : null;
+            const hasYearPlan = Number.isFinite(op.plannedCountYear) && op.plannedCountYear > 0;
+            const yearPaidCount = hasYearPlan ? Math.max((op.plannedCountYear || 0) - (op.remainingCountYear || 0), 0) : null;
+            const percentYear = hasYearPlan ? Math.max(0, Math.min(1, yearPaidCount / op.plannedCountYear)) : null;
+            const percent = hasTotal ? Math.max(0, Math.min(1, paid / op.totalAmount)) : percentYear;
+            const gaugeColor = percent == null ? '#A0AEC0' : percent >= 0.75 ? '#22863a' : percent >= 0.4 ? '#f59e0b' : '#dc2626';
 
             return (
-              <Card
-                key={op.id}
-                borderLeft="4px solid"
-                borderLeftColor={
-                  isCredit ? "green.400" : "red.400"
-                }
-                opacity={op.isActive === false ? 0.6 : 1}
-              >
+              <Card key={op.id || idx}>
                 <CardHeader>
-                  <HStack justify="space-between" align="start">
-                    <VStack align="start" spacing={1}>
-                      <Heading size="sm" noOfLines={2}>
-                        {op.description}
-                      </Heading>
-                      <HStack spacing={2}>
-                        <Badge variant="outline">
-                          {getFrequencyLabel(op.frequency)}
-                        </Badge>
-                        <Badge
-                          colorScheme={isCredit ? "green" : "red"}
-                          size="sm"
-                        >
-                          {isCredit ? "RECETTE" : "DÉPENSE"}
-                        </Badge>
-                      </HStack>
-                    </VStack>
-                    <Menu>
-                      <MenuButton
-                        as={Button}
-                        size="sm"
-                        variant="ghost"
-                        icon={<FiMoreVertical />}
-                      >
-                        <FiMoreVertical />
-                      </MenuButton>
-                      <MenuList>
-                        <MenuItem
-                          icon={<FiPlus />}
-                          onClick={() => {
-                            setSelectedOperationId(op.id);
-                            onPaymentOpen();
-                          }}
-                        >
-                          Ajouter un paiement
-                        </MenuItem>
-                        <MenuDivider />
-                        <MenuItem
-                          onClick={() => handleToggle(op.id, op.isActive !== false)}
-                        >
-                          {op.isActive !== false ? "Désactiver" : "Activer"}
-                        </MenuItem>
-                        <MenuItem
-                          icon={<FiTrash2 />}
-                          color="red.500"
-                          onClick={() => handleDelete(op.id)}
-                        >
-                          Supprimer
-                        </MenuItem>
-                      </MenuList>
-                    </Menu>
-                  </HStack>
-                </CardHeader>
-
-                <CardBody>
-                  <VStack align="stretch" spacing={3}>
-                    {/* Montant */}
-                    <HStack justify="space-between">
-                      <Text fontSize="sm" color="gray.600">
-                        Montant
-                      </Text>
-                      <Text fontWeight="bold" fontSize="lg">
-                        {isCredit ? "+" : "-"}
-                        {formatCurrency(Math.abs(op.amount))}
-                      </Text>
-                    </HStack>
-
-                    {/* Prochaine date */}
-                    <HStack justify="space-between">
-                      <Text fontSize="sm" color="gray.600">
-                        Prochaine date
-                      </Text>
-                      <Text fontSize="sm" fontWeight="500">
-                        {formatDate(calculateDynamicNextDate(op))}
-                      </Text>
-                    </HStack>
-
-                    {/* Fin théorique */}
-                    {calculateTheoreticalEnd(op) && (
-                      <HStack justify="space-between">
-                        <Text fontSize="sm" color="gray.600">
-                          Fin théorique
-                        </Text>
-                        <Text fontSize="sm" fontWeight="500" color="blue.600">
-                          {formatDate(calculateTheoreticalEnd(op).toISOString().split("T")[0])}
-                        </Text>
-                      </HStack>
-                    )}
-
-                    {/* Progression visuelle */}
-                    {percent !== null && (
-                      <Box>
-                        <HStack justify="space-between" mb={2}>
-                          <Text fontSize="xs" color="gray.600">
-                            Progression
-                          </Text>
-                          <Text fontSize="xs" fontWeight="bold">
-                            {Math.round(percent * 100)}%
-                          </Text>
-                        </HStack>
-                        <Progress
-                          value={percent * 100}
-                          size="sm"
-                          colorScheme={
-                            percent >= 0.75
-                              ? "green"
-                              : percent >= 0.4
-                              ? "orange"
-                              : "red"
-                          }
-                          borderRadius="full"
-                        />
-                      </Box>
-                    )}
-
-                    {/* Détails total/restant */}
-                    {hasTotal && (
-                      <VStack align="stretch" spacing={1} pt={2} borderTop="1px" borderTopColor="gray.200">
-                        <HStack justify="space-between" fontSize="sm">
-                          <Text color="gray.600">Montant total</Text>
-                          <Text fontWeight="bold">
-                            {formatCurrency(op.totalAmount)}
-                          </Text>
-                        </HStack>
-                        <HStack justify="space-between" fontSize="sm">
-                          <Text color="gray.600">Payé</Text>
-                          <Text color="green.600" fontWeight="bold">
-                            {formatCurrency(paid)}
-                          </Text>
-                        </HStack>
-                        <HStack justify="space-between" fontSize="sm">
-                          <Text color="gray.600">Restant</Text>
-                          <Text color="red.600" fontWeight="bold">
-                            {formatCurrency(op.remainingTotalAmount || 0)}
-                          </Text>
-                        </HStack>
-                      </VStack>
-                    )}
-
-                    {/* Prévisions annuelles */}
-                    {Number.isFinite(op.plannedCountYear) &&
-                      op.plannedCountYear > 0 && (
-                        <VStack
-                          align="stretch"
-                          spacing={1}
-                          pt={2}
-                          borderTop="1px"
-                          borderTopColor="gray.200"
-                        >
-                          <HStack justify="space-between" fontSize="sm">
-                            <Text color="gray.600">Prévues cette année</Text>
-                            <Text fontWeight="bold">
-                              {op.plannedCountYear || 0}
-                            </Text>
-                          </HStack>
-                          <HStack justify="space-between" fontSize="sm">
-                            <Text color="gray.600">Effectuées</Text>
-                            <Text color="green.600" fontWeight="bold">
-                              {Math.max(
-                                (op.plannedCountYear || 0) -
-                                  (op.remainingCountYear || 0),
-                                0
-                              )}
-                            </Text>
-                          </HStack>
-                        </VStack>
-                      )}
-
-                    {/* Actions */}
-                    <HStack spacing={2} pt={2}>
-                      <Tooltip label="Voir les détails" placement="top">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="blue"
-                          onClick={() => {
-                            setSelectedOperationForDetails(op);
-                            onDetailsOpen();
-                          }}
-                        >
-                          Détails
-                        </Button>
-                      </Tooltip>
+                  <VStack align="start" spacing={1}>
+                    <Heading size="sm" noOfLines={2}>
+                      {op.description}
+                    </Heading>
+                    <HStack>
+                      <Badge variant="outline">
+                        {op.frequency === 'MONTHLY' ? 'Mensuel' : op.frequency || 'Récurrent'}
+                      </Badge>
+                      <Badge colorScheme="red">
+                        {op.type === 'SCHEDULED_CREDIT' ? 'RECETTE' : 'DÉPENSE'}
+                      </Badge>
                     </HStack>
                   </VStack>
+                </CardHeader>
+                <CardBody>
+                  <HStack align="center" spacing={4}>
+                    <Box minW="120px" w="120px">
+                      <SemicircleGauge percent={percent} color={gaugeColor} />
+                    </Box>
+                    <VStack align="start" spacing={1} flex={1}>
+                      <Text fontSize="sm" color="gray.600">Prochaine date</Text>
+                      <Text fontWeight="medium">{op.nextDate ? formatDate(op.nextDate) : '—'}</Text>
+                      <Text fontSize="sm" color="gray.600">Montant</Text>
+                      <Text fontWeight="bold" color={op.type === 'SCHEDULED_CREDIT' ? 'green.600' : 'red.600'}>
+                        {op.type === 'SCHEDULED_CREDIT' ? '+' : '-'} {formatCurrency(Math.abs(op.amount))}
+                      </Text>
+                      <HStack spacing={3} flexWrap="wrap">
+                        {op.paymentsCount !== undefined && (
+                          <Badge variant="subtle" colorScheme="blue">Payées: {op.paymentsCount}</Badge>
+                        )}
+                        {hasTotal && (
+                          <Badge variant="subtle">Restant: {formatCurrency(op.remainingTotalAmount || 0)}</Badge>
+                        )}
+                        {!hasTotal && hasYearPlan && (
+                          <Badge variant="subtle" colorScheme="purple">Payées cette année: {yearPaidCount}</Badge>
+                        )}
+                      </HStack>
+                      {op.monthsRemainingTotal && (
+                        <Text fontSize="sm" color="gray.600">Mensualités restantes: {op.monthsRemainingTotal}</Text>
+                      )}
+                      {op.estimatedEndDate && (
+                        <Text fontSize="sm" color="gray.600">Fin estimée: {formatDate(op.estimatedEndDate)}</Text>
+                      )}
+                    </VStack>
+                  </HStack>
+                </CardBody>
+                <CardBody pt={0}>
+                  <HStack>
+                    <Button size="sm" colorScheme="blue">Déclarer payé</Button>
+                    <Button size="sm" variant="outline">Voir paiements</Button>
+                    <IconButton
+                      aria-label="Supprimer"
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => {
+                        if (confirm('Êtes-vous sûr?')) {
+                          handleDelete(op.id);
+                        }
+                      }}
+                    />
+                  </HStack>
                 </CardBody>
               </Card>
             );
