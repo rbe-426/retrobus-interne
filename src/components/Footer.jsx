@@ -191,10 +191,6 @@ export default function Footer() {
               </Link>
             </HStack>
           </SimpleGrid>
-          
-          <Text fontSize="xs" color="gray.600" textAlign="center" pt={2}>
-            Plateforme de gestion interne • Développée avec ❤️ pour RétroBus Essonne
-          </Text>
         </VStack>
       </Container>
     </Box>
