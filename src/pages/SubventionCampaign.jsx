@@ -23,6 +23,7 @@ import {
   List,
   ListItem,
   ListIcon,
+  UnorderedList,
   Alert,
   AlertIcon,
   Spinner,
@@ -34,10 +35,27 @@ import {
   Tr,
   Th,
   Td,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  Checkbox,
+  IconButton,
+  Select,
 } from '@chakra-ui/react';
-import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw } from 'react-icons/fi';
+import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw, FiMail, FiUpload, FiTrash2 } from 'react-icons/fi';
 import PageLayout from '../components/Layout/PageLayout';
 import { subventionAPI } from '../api/subventionClient.js';
+
+const EXPENSE_CATEGORIES = ['FUEL', 'MAINTENANCE', 'INSURANCE', 'MATERIAL', 'ADMINISTRATIVE', 'OTHER'];
 
 export default function SubventionCampaign() {
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -48,6 +66,22 @@ export default function SubventionCampaign() {
   const toast = useToast();
   
   const [campaigns, setCampaigns] = useState([]);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [userExpenses, setUserExpenses] = useState([]);
+  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
+  
+  // Form states
+  const [expenseForm, setExpenseForm] = useState({
+    description: '',
+    amount: '',
+    category: 'OTHER',
+    notes: ''
+  });
+  
+  const [documentForm, setDocumentForm] = useState({
+    documentType: '',
+    file: null
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -83,6 +117,61 @@ export default function SubventionCampaign() {
   // Séparer les campagnes par statut
   const activeCampaigns = campaigns.filter(c => c.status === 'ACTIVE' && new Date(c.deadline) > new Date());
   const upcomingCampaigns = campaigns.filter(c => c.status === 'ACTIVE' && new Date(c.deadline) <= new Date());
+
+  // Ouvrir le modal de détails
+  const handleOpenDetail = async (campaign) => {
+    setSelectedCampaign(campaign);
+    // Charger les dépenses soumises par l'utilisateur
+    try {
+      const expenses = await subventionAPI.getExpenses(campaign.id);
+      setUserExpenses(Array.isArray(expenses) ? expenses : []);
+    } catch (error) {
+      console.error('Erreur chargement dépenses:', error);
+      setUserExpenses([]);
+    }
+    onDetailOpen();
+  };
+
+  // Soumettre une dépense
+  const handleSubmitExpense = async () => {
+    try {
+      if (!expenseForm.description || !expenseForm.amount) {
+        toast({ title: 'Erreur', description: 'Description et montant sont requis', status: 'error', duration: 3000, isClosable: true });
+        return;
+      }
+
+      await subventionAPI.createExpense(selectedCampaign.id, {
+        description: expenseForm.description,
+        amount: parseFloat(expenseForm.amount),
+        category: expenseForm.category,
+        notes: expenseForm.notes
+      });
+
+      toast({ title: 'Succès', description: 'Dépense soumise avec succès', status: 'success', duration: 3000, isClosable: true });
+      
+      // Recharger les dépenses
+      const expenses = await subventionAPI.getExpenses(selectedCampaign.id);
+      setUserExpenses(Array.isArray(expenses) ? expenses : []);
+      
+      // Réinitialiser le formulaire
+      setExpenseForm({ description: '', amount: '', category: 'OTHER', notes: '' });
+    } catch (error) {
+      console.error('Erreur soumission dépense:', error);
+      toast({ title: 'Erreur', description: 'Impossible de soumettre la dépense', status: 'error', duration: 3000, isClosable: true });
+    }
+  };
+
+  // Supprimer une dépense
+  const handleDeleteExpense = async (expenseId) => {
+    try {
+      await subventionAPI.deleteExpense(selectedCampaign.id, expenseId);
+      toast({ title: 'Succès', description: 'Dépense supprimée', status: 'success', duration: 3000, isClosable: true });
+      setUserExpenses(userExpenses.filter(e => e.id !== expenseId));
+    } catch (error) {
+      console.error('Erreur suppression dépense:', error);
+      toast({ title: 'Erreur', description: 'Impossible de supprimer la dépense', status: 'error', duration: 3000, isClosable: true });
+    }
+  };
 
   if (loading) {
     return (
@@ -188,11 +277,16 @@ export default function SubventionCampaign() {
                           <Icon as={FiClock} />
                           <Text>Échéance : {new Date(campaign.deadline).toLocaleDateString('fr-FR')}</Text>
                         </HStack>
-                        {campaign.websiteUrl && (
-                          <Button colorScheme="orange" size="sm" width="100%" mt={2} as="a" href={campaign.websiteUrl} target="_blank">
-                            En savoir plus
+                        <HStack width="100%" spacing={2} mt={2}>
+                          <Button colorScheme="orange" size="sm" width="100%" leftIcon={<FiUpload />} onClick={() => handleOpenDetail(campaign)}>
+                            Soumettre dossier
                           </Button>
-                        )}
+                          {campaign.websiteUrl && (
+                            <Button colorScheme="orange" variant="outline" size="sm" leftIcon={<FiFileText />} as="a" href={campaign.websiteUrl} target="_blank">
+                              Info
+                            </Button>
+                          )}
+                        </HStack>
                       </VStack>
                     </CardBody>
                   </Card>
@@ -371,6 +465,163 @@ export default function SubventionCampaign() {
               ))}
             </SimpleGrid>
           </Box>
+        )}
+
+        {/* Modal - Détails campagne et soumission dépenses */}
+        {selectedCampaign && (
+          <Modal isOpen={isDetailOpen} onClose={onDetailClose} size="xl" scrollBehavior="inside">
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>
+                <VStack align="start" spacing={1}>
+                  <Heading size="md">{selectedCampaign.title}</Heading>
+                  <Text fontSize="sm" color="gray.600">{selectedCampaign.organization}</Text>
+                </VStack>
+              </ModalHeader>
+              <ModalCloseButton />
+              <ModalBody>
+                <VStack spacing={4} align="stretch">
+                  {/* Détails campagne */}
+                  <Box p={3} bg={sectionBg} borderRadius="md">
+                    <VStack align="start" spacing={2} fontSize="sm">
+                      <Box>
+                        <Text fontWeight="600">📋 Description</Text>
+                        <Text>{selectedCampaign.description}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="600">💰 Montants</Text>
+                        <Text>
+                          {selectedCampaign.minAmount && selectedCampaign.maxAmount 
+                            ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(selectedCampaign.minAmount)} - ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(selectedCampaign.maxAmount)}`
+                            : 'À définir'}
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Text fontWeight="600">⏰ Échéance</Text>
+                        <Text>{new Date(selectedCampaign.deadline).toLocaleDateString('fr-FR')}</Text>
+                      </Box>
+                      {selectedCampaign.requiredDocuments && Array.isArray(selectedCampaign.requiredDocuments) && selectedCampaign.requiredDocuments.length > 0 && (
+                        <Box>
+                          <Text fontWeight="600">📄 Documents requis</Text>
+                          <UnorderedList fontSize="sm" ml={4}>
+                            {selectedCampaign.requiredDocuments.map((doc, idx) => (
+                              <ListItem key={idx}>{doc}</ListItem>
+                            ))}
+                          </UnorderedList>
+                        </Box>
+                      )}
+                    </VStack>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Formulaire soumission dépense */}
+                  <Box>
+                    <Heading size="sm" mb={3}>Soumettre une dépense</Heading>
+                    <VStack spacing={3}>
+                      <FormControl isRequired>
+                        <FormLabel>Description</FormLabel>
+                        <Input
+                          value={expenseForm.description}
+                          onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                          placeholder="Ex: Carburant, maintenance, etc."
+                        />
+                      </FormControl>
+
+                      <HStack spacing={3} width="100%">
+                        <FormControl isRequired flex={1}>
+                          <FormLabel>Montant (€)</FormLabel>
+                          <Input
+                            type="number"
+                            value={expenseForm.amount}
+                            onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                            placeholder="0,00"
+                            min={0}
+                            step={0.01}
+                          />
+                        </FormControl>
+
+                        <FormControl flex={1}>
+                          <FormLabel>Catégorie</FormLabel>
+                          <Select
+                            value={expenseForm.category}
+                            onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                          >
+                            {EXPENSE_CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </HStack>
+
+                      <FormControl>
+                        <FormLabel>Notes/Observations</FormLabel>
+                        <Textarea
+                          value={expenseForm.notes}
+                          onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                          placeholder="Détails supplémentaires..."
+                          size="sm"
+                          rows={3}
+                        />
+                      </FormControl>
+
+                      <Alert status="info" borderRadius="md" fontSize="sm">
+                        <AlertIcon />
+                        Les justificatifs (factures, reçus) doivent être téléchargés avec votre dépense
+                      </Alert>
+
+                      <Button colorScheme="orange" width="100%" onClick={handleSubmitExpense} leftIcon={<FiUpload />}>
+                        Soumettre la dépense
+                      </Button>
+                    </VStack>
+                  </Box>
+
+                  {userExpenses.length > 0 && (
+                    <>
+                      <Divider />
+                      <Box>
+                        <Heading size="sm" mb={3}>Vos soumissions ({userExpenses.length})</Heading>
+                        <VStack spacing={2} align="stretch">
+                          {userExpenses.map(expense => (
+                            <HStack key={expense.id} p={2} bg={sectionBg} borderRadius="md" justify="space-between" align="start">
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text fontWeight="500" fontSize="sm">{expense.description}</Text>
+                                <HStack fontSize="xs" color="gray.600" spacing={2}>
+                                  <Text>{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(expense.amount)}</Text>
+                                  <Text>•</Text>
+                                  <Text>{expense.category}</Text>
+                                  <Text>•</Text>
+                                  <Badge size="sm" colorScheme={
+                                    expense.status === 'APPROVED' ? 'green' :
+                                    expense.status === 'REJECTED' ? 'red' : 'blue'
+                                  }>
+                                    {expense.status}
+                                  </Badge>
+                                </HStack>
+                              </VStack>
+                              {expense.status === 'SUBMITTED' && (
+                                <IconButton
+                                  icon={<FiTrash2 />}
+                                  size="sm"
+                                  variant="ghost"
+                                  colorScheme="red"
+                                  onClick={() => handleDeleteExpense(expense.id)}
+                                />
+                              )}
+                            </HStack>
+                          ))}
+                        </VStack>
+                      </Box>
+                    </>
+                  )}
+                </VStack>
+              </ModalBody>
+
+              <ModalFooter>
+                <Button variant="ghost" onClick={onDetailClose}>Fermer</Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
         )}
       </VStack>
     </PageLayout>
