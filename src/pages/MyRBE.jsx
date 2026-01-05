@@ -21,7 +21,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
   FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool, FiShield,
-  FiTruck, FiShoppingCart, FiAlertCircle
+  FiTruck, FiShoppingCart, FiAlertCircle, FiAward
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext";
 import { canAccess, RESOURCES } from "../lib/permissions";
@@ -222,6 +222,17 @@ export default function MyRBE() {
       ]}
     >
       <VStack spacing={2} align="stretch">
+        {/* Carte mise en évidence: Campagne de Subvention */}
+        <ModernCard
+          title="Campagne de Subvention"
+          description="Découvrez les opportunités de financement pour RétroBus Essonne"
+          icon={FiAward}
+          color="orange"
+          badge={{ label: "📢 Nouveau!", color: "red" }}
+          as={RouterLink}
+          to="/dashboard/subvention-campaign"
+        />
+
         {/* Grille des fonctionnalités */}
         {visibleCards.length > 0 ? (
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>

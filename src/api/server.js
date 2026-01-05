@@ -8,6 +8,7 @@ import siteUsersRouter from "./siteUsers.js";
 import membersRouter from "./members.router.js";
 import changelogRouter from "./changelog.js";
 import flashesRouter from "./flashes.js";
+import subventionsRouter from "./subventions.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/site-users", siteUsersRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/changelog", changelogRouter);
+app.use("/api/subventions", subventionsRouter);
 // Flashes: public listing + admin (kept outside /api for legacy)
 app.use("/", flashesRouter);
 
