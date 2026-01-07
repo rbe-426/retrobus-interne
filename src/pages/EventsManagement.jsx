@@ -5,11 +5,12 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Badge, IconButton, Spinner, Center,
   SimpleGrid, Stat, StatLabel, StatNumber, Input, InputGroup, InputLeftElement,
   Select, FormControl, FormLabel, useToast, Progress, NumberInput, NumberInputField,
-  NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper, Divider, Icon, Flex
+  NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper, Divider, Icon, Flex,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure
 } from "@chakra-ui/react";
 import {
   FiEdit, FiPlus, FiRefreshCw, FiSearch, FiMapPin,
-  FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock
+  FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink
 } from "react-icons/fi";
 import { eventsAPI } from "../api/events";
 
@@ -34,6 +35,7 @@ const formatDate = (d) => {
 
 export default function EventsManagement() {
   const toast = useToast();
+  const { isOpen: isManageOpen, onOpen: onManageOpen, onClose: onManageClose } = useDisclosure();
 
   // État pour gestion événement
   const [events, setEvents] = useState([]);
@@ -41,6 +43,15 @@ export default function EventsManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [managingEvent, setManagingEvent] = useState(null);
+  const [managingEventData, setManagingEventData] = useState({
+    maxParticipants: 0,
+    adultPrice: 0,
+    childPrice: 0,
+    registrationMethod: 'internal',
+    helloAssoUrl: '',
+    pdfUrl: ''
+  });
   const [activeEventTab, setActiveEventTab] = useState("participants");
 
   // Participants, routes, finances
@@ -182,6 +193,69 @@ export default function EventsManagement() {
     setSelectedEvent(null);
     setParticipants([]);
     setRoutes([]);
+  };
+
+  // Ouvrir modal de gestion des paramètres de l'événement
+  const openManageEvent = (e) => {
+    let extras = {};
+    try {
+      extras = e.extras ? JSON.parse(e.extras) : {};
+    } catch (err) {
+      console.warn('Erreur parsing extras:', err);
+    }
+
+    setManagingEvent(e);
+    setManagingEventData({
+      maxParticipants: e.maxParticipants || extras.maxParticipants || 0,
+      adultPrice: e.adultPrice || 0,
+      childPrice: e.childPrice || 0,
+      registrationMethod: extras.registrationMethod || 'internal',
+      helloAssoUrl: extras.helloAssoUrl || '',
+      pdfUrl: extras.pdfUrl || ''
+    });
+    onManageOpen();
+  };
+
+  const saveManageEvent = async () => {
+    if (!managingEvent?.id) return;
+    try {
+      let extras = {};
+      try {
+        extras = managingEvent.extras ? JSON.parse(managingEvent.extras) : {};
+      } catch (e) {
+        console.warn('Erreur parsing extras:', e);
+      }
+
+      const updatedExtras = {
+        ...extras,
+        maxParticipants: managingEventData.maxParticipants,
+        registrationMethod: managingEventData.registrationMethod,
+        helloAssoUrl: managingEventData.helloAssoUrl || null,
+        pdfUrl: managingEventData.pdfUrl || null
+      };
+
+      const response = await fetch(`/api/events/${managingEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxParticipants: managingEventData.maxParticipants,
+          adultPrice: managingEventData.adultPrice,
+          childPrice: managingEventData.childPrice,
+          extras: JSON.stringify(updatedExtras)
+        })
+      });
+
+      if (!response.ok) throw new Error('Erreur sauvegarde');
+
+      toast({ status: "success", title: "Paramètres enregistrés" });
+      onManageClose();
+      
+      // Rafraîchir la liste des événements
+      const updated = await eventsAPI.getAll();
+      setEvents(Array.isArray(updated) ? updated : updated?.events || []);
+    } catch (e) {
+      toast({ status: "error", title: "Erreur", description: e.message });
+    }
   };
 
   // Participants
@@ -336,7 +410,7 @@ export default function EventsManagement() {
                   <Td>{getStatusBadge(e.status)}</Td>
                   <Td>
                     <HStack spacing={1}>
-                      <Button size="sm" variant="ghost" onClick={() => openEvent(e)}>Gérer</Button>
+                      <Button size="sm" variant="ghost" onClick={() => openManageEvent(e)}>Gérer</Button>
                       <IconButton as={RouterLink} to="/dashboard/evenements" aria-label="Modifier" icon={<FiEdit />} size="sm" variant="ghost" />
                     </HStack>
                   </Td>
@@ -546,28 +620,74 @@ export default function EventsManagement() {
       </VStack>
     );
 
-  const renderHelloAssoTab = () => (
+  const renderHelloAssoTab = () => {
+    const saveHelloAsso = async () => {
+      if (!selectedEvent?.id) {
+        toast({ status: "warning", title: "Aucun événement sélectionné" });
+        return;
+      }
+      try {
+        // Parser les extras actuelles
+        let extras = {};
+        try {
+          extras = selectedEvent.extras ? JSON.parse(selectedEvent.extras) : {};
+        } catch (e) {
+          console.warn('Erreur parsing extras:', e);
+        }
+
+        // Mettre à jour les données HelloAsso
+        const updatedExtras = {
+          ...extras,
+          helloAssoUrl: ha.url || null,
+          helloAssoOrg: ha.org || null,
+          helloAssoEvent: ha.event || null,
+          registrationMethod: ha.url ? 'helloasso' : extras.registrationMethod
+        };
+
+        // Appeler l'API pour sauvegarder
+        const response = await fetch(`/api/events/${selectedEvent.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            extras: JSON.stringify(updatedExtras)
+          })
+        });
+
+        if (!response.ok) throw new Error('Erreur sauvegarde');
+
+        // Mettre à jour l'événement en mémoire
+        const updated = await response.json();
+        setSelectedEvent(updated);
+        
+        toast({ status: "success", title: "Paramètres HelloAsso enregistrés" });
+      } catch (e) {
+        toast({ status: "error", title: "Erreur", description: e.message });
+      }
+    };
+
+    return (
       <VStack align="stretch" spacing={4}>
         <FormControl>
-          <FormLabel>URL de l'événement</FormLabel>
-          <Input placeholder="https://www.helloasso.com/..." value={ha.url}
+          <FormLabel>URL de l'événement HelloAsso</FormLabel>
+          <Input placeholder="https://www.helloasso.com/associations/retrobus-essonne/evenements/..." value={ha.url}
             onChange={(e) => setHa(s => ({ ...s, url: e.target.value }))} />
         </FormControl>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
           <FormControl>
             <FormLabel>Organisation</FormLabel>
-            <Input value={ha.org} onChange={(e) => setHa(s => ({ ...s, org: e.target.value }))} placeholder="nom-organisation" />
+            <Input value={ha.org} onChange={(e) => setHa(s => ({ ...s, org: e.target.value }))} placeholder="retrobus-essonne" />
           </FormControl>
           <FormControl>
             <FormLabel>Événement</FormLabel>
             <Input value={ha.event} onChange={(e) => setHa(s => ({ ...s, event: e.target.value }))} placeholder="nom-evenement" />
           </FormControl>
         </SimpleGrid>
-        <Button leftIcon={<FiSave />} onClick={() => toast({ status: "success", title: "Paramètres enregistrés" })} colorScheme="blue">
-          Sauvegarder
+        <Button leftIcon={<FiSave />} onClick={saveHelloAsso} colorScheme="blue">
+          Sauvegarder les paramètres HelloAsso
         </Button>
       </VStack>
     );
+  };
 
   const renderEventsContent = () => {
     switch (activeSubTab) {
@@ -815,6 +935,119 @@ export default function EventsManagement() {
           {getMainContent()}
         </Box>
       </VStack>
+
+      {/* Modal de gestion des paramètres de l'événement */}
+      <Modal isOpen={isManageOpen} onClose={onManageClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack align="start" spacing={1}>
+              <Heading size="md">Gérer: {managingEvent?.title}</Heading>
+              <Text fontSize="sm" color="gray.600">Tarifs, places et paiement</Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack align="stretch" spacing={6}>
+              {/* Tarifs et places */}
+              <Box p={4} bg="blue.50" borderRadius="md">
+                <Heading size="sm" mb={4}>Tarification & Places</Heading>
+                <SimpleGrid columns={3} spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="sm">Places max</FormLabel>
+                    <NumberInput value={managingEventData.maxParticipants} onChange={(val) => setManagingEventData(d => ({ ...d, maxParticipants: parseInt(val) || 0 }))}>
+                      <NumberInputField />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm">Adulte (€)</FormLabel>
+                    <NumberInput value={managingEventData.adultPrice} step={0.5} onChange={(val) => setManagingEventData(d => ({ ...d, adultPrice: parseFloat(val) || 0 }))}>
+                      <NumberInputField />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm">Enfant (€)</FormLabel>
+                    <NumberInput value={managingEventData.childPrice} step={0.5} onChange={(val) => setManagingEventData(d => ({ ...d, childPrice: parseFloat(val) || 0 }))}>
+                      <NumberInputField />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                  </FormControl>
+                </SimpleGrid>
+              </Box>
+
+              <Divider />
+
+              {/* Méthode de paiement */}
+              <Box>
+                <Heading size="sm" mb={4}>Méthode d'inscription</Heading>
+                <Select value={managingEventData.registrationMethod} onChange={(e) => setManagingEventData(d => ({ ...d, registrationMethod: e.target.value }))}>
+                  <option value="internal">Inscription interne</option>
+                  <option value="helloasso">HelloAsso</option>
+                  <option value="pdf">Formulaire PDF</option>
+                  <option value="none">Aucune inscription</option>
+                </Select>
+              </Box>
+
+              {/* Configuration HelloAsso */}
+              {managingEventData.registrationMethod === 'helloasso' && (
+                <Box p={4} bg="purple.50" borderRadius="md" borderLeft="4px" borderLeftColor="purple.400">
+                  <VStack align="stretch" spacing={3}>
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="bold">URL HelloAsso</FormLabel>
+                      <Input 
+                        placeholder="https://www.helloasso.com/associations/retrobus-essonne/evenements/..."
+                        value={managingEventData.helloAssoUrl}
+                        onChange={(e) => setManagingEventData(d => ({ ...d, helloAssoUrl: e.target.value }))}
+                      />
+                    </FormControl>
+                    <HStack spacing={2} pt={2}>
+                      <Icon as={FiGift} color="purple.600" />
+                      <Text fontSize="sm" color="purple.700">Les participants paieront via HelloAsso</Text>
+                    </HStack>
+                  </VStack>
+                </Box>
+              )}
+
+              {/* Configuration PDF */}
+              {managingEventData.registrationMethod === 'pdf' && (
+                <Box p={4} bg="orange.50" borderRadius="md" borderLeft="4px" borderLeftColor="orange.400">
+                  <VStack align="stretch" spacing={3}>
+                    <FormControl>
+                      <FormLabel fontSize="sm" fontWeight="bold">URL du formulaire PDF</FormLabel>
+                      <Input 
+                        placeholder="https://..."
+                        value={managingEventData.pdfUrl}
+                        onChange={(e) => setManagingEventData(d => ({ ...d, pdfUrl: e.target.value }))}
+                      />
+                    </FormControl>
+                    <HStack spacing={2} pt={2}>
+                      <Icon as={FiExternalLink} color="orange.600" />
+                      <Text fontSize="sm" color="orange.700">Les participants téléchargeront le PDF</Text>
+                    </HStack>
+                  </VStack>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3}>
+              <Button variant="ghost" onClick={onManageClose}>Annuler</Button>
+              <Button leftIcon={<FiSave />} colorScheme="blue" onClick={saveManageEvent}>Sauvegarder</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </HStack>
   );
 }
