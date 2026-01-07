@@ -33,20 +33,20 @@ const FinanceScheduledOps = () => {
     const cx = 60, cy = 60; // center
     // Angles in radians for lower semicircle [PI .. 2*PI]
     const start = Math.PI; // leftmost (180°)
-    const end = pct != null ? Math.PI + Math.PI * pct : Math.PI; // map 0->PI, 1->2PI (180° to 360°)
+    const end = Math.PI + Math.PI * (pct ?? 0); // map 0->PI, 1->2PI (180° to 360°)
     // Start point (left)
     const x1 = cx + r * Math.cos(start);
     const y1 = cy + r * Math.sin(start); // use plus to keep arc on LOWER half
     // End point according to percent
     const x2 = cx + r * Math.cos(end);
     const y2 = cy + r * Math.sin(end);
-    const largeArc = (pct ?? 0) > 0.5 ? 1 : 0; // large arc if > 50%
+    const largeArc = 0; // always <= 180°
     const sweepFlag = 1; // draw lower arc (clockwise in screen coords)
     const path = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${x2} ${y2}`;
     return (
       <svg viewBox="0 0 120 70" width="100%" height="70" role="img" aria-label={pct != null ? `${Math.round(pct * 100)}%` : 'N/A'}>
         {/* background arc (full lower semicircle) */}
-        <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} stroke="#E2E8F0" strokeWidth="10" fill="none" />
+        <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 ${sweepFlag} ${cx + r} ${cy}`} stroke="#E2E8F0" strokeWidth="10" fill="none" />
         {/* foreground arc */}
         {pct != null && pct > 0 && (
           <path d={path} stroke={color} strokeWidth="10" fill="none" strokeLinecap="round" />
@@ -906,10 +906,10 @@ const FinanceScheduledOps = () => {
                           {formatCurrency(payment.amount)}
                         </Text>
                         <Text fontSize="xs" color="gray.600">
-                          Période: {formatDate(payment.period)}
+                          Payé le: {formatDate(payment.period)}
                         </Text>
                         <Text fontSize="xs" color="gray.500">
-                          Payé le {formatDate(payment.paidAt)}
+                          Enregistré le: {formatDate(payment.paidAt)}
                         </Text>
                       </VStack>
                       <IconButton
