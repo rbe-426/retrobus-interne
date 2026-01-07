@@ -281,6 +281,8 @@ export default function EventsCreation() {
     try {
       setSaving(true);
       
+      const maxParticipantsNum = formData.maxParticipants ? parseInt(formData.maxParticipants) : null;
+      
       const eventData = {
         title: formData.title.trim(),
         date: formData.date,
@@ -292,12 +294,13 @@ export default function EventsCreation() {
         helloAssoUrl: formData.helloAssoUrl.trim() || null,
         vehicleId: formData.vehicleId || null,
         status: formData.status,
+        maxParticipants: maxParticipantsNum,
         extras: JSON.stringify({
           isVisible: formData.isVisible,
           allowPublicRegistration: formData.allowPublicRegistration,
           requiresRegistration: formData.requiresRegistration,
           isFree: formData.isFree,
-          maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
+          maxParticipants: maxParticipantsNum,
           registrationDeadline: formData.registrationDeadline || null,
           registrationMethod: formData.registrationMethod,
           pdfUrl: formData.pdfUrl || null,

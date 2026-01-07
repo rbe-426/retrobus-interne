@@ -348,8 +348,44 @@ export default function EventsManagement() {
       </>
     );
 
-  const renderParticipantsTab = () => (
+  const renderParticipantsTab = () => {
+    const maxParticipants = selectedEvent?.maxParticipants;
+    const currentParticipants = selectedEvent?.currentParticipants || 0;
+    const spotsAvailable = maxParticipants ? Math.max(0, maxParticipants - currentParticipants) : null;
+    const isFull = maxParticipants && spotsAvailable === 0;
+
+    return (
       <VStack align="stretch" spacing={4}>
+        {/* Affichage des places disponibles */}
+        {maxParticipants && (
+          <Card borderLeft="4px solid" borderLeftColor={isFull ? "red.400" : "blue.400"}>
+            <CardBody>
+              <HStack spacing={8} justify="space-between">
+                <Stat>
+                  <StatLabel>Places configurées</StatLabel>
+                  <StatNumber color="blue.600">{maxParticipants}</StatNumber>
+                </Stat>
+                <Stat>
+                  <StatLabel>Inscriptions actuelles</StatLabel>
+                  <StatNumber color="orange.600">{currentParticipants}</StatNumber>
+                </Stat>
+                <Stat>
+                  <StatLabel>Places disponibles</StatLabel>
+                  <StatNumber color={isFull ? "red.600" : "green.600"}>
+                    {isFull ? "COMPLET" : spotsAvailable}
+                  </StatNumber>
+                </Stat>
+                <Stat>
+                  <StatLabel>Taux de remplissage</StatLabel>
+                  <StatNumber color="purple.600">
+                    {Math.round((currentParticipants / maxParticipants) * 100)}%
+                  </StatNumber>
+                </Stat>
+              </HStack>
+            </CardBody>
+          </Card>
+        )}
+
         <HStack justify="space-between">
           <Text fontWeight="bold">Participants ({participants.length})</Text>
           <Button leftIcon={<FiPlus />} colorScheme="blue" size="sm" 
@@ -385,6 +421,7 @@ export default function EventsManagement() {
         )}
       </VStack>
     );
+  };
 
   const renderRoutesTab = () => (
       <VStack align="stretch" spacing={4}>
