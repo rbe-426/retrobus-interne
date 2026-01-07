@@ -234,18 +234,27 @@ export default function EventsManagement() {
         pdfUrl: managingEventData.pdfUrl || null
       };
 
+      const updateData = {
+        maxParticipants: managingEventData.maxParticipants,
+        adultPrice: managingEventData.adultPrice,
+        childPrice: managingEventData.childPrice,
+        extras: JSON.stringify(updatedExtras)
+      };
+
+      // Utiliser l'API client au lieu de fetch directement
       const response = await fetch(`/api/events/${managingEvent.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          maxParticipants: managingEventData.maxParticipants,
-          adultPrice: managingEventData.adultPrice,
-          childPrice: managingEventData.childPrice,
-          extras: JSON.stringify(updatedExtras)
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(updateData)
       });
 
-      if (!response.ok) throw new Error('Erreur sauvegarde');
+      if (response.status === 401) {
+        throw new Error('Authentification requise');
+      }
+      if (!response.ok) throw new Error(`Erreur ${response.status}`);
 
       toast({ status: "success", title: "Paramètres enregistrés" });
       onManageClose();
@@ -254,6 +263,7 @@ export default function EventsManagement() {
       const updated = await eventsAPI.getAll();
       setEvents(Array.isArray(updated) ? updated : updated?.events || []);
     } catch (e) {
+      console.error('Erreur saveManageEvent:', e);
       toast({ status: "error", title: "Erreur", description: e.message });
     }
   };
