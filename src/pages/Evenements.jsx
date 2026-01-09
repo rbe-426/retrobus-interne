@@ -74,22 +74,22 @@ const EVENT_TEMPLATES = {
     description: "Sortie visible publiquement mais réservée (pas d'inscription possible)"
   },
   public_contact_required: {
-    name: "Contact Association Requis",
-    icon: FiEyeOff,
-    color: "orange",
+    name: "Inscription via HelloAsso",
+    icon: FiUsers,
+    color: "blue",
     defaults: {
       isVisible: true,
-      allowPublicRegistration: false,  // ← Le public NE PEUT PAS s'inscrire
-      requiresRegistration: true,      // ← Mais inscription REQUISE
-      isFree: false,
+      allowPublicRegistration: true,   // ← Le public PEUT s'inscrire
+      requiresRegistration: true,      // ← Inscription REQUISE
+      isFree: false,                   // ← HelloAsso = jamais gratuit!
       adultPrice: 12,
       childPrice: 6,
-      maxParticipants: 30,
+      maxParticipants: null,
       registrationDeadline: '',
-      registrationMethod: 'none',
+      registrationMethod: 'helloasso',  // ← HelloAsso!
       status: 'PUBLISHED'
     },
-    description: "Visible par tous mais inscription uniquement en contactant l'association"
+    description: "Événement avec inscription payante via HelloAsso"
   },
   members_only: {
     name: "Adhérents Seulement",

@@ -34,6 +34,7 @@ import {
   Switch,
   Alert,
   AlertIcon,
+  Divider,
   useToast,
   useDisclosure
 } from '@chakra-ui/react';
@@ -71,15 +72,17 @@ const EVENT_TEMPLATES = {
     }
   },
   free_registration: {
-    name: "Inscription gratuite",
+    name: "Inscription via HelloAsso",
     color: "purple",
-    description: "Événement gratuit avec inscription",
+    description: "Événement avec inscription payante via HelloAsso",
     defaults: {
       isVisible: true,
       requiresRegistration: true,
       allowPublicRegistration: true,
-      isFree: true,
-      registrationMethod: 'internal',
+      isFree: false,
+      adultPrice: 12,
+      childPrice: 6,
+      registrationMethod: 'helloasso',
       eventType: 'free_registration'
     }
   },
@@ -120,7 +123,9 @@ export default function EventsCreation() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isHelloAssoOpen, onOpen: onHelloAssoOpen, onClose: onHelloAssoClose } = useDisclosure();
   const [editingEvent, setEditingEvent] = useState(null);
+  const [selectedEventForModal, setSelectedEventForModal] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     date: '',
@@ -639,24 +644,9 @@ export default function EventsCreation() {
                       </FormLabel>
                       <Switch
                         isChecked={formData.requiresRegistration}
-                        onChange={(e) => setFormData(prev => ({ ...prev, requiresRegistration: e.target.checked }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, requiresRegistration: e.target.checked, allowPublicRegistration: e.target.checked }))}
                       />
                     </FormControl>
-
-                    {formData.requiresRegistration && (
-                      <FormControl>
-                        <FormLabel>Méthode d'inscription</FormLabel>
-                        <Select
-                          value={formData.registrationMethod}
-                          onChange={(e) => setFormData(prev => ({ ...prev, registrationMethod: e.target.value }))}
-                        >
-                          <option value="none">Aucune</option>
-                          <option value="helloasso">HelloAsso</option>
-                          <option value="pdf">Formulaire PDF</option>
-                          <option value="internal">Système interne</option>
-                        </Select>
-                      </FormControl>
-                    )}
                   </VStack>
                 </TabPanel>
 
@@ -708,26 +698,58 @@ export default function EventsCreation() {
                       />
                     </FormControl>
 
-                    {formData.registrationMethod === 'helloasso' && (
-                      <FormControl>
-                        <FormLabel>URL HelloAsso</FormLabel>
-                        <Input
-                          value={formData.helloAssoUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, helloAssoUrl: e.target.value }))}
-                          placeholder="https://www.helloasso.com/..."
-                        />
-                      </FormControl>
-                    )}
+                    {formData.requiresRegistration && (
+                      <>
+                        <FormControl display="flex" alignItems="center">
+                          <FormLabel mb="0">
+                            Inscription via HelloAsso
+                          </FormLabel>
+                          <Switch
+                            isChecked={formData.registrationMethod === 'helloasso'}
+                            onChange={(e) => setFormData(prev => ({ ...prev, registrationMethod: e.target.checked ? 'helloasso' : 'internal' }))}
+                          />
+                        </FormControl>
 
-                    {formData.registrationMethod === 'pdf' && (
-                      <FormControl>
-                        <FormLabel>URL du formulaire PDF</FormLabel>
-                        <Input
-                          value={formData.pdfUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, pdfUrl: e.target.value }))}
-                          placeholder="https://exemple.com/formulaire.pdf"
-                        />
-                      </FormControl>
+                        {formData.registrationMethod === 'helloasso' && (
+                          <>
+                            <FormControl isRequired>
+                              <FormLabel>URL HelloAsso</FormLabel>
+                              <Input
+                                value={formData.helloAssoUrl}
+                                onChange={(e) => setFormData(prev => ({ ...prev, helloAssoUrl: e.target.value }))}
+                                placeholder="https://www.helloasso.com/..."
+                              />
+                            </FormControl>
+                            {formData.helloAssoUrl && formData.title && formData.date && (
+                              <Button
+                                colorScheme="blue"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEventForModal({
+                                    title: formData.title,
+                                    date: formData.date,
+                                    time: formData.time,
+                                    location: formData.location,
+                                    adultPrice: formData.adultPrice,
+                                    childPrice: formData.childPrice,
+                                    helloAssoUrl: formData.helloAssoUrl
+                                  });
+                                  onHelloAssoOpen();
+                                }}
+                              >
+                                👁️ Aperçu modale HelloAsso
+                              </Button>
+                            )}
+                          </>
+                        )}
+
+                        {formData.registrationMethod !== 'helloasso' && (
+                          <Alert status="info" borderRadius="md">
+                            <AlertIcon />
+                            Inscription via le système interne
+                          </Alert>
+                        )}
+                      </>
                     )}
                   </VStack>
                 </TabPanel>
@@ -741,6 +763,97 @@ export default function EventsCreation() {
             </Button>
             <Button colorScheme="blue" onClick={handleSave} isLoading={saving}>
               {editingEvent ? 'Modifier' : 'Créer'}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modale HelloAsso pour preview/test */}
+      <Modal isOpen={isHelloAssoOpen} onClose={onHelloAssoClose} size="xl" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack align="start" spacing={1}>
+              <Heading size="md">{selectedEventForModal?.title}</Heading>
+              <Text fontSize="sm" color="gray.600">
+                Inscription et paiement via HelloAsso
+              </Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack align="stretch" spacing={4}>
+              {/* Infos de l'événement */}
+              <Box bg="gray.50" p={4} borderRadius="md">
+                <VStack align="start" spacing={3}>
+                  {selectedEventForModal?.date && (
+                    <HStack>
+                      <Text fontWeight="600">{selectedEventForModal.date}</Text>
+                      {selectedEventForModal.time && <Text>{selectedEventForModal.time}</Text>}
+                    </HStack>
+                  )}
+                  {selectedEventForModal?.location && (
+                    <Text>{selectedEventForModal.location}</Text>
+                  )}
+                  {selectedEventForModal?.adultPrice && (
+                    <VStack align="start" spacing={1} w="100%">
+                      <Text fontSize="sm" fontWeight="bold" color="gray.700">Tarifs :</Text>
+                      <HStack spacing={6} wrap="wrap">
+                        {selectedEventForModal?.adultPrice && (
+                          <Text fontSize="sm" color="var(--rbe-red)" fontWeight="bold">
+                            Adulte : {selectedEventForModal.adultPrice}€
+                          </Text>
+                        )}
+                        {selectedEventForModal?.childPrice && (
+                          <Text fontSize="sm" color="var(--rbe-red)" fontWeight="bold">
+                            Enfant : {selectedEventForModal.childPrice}€
+                          </Text>
+                        )}
+                      </HStack>
+                    </VStack>
+                  )}
+                </VStack>
+              </Box>
+
+              <Divider />
+
+              {/* Intégration HelloAsso */}
+              <Box w="100%">
+                <Text fontSize="sm" mb={3} color="gray.600">
+                  Cliquez sur le bouton ci-dessous pour procéder à l'inscription et au paiement sécurisé.
+                </Text>
+                {selectedEventForModal?.helloAssoUrl ? (
+                  <Button
+                    as="a"
+                    href={selectedEventForModal.helloAssoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    colorScheme="blue"
+                    size="lg"
+                    w="100%"
+                    leftIcon={<FiUsers />}
+                  >
+                    S'inscrire maintenant sur HelloAsso
+                  </Button>
+                ) : (
+                  <Alert status="warning" borderRadius="md">
+                    <AlertIcon />
+                    Aucune URL HelloAsso configurée pour cet événement
+                  </Alert>
+                )}
+              </Box>
+
+              {/* Note sur la sécurité */}
+              <Box bg="blue.50" p={3} borderRadius="md" w="100%" borderLeft="4px solid" borderLeftColor="blue.400">
+                <Text fontSize="xs" color="blue.800">
+                  ℹ️ La plateforme HelloAsso est sécurisée et certifiée. Vos données de paiement ne sont jamais conservées par nos serveurs.
+                </Text>
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onHelloAssoClose}>
+              Fermer
             </Button>
           </ModalFooter>
         </ModalContent>

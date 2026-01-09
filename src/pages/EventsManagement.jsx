@@ -231,7 +231,14 @@ export default function EventsManagement() {
         maxParticipants: managingEventData.maxParticipants,
         registrationMethod: managingEventData.registrationMethod,
         helloAssoUrl: managingEventData.helloAssoUrl || null,
-        pdfUrl: managingEventData.pdfUrl || null
+        pdfUrl: managingEventData.pdfUrl || null,
+        // ⚠️ PRÉSERVER LES CHAMPS CRITIQUES QUI NE DOIVENT PAS ÊTRE PERDUS
+        isVisible: extras.isVisible !== undefined ? extras.isVisible : true,
+        requiresRegistration: extras.requiresRegistration !== undefined ? extras.requiresRegistration : false,
+        allowPublicRegistration: extras.allowPublicRegistration !== undefined ? extras.allowPublicRegistration : false,
+        isFree: extras.isFree !== undefined ? extras.isFree : true,
+        registrationDeadline: extras.registrationDeadline || null,
+        eventType: extras.eventType || 'public_free_access'
       };
 
       const updateData = {
