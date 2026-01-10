@@ -30,6 +30,15 @@ export default function VehiculeAdd() {
         return r.json();
       })
       .then(vehicle => {
+        // Assurer que gallery est un tableau (au cas où elle serait une chaîne JSON)
+        if (vehicle && vehicle.gallery && typeof vehicle.gallery === 'string') {
+          try {
+            vehicle.gallery = JSON.parse(vehicle.gallery);
+          } catch (e) {
+            vehicle.gallery = [];
+            console.warn('Impossible de parser gallery:', e);
+          }
+        }
         setData(vehicle);
         setLoading(false);
       })
