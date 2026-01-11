@@ -21,7 +21,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
   FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool, FiShield,
-  FiTruck, FiShoppingCart, FiAlertCircle, FiAward
+  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext";
 import { canAccess, RESOURCES } from "../lib/permissions";
@@ -83,6 +83,15 @@ const cards = [
     icon: FiPackage,
     color: "yellow",
     resource: "STOCK",
+    cardAccess: true
+  },
+  {
+    title: "Gestion RétroMerch",
+    description: "Boutique en ligne, produits et commandes",
+    to: "/dashboard/retromerch",
+    icon: FiShoppingBag,
+    color: "red",
+    resource: "RETROMERCH",
     cardAccess: true
   },
   {
@@ -174,6 +183,7 @@ export default function MyRBE() {
           'RETRODEMANDES': RESOURCES.RETRODEMANDES,
           'RETROMAIL': RESOURCES.RETROMAIL,
           'RETROSUPPORT': RESOURCES.RETROSUPPORT,
+          'RETROMERCH': RESOURCES.RETROMERCH,
           'PERMISSIONS_MANAGEMENT': RESOURCES.PERMISSIONS_MANAGEMENT
         };
 

@@ -65,6 +65,13 @@ export const RESOURCES = {
   RETRODEMANDES_CREATE: 'retrodemandes:create',
   RETRODEMANDES_EDIT: 'retrodemandes:edit',
   
+  // RétroMerch (Boutique en ligne)
+  RETROMERCH: 'retromerch:access',
+  RETROMERCH_VIEW: 'retromerch:view',
+  RETROMERCH_PRODUCTS: 'retromerch:products',
+  RETROMERCH_ORDERS: 'retromerch:orders',
+  RETROMERCH_EDIT: 'retromerch:edit',
+  
   // Permissions Management
   PERMISSIONS_MANAGEMENT: 'permissions:management',
   PERMISSIONS_VIEW: 'permissions:view',
