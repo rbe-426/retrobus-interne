@@ -3,7 +3,9 @@
  * Fournit des fonctions pour interagir avec les endpoints RétroMerch
  */
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000/api/retromerch';
+const API_BASE = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api/retromerch`
+  : 'http://localhost:4000/api/retromerch';
 
 /**
  * Helper pour les requêtes authentifiées
