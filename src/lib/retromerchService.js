@@ -5,7 +5,7 @@
 
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api/retromerch`
-  : 'http://localhost:4000/api/retromerch';
+  : 'http://localhost:8080/api/retromerch';
 
 /**
  * Helper pour les requêtes authentifiées
