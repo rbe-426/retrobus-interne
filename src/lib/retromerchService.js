@@ -48,14 +48,14 @@ const makeRequest = async (endpoint, options = {}) => {
 export const retromerchService = {
   // ========== PRODUITS ==========
   /**
-   * Récupérer tous les produits
+   * Récupérer tous les produits (endpoint public)
    */
   getProducts: async () => {
-    return makeRequest('/products', { requireAuth: false });
+    return makeRequest('/products-public', { requireAuth: false });
   },
 
   /**
-   * Récupérer un produit par ID
+   * Récupérer un produit par ID (endpoint public)
    */
   getProduct: async (id) => {
     return makeRequest(`/products/${id}`, { requireAuth: false });
@@ -92,10 +92,10 @@ export const retromerchService = {
 
   // ========== CATÉGORIES ==========
   /**
-   * Récupérer toutes les catégories
+   * Récupérer toutes les catégories (endpoint public)
    */
   getCategories: async () => {
-    return makeRequest('/categories', { requireAuth: false });
+    return makeRequest('/categories-public', { requireAuth: false });
   },
 
   /**

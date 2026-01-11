@@ -72,9 +72,7 @@ const RetroMerch = () => {
     setIsLoading(true);
     try {
       const result = await retromerchService.getProducts();
-      if (result.success) {
-        setProducts(result.data || []);
-      }
+      setProducts(Array.isArray(result) ? result : []);
     } catch (error) {
       toast({
         title: "Erreur",
@@ -90,9 +88,7 @@ const RetroMerch = () => {
   const loadCategories = async () => {
     try {
       const result = await retromerchService.getCategories();
-      if (result.success) {
-        setCategories(result.data || []);
-      }
+      setCategories(Array.isArray(result) ? result : []);
     } catch (error) {
       console.error("Erreur lors du chargement des catégories");
     }
