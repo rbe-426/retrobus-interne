@@ -392,7 +392,9 @@ export default function EventsCreation() {
   };
 
   const handleSave = async () => {
+    console.log('🔵 handleSave called');
     if (!formData.title.trim() || !formData.date) {
+      console.log('❌ Validation failed: title or date missing');
       toast({
         status: "error",
         title: "Champs requis",
@@ -403,6 +405,7 @@ export default function EventsCreation() {
 
     try {
       setSaving(true);
+      console.log('📝 Preparing event data...');
       
       const maxParticipantsNum = formData.maxParticipants ? parseInt(formData.maxParticipants) : null;
       
@@ -418,7 +421,7 @@ export default function EventsCreation() {
         vehicleId: formData.vehicleId || null,
         status: formData.status,
         maxParticipants: maxParticipantsNum,
-        extras: {
+        extras: JSON.stringify({
           isVisible: formData.isVisible,
           allowPublicRegistration: formData.allowPublicRegistration,
           requiresRegistration: formData.requiresRegistration,
@@ -429,7 +432,7 @@ export default function EventsCreation() {
           pdfUrl: formData.pdfUrl || null,
           eventType: formData.eventType,
           templateCustomizations: templateCustomizations
-        }
+        })
       };
 
       if (editingEvent) {
@@ -457,11 +460,12 @@ export default function EventsCreation() {
       resetForm();
       setSelectedTemplate('');
     } catch (e) {
-      console.error(e);
+      console.error('❌ handleSave error:', e);
+      console.error('Error stack:', e.stack);
       toast({
         status: "error",
         title: "Erreur de sauvegarde",
-        description: "Impossible de sauvegarder l'événement"
+        description: e.message || "Impossible de sauvegarder l'événement"
       });
     } finally {
       setSaving(false);
