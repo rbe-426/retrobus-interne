@@ -36,82 +36,160 @@ import {
   AlertIcon,
   Divider,
   useToast,
-  useDisclosure
+  useDisclosure,
+  Icon
 } from '@chakra-ui/react';
-import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers, FiEye, FiTrash2, FiGlobe, FiEyeOff, FiLock, FiTruck, FiDownload } from 'react-icons/fi';
 import VehicleSelector from '../components/VehicleSelector';
-import { eventsAPI } from '../api/events.js';
-import { vehiculesAPI } from '../api/vehicles.js';
+import { eventsAPI, vehiculesAPI } from '../api';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
-// Templates d'événements avec thèmes
+// Templates d'événements prédéfinis
 const EVENT_TEMPLATES = {
-  public_info_only: {
-    name: "Information publique",
-    color: "blue",
-    description: "Événement d'information sans inscription",
-    defaults: {
-      isVisible: true,
-      requiresRegistration: false,
-      allowPublicRegistration: false,
-      isFree: true,
-      registrationMethod: 'none',
-      eventType: 'public_info_only'
-    }
-  },
-  paid_event: {
-    name: "Événement payant",
+  public_open_access: {
+    name: "Ouvert au Public",
+    icon: FiGlobe,
     color: "green",
-    description: "Événement avec tarifs et inscription",
     defaults: {
       isVisible: true,
-      requiresRegistration: true,
-      allowPublicRegistration: true,
-      isFree: false,
-      registrationMethod: 'helloasso',
-      eventType: 'paid_event'
-    }
+      allowPublicRegistration: false,
+      requiresRegistration: false,
+      isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: null,
+      registrationDeadline: '',
+      registrationMethod: 'none',
+      status: 'PUBLISHED'
+    },
+    description: "Événement ouvert au public, accès libre sans inscription"
   },
-  free_registration: {
-    name: "Inscription via HelloAsso",
-    color: "purple",
-    description: "Événement avec inscription payante via HelloAsso",
+  public_with_registration: {
+    name: "Public avec Inscription",
+    icon: FiUsers,
+    color: "blue",
     defaults: {
       isVisible: true,
-      requiresRegistration: true,
       allowPublicRegistration: true,
+      requiresRegistration: true,
+      isFree: false,
+      adultPrice: 15,
+      childPrice: 8,
+      maxParticipants: 100,
+      registrationDeadline: '',
+      registrationMethod: 'internal',
+      status: 'PUBLISHED'
+    },
+    description: "Événement public avec inscription ouverte directement au public"
+  },
+  private_outing: {
+    name: "Évènement Privé",
+    icon: FiEyeOff,
+    color: "yellow",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: false,
+      requiresRegistration: false,
+      isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: null,
+      registrationDeadline: '',
+      registrationMethod: 'none',
+      status: 'PUBLISHED'
+    },
+    description: "Sortie visible publiquement mais réservée (pas d'inscription possible)"
+  },
+  public_contact_required: {
+    name: "Inscription via HelloAsso",
+    icon: FiUsers,
+    color: "blue",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: true,
+      requiresRegistration: true,
       isFree: false,
       adultPrice: 12,
       childPrice: 6,
+      maxParticipants: null,
+      registrationDeadline: '',
       registrationMethod: 'helloasso',
-      eventType: 'free_registration'
-    }
+      status: 'PUBLISHED'
+    },
+    description: "Événement avec inscription payante via HelloAsso"
   },
-  internal_only: {
-    name: "Événement interne",
-    color: "orange",
-    description: "Événement réservé aux membres",
+  members_only: {
+    name: "Adhérents Seulement",
+    icon: FiLock,
+    color: "purple",
     defaults: {
       isVisible: false,
-      requiresRegistration: false,
       allowPublicRegistration: false,
+      requiresRegistration: true,
       isFree: true,
-      registrationMethod: 'none',
-      eventType: 'internal_only'
-    }
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: 50,
+      registrationDeadline: '',
+      registrationMethod: 'internal',
+      status: 'PUBLISHED'
+    },
+    description: "Réservé aux adhérents, non visible sur le site public"
   },
-  maintenance: {
-    name: "Maintenance/Atelier",
+  private_internal: {
+    name: "Événement Interne",
+    icon: FiLock,
     color: "red",
-    description: "Activité de maintenance ou atelier technique",
     defaults: {
       isVisible: false,
-      requiresRegistration: false,
       allowPublicRegistration: false,
+      requiresRegistration: false,
       isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: null,
+      registrationDeadline: '',
       registrationMethod: 'none',
-      eventType: 'maintenance'
-    }
+      status: 'DRAFT'
+    },
+    description: "Événement interne, complètement privé"
+  },
+  public_pdf_form: {
+    name: "Formulaire PDF Public",
+    icon: FiDownload,
+    color: "teal",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: true,
+      requiresRegistration: true,
+      isFree: false,
+      adultPrice: 12,
+      childPrice: 6,
+      maxParticipants: null,
+      registrationDeadline: '',
+      registrationMethod: 'pdf',
+      status: 'PUBLISHED'
+    },
+    description: "Événement public avec formulaire PDF à télécharger"
+  },
+  parade_classic_vehicles: {
+    name: "🚗 Défilé Anciennes",
+    icon: FiTruck,
+    color: "red",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: true,
+      requiresRegistration: true,
+      isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: null,
+      registrationDeadline: '',
+      registrationMethod: 'internal',
+      status: 'PUBLISHED',
+      registrationType: 'parade_vehicles'
+    },
+    description: "Défilé de véhicules anciens - Inscription avec nom, véhicule et club"
   }
 };
 
@@ -362,6 +440,7 @@ export default function EventsCreation() {
       fetchEvents();
       onClose();
       resetForm();
+      setSelectedTemplate('');
     } catch (e) {
       console.error(e);
       toast({
@@ -458,7 +537,7 @@ export default function EventsCreation() {
                   <HStack>
                     <FiCalendar />
                     <Text fontSize="sm">
-                      {formatDateTimeFullFr(event.date, event.time)}
+                      {event.date} {event.time && `à ${event.time}`}
                     </Text>
                   </HStack>
                   
@@ -470,12 +549,7 @@ export default function EventsCreation() {
                   )}
 
                   {event.vehicleId && (
-                    <HStack>
-                      <Text fontSize="sm">🚌</Text>
-                      <Text fontSize="sm" fontWeight="semibold" color="rbe.600">
-                        {getVehicleName(event.vehicleId)}
-                      </Text>
-                    </HStack>
+                    <Text fontSize="sm">🚌 {getVehicleName(event.vehicleId)}</Text>
                   )}
                   
                   {event.description && (
@@ -483,16 +557,52 @@ export default function EventsCreation() {
                       {event.description}
                     </Text>
                   )}
-
-                  <Button
-                    size="sm"
-                    colorScheme="rbe"
-                    variant="outline"
-                    onClick={() => handleEdit(event)}
-                    w="100%"
-                  >
-                    Modifier
-                  </Button>
+                  
+                  {(event.adultPrice || event.childPrice) && (
+                    <HStack spacing={4}>
+                      {event.adultPrice && (
+                        <Text fontSize="sm" fontWeight="bold" color="green.600">
+                          Adulte: {event.adultPrice}€
+                        </Text>
+                      )}
+                      {event.childPrice && (
+                        <Text fontSize="sm" fontWeight="bold" color="green.600">
+                          Enfant: {event.childPrice}€
+                        </Text>
+                      )}
+                    </HStack>
+                  )}
+                  
+                  <HStack spacing={2} pt={4} w="100%" wrap="wrap">
+                    <Button
+                      leftIcon={<FiEdit />}
+                      size="sm"
+                      onClick={() => handleEdit(event)}
+                    >
+                      Modifier
+                    </Button>
+                    <Button
+                      leftIcon={<FiEye />}
+                      size="sm"
+                      colorScheme={event.status === 'PUBLISHED' ? 'red' : 'green'}
+                      onClick={() => {
+                        // TODO: Implémenter togglePublish
+                      }}
+                    >
+                      {event.status === 'PUBLISHED' ? 'Dépublier' : 'Publier'}
+                    </Button>
+                    <Button
+                      leftIcon={<FiTrash2 />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={() => {
+                        // TODO: Implémenter delete
+                      }}
+                    >
+                      Supprimer
+                    </Button>
+                  </HStack>
                 </VStack>
               </CardBody>
             </Card>
@@ -593,25 +703,25 @@ export default function EventsCreation() {
                           key={key}
                           cursor="pointer"
                           onClick={() => applyTemplate(key)}
-                          borderWidth={2}
-                          borderColor={selectedTemplate === key ? template.color + '.500' : 'gray.200'}
-                          bg={selectedTemplate === key ? template.color + '.50' : 'white'}
-                          transition="all 0.2s"
-                          _hover={{ shadow: 'md' }}
+                          bg={selectedTemplate === key ? `${template.color}.50` : "white"}
+                          borderColor={selectedTemplate === key ? `${template.color}.200` : "gray.200"}
+                          borderWidth="2px"
+                          _hover={{ borderColor: `${template.color}.300` }}
                         >
                           <CardBody>
-                            <VStack align="start" spacing={3}>
-                              <HStack spacing={2}>
-                                <Badge colorScheme={template.color} fontSize="md">
+                            <VStack align="start" spacing={2}>
+                              <HStack>
+                                <Icon as={template.icon} color={`${template.color}.500`} />
+                                <Text fontWeight="bold" color={`${template.color}.700`}>
                                   {template.name}
-                                </Badge>
-                                {selectedTemplate === key && (
-                                  <Badge colorScheme="green">✓ Actif</Badge>
-                                )}
+                                </Text>
                               </HStack>
                               <Text fontSize="sm" color="gray.600">
                                 {template.description}
                               </Text>
+                              {selectedTemplate === key && (
+                                <Badge colorScheme={template.color}>Sélectionné</Badge>
+                              )}
                             </VStack>
                           </CardBody>
                         </Card>

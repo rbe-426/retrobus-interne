@@ -14,8 +14,7 @@ import {
   FiUsers, FiLock, FiGlobe, FiDollarSign, FiGift, FiClock, FiMapPin,
   FiDownload, FiExternalLink, FiEyeOff, FiTruck
 } from 'react-icons/fi';
-import { eventsAPI } from '../api/events.js';
-import { vehiculesAPI } from '../api/vehicles.js';
+import { eventsAPI, vehiculesAPI } from '../api/index.js';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
 // Templates d'événements prédéfinis (corrigés)

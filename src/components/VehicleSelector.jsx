@@ -11,6 +11,7 @@ import {
   Spinner,
   VStack
 } from '@chakra-ui/react';
+import { vehiculesAPI } from '../api';
 
 const VehicleSelector = ({ value, onChange, isRequired = false }) => {
   const [vehicles, setVehicles] = useState([]);
@@ -19,20 +20,11 @@ const VehicleSelector = ({ value, onChange, isRequired = false }) => {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('https://refreshing-adaptation-rbe-serveurs.up.railway.app/vehicles', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setVehicles(data);
-        }
+        const data = await vehiculesAPI.getAll();
+        setVehicles(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Erreur lors du chargement des véhicules:', error);
+        setVehicles([]);
       } finally {
         setLoading(false);
       }
@@ -72,7 +64,7 @@ const VehicleSelector = ({ value, onChange, isRequired = false }) => {
 
           {/* Aperçu du véhicule sélectionné */}
           {selectedVehicle && (
-            <Box mt={3} p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+            <Box mt={3} p={3} bg="rbe.50" borderRadius="md" border="1px solid" borderColor="rbe.200">
               <Flex align="center">
                 {selectedVehicle.gallery && selectedVehicle.gallery[0] && (
                   <Image
@@ -85,11 +77,11 @@ const VehicleSelector = ({ value, onChange, isRequired = false }) => {
                   />
                 )}
                 <Box flex={1}>
-                  <Text fontWeight="bold" color="blue.700">
+                  <Text fontWeight="bold" color="rbe.700">
                     {selectedVehicle.marque} {selectedVehicle.modele}
                   </Text>
                   <HStack spacing={2} mt={1}>
-                    <Badge colorScheme="blue" fontSize="xs">
+                    <Badge colorScheme="rbe" fontSize="xs">
                       {selectedVehicle.parc}
                     </Badge>
                     {selectedVehicle.immat && (
@@ -111,7 +103,7 @@ const VehicleSelector = ({ value, onChange, isRequired = false }) => {
                 </Box>
               </Flex>
               <VStack spacing={2} align="start" mt={3}>
-                <Text fontSize="xs" color="blue.600" fontStyle="italic" fontWeight="semibold">
+                <Text fontSize="sm" color="rbe.600" fontStyle="italic" fontWeight="semibold">
                   ✨ Ce véhicule sera mis en avant sur sa page individuelle avec une banderole spéciale pour cet événement
                 </Text>
                 <Text fontSize="xs" color="gray.500">
