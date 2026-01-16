@@ -319,6 +319,23 @@ export default function EventsCreation() {
     });
   };
 
+  const generateEventSlug = (title, date) => {
+    // Créer un slug unique à partir du titre et de la date
+    const titleSlug = title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 30);
+    
+    const dateSlug = date.replace(/-/g, '');
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    
+    return `${titleSlug}-${dateSlug}-${randomSuffix}`;
+  };
+
   const handleCreate = () => {
     setEditingEvent(null);
     resetForm();
@@ -401,7 +418,7 @@ export default function EventsCreation() {
         vehicleId: formData.vehicleId || null,
         status: formData.status,
         maxParticipants: maxParticipantsNum,
-        extras: JSON.stringify({
+        extras: {
           isVisible: formData.isVisible,
           allowPublicRegistration: formData.allowPublicRegistration,
           requiresRegistration: formData.requiresRegistration,
@@ -412,7 +429,7 @@ export default function EventsCreation() {
           pdfUrl: formData.pdfUrl || null,
           eventType: formData.eventType,
           templateCustomizations: templateCustomizations
-        })
+        }
       };
 
       if (editingEvent) {
@@ -423,13 +440,11 @@ export default function EventsCreation() {
           description: "Les modifications ont été sauvegardées"
         });
       } else {
-        // Pour la création, générer un ID automatique
-        const eventId = formData.title.toLowerCase()
-          .replace(/[^a-z0-9\s]/g, '')
-          .replace(/\s+/g, '')
-          .substring(0, 20) + new Date().getFullYear();
+        eventData.id = generateEventSlug(formData.title, formData.date);
+        console.log('🆔 Generated ID:', eventData.id);
+        console.log('🚀 Saving event data:', eventData);
         
-        await eventsAPI.create({ id: eventId, ...eventData });
+        await eventsAPI.create(eventData);
         toast({
           status: "success",
           title: "Événement créé",
