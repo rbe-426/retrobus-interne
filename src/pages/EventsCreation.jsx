@@ -436,6 +436,7 @@ export default function EventsCreation() {
       };
 
       if (editingEvent) {
+        console.log('✏️ Updating existing event:', editingEvent.id);
         await eventsAPI.update(editingEvent.id, eventData);
         toast({
           status: "success",
@@ -443,6 +444,7 @@ export default function EventsCreation() {
           description: "Les modifications ont été sauvegardées"
         });
       } else {
+        console.log('➕ Creating new event');
         eventData.id = generateEventSlug(formData.title, formData.date);
         console.log('🆔 Generated ID:', eventData.id);
         console.log('🚀 Saving event data:', eventData);
