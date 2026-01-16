@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import { eventsAPI } from '../api/events.js';
 import { vehiculesAPI } from '../api/vehicles.js';
+import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
 // Templates d'événements prédéfinis (corrigés)
 const EVENT_TEMPLATES = {
@@ -173,6 +174,11 @@ const Evenements = () => {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState('cards');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateCustomizations, setTemplateCustomizations] = useState({
+    registrationQuestions: [],
+    registrationConditions: {},
+    advancedSettings: {}
+  });
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editingEvent, setEditingEvent] = useState(null);
@@ -816,8 +822,9 @@ const Evenements = () => {
             <Tabs>
               <TabList>
                 <Tab>📋 Informations de base</Tab>
-                <Tab>⚙️ Configuration</Tab>
-                <Tab>🎯 Templates</Tab>
+                <Tab>🏷️ Templates</Tab>
+                <Tab>💰 Inscription & Prix</Tab>
+                <Tab>ℹ️ Informations supplémentaires</Tab>
               </TabList>
 
               <TabPanels>

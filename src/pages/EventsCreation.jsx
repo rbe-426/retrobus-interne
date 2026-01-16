@@ -42,6 +42,7 @@ import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiU
 import VehicleSelector from '../components/VehicleSelector';
 import { eventsAPI } from '../api/events.js';
 import { vehiculesAPI } from '../api/vehicles.js';
+import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
 // Templates d'événements avec thèmes
 const EVENT_TEMPLATES = {
@@ -121,6 +122,11 @@ export default function EventsCreation() {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState('cards');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateCustomizations, setTemplateCustomizations] = useState({
+    registrationQuestions: [],
+    registrationConditions: {},
+    advancedSettings: {}
+  });
   
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isHelloAssoOpen, onOpen: onHelloAssoOpen, onClose: onHelloAssoClose } = useDisclosure();
@@ -208,6 +214,11 @@ export default function EventsCreation() {
       eventType: 'public_info_only'
     });
     setSelectedTemplate('');
+    setTemplateCustomizations({
+      registrationQuestions: [],
+      registrationConditions: {},
+      advancedSettings: {}
+    });
     setEditingEvent(null);
   };
 
@@ -270,6 +281,18 @@ export default function EventsCreation() {
     });
     
     setSelectedTemplate(extras.eventType || '');
+    
+    // Restaurer les customizations du template s'ils existent
+    if (extras.templateCustomizations) {
+      setTemplateCustomizations(extras.templateCustomizations);
+    } else {
+      setTemplateCustomizations({
+        registrationQuestions: [],
+        registrationConditions: {},
+        advancedSettings: {}
+      });
+    }
+    
     onOpen();
   };
 
@@ -309,7 +332,8 @@ export default function EventsCreation() {
           registrationDeadline: formData.registrationDeadline || null,
           registrationMethod: formData.registrationMethod,
           pdfUrl: formData.pdfUrl || null,
-          eventType: formData.eventType
+          eventType: formData.eventType,
+          templateCustomizations: templateCustomizations
         })
       };
 
@@ -350,34 +374,6 @@ export default function EventsCreation() {
     }
   };
 
-  const testAPIConnection = async () => {
-    const token = localStorage.getItem('token');
-    console.log('🔍 Testing API connection...');
-    
-    if (!token) {
-      toast({ status: "error", title: "Pas de token", description: "Veuillez vous reconnecter" });
-      return;
-    }
-
-    try {
-      const response = await fetch('https://refreshing-adaptation-rbe-serveurs.up.railway.app/events', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        toast({ status: "success", title: "API fonctionnelle", description: "La connexion API fonctionne" });
-      } else {
-        toast({ status: "error", title: "Erreur API", description: `Status: ${response.status}` });
-      }
-    } catch (error) {
-      toast({ status: "error", title: "Erreur réseau", description: error.message });
-    }
-  };
-
   // Fonctions utilitaires pour l'affichage
   const getStatusBadge = (status) => {
     const configs = {
@@ -412,15 +408,6 @@ export default function EventsCreation() {
         </VStack>
         <HStack spacing={3}>
           <Button
-            leftIcon={<FiEdit />}
-            size="sm"
-            colorScheme="purple"
-            variant="outline"
-            onClick={testAPIConnection}
-          >
-            Tester API
-          </Button>
-          <Button
             leftIcon={viewMode === 'cards' ? <FiList /> : <FiGrid />}
             size="sm"
             variant="outline"
@@ -430,7 +417,7 @@ export default function EventsCreation() {
           </Button>
           <Button
             leftIcon={<FiPlus />}
-            colorScheme="blue"
+            colorScheme="rbe"
             onClick={handleCreate}
           >
             Nouvel événement
@@ -446,7 +433,7 @@ export default function EventsCreation() {
         <Center py={20}>
           <VStack spacing={4}>
             <Text color="gray.500" fontSize="lg">Aucun événement trouvé</Text>
-            <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+            <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
               Créer le premier événement
             </Button>
           </VStack>
@@ -471,7 +458,7 @@ export default function EventsCreation() {
                   <HStack>
                     <FiCalendar />
                     <Text fontSize="sm">
-                      {event.date} {event.time && `à ${event.time}`}
+                      {formatDateTimeFullFr(event.date, event.time)}
                     </Text>
                   </HStack>
                   
@@ -485,7 +472,7 @@ export default function EventsCreation() {
                   {event.vehicleId && (
                     <HStack>
                       <Text fontSize="sm">🚌</Text>
-                      <Text fontSize="sm" fontWeight="semibold" color="blue.600">
+                      <Text fontSize="sm" fontWeight="semibold" color="rbe.600">
                         {getVehicleName(event.vehicleId)}
                       </Text>
                     </HStack>
@@ -499,7 +486,7 @@ export default function EventsCreation() {
 
                   <Button
                     size="sm"
-                    colorScheme="blue"
+                    colorScheme="rbe"
                     variant="outline"
                     onClick={() => handleEdit(event)}
                     w="100%"
@@ -525,35 +512,15 @@ export default function EventsCreation() {
             <Tabs>
               <TabList>
                 <Tab>Informations de base</Tab>
-                <Tab>Configuration</Tab>
+                <Tab>Templates</Tab>
                 <Tab>Inscription & Prix</Tab>
+                <Tab>Informations supplémentaires</Tab>
               </TabList>
 
               <TabPanels>
                 {/* Onglet 1: Informations de base */}
                 <TabPanel>
                   <VStack spacing={4}>
-                    {/* Templates de démarrage rapide */}
-                    <Alert status="info">
-                      <AlertIcon />
-                      <Box>
-                        <Text fontWeight="bold" mb={2}>Démarrage rapide :</Text>
-                        <HStack spacing={2} wrap="wrap">
-                          {Object.entries(EVENT_TEMPLATES).map(([key, template]) => (
-                            <Button
-                              key={key}
-                              size="sm"
-                              colorScheme={template.color}
-                              variant={selectedTemplate === key ? "solid" : "outline"}
-                              onClick={() => applyTemplate(key)}
-                            >
-                              {template.name}
-                            </Button>
-                          ))}
-                        </HStack>
-                      </Box>
-                    </Alert>
-
                     <FormControl isRequired>
                       <FormLabel>Titre</FormLabel>
                       <Input
@@ -613,9 +580,57 @@ export default function EventsCreation() {
                   </VStack>
                 </TabPanel>
 
-                {/* Onglet 2: Configuration */}
+                {/* Onglet 2: Templates */}
                 <TabPanel>
-                  <VStack spacing={4}>
+                  <VStack spacing={6} align="stretch">
+                    <Box>
+                      <Text fontWeight="bold" mb={4}>Sélectionnez un template pour configurer automatiquement les paramètres d'inscription :</Text>
+                    </Box>
+
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      {Object.entries(EVENT_TEMPLATES).map(([key, template]) => (
+                        <Card
+                          key={key}
+                          cursor="pointer"
+                          onClick={() => applyTemplate(key)}
+                          borderWidth={2}
+                          borderColor={selectedTemplate === key ? template.color + '.500' : 'gray.200'}
+                          bg={selectedTemplate === key ? template.color + '.50' : 'white'}
+                          transition="all 0.2s"
+                          _hover={{ shadow: 'md' }}
+                        >
+                          <CardBody>
+                            <VStack align="start" spacing={3}>
+                              <HStack spacing={2}>
+                                <Badge colorScheme={template.color} fontSize="md">
+                                  {template.name}
+                                </Badge>
+                                {selectedTemplate === key && (
+                                  <Badge colorScheme="green">✓ Actif</Badge>
+                                )}
+                              </HStack>
+                              <Text fontSize="sm" color="gray.600">
+                                {template.description}
+                              </Text>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+
+                    {selectedTemplate && (
+                      <Alert status="success" borderRadius="md">
+                        <AlertIcon />
+                        <Box>
+                          <Text fontWeight="bold">Template appliqué</Text>
+                          <Text fontSize="sm" color="gray.700">
+                            Les paramètres d'inscription ont été configurés selon le template "{EVENT_TEMPLATES[selectedTemplate]?.name}". 
+                            Vous pouvez personnaliser davantage dans l'onglet "Informations supplémentaires".
+                          </Text>
+                        </Box>
+                      </Alert>
+                    )}
+
                     <FormControl>
                       <FormLabel>Statut</FormLabel>
                       <Select
@@ -722,7 +737,7 @@ export default function EventsCreation() {
                             </FormControl>
                             {formData.helloAssoUrl && formData.title && formData.date && (
                               <Button
-                                colorScheme="blue"
+                                colorScheme="rbe"
                                 size="sm"
                                 onClick={() => {
                                   setSelectedEventForModal({
@@ -753,6 +768,265 @@ export default function EventsCreation() {
                     )}
                   </VStack>
                 </TabPanel>
+
+                {/* Onglet 4: Informations supplémentaires */}
+                <TabPanel>
+                  <VStack spacing={6} align="stretch">
+                    {!selectedTemplate ? (
+                      <Alert status="warning" borderRadius="md">
+                        <AlertIcon />
+                        <Box>
+                          <Text fontWeight="bold">Template requis</Text>
+                          <Text fontSize="sm">Veuillez sélectionner un template dans l'onglet "Templates" pour accéder aux options de personnalisation.</Text>
+                        </Box>
+                      </Alert>
+                    ) : (
+                      <>
+                        <Box bg="rbe.50" p={4} borderRadius="md" borderLeft="4px solid" borderLeftColor="rbe.400">
+                          <VStack align="start" spacing={2}>
+                            <Text fontWeight="bold" fontSize="sm">Template actif : {EVENT_TEMPLATES[selectedTemplate]?.name}</Text>
+                            <Text fontSize="xs" color="gray.700">
+                              Personnalisez les modalités d'inscription en profondeur pour ce template. Les modifications seront appliquées à cet événement uniquement.
+                            </Text>
+                          </VStack>
+                        </Box>
+
+                        <Divider />
+
+                        {/* Section: Questions personnalisées d'inscription */}
+                        <Box>
+                          <Heading size="sm" mb={3}>📝 Questions d'inscription personnalisées</Heading>
+                          <VStack spacing={3} align="stretch">
+                            <Text fontSize="sm" color="gray.600">
+                              Ajoutez des questions supplémentaires pour les participants (ex: régime alimentaire, niveau d'expérience, etc.)
+                            </Text>
+                            
+                            <Button
+                              size="sm"
+                              colorScheme="rbe"
+                              variant="outline"
+                              onClick={() => {
+                                setTemplateCustomizations(prev => ({
+                                  ...prev,
+                                  registrationQuestions: [
+                                    ...prev.registrationQuestions,
+                                    { id: Date.now(), title: '', type: 'text', required: false }
+                                  ]
+                                }));
+                              }}
+                            >
+                              + Ajouter une question
+                            </Button>
+
+                            {templateCustomizations.registrationQuestions.map((q, idx) => (
+                              <Card key={q.id} p={3} bg="gray.50">
+                                <VStack spacing={2} align="stretch">
+                                  <HStack spacing={2}>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Question</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        placeholder="Ex: Régime alimentaire?"
+                                        value={q.title}
+                                        onChange={(e) => {
+                                          const newQuestions = [...templateCustomizations.registrationQuestions];
+                                          newQuestions[idx].title = e.target.value;
+                                          setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormControl w="150px">
+                                      <FormLabel fontSize="sm">Type</FormLabel>
+                                      <Select
+                                        size="sm"
+                                        value={q.type}
+                                        onChange={(e) => {
+                                          const newQuestions = [...templateCustomizations.registrationQuestions];
+                                          newQuestions[idx].type = e.target.value;
+                                          setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
+                                        }}
+                                      >
+                                        <option value="text">Texte court</option>
+                                        <option value="textarea">Texte long</option>
+                                        <option value="select">Sélection</option>
+                                        <option value="checkbox">Case à cocher</option>
+                                      </Select>
+                                    </FormControl>
+                                    <Button
+                                      size="sm"
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setTemplateCustomizations(prev => ({
+                                          ...prev,
+                                          registrationQuestions: prev.registrationQuestions.filter((_q, i) => i !== idx)
+                                        }));
+                                      }}
+                                      mt={5}
+                                    >
+                                      ✕
+                                    </Button>
+                                  </HStack>
+                                  <FormControl display="flex" alignItems="center">
+                                    <FormLabel mb="0" fontSize="sm">Obligatoire</FormLabel>
+                                    <Switch
+                                      isChecked={q.required}
+                                      onChange={(e) => {
+                                        const newQuestions = [...templateCustomizations.registrationQuestions];
+                                        newQuestions[idx].required = e.target.checked;
+                                        setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
+                                      }}
+                                    />
+                                  </FormControl>
+                                </VStack>
+                              </Card>
+                            ))}
+                          </VStack>
+                        </Box>
+
+                        <Divider />
+
+                        {/* Section: Conditions et modalités */}
+                        <Box>
+                          <Heading size="sm" mb={3}>⚙️ Conditions d'inscription</Heading>
+                          <VStack spacing={3} align="stretch">
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">
+                                Inscription uniquement sur rassemblement statique
+                              </FormLabel>
+                              <Switch
+                                isChecked={templateCustomizations.registrationConditions?.onlyStaticGathering || false}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    registrationConditions: {
+                                      ...prev.registrationConditions,
+                                      onlyStaticGathering: e.target.checked
+                                    }
+                                  }));
+                                }}
+                              />
+                            </FormControl>
+
+                            {templateCustomizations.registrationConditions?.onlyStaticGathering && (
+                              <Alert status="info" borderRadius="md" fontSize="sm">
+                                <AlertIcon />
+                                En cas de rassemblement statique, les participants verront des questions spécifiques adaptées à ce mode de fonctionnement.
+                              </Alert>
+                            )}
+
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">
+                                Vérification d'adhésion requise
+                              </FormLabel>
+                              <Switch
+                                isChecked={templateCustomizations.registrationConditions?.requiresMembership || false}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    registrationConditions: {
+                                      ...prev.registrationConditions,
+                                      requiresMembership: e.target.checked
+                                    }
+                                  }));
+                                }}
+                              />
+                            </FormControl>
+
+                            <FormControl>
+                              <FormLabel fontSize="sm">Message personnalisé aux participants</FormLabel>
+                              <Textarea
+                                placeholder="Message qui s'affichera lors de l'inscription (ex: instructions spéciales, conditions, etc.)"
+                                size="sm"
+                                value={templateCustomizations.registrationConditions?.customMessage || ''}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    registrationConditions: {
+                                      ...prev.registrationConditions,
+                                      customMessage: e.target.value
+                                    }
+                                  }));
+                                }}
+                              />
+                            </FormControl>
+                          </VStack>
+                        </Box>
+
+                        <Divider />
+
+                        {/* Section: Paramètres avancés */}
+                        <Box>
+                          <Heading size="sm" mb={3}>🔧 Paramètres avancés</Heading>
+                          <VStack spacing={3} align="stretch">
+                            <FormControl>
+                              <FormLabel fontSize="sm">Délai limite d'inscription (avant l'événement)</FormLabel>
+                              <Select
+                                value={templateCustomizations.advancedSettings?.registrationDeadline || '0'}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    advancedSettings: {
+                                      ...prev.advancedSettings,
+                                      registrationDeadline: e.target.value
+                                    }
+                                  }));
+                                }}
+                              >
+                                <option value="0">Pas de limite</option>
+                                <option value="1">1 jour avant</option>
+                                <option value="3">3 jours avant</option>
+                                <option value="7">1 semaine avant</option>
+                                <option value="14">2 semaines avant</option>
+                              </Select>
+                            </FormControl>
+
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">
+                                Confirmations d'inscription par email
+                              </FormLabel>
+                              <Switch
+                                isChecked={templateCustomizations.advancedSettings?.emailConfirmations !== false}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    advancedSettings: {
+                                      ...prev.advancedSettings,
+                                      emailConfirmations: e.target.checked
+                                    }
+                                  }));
+                                }}
+                              />
+                            </FormControl>
+
+                            <FormControl display="flex" alignItems="center">
+                              <FormLabel mb="0">
+                                Annulations autorisées par les participants
+                              </FormLabel>
+                              <Switch
+                                isChecked={templateCustomizations.advancedSettings?.allowCancellations !== false}
+                                onChange={(e) => {
+                                  setTemplateCustomizations(prev => ({
+                                    ...prev,
+                                    advancedSettings: {
+                                      ...prev.advancedSettings,
+                                      allowCancellations: e.target.checked
+                                    }
+                                  }));
+                                }}
+                              />
+                            </FormControl>
+                          </VStack>
+                        </Box>
+
+                        <Alert status="success" borderRadius="md" fontSize="sm">
+                          <AlertIcon />
+                          Toutes les modifications effectuées ici seront sauvegardées avec l'événement.
+                        </Alert>
+                      </>
+                    )}
+                  </VStack>
+                </TabPanel>
               </TabPanels>
             </Tabs>
           </ModalBody>
@@ -761,7 +1035,7 @@ export default function EventsCreation() {
             <Button variant="ghost" mr={3} onClick={() => { onClose(); resetForm(); }}>
               Annuler
             </Button>
-            <Button colorScheme="blue" onClick={handleSave} isLoading={saving}>
+            <Button colorScheme="rbe" onClick={handleSave} isLoading={saving}>
               {editingEvent ? 'Modifier' : 'Créer'}
             </Button>
           </ModalFooter>
@@ -788,7 +1062,7 @@ export default function EventsCreation() {
                 <VStack align="start" spacing={3}>
                   {selectedEventForModal?.date && (
                     <HStack>
-                      <Text fontWeight="600">{selectedEventForModal.date}</Text>
+                      <Text fontWeight="600">{formatDateFrLong(selectedEventForModal.date)}</Text>
                       {selectedEventForModal.time && <Text>{selectedEventForModal.time}</Text>}
                     </HStack>
                   )}
@@ -828,7 +1102,7 @@ export default function EventsCreation() {
                     href={selectedEventForModal.helloAssoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    colorScheme="blue"
+                    colorScheme="rbe"
                     size="lg"
                     w="100%"
                     leftIcon={<FiUsers />}
@@ -844,8 +1118,8 @@ export default function EventsCreation() {
               </Box>
 
               {/* Note sur la sécurité */}
-              <Box bg="blue.50" p={3} borderRadius="md" w="100%" borderLeft="4px solid" borderLeftColor="blue.400">
-                <Text fontSize="xs" color="blue.800">
+              <Box bg="rbe.50" p={3} borderRadius="md" w="100%" borderLeft="4px solid" borderLeftColor="rbe.400">
+                <Text fontSize="xs" color="rbe.800">
                   ℹ️ La plateforme HelloAsso est sécurisée et certifiée. Vos données de paiement ne sont jamais conservées par nos serveurs.
                 </Text>
               </Box>

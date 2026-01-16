@@ -13,6 +13,7 @@ import {
   FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink
 } from "react-icons/fi";
 import { eventsAPI } from "../api/events";
+import { formatDateFrLong } from "../utils/dateFormat.js";
 
 const getStatusBadge = (status) => {
   const map = {
@@ -26,11 +27,7 @@ const getStatusBadge = (status) => {
 
 const formatDate = (d) => {
   if (!d) return "Date non définie";
-  try {
-    return new Date(d).toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" });
-  } catch {
-    return "Date invalide";
-  }
+  return formatDateFrLong(d);
 };
 
 export default function EventsManagement() {

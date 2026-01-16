@@ -21,6 +21,7 @@ import {
   Td,
   Text,
 } from "@chakra-ui/react";
+import { formatDateFrLong } from "../utils/dateFormat.js";
 
 // Exemple de véhicules disponibles
 const vehiclesList = [
@@ -129,7 +130,7 @@ export default function PrestaEvenements() {
               <Tr key={ev.id} bg={ev.id === selectedId ? "orange.50" : undefined}>
                 <Td>{ev.id}</Td>
                 <Td>{ev.title}</Td>
-                <Td>{ev.date}</Td>
+                <Td>{formatDateFrLong(ev.date)}</Td>
                 <Td>{vehiclesList.find(v => v.id === ev.vehicleId)?.name || "-"}</Td>
                 <Td>
                   <Button size="sm" onClick={() => handleSelect(ev.id)} mr={2}>Voir</Button>
@@ -214,7 +215,7 @@ export default function PrestaEvenements() {
       {!isEditing && selectedId && (
         <Box p={6} borderWidth="1px" borderRadius="lg" bg="white" mt={8}>
           <Heading size="md" mb={4}>{form.title}</Heading>
-          <Text><strong>Date :</strong> {form.date} à {form.time}</Text>
+          <Text><strong>Date :</strong> {formatDateFrLong(form.date)} à {form.time}</Text>
           <Text><strong>Lieu :</strong> {form.location}</Text>
           <Text><strong>Tarif adulte :</strong> {form.adultPrice}€</Text>
           <Text><strong>Tarif enfant :</strong> {form.childPrice}€</Text>
