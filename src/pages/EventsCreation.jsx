@@ -497,6 +497,45 @@ export default function EventsCreation() {
     return vehicle ? `${vehicle.parc} - ${vehicle.modele}` : 'Aucun véhicule';
   };
 
+  const togglePublish = async (event) => {
+    try {
+      const newStatus = event.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+      await eventsAPI.update(event.id, { status: newStatus });
+      toast({
+        status: "success",
+        title: newStatus === 'PUBLISHED' ? "Événement publié" : "Événement dépublié"
+      });
+      fetchEvents();
+    } catch (e) {
+      console.error('Error updating event:', e);
+      toast({
+        status: "error",
+        title: "Erreur",
+        description: "Impossible de modifier l'événement"
+      });
+    }
+  };
+
+  const handleDelete = async (event) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${event.title}" ?`)) {
+      try {
+        await eventsAPI.delete(event.id);
+        toast({
+          status: "success",
+          title: "Événement supprimé"
+        });
+        fetchEvents();
+      } catch (e) {
+        console.error('Error deleting event:', e);
+        toast({
+          status: "error",
+          title: "Erreur",
+          description: "Impossible de supprimer l'événement"
+        });
+      }
+    }
+  };
+
   return (
     <Box p={6}>
       <Flex justify="space-between" align="center" mb={6}>
@@ -606,9 +645,7 @@ export default function EventsCreation() {
                       leftIcon={<FiEye />}
                       size="sm"
                       colorScheme={event.status === 'PUBLISHED' ? 'red' : 'green'}
-                      onClick={() => {
-                        // TODO: Implémenter togglePublish
-                      }}
+                      onClick={() => togglePublish(event)}
                     >
                       {event.status === 'PUBLISHED' ? 'Dépublier' : 'Publier'}
                     </Button>
@@ -617,9 +654,7 @@ export default function EventsCreation() {
                       size="sm"
                       colorScheme="red"
                       variant="outline"
-                      onClick={() => {
-                        // TODO: Implémenter delete
-                      }}
+                      onClick={() => handleDelete(event)}
                     >
                       Supprimer
                     </Button>
