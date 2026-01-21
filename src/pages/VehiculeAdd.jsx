@@ -75,7 +75,8 @@ export default function VehiculeAdd() {
           description: data.description,
           history: data.history,
           caracteristiques: data.caracteristiques,
-          gallery: data.gallery,
+          // 🔴 NE PAS envoyer gallery ici - elle est gérée par GalleryManager via POST /gallery
+          // gallery: data.gallery,
           isPublic: data.isPublic || false
         })
       });
