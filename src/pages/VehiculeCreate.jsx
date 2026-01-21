@@ -60,7 +60,8 @@ export default function VehiculeCreate() {
           description: data.description,
           history: data.history,
           caracteristiques: data.caracteristiques,
-          gallery: data.gallery,
+          // 🔴 NE PAS envoyer gallery au POST - elle est vide en création
+          // gallery: data.gallery,
           isPublic: data.isPublic
         })
       });
@@ -254,8 +255,15 @@ export default function VehiculeCreate() {
               <GalleryManager 
                 value={data.gallery}
                 onChange={v => updateField('gallery', v)}
-                parc={data.parc || 'nouveau'}
+                uploadEndpoint={data.parc ? `${API_BASE}/vehicles/${data.parc}/gallery` : null}
+                deleteEndpoint={data.parc ? `${API_BASE}/vehicles/${data.parc}/gallery` : null}
+                authHeader={`Bearer ${localStorage.getItem('token')}`}
               />
+              {!data.parc && (
+                <Text fontSize="sm" color="orange.600">
+                  ℹ️ Veuillez d'abord créer le véhicule pour pouvoir uploader des photos
+                </Text>
+              )}
             </VStack>
           </CardBody>
         </Card>

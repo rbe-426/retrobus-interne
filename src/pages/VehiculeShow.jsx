@@ -429,26 +429,14 @@ export default function VehiculeShow() {
         description: basicInfo.description,
         history: basicInfo.history,
         caracteristiques: basicInfo.caracteristiques,
-        gallery: basicInfo.gallery,
+        // 🔴 NE PAS envoyer gallery ici - elle est gérée par GalleryManager via POST /gallery
+        // gallery: basicInfo.gallery,
         backgroundImage: basicInfo.backgroundImage,
         backgroundPosition: basicInfo.backgroundPosition,
         isPublic: basicInfo.isPublic !== undefined ? basicInfo.isPublic : (vehicle?.isPublic || false),
-        // Ajouter tous les nouveaux champs
-        numerosFlotte: basicInfo.numerosFlotte,
-        constructeur: basicInfo.constructeur,
-        longueur: basicInfo.longueur,
-        placesAssises: basicInfo.placesAssises,
-        placesDebout: basicInfo.placesDebout,
-        ufr: basicInfo.ufr,
-        statut: basicInfo.statut,
-        preservePar: basicInfo.preservePar,
-        normeEuro: basicInfo.normeEuro,
-        moteur: basicInfo.moteur,
-        boiteVitesses: basicInfo.boiteVitesses,
-        nombrePortes: basicInfo.nombrePortes,
-        livree: basicInfo.livree,
-        girouette: basicInfo.girouette,
-        climatisation: basicInfo.climatisation
+        // ⚠️  Les champs supplémentaires (numerosFlotte, constructeur, etc.) 
+        // ne sont pas dans le schéma Prisma actuel
+        // Ils doivent être stockés dans caracteristiques ou migrés dans la base de données
       });
       toast({ status: 'success', title: '✅ Sauvegardé avec succès', description: 'Visible sur la page publique' });
       loadAll(); // Recharger pour synchroniser
