@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Heading, VStack, Input, Textarea, Button, SimpleGrid, Text, useToast, 
-  HStack, Card, CardBody, Spinner, Center, FormControl, FormLabel
+  HStack, Card, CardBody, Spinner, Center, FormControl, FormLabel, Switch, Divider
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
@@ -248,6 +248,35 @@ export default function VehiculeAdd() {
             </VStack>
           </CardBody>
         </Card>
+
+        {/* Bloc publication */}
+        <Card bg="blue.50">
+          <CardBody>
+            <VStack align="stretch" spacing={4}>
+              <Heading size="md">🌐 Publication</Heading>
+              
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb={0} flex={1}>
+                  Afficher sur le site public
+                </FormLabel>
+                <Switch 
+                  isChecked={data.isPublic || false}
+                  onChange={e => updateField('isPublic', e.target.checked)}
+                  size="lg"
+                  colorScheme="green"
+                />
+              </FormControl>
+
+              <Text fontSize="sm" color="gray.600">
+                {(data.isPublic || false)
+                  ? '✅ Ce véhicule est visible sur le site public' 
+                  : '🔒 Ce véhicule n\'est visible que par les administrateurs'}
+              </Text>
+            </VStack>
+          </CardBody>
+        </Card>
+
+        <Divider />
 
         {/* Boutons d'action */}
         <HStack spacing={4} justify="flex-end">
