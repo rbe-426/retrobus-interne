@@ -46,6 +46,19 @@ export const subventionAPI = {
   },
 
   /**
+   * Récupérer les statistiques globales des campagnes
+   */
+  getStats: async () => {
+    try {
+      const response = await apiClient.get('/api/subventions/stats/summary');
+      return response.data || response;
+    } catch (error) {
+      console.error('Erreur getStats:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Créer une nouvelle campagne (ADMIN only)
    */
   create: async (data) => {

@@ -100,11 +100,26 @@ export default function GalleryManager({
   };
 
   // Variante robuste pour rterner la source d'image
-  const toSrc2 = (g) => {
-    if (!g) return g;
-    if (g.startsWith('http://') || g.startsWith('https://') || g.startsWith('data:') || g.startsWith('blob:')) return g;
-    return (import.meta.env.VITE_API_URL || '') + g;
+  // Résolution robuste des URLs d'images (identique à VehicleDetails.jsx)
+  const resolveImageUrl = (src) => {
+    if (!src) return src;
+    // URLs absolues ou data URIs - retourner directement
+    if (src.startsWith('http://') || src.startsWith('https://')) return src;
+    if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+    // Assets locaux
+    if (src.startsWith('/assets/')) return src;
+    
+    // Uploads API - préfixer avec API URL
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    if (src.startsWith('/')) {
+      return `${apiUrl}${src}`;
+    }
+    // Chemin relatif
+    return `${apiUrl}/${src}`;
   };
+
+  // Ancien alias pour compatibilité
+  const toSrc2 = (g) => resolveImageUrl(g);
 
   return (
     <Box>

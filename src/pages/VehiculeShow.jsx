@@ -14,12 +14,14 @@ import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor
 import VehicleDeleteButton from '../components/vehicle/VehicleDeleteButton.jsx';
 
 const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE || window.location.origin;
-const API_BASE = import.meta.env.VITE_API_URL || apiClient.baseURL || '';
-const API_BASE_INTERNAL = import.meta.env.VITE_API_URL || apiClient.baseURL || '';
+const API_BASE = import.meta.env.VITE_API_URL || apiClient.baseURL || window.location.origin;
+const API_BASE_INTERNAL = import.meta.env.VITE_API_URL || apiClient.baseURL || window.location.origin;
 
 function resolveImageSrc(src) {
   if (!src) return src;
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  if (src.startsWith('/assets/')) return src;
   if (src.startsWith('/')) return `${API_BASE}${src}`;
   return `${API_BASE}/${src}`;
 }
@@ -27,6 +29,8 @@ function resolveImageSrc(src) {
 function resolveMedia(src) {
   if (!src) return src;
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  if (src.startsWith('/assets/')) return src;
   if (src.startsWith('/')) return `${API_BASE_INTERNAL}${src}`;
   return `${API_BASE_INTERNAL}/${src}`;
 }

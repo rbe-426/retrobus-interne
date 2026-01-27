@@ -2,37 +2,93 @@ import express from 'express';
 
 const router = express.Router();
 
-// Mock data pour développement
-const mockCampaigns = [
-  {
-    id: '1',
-    title: "Aide Jeunesse 2026",
-    organization: "Conseil Départemental Essonne",
-    description: "Soutien aux projets de jeunesse et mobilité durable",
-    minAmount: 5000,
-    maxAmount: 15000,
-    deadline: new Date('2026-03-31'),
-    status: "ACTIVE",
-    category: "YOUTH",
-    contactEmail: "contact@essonne.fr",
-    contactPhone: "01 69 47 89 89",
-    websiteUrl: "https://www.essonne.fr",
-    notes: "Programme prioritaire 2026",
-    createdBy: "admin",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    SubventionExpense: []
+// ============================================
+// DATA PERSISTENCE (localStorage mock pour dev)
+// ============================================
+
+let campaignStorage = (() => {
+  try {
+    const stored = global.subventionCampaigns || [];
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
   }
-];
+})();
+
+let expenseStorage = (() => {
+  try {
+    return global.subventionExpenses || {};
+  } catch {
+    return {};
+  }
+})();
+
+// Initialiser avec données de démo si vide
+if (campaignStorage.length === 0) {
+  campaignStorage = [
+    {
+      id: `campaign_${Date.now()}_1`,
+      title: "Aide Jeunesse 2026",
+      organization: "Conseil Départemental Essonne",
+      description: "Soutien aux projets de jeunesse et mobilité durable",
+      minAmount: 5000,
+      maxAmount: 15000,
+      deadline: new Date('2026-03-31').toISOString(),
+      status: "ACTIVE",
+      category: "YOUTH",
+      contactEmail: "contact@essonne.fr",
+      contactPhone: "01 69 47 89 89",
+      websiteUrl: "https://www.essonne.fr",
+      requiredDocuments: ["Statuts", "Bilans 2024-2025"],
+      notes: "Programme prioritaire 2026",
+      createdBy: "system",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: `campaign_${Date.now()}_2`,
+      title: "Mobilité Durable 2026",
+      organization: "ADEME",
+      description: "Financement des initiatives de transport écologique",
+      minAmount: 10000,
+      maxAmount: 50000,
+      deadline: new Date('2026-06-30').toISOString(),
+      status: "ACTIVE",
+      category: "TRANSPORT",
+      contactEmail: "subventions@ademe.fr",
+      contactPhone: "01 47 48 60 60",
+      websiteUrl: "https://www.ademe.fr",
+      requiredDocuments: ["Plan projet détaillé", "Budget prévisionnel"],
+      notes: "Appel à projets régional",
+      createdBy: "system",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ];
+  global.subventionCampaigns = campaignStorage;
+}
+
+// Sauvegarder les changements
+const saveCampaigns = () => {
+  global.subventionCampaigns = campaignStorage;
+};
+
+const saveExpenses = () => {
+  global.subventionExpenses = expenseStorage;
+};
+
+// ============================================
+// CAMPAIGNS ROUTES
+// ============================================
 
 /**
- * GET /api/subventions - Lister toutes les campagnes de subvention
+ * GET /api/subventions - Lister toutes les campagnes
  */
-router.get('/', async (req, res) => {
+router.get('/', (req, res) => {
   try {
     const { status, organization } = req.query;
     
-    let campaigns = [...mockCampaigns];
+    let campaigns = [...campaignStorage];
     
     if (status) {
       campaigns = campaigns.filter(c => c.status === status);
@@ -49,13 +105,27 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/subventions/:id - Récupérer une campagne spécifique
+ * GET /api/subventions/filter/active - Récupérer les campagnes actives
  */
-router.get('/:id', async (req, res) => {
+router.get('/filter/active', (req, res) => {
+  try {
+    const campaigns = campaignStorage.filter(c => 
+      c.status === 'ACTIVE' && new Date(c.deadline) > new Date()
+    );
+    res.json(campaigns);
+  } catch (error) {
+    console.error('Erreur GET /api/subventions/filter/active:', error);
+    res.status(500).json({ error: 'Erreur serveur', details: error.message });
+  }
+});
+
+/**
+ * GET /api/subventions/:id - Récupérer une campagne
+ */
+router.get('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    
-    const campaign = mockCampaigns.find(c => c.id === id);
+    const campaign = campaignStorage.find(c => c.id === id);
 
     if (!campaign) {
       return res.status(404).json({ error: 'Campagne non trouvée' });
@@ -69,25 +139,9 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
- * GET /api/subventions/filter/active - Récupérer uniquement les campagnes actives
+ * POST /api/subventions - Créer une campagne
  */
-router.get('/filter/active', async (req, res) => {
-  try {
-    const campaigns = mockCampaigns.filter(c => 
-      c.status === 'ACTIVE' && new Date(c.deadline) > new Date()
-    );
-
-    res.json(campaigns);
-  } catch (error) {
-    console.error('Erreur GET /api/subventions/filter/active:', error);
-    res.status(500).json({ error: 'Erreur serveur', details: error.message });
-  }
-});
-
-/**
- * POST /api/subventions - Créer une nouvelle campagne (ADMIN only)
- */
-router.post('/', async (req, res) => {
+router.post('/', (req, res) => {
   try {
     const { 
       title, 
@@ -96,21 +150,19 @@ router.post('/', async (req, res) => {
       minAmount, 
       maxAmount, 
       deadline, 
-      status,
+      status = 'ACTIVE',
       category,
-      requiredDocuments,
-      criteria,
+      requiredDocuments = [],
       contactEmail,
       contactPhone,
       websiteUrl,
       notes,
-      createdBy
+      createdBy = 'admin'
     } = req.body;
 
-    // Validation
     if (!title || !organization || !deadline) {
       return res.status(400).json({ 
-        error: 'Champs requis manquants: title, organization, deadline' 
+        error: 'Champs requis: title, organization, deadline' 
       });
     }
 
@@ -121,20 +173,22 @@ router.post('/', async (req, res) => {
       description: description || null,
       minAmount: minAmount ? parseFloat(minAmount) : null,
       maxAmount: maxAmount ? parseFloat(maxAmount) : null,
-      deadline: new Date(deadline),
-      status: status || 'ACTIVE',
+      deadline: new Date(deadline).toISOString(),
+      status,
       category: category || null,
       contactEmail: contactEmail || null,
       contactPhone: contactPhone || null,
       websiteUrl: websiteUrl || null,
+      requiredDocuments: Array.isArray(requiredDocuments) ? requiredDocuments : [],
       notes: notes || null,
-      createdBy: createdBy || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      SubventionExpense: []
+      createdBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    mockCampaigns.push(campaign);
+    campaignStorage.push(campaign);
+    saveCampaigns();
+    
     res.status(201).json(campaign);
   } catch (error) {
     console.error('Erreur POST /api/subventions:', error);
@@ -143,25 +197,30 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * PUT /api/subventions/:id - Mettre à jour une campagne (ADMIN only)
+ * PUT /api/subventions/:id - Modifier une campagne
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
 
-    const index = mockCampaigns.findIndex(c => c.id === id);
+    const index = campaignStorage.findIndex(c => c.id === id);
     if (index === -1) {
       return res.status(404).json({ error: 'Campagne non trouvée' });
     }
 
     const campaign = {
-      ...mockCampaigns[index],
+      ...campaignStorage[index],
       ...updateData,
-      updatedAt: new Date()
+      deadline: updateData.deadline ? new Date(updateData.deadline).toISOString() : campaignStorage[index].deadline,
+      minAmount: updateData.minAmount ? parseFloat(updateData.minAmount) : campaignStorage[index].minAmount,
+      maxAmount: updateData.maxAmount ? parseFloat(updateData.maxAmount) : campaignStorage[index].maxAmount,
+      updatedAt: new Date().toISOString()
     };
 
-    mockCampaigns[index] = campaign;
+    campaignStorage[index] = campaign;
+    saveCampaigns();
+    
     res.json(campaign);
   } catch (error) {
     console.error('Erreur PUT /api/subventions/:id:', error);
@@ -170,18 +229,22 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /api/subventions/:id - Supprimer une campagne (ADMIN only)
+ * DELETE /api/subventions/:id - Supprimer une campagne
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', (req, res) => {
   try {
     const { id } = req.params;
-
-    const index = mockCampaigns.findIndex(c => c.id === id);
+    const index = campaignStorage.findIndex(c => c.id === id);
+    
     if (index === -1) {
       return res.status(404).json({ error: 'Campagne non trouvée' });
     }
 
-    mockCampaigns.splice(index, 1);
+    campaignStorage.splice(index, 1);
+    delete expenseStorage[id];
+    saveCampaigns();
+    saveExpenses();
+    
     res.json({ message: 'Campagne supprimée avec succès' });
   } catch (error) {
     console.error('Erreur DELETE /api/subventions/:id:', error);
