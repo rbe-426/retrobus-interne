@@ -311,5 +311,38 @@ export function UserProvider({ children }) {
 }
 
 export function useUser() {
-  return useContext(UserContext);
+  const ctx = useContext(UserContext);
+  if (!ctx) {
+    console.error('❌ useUser() called outside UserProvider - returning safe default');
+    // Retourner un objet par défaut pour éviter les crashes
+    return {
+      token: null,
+      setToken: () => {},
+      user: null,
+      setUser: () => {},
+      isAuthenticated: false,
+      username: '',
+      prenom: '',
+      nom: '',
+      roles: [],
+      isAdmin: false,
+      isVolunteer: false,
+      isDriver: false,
+      isMember: false,
+      matricule: '',
+      logout: () => {},
+      sessionChecked: false,
+      ensureSession: async () => false,
+      member: null,
+      memberLoading: false,
+      memberError: null,
+      memberApiBase: null,
+      memberDataReady: false,
+      refreshMember: async () => null,
+      customPermissions: null,
+      permissionsLoading: false,
+      refreshPermissions: async () => null,
+    };
+  }
+  return ctx;
 }
