@@ -145,29 +145,46 @@ export default function AdhesionManagement() {
     if (!selectedMember) return;
     try {
       setUploadingFile(file.name);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('documentType', 'BULLETIN');
       
-      const candidates = [apiUrl(`/api/members/${selectedMember.id}/documents`), `/api/members/${selectedMember.id}/documents`];
-      let response = null;
-      for (const url of candidates) {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
         try {
-          const r = await fetch(url, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-          });
-          if (r.ok) { response = r; break; }
-        } catch {}
-      }
-      if (!response) throw new Error('Upload impossible');
-      await response.json();
-      toast({ status: 'success', title: 'Succès', description: 'Bulletin uploadé' });
-      fetchDocuments(selectedMember.id);
+          const base64Data = e.target.result.split(',')[1];
+          const payload = {
+            fileName: file.name,
+            fileType: file.type || 'application/octet-stream',
+            fileData: base64Data
+          };
+          
+          const candidates = [apiUrl(`/api/members/${selectedMember.id}/documents`), `/api/members/${selectedMember.id}/documents`];
+          let response = null;
+          for (const url of candidates) {
+            try {
+              const r = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+              });
+              if (r.ok) { response = r; break; }
+            } catch {}
+          }
+          if (!response) throw new Error('Upload impossible');
+          await response.json();
+          toast({ status: 'success', title: 'Succès', description: 'Bulletin uploadé' });
+          fetchDocuments(selectedMember.id);
+        } catch (err) {
+          toast({ status: 'error', title: 'Erreur', description: err.message });
+        } finally {
+          setUploadingFile(null);
+        }
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       toast({ status: 'error', title: 'Erreur', description: err.message });
-    } finally {
       setUploadingFile(null);
     }
   };
