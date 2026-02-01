@@ -47,6 +47,7 @@ import ThemeShowcase from "./pages/ThemeShowcase";
 import SubventionCampaign from "./pages/SubventionCampaign";
 import SubventionCampaignAdmin from "./pages/SubventionCampaignAdmin";
 import PermissionsManager from "./components/PermissionsManager";
+import AdhesionManagement from "./pages/AdhesionManagement";
 
 export default function App() {
   const { isAuthenticated } = useUser();
@@ -75,6 +76,9 @@ export default function App() {
         
         {/* 📋 RétroDemandes - Demandes unifiées avec contrôle d'accès */}
         <Route path="/dashboard/retro-demandes" element={<ProtectedRoute><RetroDemandes /></ProtectedRoute>} />
+        
+        {/* 👥 Gestion des Adhésions */}
+        <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} />
         
         {/* 🏆 Campagne de Subvention */}
         <Route path="/dashboard/subvention-campaign" element={<ProtectedRoute><SubventionCampaign /></ProtectedRoute>} />

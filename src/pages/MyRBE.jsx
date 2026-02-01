@@ -77,6 +77,15 @@ const cards = [
     cardAccess: true
   },
   {
+    title: "Édition des Adhésions",
+    description: "Modifier statut, dates, paiements",
+    to: "/dashboard/adhesion-management",
+    icon: FiShield,
+    color: "purple",
+    resource: "MEMBERS",
+    cardAccess: true
+  },
+  {
     title: "Gestion des Stocks",
     description: "Inventaire et matériel de l'association",
     to: "/dashboard/stock-management",
