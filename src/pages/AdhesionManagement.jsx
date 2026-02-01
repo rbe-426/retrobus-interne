@@ -53,6 +53,7 @@ export default function AdhesionManagement() {
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(null);
+  const [apiError, setApiError] = useState(null);
   const toast = useToast();
   const token = localStorage.getItem('token');
 
@@ -64,8 +65,10 @@ export default function AdhesionManagement() {
   const fetchMembers = async () => {
     try {
       setLoading(true);
+      setApiError(null);
       const candidates = [apiUrl('/api/members'), '/api/members'];
       let response = null;
+      let lastError = null;
       for (const url of candidates) {
         try {
           console.log('📍 Tentative fetchMembers:', url);
@@ -74,17 +77,24 @@ export default function AdhesionManagement() {
           });
           if (r.ok) { response = r; break; }
           console.error(`❌ Status ${r.status} pour ${url}`);
+          lastError = `Status ${r.status}`;
         } catch (e) {
           console.error('❌ Erreur réseau:', e);
+          lastError = e.message;
         }
       }
-      if (!response) throw new Error('Impossible de charger les adhérents');
+      if (!response) {
+        setApiError(`Impossible de charger les adhérents: ${lastError}`);
+        setMembers([]);
+        return;
+      }
       const data = await response.json();
       setMembers(Array.isArray(data) ? data : data.members || []);
-      console.log('✅ Adhérents chargés:', data.length);
+      console.log('✅ Adhérents chargés:', data.length || 0);
     } catch (err) {
       console.error('❌ Erreur fetchMembers:', err);
-      toast({ status: 'error', title: 'Erreur', description: err.message });
+      setApiError(err.message);
+      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -247,6 +257,19 @@ export default function AdhesionManagement() {
   );
 
   const renderContent = () => {
+    if (apiError) {
+      return (
+        <Alert status="error" variant="left-accent">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">Erreur API</Text>
+            <Text fontSize="sm">{apiError}</Text>
+            <Button mt={4} size="sm" onClick={fetchMembers}>Réessayer</Button>
+          </Box>
+        </Alert>
+      );
+    }
+
     if (loading) return <Center p={8}><Spinner /></Center>;
 
     if (!selectedMember) {
