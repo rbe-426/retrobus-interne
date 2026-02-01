@@ -5,11 +5,13 @@ import {
   FormControl, FormLabel, Input, Select,
   Textarea, Switch, Badge, Alert, AlertIcon, Divider,
   Container, Heading, Center, InputGroup, InputLeftElement,
-  Tabs, TabList, Tab, TabPanel, TabPanels
+  Tabs, TabList, Tab, TabPanel, TabPanels, Table, Thead, Tbody, Tr, Th, Td,
+  IconButton, Menu, MenuButton, MenuList, MenuItem
 } from "@chakra-ui/react";
 import { 
   FiUsers, FiSearch, FiEdit, FiSave, FiX, FiCalendar,
-  FiCreditCard, FiUser, FiKey, FiPhone, FiMail
+  FiCreditCard, FiUser, FiKey, FiPhone, FiMail, FiDownload,
+  FiTrash2, FiFileText
 } from 'react-icons/fi';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
 
@@ -48,6 +50,9 @@ export default function AdhesionManagement() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(null);
   const toast = useToast();
   const token = localStorage.getItem('token');
 
@@ -82,6 +87,111 @@ export default function AdhesionManagement() {
   const handleSelectMember = (member) => {
     setSelectedMember(member);
     setEditData({ ...member });
+    fetchDocuments(member.id);
+  };
+
+  const fetchDocuments = async (memberId) => {
+    try {
+      setDocsLoading(true);
+      const candidates = [apiUrl(`/api/members/${memberId}/documents`), `/api/members/${memberId}/documents`];
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (r.ok) {
+            const data = await r.json();
+            setDocuments(data?.documents || []);
+            return;
+          }
+        } catch {}
+      }
+      setDocuments([]);
+    } catch (err) {
+      console.error('Erreur chargement docs:', err);
+      setDocuments([]);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const handleUploadDocument = async (file) => {
+    if (!selectedMember) return;
+    try {
+      setUploadingFile(file.name);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', 'BULLETIN');
+      
+      const candidates = [apiUrl(`/api/members/${selectedMember.id}/documents`), `/api/members/${selectedMember.id}/documents`];
+      let response = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+          });
+          if (r.ok) { response = r; break; }
+        } catch {}
+      }
+      if (!response) throw new Error('Upload impossible');
+      await response.json();
+      toast({ status: 'success', title: 'Succès', description: 'Bulletin uploadé' });
+      fetchDocuments(selectedMember.id);
+    } catch (err) {
+      toast({ status: 'error', title: 'Erreur', description: err.message });
+    } finally {
+      setUploadingFile(null);
+    }
+  };
+
+  const handleDownloadDocument = async (docId, fileName) => {
+    try {
+      const candidates = [apiUrl(`/api/documents/${docId}/download`), `/api/documents/${docId}/download`];
+      let response = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (r.ok) { response = r; break; }
+        } catch {}
+      }
+      if (!response) throw new Error('Téléchargement impossible');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'document';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({ status: 'error', title: 'Erreur', description: err.message });
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    try {
+      const candidates = [apiUrl(`/api/documents/${docId}`), `/api/documents/${docId}`];
+      let response = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (r.ok) { response = r; break; }
+        } catch {}
+      }
+      if (!response) throw new Error('Suppression impossible');
+      toast({ status: 'success', title: 'Succès', description: 'Document supprimé' });
+      fetchDocuments(selectedMember.id);
+    } catch (err) {
+      toast({ status: 'error', title: 'Erreur', description: err.message });
+    }
   };
 
   const handleSave = async () => {
@@ -187,6 +297,7 @@ export default function AdhesionManagement() {
             <Tab>Adhésion</Tab>
             <Tab>Paiement</Tab>
             <Tab>Autres</Tab>
+            <Tab>📄 Bulletins</Tab>
           </TabList>
 
           <TabPanels>
@@ -363,6 +474,96 @@ export default function AdhesionManagement() {
                     placeholder="Notes pour l'admin..."
                   />
                 </FormControl>
+              </VStack>
+            </TabPanel>
+
+            {/* Tab 5: Documents */}
+            <TabPanel>
+              <VStack spacing={6} align="stretch">
+                {/* Upload Section */}
+                <Box>
+                  <Heading size="sm" mb={4}>📄 Bulletin d'adhésion signé</Heading>
+                  <Card bg="blue.50" borderWidth={2} borderStyle="dashed" borderColor="blue.300">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <FormControl>
+                          <FormLabel htmlFor="file-upload">Télécharger un bulletin (PDF)</FormLabel>
+                          <Input
+                            id="file-upload"
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.png"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                handleUploadDocument(e.target.files[0]);
+                              }
+                            }}
+                            disabled={uploadingFile !== null}
+                          />
+                        </FormControl>
+                        {uploadingFile && (
+                          <Alert status="info">
+                            <AlertIcon />
+                            Upload en cours: {uploadingFile}...
+                          </Alert>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </Box>
+
+                {/* Documents List */}
+                <Box>
+                  <Heading size="sm" mb={4}>Bulletins stockés</Heading>
+                  {docsLoading ? (
+                    <Center p={8}><Spinner /></Center>
+                  ) : documents.length > 0 ? (
+                    <Table size="sm" variant="striped">
+                      <Thead>
+                        <Tr>
+                          <Th>Nom du fichier</Th>
+                          <Th>Type</Th>
+                          <Th>Ajouté le</Th>
+                          <Th>Statut</Th>
+                          <Th></Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {documents.map((doc) => (
+                          <Tr key={doc.id}>
+                            <Td>{doc.fileName}</Td>
+                            <Td>{doc.documentType || 'Document'}</Td>
+                            <Td>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('fr-FR') : '-'}</Td>
+                            <Td><Badge>{doc.status || 'Valide'}</Badge></Td>
+                            <Td>
+                              <HStack spacing={2}>
+                                <IconButton
+                                  size="sm"
+                                  icon={<FiDownload />}
+                                  variant="ghost"
+                                  onClick={() => handleDownloadDocument(doc.id, doc.fileName)}
+                                  title="Télécharger"
+                                />
+                                <IconButton
+                                  size="sm"
+                                  icon={<FiTrash2 />}
+                                  variant="ghost"
+                                  colorScheme="red"
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                  title="Supprimer"
+                                />
+                              </HStack>
+                            </Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  ) : (
+                    <Alert status="info">
+                      <AlertIcon />
+                      Aucun bulletin uploadé pour ce membre
+                    </Alert>
+                  )}
+                </Box>
               </VStack>
             </TabPanel>
           </TabPanels>
