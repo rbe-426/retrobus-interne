@@ -127,8 +127,11 @@ export function UserProvider({ children }) {
           console.log(`📊 Réponse status: ${res.status}`);
           if (res.ok) {
             data = await res.json();
-            console.log('✅ Données membre reçues:', data);
-            setMember(data);
+            console.log('✅ Données brutes reçues:', data);
+            // L'API retourne {member: {...}}, extraire le contenu
+            const memberData = data.member || data;
+            console.log('✅ Données membre extraites:', memberData);
+            setMember(memberData);
             setMemberApiBase(base || null);
             setMemberDataReady(true); // Marquer comme complètes
             ok = true;
