@@ -92,10 +92,18 @@ export function UserProvider({ children }) {
   };
 
   const refreshMember = async (force = false) => {
-    if (!token) { setMember(null); setMemberError('no-token'); return null; }
+    if (!token) { 
+      console.log('❌ refreshMember: pas de token!');
+      setMember(null); 
+      setMemberError('no-token'); 
+      setMemberDataReady(true);
+      return null; 
+    }
+    console.log('🔄 refreshMember: token trouvé, appel API...');
     // simple throttle to avoid spamming
     const now = Date.now();
     if (!force && (now - lastMemberFetchRef.current < 500)) {
+      console.log('⏱️ refreshMember: throttled, skip');
       return member;
     }
     lastMemberFetchRef.current = now;
@@ -104,17 +112,22 @@ export function UserProvider({ children }) {
     setMemberError(null);
     try {
       const candidates = apiCandidates();
+      console.log('🔗 API candidates:', candidates);
       let ok = false;
       let lastStatus = null;
       let data = null;
       for (const base of candidates) {
         try {
-          const res = await fetch(`${base}/api/members/me`, {
+          const url = `${base}/api/members/me`;
+          console.log('📍 Tentative:', url);
+          const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
           });
           lastStatus = res.status;
+          console.log(`📊 Réponse status: ${res.status}`);
           if (res.ok) {
             data = await res.json();
+            console.log('✅ Données membre reçues:', data);
             setMember(data);
             setMemberApiBase(base || null);
             setMemberDataReady(true); // Marquer comme complètes
@@ -123,10 +136,12 @@ export function UserProvider({ children }) {
           }
         } catch (e) {
           lastStatus = 'network';
+          console.error('❌ Erreur réseau:', e.message);
           continue;
         }
       }
       if (!ok) {
+        console.log('❌ Aucun endpoint n\'a réussi. lastStatus:', lastStatus);
         setMember(null);
         setMemberError(lastStatus);
         setMemberDataReady(true); // Marquer comme "traité" même en cas d'erreur
@@ -183,8 +198,10 @@ export function UserProvider({ children }) {
   // Revalidation quand le token change
   useEffect(() => {
     if (token) {
+      console.log('🔑 Token trouvé, appel ensureSession...');
       ensureSession().then((ok) => {
         if (ok) {
+          console.log('✅ Session valide, appel refreshMember...');
           refreshMember();
           refreshPermissions();
           // Also refresh user info from /api/me to get the role
