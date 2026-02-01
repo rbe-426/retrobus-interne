@@ -668,7 +668,7 @@ export default function MyMembership() {
 
                     <Card>
                       <CardHeader>
-                        <Heading size="md">Détails d'adhésion</Heading>
+                        <Heading size="md">Détails de paiement</Heading>
                       </CardHeader>
                       <CardBody>
                         {editMode ? (
@@ -689,6 +689,7 @@ export default function MyMembership() {
                                 <FormLabel>Montant cotisation (€)</FormLabel>
                                 <Input
                                   type="number"
+                                  step="0.01"
                                   value={editData.paymentAmount || ''}
                                   onChange={(e) => setEditData(prev => ({ ...prev, paymentAmount: e.target.value }))}
                                 />
@@ -782,6 +783,53 @@ export default function MyMembership() {
                         )}
                       </CardBody>
                     </Card>
+
+                    {/* New Card: Informations complétées par l'admin */}
+                    <Card borderLeft="4px solid" borderColor="blue.500">
+                      <CardHeader>
+                        <Heading size="md">📋 Informations complémentaires (complétées par l'admin)</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 4, md: 6 }}>
+                          {memberData.birthDate && (
+                            <Box>
+                              <HStack mb={4}>
+                                <FiCalendar color="blue" />
+                                <Box>
+                                  <Text fontSize="sm" color="gray.600">Date de naissance</Text>
+                                  <Text fontWeight="bold">{new Date(memberData.birthDate).toLocaleDateString('fr-FR')}</Text>
+                                </Box>
+                              </HStack>
+                            </Box>
+                          )}
+                          {(memberData.address || memberData.city) && (
+                            <Box>
+                              <HStack mb={4}>
+                                <FiMapPin color="blue" />
+                                <Box>
+                                  <Text fontSize="sm" color="gray.600">Adresse</Text>
+                                  <Text fontWeight="bold">
+                                    {memberData.address && `${memberData.address}`}
+                                    {memberData.address && memberData.city && ', '}
+                                    {memberData.postalCode && `${memberData.postalCode} `}
+                                    {memberData.city}
+                                  </Text>
+                                </Box>
+                              </HStack>
+                            </Box>
+                          )}
+                        </SimpleGrid>
+                        {memberData.notes && (
+                          <Box mt={4} p={3} bg="blue.50" borderRadius="md" borderLeft="3px solid" borderColor="blue.200">
+                            <Text fontSize="sm" color="gray.600" mb={1}>📝 Notes</Text>
+                            <Text fontSize="sm">{memberData.notes}</Text>
+                          </Box>
+                        )}
+                        {!memberData.birthDate && !(memberData.address || memberData.city) && !memberData.notes && (
+                          <Text color="gray.500" fontSize="sm">Aucune information complémentaire pour le moment.</Text>
+                        )}
+                      </CardBody>
+                    </Card>
                   </VStack>
                 </TabPanel>
 
@@ -842,7 +890,7 @@ export default function MyMembership() {
                       Changer le mot de passe
                     </Button>
                     <Button leftIcon={<FiDownload />} variant="outline">
-                      Télécharger ma carte d'adhérent
+                      Télécharger mon Bulletin d'adhésion
                     </Button>
                     {(() => {
                       const roles = (user?.roles || []).map(r => String(r).toUpperCase());

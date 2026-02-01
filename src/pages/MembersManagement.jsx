@@ -688,17 +688,77 @@ export default function MembersManagement() {
     );
   };
 
-  const renderRolesTab = () => (
+  const renderLayoutTab = () => (
     <Box>
-      <Heading size="md" mb={4}>Gestion des Rôles</Heading>
-      <Text mb={4} color="gray.600">Configuration des rôles et permissions</Text>
-      {renderExistingContent('roles')}
+      <Heading size="md" mb={4}>⚙️ Configuration de l'affichage</Heading>
+      <Text mb={4} color="gray.600">Configurez les champs visibles dans la page personnelle /adhesion de chaque adhérent</Text>
+      
+      <VStack spacing={6} align="stretch">
+        {/* Section: Onglet 1 - Informations personnelles */}
+        <Card>
+          <CardHeader bg="blue.50">
+            <Heading size="sm">👤 Onglet 1: Informations personnelles</Heading>
+          </CardHeader>
+          <CardBody>
+            <Text fontSize="sm" color="gray.600" mb={4}>Champs affichés dans l'onglet "Informations personnelles"</Text>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <CheckboxGroup defaultValue={['firstName', 'lastName', 'email', 'phone', 'address', 'birthDate']}>
+                <Checkbox value="firstName">Prénom</Checkbox>
+                <Checkbox value="lastName">Nom</Checkbox>
+                <Checkbox value="email">Email</Checkbox>
+                <Checkbox value="phone">Téléphone</Checkbox>
+                <Checkbox value="address">Adresse</Checkbox>
+                <Checkbox value="city">Ville</Checkbox>
+                <Checkbox value="postalCode">Code postal</Checkbox>
+                <Checkbox value="birthDate">Date de naissance</Checkbox>
+              </CheckboxGroup>
+            </SimpleGrid>
+            <Button mt={4} size="sm" colorScheme="blue">Enregistrer</Button>
+          </CardBody>
+        </Card>
+
+        {/* Section: Onglet 2 - Informations d'adhésion */}
+        <Card>
+          <CardHeader bg="green.50">
+            <Heading size="sm">📋 Onglet 2: Informations d'adhésion</Heading>
+          </CardHeader>
+          <CardBody>
+            <Text fontSize="sm" color="gray.600" mb={4}>Champs affichés dans l'onglet "Informations Adhérent"</Text>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <CheckboxGroup defaultValue={['membershipType', 'membershipStatus', 'paymentAmount', 'paymentMethod', 'matricule', 'memberNumber', 'birthDate', 'address']}>
+                <Checkbox value="membershipType">Type d'adhésion</Checkbox>
+                <Checkbox value="membershipStatus">Statut</Checkbox>
+                <Checkbox value="membershipDates">Dates d'adhésion</Checkbox>
+                <Checkbox value="paymentAmount">Montant cotisation</Checkbox>
+                <Checkbox value="paymentMethod">Mode de paiement</Checkbox>
+                <Checkbox value="matricule">Matricule</Checkbox>
+                <Checkbox value="memberNumber">N° adhérent</Checkbox>
+                <Checkbox value="birthDate">Date de naissance</Checkbox>
+                <Checkbox value="address">Adresse complète</Checkbox>
+                <Checkbox value="notes">Notes admin</Checkbox>
+              </CheckboxGroup>
+            </SimpleGrid>
+            <Button mt={4} size="sm" colorScheme="blue">Enregistrer</Button>
+          </CardBody>
+        </Card>
+
+        {/* Section: Onglet 3 - Documents */}
+        <Card>
+          <CardHeader bg="purple.50">
+            <Heading size="sm">📄 Onglet 3: Documents d'adhésion</Heading>
+          </CardHeader>
+          <CardBody>
+            <Text fontSize="sm" color="gray.600" mb={4}>Les documents d'adhésion sont gérés dans le panel "Adhérents" lors de l'édition</Text>
+            <Alert status="info"><AlertIcon />Vous pouvez uploader des bulletins d'adhésion pour chaque membre</Alert>
+          </CardBody>
+        </Card>
+      </VStack>
     </Box>
   );
 
   const renderSettingsTab = () => (
     <Box>
-      <Heading size="md" mb={4}>Paramètres</Heading>
+      <Heading size="md" mb={4}>⚙️ Paramètres</Heading>
       {renderExistingContent('settings')}
     </Box>
   );
@@ -723,23 +783,23 @@ export default function MembersManagement() {
       render: renderDashboard
     },
     {
-      id: 'members',
-      label: 'Adhérents',
+      id: 'adhesions',
+      label: 'Adhésions',
       icon: FiUsers,
       description: 'Création et recherche',
       render: renderMembersTab
     },
     {
-      id: 'roles',
-      label: 'Rôles',
-      icon: FiShield,
-      description: 'Permissions',
-      render: renderRolesTab
+      id: 'layout',
+      label: 'Configuration',
+      icon: FiSettings,
+      description: 'Champs affichables',
+      render: renderLayoutTab
     },
     {
       id: 'settings',
       label: 'Paramètres',
-      icon: FiSettings,
+      icon: FiShield,
       description: 'Options avancées',
       render: renderSettingsTab
     }
@@ -755,7 +815,7 @@ export default function MembersManagement() {
     <>
       <WorkspaceLayout
         title="Gestion des Adhésions"
-        subtitle="Créer et gérer les adhérents (les identifiants sont gérés séparément)"
+        subtitle="Gérer les adhérents, les permissions et la configuration d'affichage des profils"
         sections={workspaceSections}
         defaultSectionId="dashboard"
         sidebarTitle="Adhésions"
@@ -797,7 +857,7 @@ export default function MembersManagement() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="2xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Modifier le membre</ModalHeader>
@@ -805,51 +865,155 @@ export default function MembersManagement() {
           <ModalBody>
             {editData && (
               <VStack align="stretch" spacing={4}>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                {/* Section Identité */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">👤 Identité</Heading>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Prénom</FormLabel>
+                      <Input value={editData.firstName || ''} onChange={(e)=>setEditData(p=>({...p, firstName: e.target.value}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Nom</FormLabel>
+                      <Input value={editData.lastName || ''} onChange={(e)=>setEditData(p=>({...p, lastName: e.target.value}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Date de naissance</FormLabel>
+                      <Input type="date" value={editData.birthDate ? editData.birthDate.split('T')[0] : ''} onChange={(e)=>setEditData(p=>({...p, birthDate: e.target.value ? new Date(e.target.value).toISOString() : null}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Matricule</FormLabel>
+                      <Input value={editData.matricule || ''} onChange={(e)=>setEditData(p=>({...p, matricule: e.target.value}))} />
+                    </FormControl>
+                  </SimpleGrid>
+                </Box>
+
+                <Divider />
+
+                {/* Section Contact */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">📞 Coordonnées</Heading>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Email</FormLabel>
+                      <Input type="email" value={editData.email || ''} onChange={(e)=>setEditData(p=>({...p, email: e.target.value}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Téléphone</FormLabel>
+                      <Input value={editData.phone || ''} onChange={(e)=>setEditData(p=>({...p, phone: e.target.value}))} />
+                    </FormControl>
+                  </SimpleGrid>
+                </Box>
+
+                <Divider />
+
+                {/* Section Adresse */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">🏠 Adresse</Heading>
+                  <VStack spacing={3} align="stretch">
+                    <FormControl>
+                      <FormLabel>Adresse</FormLabel>
+                      <Input value={editData.address || ''} onChange={(e)=>setEditData(p=>({...p, address: e.target.value}))} />
+                    </FormControl>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl>
+                        <FormLabel>Code postal</FormLabel>
+                        <Input value={editData.postalCode || ''} onChange={(e)=>setEditData(p=>({...p, postalCode: e.target.value}))} />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Ville</FormLabel>
+                        <Input value={editData.city || ''} onChange={(e)=>setEditData(p=>({...p, city: e.target.value}))} />
+                      </FormControl>
+                    </SimpleGrid>
+                  </VStack>
+                </Box>
+
+                <Divider />
+
+                {/* Section Adhésion */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">📋 Adhésion</Heading>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Statut</FormLabel>
+                      <Select value={editData.membershipStatus || 'ACTIVE'} onChange={(e)=>setEditData(p=>({...p, membershipStatus: e.target.value}))}>
+                        <option value="PENDING">En attente</option>
+                        <option value="ACTIVE">Actif</option>
+                        <option value="EXPIRED">Expiré</option>
+                        <option value="SUSPENDED">Suspendu</option>
+                        <option value="CANCELLED">Annulé</option>
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Type d'adhésion</FormLabel>
+                      <Select value={editData.membershipType || 'STANDARD'} onChange={(e)=>setEditData(p=>({...p, membershipType: e.target.value}))}>
+                        <option value="STANDARD">Standard</option>
+                        <option value="FAMILY">Famille</option>
+                        <option value="STUDENT">Étudiant</option>
+                        <option value="HONORARY">Honneur</option>
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Montant payé (€)</FormLabel>
+                      <Input type="number" step="0.01" value={editData.paymentAmount || ''} onChange={(e)=>setEditData(p=>({...p, paymentAmount: e.target.value ? parseFloat(e.target.value) : null}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Méthode de paiement</FormLabel>
+                      <Select value={editData.paymentMethod || ''} onChange={(e)=>setEditData(p=>({...p, paymentMethod: e.target.value}))}>
+                        <option value="">Non définie</option>
+                        <option value="CASH">Espèces</option>
+                        <option value="CHECK">Chèque</option>
+                        <option value="BANK_TRANSFER">Virement bancaire</option>
+                        <option value="CARD">Carte bancaire</option>
+                        <option value="HELLOASSO">HelloAsso</option>
+                      </Select>
+                    </FormControl>
+                  </SimpleGrid>
+                </Box>
+
+                <Divider />
+
+                {/* Section Rôles et Permissions */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">🛡️ Rôles et Permissions</Heading>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Rôle principal</FormLabel>
+                      <Select value={editData.role || 'MEMBER'} onChange={(e)=>setEditData(p=>({...p, role: e.target.value}))}>
+                        <option value="MEMBER">Adhérent</option>
+                        <option value="DRIVER">Conducteur</option>
+                        <option value="MODERATOR">Modérateur</option>
+                        <option value="ADMIN">Administrateur</option>
+                      </Select>
+                    </FormControl>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel htmlFor="loginEnabled" mb="0">Accès site activé</FormLabel>
+                      <Switch
+                        id="loginEnabled"
+                        isChecked={editData.loginEnabled || false}
+                        onChange={(e) => setEditData(prev => ({ ...prev, loginEnabled: e.target.checked }))}
+                        ml={4}
+                      />
+                    </FormControl>
+                  </SimpleGrid>
+                  <Alert status="info" mt={4}>
+                    <AlertIcon />
+                    <VStack align="start" spacing={1}>
+                      <Text fontSize="sm" fontWeight="bold">Permissions selon le rôle:</Text>
+                      <Text fontSize="xs">Adhérent: Voir profil | Conducteur: Voir profil + Conduire | Modérateur: Modération | Admin: Accès complet</Text>
+                    </VStack>
+                  </Alert>
+                </Box>
+
+                <Divider />
+
+                {/* Section Notes */}
+                <Box>
                   <FormControl>
-                    <FormLabel>Prénom</FormLabel>
-                    <Input value={editData.firstName || ''} onChange={(e)=>setEditData(p=>({...p, firstName: e.target.value}))} />
+                    <FormLabel>Notes internes</FormLabel>
+                    <Textarea placeholder="Informations supplémentaires utiles..." value={editData.notes || ''} onChange={(e)=>setEditData(p=>({...p, notes: e.target.value}))} />
                   </FormControl>
-                  <FormControl>
-                    <FormLabel>Nom</FormLabel>
-                    <Input value={editData.lastName || ''} onChange={(e)=>setEditData(p=>({...p, lastName: e.target.value}))} />
-                  </FormControl>
-                </SimpleGrid>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <FormControl>
-                    <FormLabel>Email</FormLabel>
-                    <Input type="email" value={editData.email || ''} onChange={(e)=>setEditData(p=>({...p, email: e.target.value}))} />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Téléphone</FormLabel>
-                    <Input value={editData.phone || ''} onChange={(e)=>setEditData(p=>({...p, phone: e.target.value}))} />
-                  </FormControl>
-                </SimpleGrid>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <FormControl>
-                    <FormLabel>Statut</FormLabel>
-                    <Select value={editData.membershipStatus || 'ACTIVE'} onChange={(e)=>setEditData(p=>({...p, membershipStatus: e.target.value}))}>
-                      <option value="PENDING">En attente</option>
-                      <option value="ACTIVE">Actif</option>
-                      <option value="EXPIRED">Expiré</option>
-                      <option value="SUSPENDED">Suspendu</option>
-                      <option value="CANCELLED">Annulé</option>
-                    </Select>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Type d'adhésion</FormLabel>
-                    <Select value={editData.membershipType || 'STANDARD'} onChange={(e)=>setEditData(p=>({...p, membershipType: e.target.value}))}>
-                      <option value="STANDARD">Standard</option>
-                      <option value="FAMILY">Famille</option>
-                      <option value="STUDENT">Étudiant</option>
-                      <option value="HONORARY">Honneur</option>
-                    </Select>
-                  </FormControl>
-                </SimpleGrid>
-                <FormControl>
-                  <FormLabel>Notes</FormLabel>
-                  <Textarea value={editData.notes || ''} onChange={(e)=>setEditData(p=>({...p, notes: e.target.value}))} />
-                </FormControl>
+                </Box>
               </VStack>
             )}
           </ModalBody>
