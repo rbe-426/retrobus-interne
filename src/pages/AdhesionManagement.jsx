@@ -68,16 +68,22 @@ export default function AdhesionManagement() {
       let response = null;
       for (const url of candidates) {
         try {
+          console.log('📍 Tentative fetchMembers:', url);
           const r = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (r.ok) { response = r; break; }
-        } catch {}
+          console.error(`❌ Status ${r.status} pour ${url}`);
+        } catch (e) {
+          console.error('❌ Erreur réseau:', e);
+        }
       }
       if (!response) throw new Error('Impossible de charger les adhérents');
       const data = await response.json();
       setMembers(Array.isArray(data) ? data : data.members || []);
+      console.log('✅ Adhérents chargés:', data.length);
     } catch (err) {
+      console.error('❌ Erreur fetchMembers:', err);
       toast({ status: 'error', title: 'Erreur', description: err.message });
     } finally {
       setLoading(false);
@@ -96,15 +102,25 @@ export default function AdhesionManagement() {
       const candidates = [apiUrl(`/api/members/${memberId}/documents`), `/api/members/${memberId}/documents`];
       for (const url of candidates) {
         try {
+          console.log('📍 Tentative fetchDocuments:', url);
           const r = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (r.ok) {
             const data = await r.json();
             setDocuments(data?.documents || []);
+            console.log('✅ Documents chargés:', data);
             return;
           }
-        } catch {}
+          console.warn(`⚠️ Status ${r.status} pour ${url}`);
+          if (r.status === 500 || r.status === 404) {
+            console.log('ℹ️ Endpoint documents pas disponible, on continue');
+            setDocuments([]);
+            return;
+          }
+        } catch (e) {
+          console.error('❌ Erreur réseau:', e);
+        }
       }
       setDocuments([]);
     } catch (err) {
