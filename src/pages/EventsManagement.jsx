@@ -106,34 +106,16 @@ export default function EventsManagement() {
   }, [loadInitialData]);
 
   // Recalculer finances
+  // === EFFECTS ===
+  // Fetch events
   useEffect(() => {
-    const confirmed = participants.filter(p => p.status === "confirmed");
-    const adultCount = confirmed.filter(p => p.type === "adult").length;
-    const childCount = confirmed.filter(p => p.type === "child").length;
-    const capacity = routes.reduce((s, r) => s + (r.capacity || 0), 0);
-    const occupancy = confirmed.length;
-    const rate = capacity > 0 ? Math.round((occupancy / capacity) * 100) : 0;
-    
-    // Prix de démo
-    const adultPrice = 25;
-    const childPrice = 15;
-    const revenue = Math.round(adultCount * adultPrice + childCount * childPrice);
-    const expenses = Math.round(revenue * 0.25 + capacity * 2 + occupancy * 3);
-    const profit = revenue - expenses;
+    loadEvents();
+  }, [loadEvents]);
 
-    setFin({
-      revenue, expenses, profit, capacity, occupancy, rate,
-      breakdown: {
-        adult: { price: adultPrice, count: adultCount, total: adultPrice * adultCount },
-        child: { price: childPrice, count: childCount, total: childPrice * childCount },
-        expenseLines: [
-          { label: "Base (25%)", amount: Math.round(revenue * 0.25) },
-          { label: `Capacité (${capacity})`, amount: Math.round(capacity * 2) },
-          { label: `Participants (${occupancy})`, amount: Math.round(occupancy * 3) },
-        ],
-      },
-    });
-  }, [participants, routes]);
+  // Charger planifications et GPS au démarrage
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
 
   // Filtrer les événements
   const filtered = useMemo(() => {
