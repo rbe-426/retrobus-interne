@@ -100,6 +100,50 @@ const FinanceInvoicing = () => {
     }
   };
 
+  // ✅ Helper pour générer PDF côté client avec html2pdf.js
+  const generatePDFDataURI = async (htmlContent, filename = 'document.pdf') => {
+    try {
+      if (!htmlContent) {
+        throw new Error('Contenu HTML vide');
+      }
+
+      return new Promise((resolve, reject) => {
+        // Créer un élément temporaire
+        const element = document.createElement('div');
+        element.innerHTML = htmlContent;
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        const options = {
+          margin: 10,
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+        };
+
+        html2pdf()
+          .set(options)
+          .from(element)
+          .toPdf()
+          .output('dataurlstring')
+          .then((dataUri) => {
+            document.body.removeChild(element);
+            console.log(`✅ PDF généré côté client: ${(dataUri.length / 1024 / 1024).toFixed(2)} MB`);
+            resolve(dataUri);
+          })
+          .catch((error) => {
+            document.body.removeChild(element);
+            console.error('❌ Erreur html2pdf:', error);
+            reject(error);
+          });
+      });
+    } catch (error) {
+      console.error('❌ Erreur generatePDFDataURI:', error);
+      throw error;
+    }
+  };
+
   const handleOpenCreate = () => {
     setEditingDocument(null);
     setDocForm({
@@ -368,42 +412,27 @@ const FinanceInvoicing = () => {
             generatedHtml = generatedHtml.replace(placeholder, String(value || ""));
           });
 
-          console.log("📄 Envoi au serveur pour génération PDF avec Puppeteer...");
+          console.log("📄 Génération PDF côté client...");
           console.log(`📏 Taille HTML: ${(generatedHtml.length / 1024).toFixed(2)} KB`);
           
-          const token = localStorage.getItem("token");
-          const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, '');
-          const endpoint = `${apiUrl}/api/finance/documents/${docId}/generate-pdf`;
-          
-          console.log(`🔗 POST ${endpoint}`);
-          
-          const generateResponse = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({ htmlContent: generatedHtml })
-          });
-          
-          console.log(`📊 Réponse status: ${generateResponse.status}`);
-          
-          const responseData = await generateResponse.json();
-          console.log("📋 Réponse serveur:", responseData);
-          
-          if (generateResponse.ok) {
-            console.log("✅ PDF généré automatiquement!");
+          try {
+            const pdfDataUri = await generatePDFDataURI(
+              generatedHtml, 
+              `${docForm.type === 'QUOTE' ? 'Devis' : 'Facture'}_${docForm.number}.pdf`
+            );
+            
+            console.log("✅ PDF généré côté client!");
             toast({
               title: "✅ PDF Généré",
-              description: "Le document PDF a été généré automatiquement",
+              description: "Le document PDF a été généré localement",
               status: "success",
               duration: 2000
             });
-          } else {
-            console.error("❌ Génération PDF échouée:", responseData.error || responseData);
+          } catch (pdfError) {
+            console.error("⚠️ Génération PDF échouée:", pdfError.message);
             toast({
               title: "⚠️ Génération PDF",
-              description: responseData.error || "Impossible de générer le PDF",
+              description: `Impossible de générer le PDF: ${pdfError.message}`,
               status: "warning",
               duration: 3000
             });
@@ -703,41 +732,17 @@ const FinanceInvoicing = () => {
         throw new Error("Impossible de générer l'HTML - aucun template ou htmlContent");
       }
 
-      const token = localStorage.getItem("token");
-      const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, '');
-      const endpoint = `${apiUrl}/api/finance/documents/${doc.id}/generate-pdf`;
-      
-      console.log(`🔗 POST ${endpoint}`);
+      // ✅ Générer le PDF côté client au lieu d'appeler l'endpoint
+      console.log(`📄 Génération PDF côté client...`);
+      const pdfDataUri = await generatePDFDataURI(
+        htmlContent,
+        `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`
+      );
 
-      const generateResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ htmlContent })
-      });
-
-      console.log(`📊 Réponse status: ${generateResponse.status}`);
-
-      if (!generateResponse.ok) {
-        const error = await generateResponse.json();
-        throw new Error(error.error || "Erreur lors de la génération du PDF");
-      }
-
-      const generateResult = await generateResponse.json();
-      console.log("📋 Réponse serveur:", generateResult);
-      
-      const pdfDataUri = generateResult.pdfDataUri;
-
-      if (!pdfDataUri) {
-        throw new Error("Impossible de générer le PDF - résultat vide du serveur");
-      }
-
-      console.log(`✅ PDF reçu du serveur: ${pdfDataUri.length} caractères`);
+      console.log(`✅ PDF généré côté client: ${(pdfDataUri.length / 1024 / 1024).toFixed(2)} MB`);
 
       // Afficher le PDF
-      downloadPDF(pdfDataUri, generateResult.filename);
+      downloadPDF(pdfDataUri, `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`);
 
       toast({
         title: "Succès",
@@ -912,28 +917,11 @@ const FinanceInvoicing = () => {
       });
 
       // Régénérer le PDF pour obtenir une pdfDataUri valide
-      const token = localStorage.getItem("token");
-      const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, '');
-      const endpoint = `${apiUrl}/api/finance/documents/${doc.id}/generate-pdf`;
-      
-      console.log(`🔗 POST ${endpoint}`);
-
-      const generateResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ htmlContent: doc.htmlContent || "" })
-      });
-
-      if (!generateResponse.ok) {
-        const error = await generateResponse.json();
-        throw new Error(error.error || "Erreur lors de la génération du PDF");
-      }
-
-      const generateResult = await generateResponse.json();
-      const pdfDataUri = generateResult.pdfDataUri;
+      console.log(`📄 Génération PDF côté client pour téléchargement...`);
+      const pdfDataUri = await generatePDFDataURI(
+        doc.htmlContent || "<p>Document vide</p>",
+        `${doc.type === 'QUOTE' ? 'Devis' : 'Facture'}_${doc.number}.pdf`
+      );
 
       if (!pdfDataUri) {
         throw new Error("Impossible de générer le PDF");
@@ -1048,10 +1036,8 @@ const FinanceInvoicing = () => {
       // Sauvegarder le document avec l'HTML généré
       setDocForm(prev => ({ ...prev, htmlContent: generatedHtml }));
 
-      console.log("📄 Envoi au serveur pour génération PDF avec Puppeteer...");
-      console.log(`📏 Taille HTML à envoyer: ${(generatedHtml.length / 1024).toFixed(2)} KB`);
-      console.log("🔍 Premiers 500 chars du HTML:", generatedHtml.substring(0, 500));
-      console.log("🔍 Derniers 200 chars du HTML:", generatedHtml.substring(generatedHtml.length - 200));
+      console.log("📄 Génération PDF côté client...");
+      console.log(`📏 Taille HTML: ${(generatedHtml.length / 1024).toFixed(2)} KB`);
       
       // Vérifier que le HTML contient du contenu text
       const tempDiv = document.createElement('div');
@@ -1062,33 +1048,17 @@ const FinanceInvoicing = () => {
         console.warn("⚠️ ATTENTION: HTML généré presque vide!");
       }
 
-      // Appeler l'endpoint serveur pour générer le PDF
-      const token = localStorage.getItem("token");
-      const generateResponse = await fetch(
-        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/finance/documents/${editingDocument.id}/generate-pdf`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ htmlContent: generatedHtml })
-        }
+      // ✅ Générer le PDF côté client
+      const pdfDataUri = await generatePDFDataURI(
+        generatedHtml,
+        `${docForm.type === 'QUOTE' ? 'Devis' : 'Facture'}_${docForm.number}.pdf`
       );
 
-      if (!generateResponse.ok) {
-        const error = await generateResponse.json();
-        throw new Error(error.error || "Erreur lors de la génération du PDF");
-      }
-
-      const generateResult = await generateResponse.json();
-      const pdfDataUri = generateResult.pdfDataUri;
-
       if (!pdfDataUri) {
-        throw new Error("Impossible de générer le PDF - résultat vide du serveur");
+        throw new Error("Impossible de générer le PDF");
       }
 
-      console.log("✅ PDF généré avec succès par Puppeteer!");
+      console.log("✅ PDF généré côté client!");
 
       // Télécharger le PDF au lieu de l'ouvrir (évite les erreurs de sécurité)
       downloadPDF(pdfDataUri, `${docForm.type === 'QUOTE' ? 'Devis' : 'Facture'}_${docForm.number}.pdf`);
