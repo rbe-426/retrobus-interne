@@ -279,9 +279,10 @@ const AdminFinance = () => {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
+      console.log('📊 Chargement des données financières en parallèle...');
       
-      // Charger toutes les données en parallèle
-      await Promise.all([
+      // Charger toutes les données en parallèle avec gestion d'erreur isolée
+      const results = await Promise.allSettled([
         loadBalance(),
         loadTransactions(),
         loadScheduledOperations(),
@@ -293,6 +294,10 @@ const AdminFinance = () => {
         loadFinanceCategories(),
         loadEvents()
       ]);
+      
+      // Compter les succès
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      console.log(`✅ Chargement finances: ${successCount}/10 sources réussies`);
       
     } catch (error) {
       console.error('❌ Erreur chargement données financières:', error);
@@ -1600,7 +1605,12 @@ const AdminFinance = () => {
       if (response.ok) {
         toast({ status: 'success', title: 'Mensualité déclarée payée' });
         onDeclarePaymentClose();
-        await Promise.all([loadScheduledOperations(), loadTransactions(), loadBalance()]);
+        // Recharger les données affectées avec isole error handling
+        await Promise.allSettled([
+          loadScheduledOperations(), 
+          loadTransactions(), 
+          loadBalance()
+        ]);
       } else {
         const err = await response.json().catch(() => ({}));
         toast({ status: 'error', title: 'Erreur', description: err.message || 'Déclaration impossible' });
@@ -1622,12 +1632,20 @@ const AdminFinance = () => {
   // Charger les données au montage du composant
   useEffect(() => {
     const initializeData = async () => {
-      await loadUserInfo();
-      await loadFinancialData();
-      await loadTemplates();
+      console.log('🔄 Initialisation des données AdminFinance...');
+      
+      // Charger en parallèle avec error isolation
+      const results = await Promise.allSettled([
+        loadUserInfo(),
+        loadFinancialData(),
+        loadTemplates()
+      ]);
+      
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      console.log(`✅ Initialisation: ${successCount}/3 sources réussies`);
     };
     
-    initializeData();
+    initializeData().catch(err => console.error('❌ Erreur init globale:', err));
   }, []);
 
   // Re-calculer les stats quand les données changent
