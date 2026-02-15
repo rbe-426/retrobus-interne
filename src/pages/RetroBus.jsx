@@ -517,13 +517,18 @@ export default function RetroBus() {
     try {
       setLoading(true);
       const list = await apiClient.get('/vehicles');
-      setVehicles(Array.isArray(list) ? list : (list?.vehicles || []));
+      const vehicles = Array.isArray(list) ? list : (list?.vehicles || []);
+      const validVehicles = vehicles.filter(v => v.parc || v.id || v.slug);
+      console.log(`✅ Loaded ${validVehicles.length} valid vehicles`);
+      setVehicles(validVehicles);
     } catch (e) {
+      console.error('❌ Error loading vehicles:', e);
       toast({
         status: 'error',
         title: "Chargement des véhicules",
         description: e.message || 'Impossible de charger la liste'
       });
+      setVehicles([]);
     } finally {
       setLoading(false);
     }
@@ -539,53 +544,65 @@ export default function RetroBus() {
     let cancelled = false;
     const loadStatuses = async () => {
       const slice = vehicles.slice(0, 24);
-      await Promise.all(
-        slice.map(async (v) => {
-          const parc = v.parc || v.id || v.slug;
-          if (!parc) return;
-          try {
-            const usages = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`);
-            if (cancelled) return;
-            const active = Array.isArray(usages) ? usages.find(u => !u.endedAt) : null;
-            setStatusByParc(prev => ({
-              ...prev,
-              [parc]: active ? { active: true, startedAt: active.startedAt, conducteur: active.conducteur } : { active: false }
-            }));
-          } catch {
-            // silencieux
-          }
-        })
-      );
+      const validVehicles = slice.filter(v => v.parc || v.id || v.slug);
+      
+      try {
+        await Promise.allSettled(
+          validVehicles.map(async (v) => {
+            const parc = v.parc || v.id || v.slug;
+            try {
+              const usages = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`);
+              if (cancelled) return;
+              const active = Array.isArray(usages) ? usages.find(u => !u.endedAt) : null;
+              setStatusByParc(prev => ({
+                ...prev,
+                [parc]: active ? { active: true, startedAt: active.startedAt, conducteur: active.conducteur } : { active: false }
+              }));
+            } catch (e) {
+              if (cancelled) return;
+              console.warn(`⚠️ Error loading status for ${parc}:`, e.message);
+              setStatusByParc(prev => ({ ...prev, [parc]: { active: false } }));
+            }
+          })
+        );
+      } catch (error) {
+        console.error('❌ Error in loadStatuses:', error);
+      }
     };
-    loadStatuses();
+    if (!cancelled) {
+      loadStatuses();
+    }
     return () => { cancelled = true; };
   }, [vehicles]);
 
   // Charger l'historique des usages pour tous les véhicules
-  const loadAllUsages = async () => {
+  const loadAllUsages = useCallback(async () => {
     if (!vehicles || vehicles.length === 0) return;
     setLoadingUsages(true);
     try {
       const usagesMap = {};
-      await Promise.all(
-        vehicles.map(async (v) => {
+      const validVehicles = vehicles.filter(v => v.parc || v.id || v.slug);
+      
+      await Promise.allSettled(
+        validVehicles.map(async (v) => {
           const parc = v.parc || v.id || v.slug;
-          if (!parc) return;
           try {
             const usages = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`);
             usagesMap[parc] = Array.isArray(usages) ? usages : [];
           } catch (e) {
+            console.warn(`⚠️ Error loading usages for ${parc}:`, e.message);
             usagesMap[parc] = [];
           }
         })
       );
       setUsagesData(usagesMap);
     } catch (error) {
-      console.error('Erreur chargement usages:', error);
+      console.error('❌ Erreur chargement usages global:', error);
+      toast({ status: 'error', title: 'Erreur', description: 'Impossible de charger l\'historique' });
     } finally {
       setLoadingUsages(false);
     }
-  };
+  }, [vehicles, toast]);
 
   const vehicleCards = useMemo(() => {
     if (!vehicles || vehicles.length === 0) return null;
@@ -593,7 +610,11 @@ export default function RetroBus() {
       <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={4} mt={4}>
         {vehicles.map((v) => {
           const parc = v.parc || v.id || v.slug;
-          const status = statusByParc[parc] || {};
+          if (!parc) {
+            console.warn('⚠️ Vehicle without parc/id/slug:', v);
+            return null;
+          }
+          const status = statusByParc[parc] || { active: false };
           let carac = [];
           let gasoil = 0;
           try {
@@ -724,8 +745,8 @@ export default function RetroBus() {
           <FiFileText />
           <Heading size="sm">Historique des usages</Heading>
         </HStack>
-        <Button size="sm" onClick={loadAllUsages} isLoading={loadingUsages}>
-          Charger
+        <Button size="sm" onClick={loadAllUsages} isLoading={loadingUsages} colorScheme="blue">
+          Charger l'historique
         </Button>
       </HStack>
 
