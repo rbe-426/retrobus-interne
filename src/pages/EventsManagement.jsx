@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Box, VStack, HStack, Heading, Text, Button, Card, CardBody, CardHeader,
@@ -64,41 +64,47 @@ export default function EventsManagement() {
   // RétroGPS
   const [gpsTracking, setGpsTracking] = useState([]);
 
+  // === LOADERS AVEC CALLBACK ===
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await eventsAPI.getAll();
+      console.log('📅 Événements chargés:', data);
+      setEvents(Array.isArray(data) ? data : data?.events || []);
+    } catch (e) {
+      console.error('❌ Erreur chargement événements:', e);
+      toast({ status: "error", title: "Erreur", description: "Impossible de charger les événements" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const loadInitialData = useCallback(async () => {
+    try {
+      console.log('📋 Chargement planifications et GPS...');
+      
+      const plans = await eventsAPI.getPlanifications();
+      setPlanifications(Array.isArray(plans) ? plans : []);
+      
+      const gps = await eventsAPI.getGPSTracking();
+      setGpsTracking(Array.isArray(gps) ? gps : []);
+      
+      console.log('✅ Données initiales chargées');
+    } catch (err) {
+      console.warn('⚠️ Erreur chargement données initiales:', err);
+    }
+  }, []);
+
+  // === EFFECTS ===
   // Fetch events
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await eventsAPI.getAll();
-        console.log('📅 Événements chargés:', data);
-        setEvents(Array.isArray(data) ? data : data?.events || []);
-      } catch (e) {
-        console.error('❌ Erreur chargement événements:', e);
-        toast({ status: "error", title: "Erreur", description: "Impossible de charger les événements" });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [toast]);
+    loadEvents();
+  }, [loadEvents]);
 
   // Charger planifications et GPS au démarrage
   useEffect(() => {
-    (async () => {
-      try {
-        const plans = await eventsAPI.getPlanifications();
-        setPlanifications(Array.isArray(plans) ? plans : []);
-      } catch (err) {
-        console.warn('Erreur chargement planifications:', err);
-      }
-
-      try {
-        const gps = await eventsAPI.getGPSTracking();
-        setGpsTracking(Array.isArray(gps) ? gps : []);
-      } catch (err) {
-        console.warn('Erreur chargement GPS:', err);
-      }
-    })();
-  }, []);
+    loadInitialData();
+  }, [loadInitialData]);
 
   // Recalculer finances
   useEffect(() => {
