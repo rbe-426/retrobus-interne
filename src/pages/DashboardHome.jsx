@@ -60,140 +60,7 @@ export default function DashboardHome() {
   );
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
-  useEffect(() => {
-    setFlashes(loadFlashes());
-    loadDashboardData();
-    
-    // Actualiser les données toutes les 5 minutes
-    const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadDashboardData = useCallback(async () => {
-    try {
-      console.log('🔄 Chargement des données du dashboard...');
-      
-      // Charger toutes les données en parallèle avec gestion d'erreur robuste (isolée par appel)
-      const results = await Promise.allSettled([
-        (async () => {
-          try {
-            await loadVehiclesData();
-            return { success: true, type: 'vehicles' };
-          } catch (e) {
-            console.error('❌ Erreur vehicles:', e);
-            return { success: false, type: 'vehicles', error: e };
-          }
-        })(),
-        (async () => {
-          try {
-            await loadEventsData();
-            return { success: true, type: 'events' };
-          } catch (e) {
-            console.error('❌ Erreur events:', e);
-            return { success: false, type: 'events', error: e };
-          }
-        })(),
-        (async () => {
-          try {
-            await loadMembersData();
-            return { success: true, type: 'members' };
-          } catch (e) {
-            console.error('❌ Erreur members:', e);
-            return { success: false, type: 'members', error: e };
-          }
-        })(),
-        (async () => {
-          try {
-            await loadRetroActus();
-            return { success: true, type: 'retroActus' };
-          } catch (e) {
-            console.error('❌ Erreur retroActus:', e);
-            return { success: false, type: 'retroActus', error: e };
-          }
-        })()
-      ]);
-      
-      // Compter les succès
-      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-      console.log(`📊 Charger du dashboard: ${successCount}/4 sources réussies`);
-    } catch (error) {
-      console.error('❌ Erreur globale loadDashboardData:', error);
-    }
-  }, [loadVehiclesData, loadEventsData, loadMembersData, loadRetroActus]);
-
-  const loadRetroActus = useCallback(async () => {
-    try {
-      console.log('📰 Chargement des RétroActus...');
-      
-      // Charger les actualités publiées depuis l'API RetroNews
-      const response = await apiClient.get('/api/retro-news');
-      const data = Array.isArray(response) ? response : (response?.news || []);
-      
-      // Filtrer pour ne garder que les publiés et les trier (vedettes en premier)
-      const published = data
-        .filter(news => news.published || news.status === 'published')
-        .sort((a, b) => {
-          if (a.featured !== b.featured) return b.featured - a.featured;
-          return new Date(b.publishedAt) - new Date(a.publishedAt);
-        });
-      
-      console.log('✅ RétroActus chargés:', published.length);
-      setRetroActus(published);
-      
-      setStats(prev => ({
-        ...prev,
-        retroActus: { total: published.length, loading: false }
-      }));
-    } catch (error) {
-      console.error('❌ Erreur chargement RétroActus:', error);
-      setRetroActus([]);
-      setStats(prev => ({
-        ...prev,
-        retroActus: { total: 0, loading: false }
-      }));
-    }
-  }, []);
-
-  const shareRetroActu = async (actu) => {
-    const subject = encodeURIComponent(`RétroActus: ${actu?.title || 'News'}`);
-    const bodyText = encodeURIComponent(
-      `Découvrez cette actualité de RétroBus Essonne:\n\n` +
-      `${actu?.title || 'Sans titre'}\n\n` +
-      `${actu?.body || actu?.content || ''}\n\n` +
-      `Site: https://retrobus-essonne.fr`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${bodyText}`;
-  };
-
-  const shareOnWeb = async (actu) => {
-    // Vérifie si l'API Web Share est disponible
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: actu?.title || 'RétroActus',
-          text: actu?.body || actu?.content || '',
-          url: 'https://retrobus-essonne.fr'
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Erreur partage web:', err);
-        }
-      }
-    } else {
-      // Fallback: copier dans le presse-papiers
-      const textToCopy = `${actu?.title}\n${actu?.body || actu?.content}\nhttps://retrobus-essonne.fr`;
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        toast({
-          title: "Copié!",
-          description: "L'actualité a été copiée dans le presse-papiers",
-          status: "success",
-          duration: 2000,
-          isClosable: true,
-        });
-      });
-    }
-  };
-
+  // === LOADERS DÉCLARÉS EN PREMIER (avant useEffect) ===
   const loadVehiclesData = useCallback(async () => {
     try {
       console.log('📊 Chargement des véhicules...');
@@ -359,6 +226,141 @@ export default function DashboardHome() {
       }));
     }
   }, []);
+
+  const loadRetroActus = useCallback(async () => {
+    try {
+      console.log('📰 Chargement des RétroActus...');
+      
+      // Charger les actualités publiées depuis l'API RetroNews
+      const response = await apiClient.get('/api/retro-news');
+      const data = Array.isArray(response) ? response : (response?.news || []);
+      
+      // Filtrer pour ne garder que les publiés et les trier (vedettes en premier)
+      const published = data
+        .filter(news => news.published || news.status === 'published')
+        .sort((a, b) => {
+          if (a.featured !== b.featured) return b.featured - a.featured;
+          return new Date(b.publishedAt) - new Date(a.publishedAt);
+        });
+      
+      console.log('✅ RétroActus chargés:', published.length);
+      setRetroActus(published);
+      
+      setStats(prev => ({
+        ...prev,
+        retroActus: { total: published.length, loading: false }
+      }));
+    } catch (error) {
+      console.error('❌ Erreur chargement RétroActus:', error);
+      setRetroActus([]);
+      setStats(prev => ({
+        ...prev,
+        retroActus: { total: 0, loading: false }
+      }));
+    }
+  }, []);
+
+  const loadDashboardData = useCallback(async () => {
+    try {
+      console.log('🔄 Chargement des données du dashboard...');
+      
+      // Charger toutes les données en parallèle avec gestion d'erreur robuste (isolée par appel)
+      const results = await Promise.allSettled([
+        (async () => {
+          try {
+            await loadVehiclesData();
+            return { success: true, type: 'vehicles' };
+          } catch (e) {
+            console.error('❌ Erreur vehicles:', e);
+            return { success: false, type: 'vehicles', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadEventsData();
+            return { success: true, type: 'events' };
+          } catch (e) {
+            console.error('❌ Erreur events:', e);
+            return { success: false, type: 'events', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadMembersData();
+            return { success: true, type: 'members' };
+          } catch (e) {
+            console.error('❌ Erreur members:', e);
+            return { success: false, type: 'members', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadRetroActus();
+            return { success: true, type: 'retroActus' };
+          } catch (e) {
+            console.error('❌ Erreur retroActus:', e);
+            return { success: false, type: 'retroActus', error: e };
+          }
+        })()
+      ]);
+      
+      // Compter les succès
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+      console.log(`📊 Charger du dashboard: ${successCount}/4 sources réussies`);
+    } catch (error) {
+      console.error('❌ Erreur globale loadDashboardData:', error);
+    }
+  }, [loadVehiclesData, loadEventsData, loadMembersData, loadRetroActus]);
+
+  const shareRetroActu = async (actu) => {
+    const subject = encodeURIComponent(`RétroActus: ${actu?.title || 'News'}`);
+    const bodyText = encodeURIComponent(
+      `Découvrez cette actualité de RétroBus Essonne:\n\n` +
+      `${actu?.title || 'Sans titre'}\n\n` +
+      `${actu?.body || actu?.content || ''}\n\n` +
+      `Site: https://retrobus-essonne.fr`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${bodyText}`;
+  };
+
+  const shareOnWeb = async (actu) => {
+    // Vérifie si l'API Web Share est disponible
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: actu?.title || 'RétroActus',
+          text: actu?.body || actu?.content || '',
+          url: 'https://retrobus-essonne.fr'
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Erreur partage web:', err);
+        }
+      }
+    } else {
+      // Fallback: copier dans le presse-papiers
+      const textToCopy = `${actu?.title}\n${actu?.body || actu?.content}\nhttps://retrobus-essonne.fr`;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        toast({
+          title: "Copié!",
+          description: "L'actualité a été copiée dans le presse-papiers",
+          status: "success",
+          duration: 2000,
+          isClosable: true,
+        });
+      });
+    }
+  };
+
+  // === EFFECTS (après les loaders) ===
+  useEffect(() => {
+    setFlashes(loadFlashes());
+    loadDashboardData();
+    
+    // Actualiser les données toutes les 5 minutes
+    const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadDashboardData]);
 
   // Finaliser le loading quand toutes les données sont chargées
   useEffect(() => {
