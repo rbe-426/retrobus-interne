@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
   SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, Image, Divider
@@ -62,18 +62,28 @@ export default function RetroMail() {
     }
     (async () => {
       try {
-        const arr = await Promise.all(files.map(async (fn) => {
+        const results = await Promise.allSettled(files.map(async (fn) => {
           try {
             const r = await fetch(`${API.replace(/\/$/,'')}/retromail/${encodeURIComponent(fn)}`);
-            if (!r.ok) return null;
+            if (!r.ok) {
+              console.warn(`⚠️ Failed to fetch ${fn}: ${r.status}`);
+              return null;
+            }
             const json = await r.json();
             return { filename: fn, json };
           } catch (e) {
+            console.error(`❌ Error fetching ${fn}:`, e.message);
             return null;
           }
         }));
+        
         if (!mounted) return;
-        const filtered = arr.filter(Boolean).sort((a,b) => {
+        
+        const arr = results
+          .map((r) => r.status === 'fulfilled' ? r.value : null)
+          .filter(Boolean);
+        
+        const filtered = arr.sort((a,b) => {
           const ta = new Date(a.json.createdAt || 0).getTime();
           const tb = new Date(b.json.createdAt || 0).getTime();
           return tb - ta;
@@ -81,45 +91,60 @@ export default function RetroMail() {
         setMessages(filtered);
         if (!selected && filtered.length > 0) setSelected(filtered[0].filename);
       } catch (e) {
-        console.error(e);
+        console.error('❌ Error loading messages:', e.message);
       }
     })();
     return () => { mounted = false; };
   }, [files]);
 
   // read/unread helpers
-  const markRead = (filename) => {
+  const markRead = useCallback((filename) => {
     const key = readMapKey(matricule);
     try {
       const raw = localStorage.getItem(key);
       const map = raw ? JSON.parse(raw) : {};
       map[filename] = Date.now();
       localStorage.setItem(key, JSON.stringify(map));
-    } catch (e) { /* ignore */ }
-  };
-  const isRead = (filename) => {
+      console.log(`✅ Marked read: ${filename}`);
+    } catch (e) { 
+      console.error('❌ Error marking as read:', e.message);
+    }
+  }, [matricule]);
+  
+  const isRead = useCallback((filename) => {
     try {
       const raw = localStorage.getItem(readMapKey(matricule));
       if (!raw) return false;
       const map = JSON.parse(raw);
       return Boolean(map && map[filename]);
-    } catch (e) { return false; }
-  };
+    } catch (e) { 
+      console.error('❌ Error checking read status:', e.message);
+      return false; 
+    }
+  }, [matricule]);
 
   // release video (admin only) — persisted locally for now
-  const releaseVideo = (uploadFilename) => {
+  const releaseVideo = useCallback((uploadFilename) => {
     try {
       localStorage.setItem(releasedKey(uploadFilename), "1");
+      console.log(`✅ Video released: ${uploadFilename}`);
       toast({ status: "success", title: "Vidéo libérée", description: "Le téléchargement est maintenant autorisé localement." });
       // force rerender
       setMessages(m => [...m]);
     } catch (e) {
+      console.error('❌ Error releasing video:', e.message);
       toast({ status: "error", title: "Impossible", description: String(e.message) });
     }
-  };
-  const isReleased = (uploadFilename) => {
-    return localStorage.getItem(releasedKey(uploadFilename)) === "1";
-  };
+  }, [toast]);
+  
+  const isReleased = useCallback((uploadFilename) => {
+    try {
+      return localStorage.getItem(releasedKey(uploadFilename)) === "1";
+    } catch (e) {
+      console.error('❌ Error checking release status:', e.message);
+      return false;
+    }
+  }, []);
 
   const listFiltered = useMemo(() => {
     if (!messages) return [];
@@ -140,7 +165,7 @@ export default function RetroMail() {
     markRead(selected);
     // update messages state to reflect read change (force re-render)
     setMessages(prev => [...prev]);
-  }, [selected]);
+  }, [selected, markRead]);
 
   return (
     <Box p={6}>
