@@ -27,17 +27,17 @@ const VehicleAdministrationPanel = ({ parc }) => {
     try {
       setLoading(true);
       const [cgRes, assRes, ctRes, certRes, certTempRes, echRes] = await Promise.all([
-        apiClient.get(`/vehicles/${parc}/cg`),
-        apiClient.get(`/vehicles/${parc}/assurance`),
-        apiClient.get(`/vehicles/${parc}/ct`),
-        apiClient.get(`/vehicles/${parc}/certificat-cession`),
-        apiClient.get(`/vehicles/${parc}/certificat-temporaire`),
-        apiClient.get(`/vehicles/${parc}/echancier`)
+        apiClient.get(`/vehicles/${parc}/cg`).catch(() => null),
+        apiClient.get(`/vehicles/${parc}/assurance`).catch(() => null),
+        apiClient.get(`/vehicles/${parc}/ct`).catch(() => null),
+        apiClient.get(`/vehicles/${parc}/certificat-cession`).catch(() => null),
+        apiClient.get(`/vehicles/${parc}/certificat-temporaire`).catch(() => null),
+        apiClient.get(`/vehicles/${parc}/echancier`).catch(() => [])
       ]);
 
       setCarteGrise(cgRes);
       setAssurance(assRes);
-      setControleTechnique(ctRes.latestCT);
+      setControleTechnique(ctRes?.latestCT || null);
       setCertificat(certRes);
       setCertificatTemporaire(certTempRes);
       setEchancier(Array.isArray(echRes) ? echRes : []);
@@ -131,7 +131,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
                         </Box>
                       )}
                     </SimpleGrid>
-                    {ct.notes && <Text mt={4}><strong>Notes :</strong> {ct.notes}</Text>}
+                    {ct.notes && <Text mt={4}><strong>Notes:</strong> {ct.notes}</Text>}
                   </CardBody>
                 </Card>
               )}
@@ -200,14 +200,33 @@ const VehicleAdministrationPanel = ({ parc }) => {
 
   function CarteGriseForm({ parc, data, onSave }) {
     const [form, setForm] = useState(data || {});
+    const [saving, setSaving] = useState(false);
+
+    const handleFileChange = async (e, type) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result?.split(',')[1];
+          setForm({ ...form, type, documentPath: base64, fileName: file.name });
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur fichier', description: error.message });
+      }
+    };
 
     const handleSubmit = async () => {
       try {
+        setSaving(true);
         await apiClient.post(`/vehicles/${parc}/cg`, form);
         toast({ status: 'success', title: 'Carte grise mise à jour' });
         onSave();
       } catch (error) {
         toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -223,7 +242,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               <Input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setForm({ ...form, type: 'old', documentPath: e.target.value })}
+                onChange={(e) => handleFileChange(e, 'old')}
               />
               {data?.oldCGPath && (
                 <HStack mt={2}>
@@ -240,7 +259,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               <Input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setForm({ ...form, type: 'new', documentPath: e.target.value })}
+                onChange={(e) => handleFileChange(e, 'new')}
               />
             </FormControl>
 
@@ -252,7 +271,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               />
             </FormControl>
 
-            <Button colorScheme="blue" onClick={handleSubmit}>Enregistrer</Button>
+            <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Enregistrer</Button>
           </VStack>
         </CardBody>
       </Card>
@@ -313,14 +332,33 @@ const VehicleAdministrationPanel = ({ parc }) => {
 
   function AssuranceForm({ parc, data, onSave }) {
     const [form, setForm] = useState(data || {});
+    const [saving, setSaving] = useState(false);
+
+    const handleFileChange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result?.split(',')[1];
+          setForm({ ...form, attestationPath: base64, fileName: file.name });
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur fichier', description: error.message });
+      }
+    };
 
     const handleSubmit = async () => {
       try {
+        setSaving(true);
         await apiClient.post(`/vehicles/${parc}/assurance`, form);
         toast({ status: 'success', title: 'Assurance mise à jour' });
         onSave();
       } catch (error) {
         toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -336,7 +374,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               <Input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setForm({ ...form, attestationPath: e.target.value })}
+                onChange={handleFileChange}
               />
             </FormControl>
 
@@ -386,7 +424,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               />
             </FormControl>
 
-            <Button colorScheme="blue" onClick={handleSubmit}>Enregistrer</Button>
+            <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Enregistrer</Button>
           </VStack>
         </CardBody>
       </Card>
@@ -395,14 +433,33 @@ const VehicleAdministrationPanel = ({ parc }) => {
 
   function ControleTechniqueForm({ parc, onSave }) {
     const [form, setForm] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    const handleFileChange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result?.split(',')[1];
+          setForm({ ...form, attestationPath: base64, fileName: file.name });
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur fichier', description: error.message });
+      }
+    };
 
     const handleSubmit = async () => {
       try {
+        setSaving(true);
         await apiClient.post(`/vehicles/${parc}/ct`, form);
         toast({ status: 'success', title: 'CT enregistré' });
         onSave();
       } catch (error) {
         toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -418,7 +475,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               <Input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setForm({ ...form, attestationPath: e.target.value })}
+                onChange={handleFileChange}
               />
             </FormControl>
 
@@ -467,7 +524,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               />
             </FormControl>
 
-            <Button colorScheme="blue" onClick={handleSubmit}>Enregistrer</Button>
+            <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Enregistrer</Button>
           </VStack>
         </CardBody>
       </Card>
@@ -476,14 +533,33 @@ const VehicleAdministrationPanel = ({ parc }) => {
 
   function CertificatForm({ parc, onSave }) {
     const [form, setForm] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    const handleFileChange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result?.split(',')[1];
+          setForm({ ...form, certificatPath: base64, fileName: file.name });
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur fichier', description: error.message });
+      }
+    };
 
     const handleSubmit = async () => {
       try {
+        setSaving(true);
         await apiClient.post(`/vehicles/${parc}/certificat-cession`, form);
         toast({ status: 'success', title: 'Certificat de cession importé' });
         onSave();
       } catch (error) {
         toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -504,7 +580,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               <Input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setForm({ ...form, certificatPath: e.target.value })}
+                onChange={handleFileChange}
               />
             </FormControl>
 
@@ -516,7 +592,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               />
             </FormControl>
 
-            <Button colorScheme="blue" onClick={handleSubmit}>Importer</Button>
+            <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Importer</Button>
           </VStack>
         </CardBody>
       </Card>
@@ -525,15 +601,19 @@ const VehicleAdministrationPanel = ({ parc }) => {
 
   function EchancierForm({ parc, onSave }) {
     const [form, setForm] = useState({});
+    const [saving, setSaving] = useState(false);
 
     const handleSubmit = async () => {
       try {
+        setSaving(true);
         await apiClient.post(`/vehicles/${parc}/echancier`, form);
         toast({ status: 'success', title: 'Échéancier ajouté' });
         onSave();
         setForm({});
       } catch (error) {
         toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -579,7 +659,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
               />
             </FormControl>
 
-            <Button colorScheme="blue" onClick={handleSubmit}>Ajouter</Button>
+            <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Enregistrer</Button>
           </VStack>
         </CardBody>
       </Card>

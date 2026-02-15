@@ -19,7 +19,7 @@ const VehicleAdminStatus = ({ parc }) => {
 
   const loadStatus = async () => {
     try {
-      setLoading(false);
+      setLoading(true);
       const [cgRes, assRes, ctRes, certRes, certTempRes] = await Promise.all([
         vehicleAdminAPI.getCarteGrise(parc).catch(() => null),
         vehicleAdminAPI.getAssurance(parc).catch(() => null),
