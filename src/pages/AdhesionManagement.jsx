@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, VStack, HStack, Button, Flex, useToast, Text, Spinner,
   useDisclosure, SimpleGrid, Card, CardBody, CardHeader,
@@ -57,12 +57,8 @@ export default function AdhesionManagement() {
   const toast = useToast();
   const token = localStorage.getItem('token');
 
-  // Charger la liste des membres
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  const fetchMembers = async () => {
+  // === LOADERS ===
+  const fetchMembers = useCallback(async () => {
     try {
       setLoading(true);
       setApiError(null);
@@ -98,7 +94,13 @@ export default function AdhesionManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  // === EFFECTS ===
+  // Charger la liste des membres
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
 
   const handleSelectMember = (member) => {
     setSelectedMember(member);
