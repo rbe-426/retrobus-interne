@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box, SimpleGrid, GridItem, Heading, Text, Button, Link as ChakraLink,
   Stack, Stat, StatLabel, StatNumber, HStack, VStack, Badge, useColorModeValue,
@@ -45,7 +45,8 @@ export default function DashboardHome() {
   const [stats, setStats] = useState({
     vehicles: { total: 0, active: 0, loading: true },
     events: { total: 0, upcoming: 0, published: 0, loading: true },
-    members: { total: 0, active: 0, loading: true }
+    members: { total: 0, active: 0, loading: true },
+    retroActus: { total: 0, loading: true }
   });
   const [loading, setLoading] = useState(true);
   const [retroActus, setRetroActus] = useState([]);
@@ -68,20 +69,62 @@ export default function DashboardHome() {
     return () => clearInterval(interval);
   }, []);
 
-  const loadDashboardData = async () => {
-    console.log('🔄 Chargement des données du dashboard...');
-    
-    // Charger chaque type de données en parallèle
-    loadVehiclesData();
-    loadEventsData();
-    loadMembersData();
-    
-    // Charger les actus
-    loadRetroActus();
-  };
-
-  const loadRetroActus = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
+      console.log('🔄 Chargement des données du dashboard...');
+      
+      // Charger toutes les données en parallèle avec gestion d'erreur robuste (isolée par appel)
+      const results = await Promise.allSettled([
+        (async () => {
+          try {
+            await loadVehiclesData();
+            return { success: true, type: 'vehicles' };
+          } catch (e) {
+            console.error('❌ Erreur vehicles:', e);
+            return { success: false, type: 'vehicles', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadEventsData();
+            return { success: true, type: 'events' };
+          } catch (e) {
+            console.error('❌ Erreur events:', e);
+            return { success: false, type: 'events', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadMembersData();
+            return { success: true, type: 'members' };
+          } catch (e) {
+            console.error('❌ Erreur members:', e);
+            return { success: false, type: 'members', error: e };
+          }
+        })(),
+        (async () => {
+          try {
+            await loadRetroActus();
+            return { success: true, type: 'retroActus' };
+          } catch (e) {
+            console.error('❌ Erreur retroActus:', e);
+            return { success: false, type: 'retroActus', error: e };
+          }
+        })()
+      ]);
+      
+      // Compter les succès
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+      console.log(`📊 Charger du dashboard: ${successCount}/4 sources réussies`);
+    } catch (error) {
+      console.error('❌ Erreur globale loadDashboardData:', error);
+    }
+  }, [loadVehiclesData, loadEventsData, loadMembersData, loadRetroActus]);
+
+  const loadRetroActus = useCallback(async () => {
+    try {
+      console.log('📰 Chargement des RétroActus...');
+      
       // Charger les actualités publiées depuis l'API RetroNews
       const response = await apiClient.get('/api/retro-news');
       const data = Array.isArray(response) ? response : (response?.news || []);
@@ -94,12 +137,22 @@ export default function DashboardHome() {
           return new Date(b.publishedAt) - new Date(a.publishedAt);
         });
       
+      console.log('✅ RétroActus chargés:', published.length);
       setRetroActus(published);
+      
+      setStats(prev => ({
+        ...prev,
+        retroActus: { total: published.length, loading: false }
+      }));
     } catch (error) {
-      console.error('Erreur chargement RétroActus:', error);
+      console.error('❌ Erreur chargement RétroActus:', error);
       setRetroActus([]);
+      setStats(prev => ({
+        ...prev,
+        retroActus: { total: 0, loading: false }
+      }));
     }
-  };
+  }, []);
 
   const shareRetroActu = async (actu) => {
     const subject = encodeURIComponent(`RétroActus: ${actu?.title || 'News'}`);
@@ -141,13 +194,13 @@ export default function DashboardHome() {
     }
   };
 
-  const loadVehiclesData = async () => {
+  const loadVehiclesData = useCallback(async () => {
     try {
       console.log('📊 Chargement des véhicules...');
       
       // Vérifier si l'API existe
       if (!vehiculesAPI || typeof vehiculesAPI.getAll !== 'function') {
-        console.warn('vehiculesAPI non disponible');
+        console.warn('⚠️ vehiculesAPI non disponible');
         setStats(prev => ({
           ...prev,
           vehicles: { total: 0, active: 0, loading: false }
@@ -192,15 +245,15 @@ export default function DashboardHome() {
         vehicles: { total: 0, active: 0, loading: false }
       }));
     }
-  };
+  }, []);
 
-  const loadEventsData = async () => {
+  const loadEventsData = useCallback(async () => {
     try {
-      console.log('📊 Chargement des événements...');
+      console.log('📅 Chargement des événements...');
       
       // Vérifier si l'API existe
       if (!eventsAPI || typeof eventsAPI.getAll !== 'function') {
-        console.warn('eventsAPI non disponible');
+        console.warn('⚠️ eventsAPI non disponible');
         setStats(prev => ({
           ...prev,
           events: { total: 0, upcoming: 0, published: 0, loading: false }
@@ -254,15 +307,15 @@ export default function DashboardHome() {
         events: { total: 0, upcoming: 0, published: 0, loading: false }
       }));
     }
-  };
+  }, []);
 
-  const loadMembersData = async () => {
+  const loadMembersData = useCallback(async () => {
     try {
-      console.log('📊 Chargement des membres...');
+      console.log('👥 Chargement des membres...');
       
       // Vérifier si l'API existe
       if (!membersAPI || typeof membersAPI.getAll !== 'function') {
-        console.warn('membersAPI non disponible');
+        console.warn('⚠️ membersAPI non disponible');
         setStats(prev => ({
           ...prev,
           members: { total: 0, active: 0, loading: false }
@@ -305,13 +358,13 @@ export default function DashboardHome() {
         members: { total: 0, active: 0, loading: false }
       }));
     }
-  };
+  }, []);
 
   // Finaliser le loading quand toutes les données sont chargées
   useEffect(() => {
-    const allLoaded = !stats.vehicles.loading && !stats.events.loading && !stats.members.loading;
+    const allLoaded = !stats.vehicles.loading && !stats.events.loading && !stats.members.loading && !stats.retroActus.loading;
     if (allLoaded && loading) {
-      console.log('✅ Toutes les données sont chargées');
+      console.log('✅ Toutes les données du dashboard sont chargées');
       setLoading(false);
     }
   }, [stats, loading]);
