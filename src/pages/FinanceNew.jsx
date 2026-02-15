@@ -47,12 +47,7 @@ const FinanceNew = () => {
     loadFinanceData();
   }, [loadFinanceData]);
 
-  // Recharger les données quand on change de section pour assurer la fraîcheur des données
-  useEffect(() => {
-    loadFinanceData();
-  }, [activeMainSection, loadFinanceData]);
-
-  // Recharger les données automatiquement toutes les 30 secondes pour maintenir la fraîcheur
+  // ⏱️ Auto-refresh every 30 seconds to keep data fresh (replace manual reloads on section change)
   useEffect(() => {
     const interval = setInterval(() => {
       loadFinanceData();
