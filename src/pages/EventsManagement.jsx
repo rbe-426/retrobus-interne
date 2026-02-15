@@ -54,7 +54,6 @@ export default function EventsManagement() {
   // Participants, routes, finances
   const [participants, setParticipants] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [fin, setFin] = useState({ revenue: 0, expenses: 0, profit: 0, capacity: 0, occupancy: 0, rate: 0, breakdown: null });
   const [ha, setHa] = useState({ url: "", org: "", event: "" });
   const [relatedTransactions, setRelatedTransactions] = useState([]);
 
@@ -378,9 +377,9 @@ export default function EventsManagement() {
     };
   }, [selectedEvent, participants, routes]);
 
-  useEffect(() => {
-    if (recalc) setFin(recalc);
-  }, [recalc]);
+  // Finances par défaut
+  const defaultFin = { revenue: 0, expenses: 0, profit: 0, capacity: 0, occupancy: 0, rate: 0, breakdown: null };
+  const fin = recalc || defaultFin;
 
   // === RENDUS DE SECTIONS ===
   const renderListTab = () => (
