@@ -41,6 +41,7 @@ import {
 } from '@chakra-ui/react';
 import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers, FiEye, FiTrash2, FiGlobe, FiEyeOff, FiLock, FiTruck, FiDownload } from 'react-icons/fi';
 import VehicleSelector from '../components/VehicleSelector';
+import EventCreationWizard from '../components/EventCreationWizard';
 import { eventsAPI, vehiculesAPI } from '../api';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
@@ -474,6 +475,66 @@ export default function EventsCreation() {
     }
   };
 
+  // Callback pour le wizard
+  const handleWizardSave = async (wizardData) => {
+    try {
+      setSaving(true);
+      console.log('📝 Wizard save called with:', wizardData);
+      
+      const maxParticipantsNum = wizardData.maxParticipants ? parseInt(wizardData.maxParticipants) : null;
+      
+      const eventData = {
+        title: wizardData.title.trim(),
+        date: wizardData.date,
+        time: wizardData.time || null,
+        location: wizardData.location.trim() || null,
+        description: wizardData.description.trim() || null,
+        adultPrice: wizardData.isFree ? null : (wizardData.adultPrice ? parseFloat(wizardData.adultPrice) : null),
+        childPrice: wizardData.isFree ? null : (wizardData.childPrice ? parseFloat(wizardData.childPrice) : null),
+        vehicleId: wizardData.vehicleId || null,
+        status: wizardData.status || 'PUBLISHED',
+        maxParticipants: maxParticipantsNum,
+        extras: JSON.stringify({
+          isVisible: wizardData.isVisible,
+          allowPublicRegistration: wizardData.allowPublicRegistration,
+          requiresRegistration: wizardData.requiresRegistration,
+          isFree: wizardData.isFree,
+          maxParticipants: maxParticipantsNum,
+          registrationDeadline: wizardData.registrationDeadline || null,
+          registrationMethod: wizardData.registrationMethod,
+          template: wizardData.template,
+          customQuestions: wizardData.customQuestions || [],
+          eventType: wizardData.eventType || 'OUTING',
+          pdfUrl: null
+        })
+      };
+
+      console.log('🚀 Saving wizard event:', eventData);
+      eventData.id = generateEventSlug(wizardData.title, wizardData.date);
+      
+      await eventsAPI.create(eventData);
+      toast({
+        status: "success",
+        title: "Événement créé",
+        description: "Le nouvel événement a été créé avec succès"
+      });
+
+      fetchEvents();
+      onClose();
+      resetForm();
+      setSelectedTemplate('');
+    } catch (e) {
+      console.error('❌ handleWizardSave error:', e);
+      toast({
+        status: "error",
+        title: "Erreur de sauvegarde",
+        description: e.message || "Impossible de sauvegarder l'événement"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Fonctions utilitaires pour l'affichage
   const getStatusBadge = (status) => {
     const configs = {
@@ -675,536 +736,12 @@ export default function EventsCreation() {
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Tabs>
-              <TabList>
-                <Tab>Informations de base</Tab>
-                <Tab>Templates</Tab>
-                <Tab>Inscription & Prix</Tab>
-                <Tab>Informations supplémentaires</Tab>
-              </TabList>
-
-              <TabPanels>
-                {/* Onglet 1: Informations de base */}
-                <TabPanel>
-                  <VStack spacing={4}>
-                    <FormControl isRequired>
-                      <FormLabel>Titre</FormLabel>
-                      <Input
-                        value={formData.title}
-                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Nom de l'événement"
-                      />
-                    </FormControl>
-
-                    <HStack w="100%" spacing={4}>
-                      <FormControl isRequired>
-                        <FormLabel>Date</FormLabel>
-                        <Input
-                          type="date"
-                          value={formData.date}
-                          onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                        />
-                      </FormControl>
-                      <FormControl>
-                        <FormLabel>Heure</FormLabel>
-                        <Input
-                          type="time"
-                          value={formData.time}
-                          onChange={(e) => setFormData(prev => ({ ...prev, time: e.target.value }))}
-                        />
-                      </FormControl>
-                    </HStack>
-
-                    <FormControl>
-                      <FormLabel>Lieu</FormLabel>
-                      <Input
-                        value={formData.location}
-                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                        placeholder="Lieu de l'événement"
-                      />
-                    </FormControl>
-
-                    {/* Sélecteur de véhicule */}
-                    <FormControl>
-                      <FormLabel>Véhicule assigné</FormLabel>
-                      <VehicleSelector
-                        vehicles={vehicles}
-                        value={formData.vehicleId}
-                        onChange={(vehicleId) => setFormData(prev => ({ ...prev, vehicleId }))}
-                      />
-                    </FormControl>
-
-                    <FormControl>
-                      <FormLabel>Description</FormLabel>
-                      <Textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Description de l'événement"
-                        rows={4}
-                      />
-                    </FormControl>
-                  </VStack>
-                </TabPanel>
-
-                {/* Onglet 2: Templates */}
-                <TabPanel>
-                  <VStack spacing={6} align="stretch">
-                    <Box>
-                      <Text fontWeight="bold" mb={4}>Sélectionnez un template pour configurer automatiquement les paramètres d'inscription :</Text>
-                    </Box>
-
-                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                      {Object.entries(EVENT_TEMPLATES).map(([key, template]) => (
-                        <Card
-                          key={key}
-                          cursor="pointer"
-                          onClick={() => applyTemplate(key)}
-                          bg={selectedTemplate === key ? `${template.color}.50` : "white"}
-                          borderColor={selectedTemplate === key ? `${template.color}.200` : "gray.200"}
-                          borderWidth="2px"
-                          _hover={{ borderColor: `${template.color}.300` }}
-                        >
-                          <CardBody>
-                            <VStack align="start" spacing={2}>
-                              <HStack>
-                                <Icon as={template.icon} color={`${template.color}.500`} />
-                                <Text fontWeight="bold" color={`${template.color}.700`}>
-                                  {template.name}
-                                </Text>
-                              </HStack>
-                              <Text fontSize="sm" color="gray.600">
-                                {template.description}
-                              </Text>
-                              {selectedTemplate === key && (
-                                <Badge colorScheme={template.color}>Sélectionné</Badge>
-                              )}
-                            </VStack>
-                          </CardBody>
-                        </Card>
-                      ))}
-                    </SimpleGrid>
-
-                    {selectedTemplate && (
-                      <Alert status="success" borderRadius="md">
-                        <AlertIcon />
-                        <Box>
-                          <Text fontWeight="bold">Template appliqué</Text>
-                          <Text fontSize="sm" color="gray.700">
-                            Les paramètres d'inscription ont été configurés selon le template "{EVENT_TEMPLATES[selectedTemplate]?.name}". 
-                            Vous pouvez personnaliser davantage dans l'onglet "Informations supplémentaires".
-                          </Text>
-                        </Box>
-                      </Alert>
-                    )}
-
-                    <FormControl>
-                      <FormLabel>Statut</FormLabel>
-                      <Select
-                        value={formData.status}
-                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                      >
-                        <option value="DRAFT">Brouillon</option>
-                        <option value="PUBLISHED">Publié</option>
-                        <option value="ARCHIVED">Archivé</option>
-                      </Select>
-                    </FormControl>
-
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">
-                        Visible sur le site public
-                      </FormLabel>
-                      <Switch
-                        isChecked={formData.isVisible}
-                        onChange={(e) => setFormData(prev => ({ ...prev, isVisible: e.target.checked }))}
-                      />
-                    </FormControl>
-
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">
-                        Inscription requise
-                      </FormLabel>
-                      <Switch
-                        isChecked={formData.requiresRegistration}
-                        onChange={(e) => setFormData(prev => ({ ...prev, requiresRegistration: e.target.checked, allowPublicRegistration: e.target.checked }))}
-                      />
-                    </FormControl>
-                  </VStack>
-                </TabPanel>
-
-                {/* Onglet 3: Inscription & Prix */}
-                <TabPanel>
-                  <VStack spacing={4}>
-                    <FormControl display="flex" alignItems="center">
-                      <FormLabel mb="0">
-                        Événement gratuit
-                      </FormLabel>
-                      <Switch
-                        isChecked={formData.isFree}
-                        onChange={(e) => setFormData(prev => ({ ...prev, isFree: e.target.checked }))}
-                      />
-                    </FormControl>
-
-                    {!formData.isFree && (
-                      <HStack w="100%" spacing={4}>
-                        <FormControl>
-                          <FormLabel>Prix adulte (€)</FormLabel>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.adultPrice}
-                            onChange={(e) => setFormData(prev => ({ ...prev, adultPrice: e.target.value }))}
-                            placeholder="0.00"
-                          />
-                        </FormControl>
-                        <FormControl>
-                          <FormLabel>Prix enfant (€)</FormLabel>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.childPrice}
-                            onChange={(e) => setFormData(prev => ({ ...prev, childPrice: e.target.value }))}
-                            placeholder="0.00"
-                          />
-                        </FormControl>
-                      </HStack>
-                    )}
-
-                    <FormControl>
-                      <FormLabel>Nombre maximum de participants</FormLabel>
-                      <Input
-                        type="number"
-                        value={formData.maxParticipants}
-                        onChange={(e) => setFormData(prev => ({ ...prev, maxParticipants: e.target.value }))}
-                        placeholder="Illimité"
-                      />
-                    </FormControl>
-
-                    {formData.requiresRegistration && (
-                      <>
-                        <FormControl display="flex" alignItems="center">
-                          <FormLabel mb="0">
-                            Inscription via HelloAsso
-                          </FormLabel>
-                          <Switch
-                            isChecked={formData.registrationMethod === 'helloasso'}
-                            onChange={(e) => setFormData(prev => ({ ...prev, registrationMethod: e.target.checked ? 'helloasso' : 'internal' }))}
-                          />
-                        </FormControl>
-
-                        {formData.registrationMethod === 'helloasso' && (
-                          <>
-                            <FormControl isRequired>
-                              <FormLabel>URL HelloAsso</FormLabel>
-                              <Input
-                                value={formData.helloAssoUrl}
-                                onChange={(e) => setFormData(prev => ({ ...prev, helloAssoUrl: e.target.value }))}
-                                placeholder="https://www.helloasso.com/..."
-                              />
-                            </FormControl>
-                            {formData.helloAssoUrl && formData.title && formData.date && (
-                              <Button
-                                colorScheme="rbe"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedEventForModal({
-                                    title: formData.title,
-                                    date: formData.date,
-                                    time: formData.time,
-                                    location: formData.location,
-                                    adultPrice: formData.adultPrice,
-                                    childPrice: formData.childPrice,
-                                    helloAssoUrl: formData.helloAssoUrl
-                                  });
-                                  onHelloAssoOpen();
-                                }}
-                              >
-                                👁️ Aperçu modale HelloAsso
-                              </Button>
-                            )}
-                          </>
-                        )}
-
-                        {formData.registrationMethod !== 'helloasso' && (
-                          <Alert status="info" borderRadius="md">
-                            <AlertIcon />
-                            Inscription via le système interne
-                          </Alert>
-                        )}
-                      </>
-                    )}
-                  </VStack>
-                </TabPanel>
-
-                {/* Onglet 4: Informations supplémentaires */}
-                <TabPanel>
-                  <VStack spacing={6} align="stretch">
-                    {!selectedTemplate ? (
-                      <Alert status="warning" borderRadius="md">
-                        <AlertIcon />
-                        <Box>
-                          <Text fontWeight="bold">Template requis</Text>
-                          <Text fontSize="sm">Veuillez sélectionner un template dans l'onglet "Templates" pour accéder aux options de personnalisation.</Text>
-                        </Box>
-                      </Alert>
-                    ) : (
-                      <>
-                        <Box bg="rbe.50" p={4} borderRadius="md" borderLeft="4px solid" borderLeftColor="rbe.400">
-                          <VStack align="start" spacing={2}>
-                            <Text fontWeight="bold" fontSize="sm">Template actif : {EVENT_TEMPLATES[selectedTemplate]?.name}</Text>
-                            <Text fontSize="xs" color="gray.700">
-                              Personnalisez les modalités d'inscription en profondeur pour ce template. Les modifications seront appliquées à cet événement uniquement.
-                            </Text>
-                          </VStack>
-                        </Box>
-
-                        <Divider />
-
-                        {/* Section: Questions personnalisées d'inscription */}
-                        <Box>
-                          <Heading size="sm" mb={3}>📝 Questions d'inscription personnalisées</Heading>
-                          <VStack spacing={3} align="stretch">
-                            <Text fontSize="sm" color="gray.600">
-                              Ajoutez des questions supplémentaires pour les participants (ex: régime alimentaire, niveau d'expérience, etc.)
-                            </Text>
-                            
-                            <Button
-                              size="sm"
-                              colorScheme="rbe"
-                              variant="outline"
-                              onClick={() => {
-                                setTemplateCustomizations(prev => ({
-                                  ...prev,
-                                  registrationQuestions: [
-                                    ...prev.registrationQuestions,
-                                    { id: Date.now(), title: '', type: 'text', required: false }
-                                  ]
-                                }));
-                              }}
-                            >
-                              + Ajouter une question
-                            </Button>
-
-                            {templateCustomizations.registrationQuestions.map((q, idx) => (
-                              <Card key={q.id} p={3} bg="gray.50">
-                                <VStack spacing={2} align="stretch">
-                                  <HStack spacing={2}>
-                                    <FormControl flex={1}>
-                                      <FormLabel fontSize="sm">Question</FormLabel>
-                                      <Input
-                                        size="sm"
-                                        placeholder="Ex: Régime alimentaire?"
-                                        value={q.title}
-                                        onChange={(e) => {
-                                          const newQuestions = [...templateCustomizations.registrationQuestions];
-                                          newQuestions[idx].title = e.target.value;
-                                          setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormControl w="150px">
-                                      <FormLabel fontSize="sm">Type</FormLabel>
-                                      <Select
-                                        size="sm"
-                                        value={q.type}
-                                        onChange={(e) => {
-                                          const newQuestions = [...templateCustomizations.registrationQuestions];
-                                          newQuestions[idx].type = e.target.value;
-                                          setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
-                                        }}
-                                      >
-                                        <option value="text">Texte court</option>
-                                        <option value="textarea">Texte long</option>
-                                        <option value="select">Sélection</option>
-                                        <option value="checkbox">Case à cocher</option>
-                                      </Select>
-                                    </FormControl>
-                                    <Button
-                                      size="sm"
-                                      colorScheme="red"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setTemplateCustomizations(prev => ({
-                                          ...prev,
-                                          registrationQuestions: prev.registrationQuestions.filter((_q, i) => i !== idx)
-                                        }));
-                                      }}
-                                      mt={5}
-                                    >
-                                      ✕
-                                    </Button>
-                                  </HStack>
-                                  <FormControl display="flex" alignItems="center">
-                                    <FormLabel mb="0" fontSize="sm">Obligatoire</FormLabel>
-                                    <Switch
-                                      isChecked={q.required}
-                                      onChange={(e) => {
-                                        const newQuestions = [...templateCustomizations.registrationQuestions];
-                                        newQuestions[idx].required = e.target.checked;
-                                        setTemplateCustomizations(prev => ({ ...prev, registrationQuestions: newQuestions }));
-                                      }}
-                                    />
-                                  </FormControl>
-                                </VStack>
-                              </Card>
-                            ))}
-                          </VStack>
-                        </Box>
-
-                        <Divider />
-
-                        {/* Section: Conditions et modalités */}
-                        <Box>
-                          <Heading size="sm" mb={3}>⚙️ Conditions d'inscription</Heading>
-                          <VStack spacing={3} align="stretch">
-                            <FormControl display="flex" alignItems="center">
-                              <FormLabel mb="0">
-                                Inscription uniquement sur rassemblement statique
-                              </FormLabel>
-                              <Switch
-                                isChecked={templateCustomizations.registrationConditions?.onlyStaticGathering || false}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    registrationConditions: {
-                                      ...prev.registrationConditions,
-                                      onlyStaticGathering: e.target.checked
-                                    }
-                                  }));
-                                }}
-                              />
-                            </FormControl>
-
-                            {templateCustomizations.registrationConditions?.onlyStaticGathering && (
-                              <Alert status="info" borderRadius="md" fontSize="sm">
-                                <AlertIcon />
-                                En cas de rassemblement statique, les participants verront des questions spécifiques adaptées à ce mode de fonctionnement.
-                              </Alert>
-                            )}
-
-                            <FormControl display="flex" alignItems="center">
-                              <FormLabel mb="0">
-                                Vérification d'adhésion requise
-                              </FormLabel>
-                              <Switch
-                                isChecked={templateCustomizations.registrationConditions?.requiresMembership || false}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    registrationConditions: {
-                                      ...prev.registrationConditions,
-                                      requiresMembership: e.target.checked
-                                    }
-                                  }));
-                                }}
-                              />
-                            </FormControl>
-
-                            <FormControl>
-                              <FormLabel fontSize="sm">Message personnalisé aux participants</FormLabel>
-                              <Textarea
-                                placeholder="Message qui s'affichera lors de l'inscription (ex: instructions spéciales, conditions, etc.)"
-                                size="sm"
-                                value={templateCustomizations.registrationConditions?.customMessage || ''}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    registrationConditions: {
-                                      ...prev.registrationConditions,
-                                      customMessage: e.target.value
-                                    }
-                                  }));
-                                }}
-                              />
-                            </FormControl>
-                          </VStack>
-                        </Box>
-
-                        <Divider />
-
-                        {/* Section: Paramètres avancés */}
-                        <Box>
-                          <Heading size="sm" mb={3}>🔧 Paramètres avancés</Heading>
-                          <VStack spacing={3} align="stretch">
-                            <FormControl>
-                              <FormLabel fontSize="sm">Délai limite d'inscription (avant l'événement)</FormLabel>
-                              <Select
-                                value={templateCustomizations.advancedSettings?.registrationDeadline || '0'}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    advancedSettings: {
-                                      ...prev.advancedSettings,
-                                      registrationDeadline: e.target.value
-                                    }
-                                  }));
-                                }}
-                              >
-                                <option value="0">Pas de limite</option>
-                                <option value="1">1 jour avant</option>
-                                <option value="3">3 jours avant</option>
-                                <option value="7">1 semaine avant</option>
-                                <option value="14">2 semaines avant</option>
-                              </Select>
-                            </FormControl>
-
-                            <FormControl display="flex" alignItems="center">
-                              <FormLabel mb="0">
-                                Confirmations d'inscription par email
-                              </FormLabel>
-                              <Switch
-                                isChecked={templateCustomizations.advancedSettings?.emailConfirmations !== false}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    advancedSettings: {
-                                      ...prev.advancedSettings,
-                                      emailConfirmations: e.target.checked
-                                    }
-                                  }));
-                                }}
-                              />
-                            </FormControl>
-
-                            <FormControl display="flex" alignItems="center">
-                              <FormLabel mb="0">
-                                Annulations autorisées par les participants
-                              </FormLabel>
-                              <Switch
-                                isChecked={templateCustomizations.advancedSettings?.allowCancellations !== false}
-                                onChange={(e) => {
-                                  setTemplateCustomizations(prev => ({
-                                    ...prev,
-                                    advancedSettings: {
-                                      ...prev.advancedSettings,
-                                      allowCancellations: e.target.checked
-                                    }
-                                  }));
-                                }}
-                              />
-                            </FormControl>
-                          </VStack>
-                        </Box>
-
-                        <Alert status="success" borderRadius="md" fontSize="sm">
-                          <AlertIcon />
-                          Toutes les modifications effectuées ici seront sauvegardées avec l'événement.
-                        </Alert>
-                      </>
-                    )}
-                  </VStack>
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
+            <EventCreationWizard
+              vehicles={vehicles}
+              events={events}
+              onSave={handleWizardSave}
+            />
           </ModalBody>
-
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={() => { onClose(); resetForm(); }}>
-              Annuler
-            </Button>
-            <Button colorScheme="rbe" onClick={handleSave} isLoading={saving}>
-              {editingEvent ? 'Modifier' : 'Créer'}
-            </Button>
-          </ModalFooter>
         </ModalContent>
       </Modal>
 

@@ -48,6 +48,8 @@ import SubventionCampaign from "./pages/SubventionCampaign";
 import SubventionCampaignAdmin from "./pages/SubventionCampaignAdmin";
 import PermissionsManager from "./components/PermissionsManager";
 import AdhesionManagement from "./pages/AdhesionManagement";
+import EventCreationWizardPage from "./pages/EventCreationWizardPage";
+import EventWizardDemoPage from "./pages/EventWizardDemoPage";
 
 export default function App() {
   const { isAuthenticated } = useUser();
@@ -99,6 +101,8 @@ export default function App() {
         <Route path="/dashboard/evenements" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
         <Route path="/dashboard/events-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsManagement /></RoleProtectedRoute>} />
         <Route path="/dashboard/events-creation" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
+        <Route path="/dashboard/events/wizard-create" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventCreationWizardPage /></RoleProtectedRoute>} />
+        <Route path="/dashboard/test-wizard-demo" element={<RoleProtectedRoute><EventWizardDemoPage /></RoleProtectedRoute>} />
         {/* Route de test pour diagnostiquer */}
         <Route path="/dashboard/test-events" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><TestEventsPage /></RoleProtectedRoute>} />
         
