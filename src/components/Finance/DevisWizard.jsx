@@ -372,12 +372,13 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
   );
 
   const renderStep3 = () => {
+    // Mode IMPORT: Upload PDF + Montant optionnel
     if (creationMode === 'import') {
       return (
         <VStack spacing={4} align="stretch">
           <Alert status="info" borderRadius="md">
             <AlertIcon />
-            <Text>Importez votre PDF de devis</Text>
+            <Text>Importez votre PDF de devis + montant (optionnel)</Text>
           </Alert>
 
           <FormControl isRequired>
@@ -393,13 +394,97 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
           {pdfFile && (
             <Alert status="success" borderRadius="md">
               <AlertIcon />
-              <Text>✓ Fichier: {pdfFile.name} ({(pdfFile.size / 1024 / 1024).toFixed(2)}MB)</Text>
+              <HStack w="100%" justify="space-between">
+                <Text>✓ Fichier: {pdfFile.name} ({(pdfFile.size / 1024 / 1024).toFixed(2)}MB)</Text>
+                <Button size="xs" colorScheme="blue" onClick={() => {
+                  const url = URL.createObjectURL(pdfFile);
+                  window.open(url, '_blank');
+                }}>
+                  👁️ Aperçu
+                </Button>
+              </HStack>
             </Alert>
           )}
+
+          <Divider />
+
+          <Heading size="sm">Informations financières (optionnel)</Heading>
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl>
+              <FormLabel>Montant HT</FormLabel>
+              <NumberInput
+                min={0}
+                step={0.01}
+                value={totals.amountExcludingTax}
+                onChange={(val) => {
+                  const rate = totals.taxRate;
+                  const taxAmount = parseFloat(val) * (rate / 100);
+                  setTotals({
+                    amountExcludingTax: parseFloat(val),
+                    taxRate: rate,
+                    taxAmount,
+                    totalAmount: parseFloat(val) + taxAmount
+                  });
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>TVA (%)</FormLabel>
+              <NumberInput
+                min={0}
+                max={100}
+                value={totals.taxRate}
+                onChange={(val) => {
+                  const rate = parseFloat(val);
+                  const taxAmount = totals.amountExcludingTax * (rate / 100);
+                  setTotals(prev => ({
+                    ...prev,
+                    taxRate: rate,
+                    taxAmount,
+                    totalAmount: totals.amountExcludingTax + taxAmount
+                  }));
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </FormControl>
+          </SimpleGrid>
+
+          <Card bg={bgSection}>
+            <CardBody>
+              <VStack spacing={2} align="end">
+                <HStack w="100%" justify="space-between">
+                  <Text>Montant HT:</Text>
+                  <Text fontWeight="bold">{totals.amountExcludingTax.toFixed(2)}€</Text>
+                </HStack>
+                <HStack w="100%" justify="space-between">
+                  <Text>TVA:</Text>
+                  <Text fontWeight="bold">{totals.taxAmount.toFixed(2)}€</Text>
+                </HStack>
+                <HStack w="100%" justify="space-between">
+                  <Text fontSize="lg" fontWeight="bold">Total TTC:</Text>
+                  <Text fontSize="lg" fontWeight="bold" color="rbe.500">{totals.totalAmount.toFixed(2)}€</Text>
+                </HStack>
+              </VStack>
+            </CardBody>
+          </Card>
         </VStack>
       );
     }
 
+    // Mode GÉNÉRATION: Tableau lignes
     return (
       <VStack spacing={4} align="stretch">
         <Alert status="info" borderRadius="md">
