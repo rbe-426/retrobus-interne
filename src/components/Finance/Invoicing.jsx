@@ -13,12 +13,14 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Textarea, NumberInput,
   NumberInputField, NumberInputStepper, NumberIncrementStepper,
   NumberDecrementStepper, Tabs, TabList, TabPanels, Tab, TabPanel,
-  Divider, useBreakpointValue, Grid, Wrap, WrapItem, IconButton
+  Divider, useBreakpointValue, Grid, Wrap, WrapItem, IconButton, useColorModeValue
 } from "@chakra-ui/react";
 import { FiDownload, FiEye, FiPlus, FiEdit2, FiTrash2, FiPrinter, FiUpload, FiInfo, FiChevronDown } from "react-icons/fi";
 import html2pdf from "html2pdf.js";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import DevisLinesManager from "../DevisLinesManager";
+import DevisWizard from "./DevisWizard";
+import FactureWizard from "./FactureWizard";
 
 const FinanceInvoicing = () => {
   const {
@@ -36,6 +38,7 @@ const FinanceInvoicing = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [devisLines, setDevisLines] = useState([]);
+  const [wizardMode, setWizardMode] = useState(null); // 'devis', 'facture', ou null
   const [docForm, setDocForm] = useState({
     type: "QUOTE",
     number: "",
@@ -74,6 +77,8 @@ const FinanceInvoicing = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isLinesOpen, onOpen: onLinesOpen, onClose: onLinesClose } = useDisclosure();
   const { isOpen: isGenerateOpen, onOpen: onGenerateOpen, onClose: onGenerateClose } = useDisclosure();
+  const { isOpen: isWizardOpen, onOpen: onWizardOpen, onClose: onWizardClose } = useDisclosure();
+  const cardBg = useColorModeValue('white', 'gray.800');
 
   // Charger les templates au montage
   useEffect(() => {
@@ -171,6 +176,105 @@ const FinanceInvoicing = () => {
       htmlContent: ""
     });
     onOpen();
+  };
+
+  // ===== NOUVEAUX HANDLERS POUR LES WIZARDS =====
+  const handleCreateDevis = () => {
+    setWizardMode('devis');
+    onWizardOpen();
+  };
+
+  const handleCreateFacture = () => {
+    setWizardMode('facture');
+    onWizardOpen();
+  };
+
+  const handleWizardSave = async (wizardData) => {
+    try {
+      console.log('💾 Saving wizard data:', wizardData);
+      
+      // Préparer les données pour l'API
+      const payload = {
+        type: wizardData.type, // 'QUOTE' ou 'INVOICE'
+        number: wizardData.number,
+        title: wizardData.title,
+        description: wizardData.description,
+        date: wizardData.date,
+        dueDate: wizardData.dueDate,
+        destinataireName: wizardData.destinataireName,
+        destinataireAdresse: wizardData.destinataireAdresse,
+        destinataireSociete: wizardData.destinataireSociete,
+        destinataireContacts: wizardData.destinataireContacts,
+        notes: wizardData.notes || '',
+        status: 'DRAFT',
+        amount: wizardData.totals?.totalAmount || 0,
+        amountExcludingTax: wizardData.totals?.amountExcludingTax || 0,
+        taxRate: wizardData.totals?.taxRate || 0,
+        taxAmount: wizardData.totals?.taxAmount || 0,
+        paymentTerms: wizardData.paymentTerms || '30',
+        paymentMethod: wizardData.paymentMethod || 'virement'
+      };
+
+      // Si import PDF, on l'attache
+      if (wizardData.mode === 'import' && wizardData.pdfFile) {
+        // Pour l'import, on peut créer le document et attacher le PDF
+        // ou garder le PDF en attente
+        console.log('📄 PDF import:', wizardData.pdfFile.name);
+      }
+
+      // Appeler l'API addDocument
+      const result = await addDocument(payload);
+      console.log('✅ Document créé:', result);
+
+      // Si mode génération, sauvegarder les lignes
+      if (wizardData.mode === 'generate' && wizardData.lines?.length > 0) {
+        try {
+          const linesPayload = wizardData.lines.map(line => ({
+            devisId: result.id,
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            totalPrice: line.quantity * line.unitPrice
+          }));
+
+          for (const line of linesPayload) {
+            await fetch((import.meta.env.VITE_API_URL || "http://localhost:4000") + '/api/devis-lines', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem("token")}`
+              },
+              body: JSON.stringify(line)
+            });
+          }
+          console.log('✅ Lignes créées');
+        } catch (e) {
+          console.warn('⚠️ Impossible de sauvegarder les lignes:', e.message);
+        }
+      }
+
+      // Recharger les données
+      await loadFinanceData();
+
+      // Fermer le wizard
+      onWizardClose();
+      setWizardMode(null);
+
+      toast({
+        title: 'Succès! 🎉',
+        description: `${wizardData.type === 'QUOTE' ? 'Devis' : 'Facture'} créé avec succès`,
+        status: 'success',
+        duration: 2000
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors de la creation:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de créer le document',
+        status: 'error',
+        duration: 2000
+      });
+    }
   };
 
   const handleOpenEdit = (doc) => {
@@ -1141,15 +1245,26 @@ const FinanceInvoicing = () => {
             Gestion complète des documents commerciaux
           </Text>
         </Box>
-        <Button
-          leftIcon={<FiPlus />}
-          colorScheme="blue"
-          onClick={handleOpenCreate}
-          isLoading={loading}
-          size={{ base: "sm", md: "md" }}
-        >
-          Nouveau
-        </Button>
+        <HStack spacing={2}>
+          <Button
+            leftIcon={<FiPlus />}
+            colorScheme="blue"
+            onClick={handleCreateDevis}
+            isLoading={loading}
+            size={{ base: "sm", md: "md" }}
+          >
+            📝 Nouveau Devis
+          </Button>
+          <Button
+            leftIcon={<FiPlus />}
+            colorScheme="green"
+            onClick={handleCreateFacture}
+            isLoading={loading}
+            size={{ base: "sm", md: "md" }}
+          >
+            💰 Nouvelle Facture
+          </Button>
+        </HStack>
       </HStack>
 
       {/* Tabs: Devis & Factures */}
@@ -2017,6 +2132,29 @@ const FinanceInvoicing = () => {
               </Button>
             </HStack>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal Wizards - Devis & Factures */}
+      <Modal isOpen={isWizardOpen} onClose={onWizardClose} size="2xl" isCentered>
+        <ModalOverlay />
+        <ModalContent bg={cardBg} maxH="90vh" overflow="auto">
+          <ModalHeader>
+            {wizardMode === 'devis' ? '📝 Créer un Devis' : '💰 Créer une Facture'}
+          </ModalHeader>
+          <ModalBody>
+            {wizardMode === 'devis' ? (
+              <DevisWizard 
+                onSave={handleWizardSave}
+                onClose={onWizardClose}
+              />
+            ) : wizardMode === 'facture' ? (
+              <FactureWizard
+                onSave={handleWizardSave}
+                onClose={onWizardClose}
+              />
+            ) : null}
+          </ModalBody>
         </ModalContent>
       </Modal>
     </VStack>
