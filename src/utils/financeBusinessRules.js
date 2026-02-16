@@ -32,7 +32,8 @@ export const validateDocument = (doc) => {
 
   if (!doc.type) errors.push("Type de document requis (QUOTE ou INVOICE)");
   if (!doc.number || doc.number.trim() === "") errors.push("Numéro de document requis");
-  if (!doc.amount || doc.amount <= 0) errors.push("Montant doit être > 0");
+  // ✅ Montant peut être 0 (pour mode import PDF ou création progressive)
+  if (typeof doc.amount !== 'number') errors.push("Montant requis");
   if (!doc.date) errors.push("Date requise");
 
   return {
