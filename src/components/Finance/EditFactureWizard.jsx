@@ -78,6 +78,7 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
   });
 
   const [lines, setLines] = useState([]);
+  const [addingLineType, setAddingLineType] = useState(null);
   const [totals, setTotals] = useState({
     amountExcludingTax: 0,
     taxRate: 0,
@@ -133,10 +134,12 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
         if (Array.isArray(loadedLines)) {
           setLines(loadedLines.map(line => ({
             id: line.id || Date.now() + Math.random(),
+            type: line.type || 'ARTICLE',
             description: line.description || '',
-            quantity: line.quantity || 1,
-            unitPrice: line.unitPrice || 0,
-            total: line.totalPrice || (line.quantity || 1) * (line.unitPrice || 0)
+            quantity: line.quantity || (line.type && line.type !== 'ARTICLE' ? undefined : 1),
+            unitPrice: line.unitPrice || (line.type && line.type !== 'ARTICLE' ? undefined : 0),
+            total: line.total || line.totalPrice || (line.quantity || 1) * (line.unitPrice || 0),
+            amount: line.amount || (line.type && line.type !== 'ARTICLE' ? 0 : undefined)
           })));
         }
       }
@@ -154,24 +157,44 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
   const addLine = () => {
     setLines([...lines, {
       id: Date.now(),
+      type: 'ARTICLE',
       description: '',
       quantity: 1,
       unitPrice: 0,
-      total: 0
+      total: 0,
+      amount: 0
     }]);
+  };
+
+  const addLineOfType = (type) => {
+    setLines([...lines, {
+      id: Date.now(),
+      type: type,
+      description: '',
+      quantity: type === 'ARTICLE' ? 1 : undefined,
+      unitPrice: type === 'ARTICLE' ? 0 : undefined,
+      total: 0,
+      amount: type !== 'ARTICLE' ? 0 : undefined
+    }]);
+    setAddingLineType(null);
   };
 
   const updateLine = (id, field, value) => {
     const updatedLines = lines.map(line => {
       if (line.id === id) {
         let processedValue = value;
-        if (field === 'quantity' || field === 'unitPrice') {
+        if ((field === 'quantity' || field === 'unitPrice' || field === 'amount') && value !== '') {
           processedValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
         }
         const updated = { ...line, [field]: processedValue };
-        if (field === 'quantity' || field === 'unitPrice') {
-          updated.total = updated.quantity * updated.unitPrice;
+        
+        if (line.type === 'ARTICLE' && (field === 'quantity' || field === 'unitPrice')) {
+          updated.total = (updated.quantity || 0) * (updated.unitPrice || 0);
         }
+        if (line.type !== 'ARTICLE' && field === 'amount') {
+          updated.total = -Math.abs(processedValue);
+        }
+        
         return updated;
       }
       return line;
@@ -187,7 +210,14 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
   };
 
   const calculateTotals = useCallback((linesList) => {
-    const amountExcludingTax = linesList.reduce((sum, line) => sum + (line.total || 0), 0);
+    const articleLines = linesList.filter(l => l.type === 'ARTICLE');
+    const articleAmount = articleLines.reduce((sum, line) => sum + (line.total || 0), 0);
+    
+    const adjustmentLines = linesList.filter(l => l.type !== 'ARTICLE');
+    const adjustmentAmount = adjustmentLines.reduce((sum, line) => sum + (line.total || 0), 0);
+    
+    const amountExcludingTax = Math.max(0, articleAmount + adjustmentAmount);
+    
     setTotals({
       amountExcludingTax,
       taxRate: 0,
@@ -356,68 +386,114 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
     <VStack spacing={4} align="stretch">
       <Alert status="info" borderRadius="md">
         <AlertIcon />
-        <Text>Modifiez les articles/services de la facture</Text>
+        <Text>Modifiez les articles/services de la facture + ajoutez réductions/remises/acomptes</Text>
       </Alert>
 
-      <Button colorScheme="rbe" leftIcon={<FiPlus />} onClick={addLine} size="sm">
-        Ajouter une ligne
-      </Button>
+      <HStack spacing={2} flexWrap="wrap">
+        <Button colorScheme="rbe" leftIcon={<FiPlus />} onClick={() => addLineOfType('ARTICLE')} size="sm">
+          Article
+        </Button>
+        <Button colorScheme="orange" leftIcon={<FiPlus />} onClick={() => addLineOfType('REDUCTION')} size="sm">
+          Réduction
+        </Button>
+        <Button colorScheme="yellow" leftIcon={<FiPlus />} onClick={() => addLineOfType('REMISE')} size="sm">
+          Remise
+        </Button>
+        <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={() => addLineOfType('ACOMPTE_A_VERSER')} size="sm">
+          Acompte à verser
+        </Button>
+        <Button colorScheme="green" leftIcon={<FiPlus />} onClick={() => addLineOfType('ACOMPTE_VERSE')} size="sm">
+          Acompte versé
+        </Button>
+      </HStack>
 
       {lines.length > 0 && (
         <Box overflowX="auto">
           <Table size="sm">
             <Thead>
               <Tr bg={bgSection}>
+                <Th>Type</Th>
                 <Th>Description</Th>
-                <Th isNumeric>Quantité</Th>
-                <Th isNumeric>Prix unitaire</Th>
+                <Th isNumeric>Qt</Th>
+                <Th isNumeric>P.U.</Th>
+                <Th isNumeric>Montant</Th>
                 <Th isNumeric>Total</Th>
                 <Th>Action</Th>
               </Tr>
             </Thead>
             <Tbody>
               {lines.map((line) => (
-                <Tr key={line.id}>
+                <Tr key={line.id} opacity={line.type !== 'ARTICLE' ? 0.9 : 1} bg={line.type !== 'ARTICLE' ? 'orange.50' : undefined}>
+                  <Td fontSize="xs" fontWeight="bold">
+                    {line.type === 'ARTICLE' && '📦 Article'}
+                    {line.type === 'REDUCTION' && '↓ Réduction'}
+                    {line.type === 'REMISE' && '💰 Remise'}
+                    {line.type === 'ACOMPTE_A_VERSER' && '⏳ À verser'}
+                    {line.type === 'ACOMPTE_VERSE' && '✅ Versé'}
+                  </Td>
                   <Td>
                     <Input
                       size="sm"
-                      placeholder="Description"
+                      placeholder={line.type === 'ARTICLE' ? 'Description article' : 'Description'}
                       value={line.description}
                       onChange={(e) => updateLine(line.id, 'description', e.target.value)}
                       border="none"
                     />
                   </Td>
                   <Td isNumeric>
-                    <NumberInput
-                      size="sm"
-                      min={0}
-                      step={1}
-                      value={line.quantity}
-                      onChange={(val) => updateLine(line.id, 'quantity', val)}
-                    >
-                      <NumberInputField />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
+                    {line.type === 'ARTICLE' && (
+                      <NumberInput
+                        size="sm"
+                        min={0}
+                        step={1}
+                        value={line.quantity || ''}
+                        onChange={(val) => updateLine(line.id, 'quantity', val)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
                   </Td>
                   <Td isNumeric>
-                    <NumberInput
-                      size="sm"
-                      min={0}
-                      step={0.01}
-                      value={line.unitPrice}
-                      onChange={(val) => updateLine(line.id, 'unitPrice', val)}
-                    >
-                      <NumberInputField />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
+                    {line.type === 'ARTICLE' && (
+                      <NumberInput
+                        size="sm"
+                        min={0}
+                        step={0.01}
+                        value={line.unitPrice || ''}
+                        onChange={(val) => updateLine(line.id, 'unitPrice', val)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
                   </Td>
-                  <Td isNumeric fontWeight="bold">{line.total.toFixed(2)}€</Td>
+                  <Td isNumeric>
+                    {line.type !== 'ARTICLE' && (
+                      <NumberInput
+                        size="sm"
+                        min={0}
+                        step={0.01}
+                        value={line.amount || ''}
+                        onChange={(val) => updateLine(line.id, 'amount', val)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  </Td>
+                  <Td isNumeric fontWeight="bold" color={line.total < 0 ? 'red.500' : 'inherit'}>
+                    {line.total.toFixed(2)}€
+                  </Td>
                   <Td>
                     <IconButton
                       icon={<FiTrash2 />}
