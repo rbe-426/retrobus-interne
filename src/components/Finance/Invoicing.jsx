@@ -21,6 +21,8 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import DevisLinesManager from "../DevisLinesManager";
 import DevisWizard from "./DevisWizard";
 import FactureWizard from "./FactureWizard";
+import EditDevisWizard from "./EditDevisWizard";
+import EditFactureWizard from "./EditFactureWizard";
 
 const FinanceInvoicing = () => {
   const {
@@ -1638,14 +1640,32 @@ const FinanceInvoicing = () => {
         </TabPanels>
       </Tabs>
 
-      {/* Modal de formulaire */}
-      <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "xl" }}>
+      {/* Modal de modification - Affiche les wizards d'édition */}
+      <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "4xl" }}>
         <ModalOverlay />
         <ModalContent maxH="90vh" overflowY="auto">
           <ModalHeader>
-            {editingDocument ? "Modifier le document" : "Nouveau document"}          </ModalHeader>
+            {editingDocument ? "✏️ Modifier le document" : "Nouveau document"}
+          </ModalHeader>
           <ModalBody>
-            <VStack spacing={4} align="stretch">
+            {/* Afficher le wizard d'édition si on est en modification */}
+            {editingDocument ? (
+              editingDocument.type === 'QUOTE' ? (
+                <EditDevisWizard
+                  editingDocument={editingDocument}
+                  onSave={handleEditSave}
+                  onClose={onClose}
+                />
+              ) : (
+                <EditFactureWizard
+                  editingDocument={editingDocument}
+                  onSave={handleEditSave}
+                  onClose={onClose}
+                />
+              )
+            ) : (
+              // Ancien formulaire pour la création (à remplacer progressivement)
+              <VStack spacing={4} align="stretch">
               {/* Type et Dates */}
               <Grid templateColumns={{ base: "1fr", md: "1fr 1fr 1fr" }} gap={3}>
                 <FormControl>
