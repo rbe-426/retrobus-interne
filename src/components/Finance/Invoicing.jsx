@@ -215,11 +215,25 @@ const FinanceInvoicing = () => {
         paymentMethod: wizardData.paymentMethod || 'virement'
       };
 
-      // Si import PDF, on l'attache
+      // Si import PDF, convertir en DataURL et l'ajouter au payload
       if (wizardData.mode === 'import' && wizardData.pdfFile) {
-        // Pour l'import, on peut créer le document et attacher le PDF
-        // ou garder le PDF en attente
         console.log('📄 PDF import:', wizardData.pdfFile.name);
+        try {
+          // Convertir le PDF en Data URI
+          const reader = new FileReader();
+          await new Promise((resolve, reject) => {
+            reader.onload = () => {
+              payload.documentUrl = reader.result;
+              payload.documentName = wizardData.pdfFile.name;
+              console.log('✅ PDF converti en Data URI');
+              resolve();
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(wizardData.pdfFile);
+          });
+        } catch (e) {
+          console.warn('⚠️ Impossible de convertir le PDF:', e.message);
+        }
       }
 
       // Appeler l'API addDocument

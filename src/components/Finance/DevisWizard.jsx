@@ -123,7 +123,12 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
   const updateLine = (id, field, value) => {
     const updatedLines = lines.map(line => {
       if (line.id === id) {
-        const updated = { ...line, [field]: value };
+        let processedValue = value;
+        // Gérer les valeurs numériques vides ou invalides
+        if (field === 'quantity' || field === 'unitPrice') {
+          processedValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+        }
+        const updated = { ...line, [field]: processedValue };
         if (field === 'quantity' || field === 'unitPrice') {
           updated.total = updated.quantity * updated.unitPrice;
         }
@@ -510,8 +515,9 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
                       <NumberInput
                         size="sm"
                         min={0}
+                        step={1}
                         value={line.quantity}
-                        onChange={(val) => updateLine(line.id, 'quantity', parseFloat(val))}
+                        onChange={(val) => updateLine(line.id, 'quantity', val)}
                       >
                         <NumberInputField />
                         <NumberInputStepper>
@@ -526,7 +532,7 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
                         min={0}
                         step={0.01}
                         value={line.unitPrice}
-                        onChange={(val) => updateLine(line.id, 'unitPrice', parseFloat(val))}
+                        onChange={(val) => updateLine(line.id, 'unitPrice', val)}
                       >
                         <NumberInputField />
                         <NumberInputStepper>
