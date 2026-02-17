@@ -151,6 +151,114 @@ const FinanceInvoicing = () => {
     }
   };
 
+  // Générer et sauvegarder le contenu HTML pour un document
+  const generateAndSaveHTMLContent = async (doc) => {
+    try {
+      if (!templates || templates.length === 0) {
+        throw new Error('Aucun template disponible');
+      }
+
+      // Trouver le template approprié (Devis ou Facture)
+      const templateName = doc.type === 'QUOTE' 
+        ? 'DEVIS - RétroBus' 
+        : 'FACTURE - RétroBus';
+      
+      const template = templates.find(t => t.name === templateName);
+      
+      if (!template || !template.htmlContent) {
+        throw new Error(`Template "${templateName}" non trouvé ou sans contenu HTML`);
+      }
+
+      console.log(`🎨 Template trouvé: ${template.name}`);
+
+      // Charger les lignes du document
+      let devisLinesTr = "";
+      try {
+        const isInvoice = doc.type === 'INVOICE';
+        const lineEndpoint = isInvoice ? 'facture-lines' : 'devis-lines';
+        const linesResponse = await fetch(
+          (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}/${doc.id}`,
+          {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+          }
+        );
+
+        if (linesResponse.ok) {
+          const lines = await linesResponse.json();
+          if (Array.isArray(lines) && lines.length > 0) {
+            devisLinesTr = lines
+              .map(
+                (line) => `
+              <tr>
+                <td class="num">${line.quantity}</td>
+                <td class="desc">${line.description}</td>
+                <td class="num">${line.unitPrice.toFixed(2)} €</td>
+                <td class="num">${line.totalPrice.toFixed(2)} €</td>
+              </tr>
+            `
+              )
+              .join("");
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ Impossible de charger les lignes:", e.message);
+      }
+
+      // Préparer les données pour la substitution
+      const previewData = {
+        NUM_DEVIS: doc.number || "N/A",
+        NUM_FACTURE: doc.number || "N/A",
+        TITRE: doc.title || "Document",
+        OBJET: doc.title || "Document",
+        DESCRIPTION: doc.description || "",
+        MONTANT: parseFloat(doc.amount || 0).toFixed(2),
+        PRIX_NET: parseFloat(doc.amount || 0).toFixed(2),
+        DATE: new Date(doc.date).toLocaleDateString("fr-FR"),
+        DESTINATAIRE_NOM: doc.destinataireName || "Destinataire",
+        DESTINATAIRE_ADRESSE: doc.destinataireAdresse || "",
+        DESTINATAIRE_SOCIETE: doc.destinataireSociete || "",
+        DESTINATAIRE_CONTACTS: doc.destinataireContacts || "",
+        NOTES: doc.notes || "",
+        LOGO_BIG: template.logoBig || "",
+        LOGO_SMALL: template.logoSmall || "",
+        DEVIS_LINES_TR: devisLinesTr
+      };
+
+      // Générer l'HTML en remplaçant les placeholders
+      let htmlContent = template.htmlContent;
+      Object.entries(previewData).forEach(([key, value]) => {
+        const placeholder = new RegExp(`{{${key}}}`, "g");
+        htmlContent = htmlContent.replace(placeholder, String(value || ""));
+      });
+
+      console.log(`✅ HTML généré depuis template: ${(htmlContent.length / 1024).toFixed(2)} KB`);
+
+      // Sauvegarder le contenu HTML dans le document
+      const updateResponse = await fetch(
+        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/finance/documents/${doc.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({
+            htmlContent: htmlContent
+          })
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error(`Impossible de sauvegarder le contenu HTML (${updateResponse.status})`);
+      }
+
+      console.log(`✅ Contenu HTML sauvegardé pour le document ${doc.id}`);
+    } catch (error) {
+      console.error('❌ Erreur generateAndSaveHTMLContent:', error);
+      throw error;
+    }
+  };
+
   const handleOpenCreate = () => {
     setEditingDocument(null);
     setDocForm({
@@ -245,16 +353,26 @@ const FinanceInvoicing = () => {
       // Si mode génération, sauvegarder les lignes
       if (wizardData.mode === 'generate' && wizardData.lines?.length > 0) {
         try {
-          const linesPayload = wizardData.lines.map(line => ({
-            devisId: result.id,
+          // Déterminer l'endpoint et la clé selon le type
+          const isInvoice = wizardData.type === 'INVOICE';
+          const lineEndpoint = isInvoice ? 'facture-lines' : 'devis-lines';
+          const idKey = isInvoice ? 'factureId' : 'devisId';
+          
+          const linesPayload = wizardData.lines.map((line, idx) => ({
+            [idKey]: result.id,
+            type: line.type || 'ARTICLE',
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
-            totalPrice: line.quantity * line.unitPrice
+            totalPrice: line.total || line.totalPrice || (line.quantity * line.unitPrice),
+            amount: line.amount
           }));
+          
+          console.log(`📤 Création de ${linesPayload.length} lignes vers /${lineEndpoint}`, linesPayload);
 
-          for (const line of linesPayload) {
-            await fetch((import.meta.env.VITE_API_URL || "http://localhost:4000") + '/api/devis-lines', {
+          for (let i = 0; i < linesPayload.length; i++) {
+            const line = linesPayload[i];
+            const response = await fetch((import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -262,8 +380,25 @@ const FinanceInvoicing = () => {
               },
               body: JSON.stringify(line)
             });
+            
+            if (!response.ok) {
+              let errorMessage = `HTTP ${response.status}`;
+              try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.details || errorMessage;
+              } catch {
+                try {
+                  errorMessage = await response.text();
+                } catch {
+                  // fallback to status message
+                }
+              }
+              console.error(`❌ Erreur création ligne ${i + 1}:`, errorMessage);
+              throw new Error(`Ligne ${i + 1} non créée: ${errorMessage}`);
+            }
+            console.log(`✅ Ligne ${i + 1}/${linesPayload.length} créée`);
           }
-          console.log('✅ Lignes créées');
+          console.log('✅ Toutes les lignes créées');
         } catch (e) {
           console.warn('⚠️ Impossible de sauvegarder les lignes:', e.message);
         }
@@ -271,6 +406,17 @@ const FinanceInvoicing = () => {
 
       // Recharger les données
       await loadFinanceData();
+
+      // Si mode génération, générer et sauvegarder le contenu HTML
+      if (wizardData.mode === 'generate' && result?.id) {
+        try {
+          console.log('📄 Génération du contenu HTML pour le document...');
+          await generateAndSaveHTMLContent(result);
+        } catch (e) {
+          console.warn('⚠️ Impossible de générer le contenu HTML automatiquement:', e.message);
+          // Pas critique - l'utilisateur pourra toujours l'ouvrir/régénérer plus tard
+        }
+      }
 
       // Fermer le wizard
       onWizardClose();
@@ -387,6 +533,19 @@ const FinanceInvoicing = () => {
             // Si la ligne a un ID numérique, c'est une ligne existante à mettre à jour
             if (typeof line.id === 'number') {
               // Mettre à jour la ligne existante
+              const updatePayload = {
+                type: line.type || 'ARTICLE',
+                description: line.description,
+                totalPrice: line.total
+              };
+              
+              if (line.type === 'ARTICLE') {
+                updatePayload.quantity = line.quantity;
+                updatePayload.unitPrice = line.unitPrice;
+              } else {
+                updatePayload.amount = line.amount;
+              }
+              
               const lineResponse = await fetch(
                 (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}/${line.id}`,
                 {
@@ -395,12 +554,7 @@ const FinanceInvoicing = () => {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${localStorage.getItem("token")}`
                   },
-                  body: JSON.stringify({
-                    description: line.description,
-                    quantity: line.quantity,
-                    unitPrice: line.unitPrice,
-                    totalPrice: line.total
-                  })
+                  body: JSON.stringify(updatePayload)
                 }
               );
               if (!lineResponse.ok) {
@@ -409,11 +563,18 @@ const FinanceInvoicing = () => {
             } else {
               // Créer une nouvelle ligne (ID temporaire)
               const createPayload = {
+                type: line.type || 'ARTICLE',
                 description: line.description,
-                quantity: line.quantity,
-                unitPrice: line.unitPrice,
                 totalPrice: line.total
               };
+              
+              if (line.type === 'ARTICLE') {
+                createPayload.quantity = line.quantity;
+                createPayload.unitPrice = line.unitPrice;
+              } else {
+                createPayload.amount = line.amount;
+              }
+              
               createPayload[idKey] = wizardData.id;
               
               const lineResponse = await fetch(

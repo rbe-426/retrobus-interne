@@ -121,6 +121,7 @@ export default function FactureWizard({ onSave = () => {}, onClose = () => {} })
   const addLine = () => {
     setLines([...lines, {
       id: Date.now(),
+      type: 'ARTICLE',
       description: '',
       quantity: 1,
       unitPrice: 0,
