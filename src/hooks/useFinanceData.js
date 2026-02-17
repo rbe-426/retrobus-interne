@@ -148,15 +148,11 @@ export const useFinanceData = (currentUser = null) => {
         });
         if (docsRes.ok) {
           const data = await docsRes.json();
+          // Le backend retourne directement le tableau normalisé
           const rawDocs = Array.isArray(data) ? data : (data.documents || []);
           
-          // Normaliser les documents: ajouter un champ "status" unifié
-          const normalizedDocs = rawDocs.map(doc => ({
-            ...doc,
-            status: doc.type === 'QUOTE' ? doc.quoteStatus : doc.invoiceStatus
-          }));
-          
-          setDocuments(normalizedDocs);
+          // Les documents viennent déjà normalisés du backend avec le champ 'status'
+          setDocuments(rawDocs);
         }
       } catch (err) {
         console.warn("⚠️ Erreur chargement documents:", err.message);

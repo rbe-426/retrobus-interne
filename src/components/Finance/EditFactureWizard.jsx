@@ -123,7 +123,7 @@ export default function EditFactureWizard({ editingDocument, onSave = () => {}, 
     if (!editingDocument?.id) return;
     try {
       const response = await fetch(
-        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/devis-lines/${editingDocument.id}`,
+        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/facture-lines/${editingDocument.id}`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
         }

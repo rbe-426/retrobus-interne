@@ -337,16 +337,58 @@ const FinanceInvoicing = () => {
       
       console.log('✅ Document modifié');
 
-      // Sauvegarder les lignes si c'est un devis généré
+      // Déterminer l'endpoint selon le type
+      const lineEndpoint = wizardData.type === 'INVOICE' ? 'facture-lines' : 'devis-lines';
+      const idKey = wizardData.type === 'INVOICE' ? 'factureId' : 'devisId';
+      
+      // Charger les lignes existantes pour savoir lesquelles supprimer
+      let existingLineIds = [];
+      try {
+        const existingResponse = await fetch(
+          (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}/${wizardData.id}`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        );
+        if (existingResponse.ok) {
+          const existingLines = await existingResponse.json();
+          existingLineIds = Array.isArray(existingLines) ? existingLines.map(l => l.id) : [];
+        }
+      } catch (e) {
+        console.warn('⚠️ Impossible de charger les lignes existantes:', e.message);
+      }
+
+      // Obtenir les IDs des lignes actuelles (celles qui ont un ID numérique existant)
+      const currentLineIds = (wizardData.lines || [])
+        .filter(l => typeof l.id === 'number')
+        .map(l => l.id);
+
+      // Supprimer les lignes qui ne sont plus présentes
+      const linesToDelete = existingLineIds.filter(id => !currentLineIds.includes(id));
+      for (const lineId of linesToDelete) {
+        try {
+          const deleteResponse = await fetch(
+            (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}/${lineId}`,
+            {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            }
+          );
+          if (!deleteResponse.ok) {
+            console.error(`❌ Erreur suppression ligne ${lineId}:`, deleteResponse.status);
+          }
+        } catch (e) {
+          console.error(`❌ Erreur suppression ligne ${lineId}:`, e.message);
+        }
+      }
+
+      // Sauvegarder les lignes si c'est un devis/facture généré
       if (wizardData.lines?.length > 0) {
         try {
-          // Supprimer les anciennes lignes et les remplacer par les nouvelles
           for (const line of wizardData.lines) {
-            // Si la ligne a un ID, c'est une ligne existante
-            if (line.id && typeof line.id === 'number' && !String(line.id).startsWith('date')) {
+            // Si la ligne a un ID numérique, c'est une ligne existante à mettre à jour
+            if (typeof line.id === 'number') {
               // Mettre à jour la ligne existante
-              await fetch(
-                (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/devis-lines/${line.id}`,
+              const lineResponse = await fetch(
+                (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}/${line.id}`,
                 {
                   method: 'PUT',
                   headers: {
@@ -361,27 +403,39 @@ const FinanceInvoicing = () => {
                   })
                 }
               );
+              if (!lineResponse.ok) {
+                console.error(`❌ Erreur modification ligne ${line.id}:`, lineResponse.status);
+              }
             } else {
-              // Créer une nouvelle ligne
-              await fetch((import.meta.env.VITE_API_URL || "http://localhost:4000") + '/api/devis-lines', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${localStorage.getItem("token")}`
-                },
-                body: JSON.stringify({
-                  devisId: wizardData.id,
-                  description: line.description,
-                  quantity: line.quantity,
-                  unitPrice: line.unitPrice,
-                  totalPrice: line.total
-                })
-              });
+              // Créer une nouvelle ligne (ID temporaire)
+              const createPayload = {
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                totalPrice: line.total
+              };
+              createPayload[idKey] = wizardData.id;
+              
+              const lineResponse = await fetch(
+                (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                  },
+                  body: JSON.stringify(createPayload)
+                }
+              );
+              if (!lineResponse.ok) {
+                console.error(`❌ Erreur création ligne:`, lineResponse.status);
+              }
             }
           }
           console.log('✅ Lignes modifiées');
         } catch (e) {
-          console.warn('⚠️ Impossible de mettre à jour les lignes:', e.message);
+          console.error('❌ Impossible de mettre à jour les lignes:', e.message);
+          throw new Error(`Erreur lors de la mise à jour des lignes: ${e.message}`);
         }
       }
 
