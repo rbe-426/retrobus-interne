@@ -409,6 +409,12 @@ const FinanceInvoicing = () => {
     }
   };
 
+  // Ouvrir le modal d'édition avec les données du document
+  const handleOpenEdit = (doc) => {
+    setEditingDocument(doc);
+    onOpen();
+  };
+
   const handleAddPayment = async (doc) => {
     // Validations
     if (!paymentFormData.amountPaid || parseFloat(paymentFormData.amountPaid) <= 0) {
@@ -1454,7 +1460,7 @@ const FinanceInvoicing = () => {
                                 <Select
                                   size="xs"
                                   width="auto"
-                                  value={doc.status}
+                                  value={doc.status || ""}
                                   onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
                                   cursor="pointer"
                                   display={{ base: "none", sm: "block" }}
@@ -1544,7 +1550,7 @@ const FinanceInvoicing = () => {
                                   <Select
                                     size="sm"
                                     width="100%"
-                                    value={doc.status}
+                                    value={doc.status || ""}
                                     onChange={(e) => handleChangeStatus(doc.id, e.target.value)}
                                     cursor="pointer"
                                   >
