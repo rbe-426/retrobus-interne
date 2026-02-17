@@ -293,33 +293,120 @@ const FinanceInvoicing = () => {
     }
   };
 
-  const handleOpenEdit = (doc) => {
-    setEditingDocument(doc);
-    setDocForm({
-      type: doc.type || "QUOTE",
-      number: doc.number || "",
-      title: doc.title || "",
-      description: doc.description || "",
-      date: (doc.date || new Date().toISOString()).slice(0, 10),
-      dueDate: doc.dueDate ? doc.dueDate.slice(0, 10) : "",
-      amountExcludingTax: String(doc.amountExcludingTax ?? ""),
-      taxRate: doc.taxRate ?? 0,
-      taxAmount: doc.taxAmount ?? 0,
-      amount: String(doc.amount || ""),
-      status: doc.status || "DRAFT",
-      eventId: doc.eventId || "",
-      memberId: doc.memberId || "",
-      destinataireName: doc.destinataireName || "",
-      destinataireAdresse: doc.destinataireAdresse || "",
-      destinataireSociete: doc.destinataireSociete || "",
-      destinataireContacts: doc.destinataireContacts || "",
-      notes: doc.notes || "",
-      paymentMethod: doc.paymentMethod || "",
-      paymentDate: doc.paymentDate ? doc.paymentDate.slice(0, 10) : "",
-      amountPaid: String(doc.amountPaid || ""),
-      htmlContent: doc.htmlContent || ""
-    });
-    onOpen();
+  // Handler pour sauvegarder les modifications du wizard d'édition
+  const handleEditSave = async (wizardData) => {
+    try {
+      console.log('💾 Saving edited document:', wizardData);
+      
+      // Préparer les données pour l'API
+      const payload = {
+        id: wizardData.id,
+        type: wizardData.type,
+        number: wizardData.number,
+        title: wizardData.title,
+        description: wizardData.description,
+        date: wizardData.date,
+        dueDate: wizardData.dueDate,
+        destinataireName: wizardData.destinataireName,
+        destinataireAdresse: wizardData.destinataireAdresse,
+        destinataireSociete: wizardData.destinataireSociete,
+        destinataireContacts: wizardData.destinataireContacts,
+        notes: wizardData.notes || '',
+        amount: wizardData.totals?.totalAmount || 0,
+        amountExcludingTax: wizardData.totals?.amountExcludingTax || 0,
+        taxRate: wizardData.totals?.taxRate || 0,
+        taxAmount: wizardData.totals?.taxAmount || 0,
+        paymentTerms: wizardData.paymentTerms || '30',
+        paymentMethod: wizardData.paymentMethod || 'virement'
+      };
+
+      // Appeler l'API de modification
+      const response = await fetch(
+        (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/finance/documents/${wizardData.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) throw new Error('Impossible de modifier le document');
+      
+      console.log('✅ Document modifié');
+
+      // Sauvegarder les lignes si c'est un devis généré
+      if (wizardData.lines?.length > 0) {
+        try {
+          // Supprimer les anciennes lignes et les remplacer par les nouvelles
+          for (const line of wizardData.lines) {
+            // Si la ligne a un ID, c'est une ligne existante
+            if (line.id && typeof line.id === 'number' && !String(line.id).startsWith('date')) {
+              // Mettre à jour la ligne existante
+              await fetch(
+                (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/devis-lines/${line.id}`,
+                {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                  },
+                  body: JSON.stringify({
+                    description: line.description,
+                    quantity: line.quantity,
+                    unitPrice: line.unitPrice,
+                    totalPrice: line.total
+                  })
+                }
+              );
+            } else {
+              // Créer une nouvelle ligne
+              await fetch((import.meta.env.VITE_API_URL || "http://localhost:4000") + '/api/devis-lines', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({
+                  devisId: wizardData.id,
+                  description: line.description,
+                  quantity: line.quantity,
+                  unitPrice: line.unitPrice,
+                  totalPrice: line.total
+                })
+              });
+            }
+          }
+          console.log('✅ Lignes modifiées');
+        } catch (e) {
+          console.warn('⚠️ Impossible de mettre à jour les lignes:', e.message);
+        }
+      }
+
+      // Recharger les données
+      await loadFinanceData();
+
+      toast({
+        title: 'Succès! 🎉',
+        description: 'Document modifié avec succès',
+        status: 'success',
+        duration: 2000
+      });
+
+      // Réinitialiser l'état d'édition
+      setEditingDocument(null);
+      onClose();
+    } catch (error) {
+      console.error('❌ Erreur lors de la modification:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de modifier le document',
+        status: 'error',
+        duration: 2000
+      });
+    }
   };
 
   const handleAddPayment = async (doc) => {
@@ -2157,22 +2244,30 @@ const FinanceInvoicing = () => {
                   />
                 </FormControl>
               </HStack>
-            </VStack>
+              </VStack>
+            )}
           </ModalBody>
 
           <ModalFooter>
-            <HStack spacing={3}>
+            {editingDocument ? (
+              // Le wizard d'édition a ses propres boutons
               <Button variant="ghost" onClick={onClose}>
-                Annuler
+                Fermer
               </Button>
-              <Button
-                colorScheme="blue"
-                onClick={handleAdd}
-                isLoading={isAdding}
-              >
-                {editingDocument ? "Modifier" : "Créer"}
-              </Button>
-            </HStack>
+            ) : (
+              <HStack spacing={3}>
+                <Button variant="ghost" onClick={onClose}>
+                  Annuler
+                </Button>
+                <Button
+                  colorScheme="blue"
+                  onClick={handleAdd}
+                  isLoading={isAdding}
+                >
+                  {editingDocument ? "Modifier" : "Créer"}
+                </Button>
+              </HStack>
+            )}
           </ModalFooter>
         </ModalContent>
       </Modal>
