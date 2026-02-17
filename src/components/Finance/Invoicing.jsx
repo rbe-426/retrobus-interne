@@ -737,10 +737,18 @@ const FinanceInvoicing = () => {
     console.log(`📄 Ouverture du PDF pour: ${doc.number}`);
     
     try {
+      // D'abord vérifier s'il y a un PDF importé
+      if (doc.documentUrl) {
+        console.log('✅ Affichage du PDF importé');
+        window.open(doc.documentUrl, "_blank");
+        return;
+      }
+
+      // Sinon, essayer de générer depuis le template
       if (!doc.htmlContent && (!selectedTemplate || !templates.length)) {
         toast({
           title: "Attention",
-          description: "Aucun contenu HTML pour ce document. Générez-le d'abord.",
+          description: "Aucun contenu HTML ou PDF pour ce document. Générez-le d'abord.",
           status: "warning"
         });
         return;
