@@ -101,7 +101,7 @@ export default function FactureWizard({ onSave = () => {}, onClose = () => {} })
   const [lines, setLines] = useState([]);
   const [totals, setTotals] = useState({
     amountExcludingTax: 0,
-    taxRate: 20,
+    taxRate: 0,
     taxAmount: 0,
     totalAmount: 0
   });
@@ -456,26 +456,12 @@ export default function FactureWizard({ onSave = () => {}, onClose = () => {} })
             <FormControl>
               <FormLabel>TVA (%)</FormLabel>
               <NumberInput
-                min={0}
-                max={100}
+                isDisabled
                 value={totals.taxRate}
-                onChange={(val) => {
-                  const rate = parseFloat(val);
-                  const taxAmount = totals.amountExcludingTax * (rate / 100);
-                  setTotals(prev => ({
-                    ...prev,
-                    taxRate: rate,
-                    taxAmount,
-                    totalAmount: totals.amountExcludingTax + taxAmount
-                  }));
-                }}
               >
                 <NumberInputField />
-                <NumberInputStepper>
-                  <NumberIncrementStepper />
-                  <NumberDecrementStepper />
-                </NumberInputStepper>
               </NumberInput>
+              <Text fontSize="xs" color="gray.500" mt={2}>Association loi 1901 - Exonérée TVA (Article 239B CGI)</Text>
             </FormControl>
           </SimpleGrid>
 
@@ -593,29 +579,12 @@ export default function FactureWizard({ onSave = () => {}, onClose = () => {} })
                 <Text fontWeight="bold">{totals.amountExcludingTax.toFixed(2)}€</Text>
               </HStack>
 
+              <Alert status="warning" borderRadius="md" fontSize="sm" mb={2}>
+                <AlertIcon />
+                Association loi 1901 - TVA exonérée (Article 239B CGI)
+              </Alert>
               <HStack w="100%" justify="space-between">
-                <HStack>
-                  <Text>TVA ({totals.taxRate}%):</Text>
-                  <NumberInput
-                    size="sm"
-                    w="80px"
-                    min={0}
-                    max={100}
-                    value={totals.taxRate}
-                    onChange={(val) => {
-                      const rate = parseFloat(val);
-                      const taxAmount = totals.amountExcludingTax * (rate / 100);
-                      setTotals(prev => ({
-                        ...prev,
-                        taxRate: rate,
-                        taxAmount,
-                        totalAmount: totals.amountExcludingTax + taxAmount
-                      }));
-                    }}
-                  >
-                    <NumberInputField />
-                  </NumberInput>
-                </HStack>
+                <Text>TVA ({totals.taxRate}%):</Text>
                 <Text fontWeight="bold">{totals.taxAmount.toFixed(2)}€</Text>
               </HStack>
 
