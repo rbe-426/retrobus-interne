@@ -16,10 +16,12 @@ const isLocal = typeof window !== 'undefined' && (
   window.location.port === '5173'
 );
 
+// In production, use relative paths (Vercel rewrites /api/* to backend)
+// In dev, use VITE_API_URL for local backend
 const API_BASE_URL = (
   isLocal
     ? (import.meta.env?.VITE_API_URL || '')
-    : ''
+    : '' // Empty = relative paths, Vercel handles rewrites
 ).replace(/\/$/, '');
 
 // ============================================================================
