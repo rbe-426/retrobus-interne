@@ -163,10 +163,20 @@ export default function MyRBE() {
       return false;
     }
 
+    // 🔒 NOUVELLE LOGIQUE: Vérifier si l'utilisateur a une restriction DENY pour cette ressource
+    if (card.resource) {
+      const isDenied = userPermissions.some(p => 
+        p.resource === card.resource && p.actions && p.actions.includes('DENY')
+      );
+      if (isDenied) {
+        return false; // Masquer la carte si accès refusé
+      }
+    }
+
     // Si la carte nécessite une autorisation d'accès (cardAccess)
     if (card.cardAccess) {
       // Vérifier d'abord les permissions individuelles pour cette carte
-      const hasCardPermission = userPermissions.some(p => p.resource === card.resource);
+      const hasCardPermission = userPermissions.some(p => p.resource === card.resource && p.actions && p.actions.includes('GRANT'));
       if (hasCardPermission) {
         return true;
       }
