@@ -36,7 +36,7 @@ const cards = [
     to: "/dashboard/retro-demandes",
     icon: FiPlus,
     color: "blue",
-    resource: "RETRODEMANDES",
+    resource: "RETRO_DEMANDES",
     cardAccess: true
   },
   {
@@ -82,7 +82,7 @@ const cards = [
     to: "/dashboard/adhesion-management",
     icon: FiShield,
     color: "purple",
-    resource: "MEMBERS",
+    resource: "ADHESION_MANAGEMENT",
     cardAccess: true
   },
   {
