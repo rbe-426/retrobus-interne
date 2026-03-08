@@ -645,7 +645,15 @@ export default function PlanningRBE() {
     } finally {
       setCreatingLoading(false);
     }
-  };  }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      if (!user?.id) return;
+      const response = await fetchJson(`/api/user/${user.id}/event-invitations`);
+      if (response.success) {
+        setInvitations(response.data || []);
+      }
     } catch (error) {
       console.error('Erreur lors du chargement des invitations:', error);
     }
