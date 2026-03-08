@@ -550,13 +550,31 @@ export default function PlanningRBE() {
     location: ''
   });
   const [creatingLoading, setCreatingLoading] = useState(false);
+  const [activeMembers, setActiveMembers] = useState([]);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   
   const toast = useToast();
 
   useEffect(() => {
     loadEvents();
     loadInvitations();
+    loadActiveMembers();
   }, [currentDate]);
+
+  const loadActiveMembers = async () => {
+    try {
+      setMembersLoading(true);
+      const response = await fetchJson('/api/members/active');
+      if (response.success) {
+        setActiveMembers(response.data || []);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des adhérents:', error);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
 
   const loadEvents = async () => {
     try {
@@ -594,6 +612,7 @@ export default function PlanningRBE() {
       date: date || new Date().toISOString().split('T')[0],
       location: ''
     });
+    setSelectedMembers([]);
     onCreateOpen();
   };
 
@@ -624,9 +643,26 @@ export default function PlanningRBE() {
       });
 
       if (response.success || response.event || response.id) {
+        const eventId = response.id || response.event?.id;
+        
+        // Inviter les adhérents sélectionnés
+        if (selectedMembers.length > 0 && eventId) {
+          try {
+            await fetchJson(`/api/events/${eventId}/invite`, {
+              method: 'POST',
+              body: JSON.stringify({
+                userIds: selectedMembers
+              })
+            });
+          } catch (inviteError) {
+            console.error('Erreur lors de l\'invitation des adhérents:', inviteError);
+            // Ne pas bloquer la création de l'événement si les invitations échouent
+          }
+        }
+        
         toast({
           title: 'Événement créé!',
-          description: `"${creatingEvent.title}" a été ajouté au planning`,
+          description: `"${creatingEvent.title}" a été ajouté au planning${selectedMembers.length > 0 ? ` et ${selectedMembers.length} adhérent(s) ont été invité(s)` : ''}`,
           status: 'success',
           duration: 3000
         });
@@ -809,6 +845,31 @@ export default function PlanningRBE() {
                       onChange={(e) => setCreatingEvent({...creatingEvent, description: e.target.value})}
                       rows={4}
                     />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Convier les adhérents</FormLabel>
+                    <Text fontSize="sm" color="gray.600" mb={2}>
+                      Sélectionnez les adhérents à inviter (ils devront confirmer leur disponibilité)
+                    </Text>
+                    <Box maxH="250px" overflowY="auto" border="1px" borderColor="gray.200" borderRadius="md" p={3}>
+                      {membersLoading ? (
+                        <Text>Chargement des adhérents...</Text>
+                      ) : activeMembers.length === 0 ? (
+                        <Text color="gray.500">Aucun adhérent actif</Text>
+                      ) : (
+                        <CheckboxGroup value={selectedMembers} onChange={setSelectedMembers}>
+                          <VStack align="start" spacing={2}>
+                            {activeMembers.map(member => (
+                              <Checkbox key={member.id} value={member.id}>
+                                {member.firstName} {member.lastName}
+                                {member.email && <Text as="span" fontSize="xs" color="gray.500" ml={2}>({member.email})</Text>}
+                              </Checkbox>
+                            ))}
+                          </VStack>
+                        </CheckboxGroup>
+                      )}
+                    </Box>
                   </FormControl>
                 </VStack>
               </ModalBody>
