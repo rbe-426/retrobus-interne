@@ -39,6 +39,7 @@ import MembersManagement from "./pages/MembersManagement";
 import SupportSite from "./pages/SupportSite";
 import RetroMerch from "./pages/RetroMerch";
 import RetroPlanning from "./pages/RetroPlanning";
+import SharedPlanning from "./pages/SharedPlanning";
 import AttendancePage from "./pages/AttendancePage";
 import AttendanceManager from "./pages/AttendanceManager";
 import RetroDemandes from "./pages/RetroDemandes";
@@ -107,6 +108,7 @@ export default function App() {
         <Route path="/dashboard/test-events" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><TestEventsPage /></RoleProtectedRoute>} />
         
         {/* 🌐 Gestion du site et contenu */}
+        <Route path="/dashboard/shared-planning" element={<ProtectedRoute><SharedPlanning /></ProtectedRoute>} />
         <Route path="/dashboard/site-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.SITE_MANAGEMENT}><SiteManagement /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/dashboard/flash-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><FlashManagement /></RoleProtectedRoute>} />
         {/* 🛒 RétroMerch (administration) */}

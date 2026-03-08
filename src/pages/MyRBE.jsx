@@ -129,6 +129,14 @@ const cards = [
     color: "cyan",
     resource: "RETROSUPPORT",
     cardAccess: true
+  },
+  {
+    title: "Planning partagés",
+    description: "Événements et disponibilités pour les entretiens",
+    to: "/dashboard/shared-planning",
+    icon: FiCalendar,
+    color: "orange",
+    cardAccess: false  // Visible par tous, pas de ressource
   }
 ];
 
