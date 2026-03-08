@@ -647,18 +647,6 @@ export default function PlanningRBE() {
     }
   };
 
-  const loadInvitations = async () => {
-    try {
-      if (!user?.id) return;
-      const response = await fetchJson(`/api/user/${user.id}/event-invitations`);
-      if (response.success) {
-        setInvitations(response.data || []);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des invitations:', error);
-    }
-  };
-
   const handleEventClick = (event) => {
     setSelectedEvent(event);
     const invitation = invitations.find(inv => inv.eventId === event.id);
