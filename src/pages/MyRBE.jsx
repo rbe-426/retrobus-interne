@@ -133,7 +133,7 @@ const cards = [
   {
     title: "Planning partagés",
     description: "Événements et disponibilités pour les entretiens",
-    to: "/dashboard/shared-planning",
+    to: "/dashboard/planning-rbe",
     icon: FiCalendar,
     color: "orange",
     cardAccess: false  // Visible par tous, pas de ressource

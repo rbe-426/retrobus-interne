@@ -526,7 +526,7 @@ function EventDetailsModal({ isOpen, onClose, event, invitation }) {
   );
 }
 
-export default function SharedPlanning() {
+export default function PlanningRBE() {
   const { user } = useUser();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
