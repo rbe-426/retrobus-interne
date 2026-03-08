@@ -33,6 +33,7 @@ const formatDate = (d) => {
 export default function EventsManagement() {
   const toast = useToast();
   const { isOpen: isManageOpen, onOpen: onManageOpen, onClose: onManageClose } = useDisclosure();
+  const { isOpen: isInviteOpen, onOpen: onInviteOpen, onClose: onInviteClose } = useDisclosure();
 
   // État pour gestion événement
   const [events, setEvents] = useState([]);
@@ -50,6 +51,12 @@ export default function EventsManagement() {
     pdfUrl: ''
   });
   const [activeEventTab, setActiveEventTab] = useState("participants");
+
+  // État pour invitations
+  const [inviteEvent, setInviteEvent] = useState(null);
+  const [availableMembers, setAvailableMembers] = useState([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   // Participants, routes, finances
   const [participants, setParticipants] = useState([]);
@@ -259,6 +266,61 @@ export default function EventsManagement() {
     }
   };
 
+  // === GESTION DES INVITATIONS ===
+  const openInviteModal = async (event) => {
+    setInviteEvent(event);
+    setSelectedMemberIds([]);
+    setLoadingMembers(true);
+    try {
+      // Charger la liste des membres
+      const response = await fetch('/api/members');
+      if (!response.ok) throw new Error('Erreur chargement membres');
+      const data = await response.json();
+      setAvailableMembers(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      console.error('Erreur chargement membres:', err);
+      toast({ status: "error", title: "Erreur", description: "Impossible de charger les membres" });
+    } finally {
+      setLoadingMembers(false);
+    }
+    onInviteOpen();
+  };
+
+  const sendInvitations = async () => {
+    if (!inviteEvent?.id || selectedMemberIds.length === 0) {
+      toast({ status: "warning", title: "Sélectionnez au moins une personne" });
+      return;
+    }
+
+    try {
+      setLoadingMembers(true);
+      const response = await fetch(`/api/events/${inviteEvent.id}/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({ userIds: selectedMemberIds })
+      });
+
+      if (!response.ok) throw new Error(`Erreur ${response.status}`);
+      const result = await response.json();
+
+      toast({ 
+        status: "success", 
+        title: "Invitations envoyées",
+        description: result.message 
+      });
+      onInviteClose();
+      setSelectedMemberIds([]);
+    } catch (err) {
+      console.error('Erreur envoi invitations:', err);
+      toast({ status: "error", title: "Erreur", description: err.message });
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
   // Participants
   const addParticipant = async (p) => {
     if (!p?.name || !p?.email) {
@@ -412,6 +474,7 @@ export default function EventsManagement() {
                   <Td>
                     <HStack spacing={1}>
                       <Button size="sm" variant="ghost" onClick={() => openManageEvent(e)}>Gérer</Button>
+                      <Button size="sm" variant="ghost" colorScheme="blue" onClick={() => openInviteModal(e)}>Inviter</Button>
                       <IconButton as={RouterLink} to="/dashboard/evenements" aria-label="Modifier" icon={<FiEdit />} size="sm" variant="ghost" />
                     </HStack>
                   </Td>
@@ -1045,6 +1108,61 @@ export default function EventsManagement() {
             <HStack spacing={3}>
               <Button variant="ghost" onClick={onManageClose}>Annuler</Button>
               <Button leftIcon={<FiSave />} colorScheme="blue" onClick={saveManageEvent}>Sauvegarder</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal d'invitations */}
+      <Modal isOpen={isInviteOpen} onClose={onInviteClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack align="start" spacing={1}>
+              <Heading size="md">Inviter les gens: {inviteEvent?.title}</Heading>
+              <Text fontSize="sm" color="gray.600">Sélectionnez les personnes à inviter pour cet événement</Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {loadingMembers ? (
+              <Center py={8}><Spinner /></Center>
+            ) : (
+              <VStack align="stretch" spacing={4}>
+                {availableMembers.length === 0 ? (
+                  <Text color="gray.500">Aucun membre disponible</Text>
+                ) : (
+                  <VStack align="stretch" maxH="400px" overflowY="auto">
+                    {availableMembers.map(member => (
+                      <HStack key={member.id} p={3} border="1px" borderColor="gray.200" borderRadius="md" cursor="pointer" 
+                        onClick={() => {
+                          setSelectedMemberIds(prev => 
+                            prev.includes(member.id) 
+                              ? prev.filter(id => id !== member.id)
+                              : [...prev, member.id]
+                          );
+                        }}
+                        bg={selectedMemberIds.includes(member.id) ? "blue.50" : "white"}
+                        _hover={{ bg: selectedMemberIds.includes(member.id) ? "blue.100" : "gray.50" }}
+                      >
+                        <Checkbox isChecked={selectedMemberIds.includes(member.id)} />
+                        <VStack align="start" spacing={0}>
+                          <Text fontWeight="bold">{member.name}</Text>
+                          <Text fontSize="sm" color="gray.600">{member.email}</Text>
+                        </VStack>
+                      </HStack>
+                    ))}
+                  </VStack>
+                )}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={2}>
+              <Button variant="ghost" onClick={onInviteClose}>Annuler</Button>
+              <Button colorScheme="blue" isLoading={loadingMembers} onClick={sendInvitations}>
+                Inviter {selectedMemberIds.length} {selectedMemberIds.length <= 1 ? 'personne' : 'personnes'}
+              </Button>
             </HStack>
           </ModalFooter>
         </ModalContent>

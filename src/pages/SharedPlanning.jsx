@@ -7,14 +7,17 @@ import {
   Container,
   Divider,
   Flex,
-  FormControl,
-  FormLabel,
   Grid,
   GridItem,
   Heading,
   HStack,
   IconButton,
-  Select,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Stack,
   Tab,
   TabList,
@@ -25,29 +28,33 @@ import {
   VStack,
   useToast,
   Badge,
-  CheckboxGroup,
   Checkbox,
+  CheckboxGroup,
   useColorModeValue,
+  useDisclosure,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
-import { FiCalendar } from 'react-icons/fi';
+import { FiCalendar, FiCheck, FiX } from 'react-icons/fi';
 import PageLayout from '../components/Layout/PageLayout';
 import { fetchJson } from '../apiClient';
 import { useUser } from '../context/UserContext';
 
-// Calendrier composant
-function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
+// Calendrier composant - Format français (Lun-Dim)
+function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth, invitations, onEventClick }) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
   const firstDay = new Date(year, month, 1).getDay();
+  // Ajuster pour format français (lun=1, dim=0 -> lun=0, dim=6)
+  const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+  
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
   const days = [];
   
   // Jours du mois précédent
-  for (let i = firstDay - 1; i >= 0; i--) {
+  for (let i = adjustedFirstDay - 1; i >= 0; i--) {
     days.push({ day: daysInPrevMonth - i, isCurrentMonth: false });
   }
   
@@ -64,7 +71,17 @@ function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
 
   const getDayEvents = (dayOfMonth) => {
     return events.filter(event => {
-      const eventDate = new Date(event.startDate);
+      const eventDate = new Date(event.date);
+      return eventDate.getDate() === dayOfMonth && 
+             eventDate.getMonth() === month &&
+             eventDate.getFullYear() === year;
+    });
+  };
+
+  const getDayInvitations = (dayOfMonth) => {
+    return invitations.filter(inv => {
+      if (!inv.event) return false;
+      const eventDate = new Date(inv.event.date);
       return eventDate.getDate() === dayOfMonth && 
              eventDate.getMonth() === month &&
              eventDate.getFullYear() === year;
@@ -99,7 +116,7 @@ function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
             </HStack>
           </Flex>
 
-          {/* En-têtes des jours */}
+          {/* En-têtes des jours - Format français (Lun à Dim) */}
           <Grid templateColumns="repeat(7, 1fr)" gap={1}>
             {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
               <Box key={day} textAlign="center" fontWeight="bold" py={2}>
@@ -112,6 +129,7 @@ function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
           <Grid templateColumns="repeat(7, 1fr)" gap={1}>
             {days.map((d, idx) => {
               const dayEvents = getDayEvents(d.day);
+              const dayInvitations = getDayInvitations(d.day);
               const isToday = d.isCurrentMonth && 
                 d.day === new Date().getDate() && 
                 month === new Date().getMonth() && 
@@ -120,7 +138,7 @@ function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
               return (
                 <Box
                   key={idx}
-                  minH="100px"
+                  minH="120px"
                   p={2}
                   border={isToday ? `2px solid` : '1px solid'}
                   borderColor={isToday ? borderCurrentDay : 'gray.300'}
@@ -128,17 +146,51 @@ function MonthlyCalendar({ events, currentDate, onPrevMonth, onNextMonth }) {
                   borderRadius="md"
                   fontSize="sm"
                   opacity={d.isCurrentMonth ? 1 : 0.5}
+                  cursor={dayEvents.length > 0 || dayInvitations.length > 0 ? 'pointer' : 'default'}
+                  _hover={dayEvents.length > 0 || dayInvitations.length > 0 ? { shadow: 'md' } : {}}
                 >
                   <Text fontWeight="bold" mb={1}>{d.day}</Text>
+                  
+                  {/* Événements publics */}
                   {dayEvents.length > 0 && (
                     <VStack spacing={1} align="start">
-                      {dayEvents.slice(0, 2).map(event => (
-                        <Badge key={event.id} fontSize="xs" colorScheme="green" w="full" isTruncated>
-                          {event.name}
+                      {dayEvents.slice(0, 1).map(event => (
+                        <Badge 
+                          key={event.id} 
+                          fontSize="xs" 
+                          colorScheme="green" 
+                          w="full" 
+                          isTruncated
+                          onClick={() => onEventClick(event)}
+                          cursor="pointer"
+                        >
+                          📅 {event.title}
                         </Badge>
                       ))}
-                      {dayEvents.length > 2 && (
-                        <Text fontSize="xs" color="gray.500">+{dayEvents.length - 2}</Text>
+                      {dayEvents.length > 1 && (
+                        <Text fontSize="xs" color="gray.500">+{dayEvents.length - 1} evt</Text>
+                      )}
+                    </VStack>
+                  )}
+
+                  {/* Invitations personnelles */}
+                  {dayInvitations.length > 0 && (
+                    <VStack spacing={1} align="start">
+                      {dayInvitations.slice(0, 1).map(inv => (
+                        <Badge 
+                          key={inv.id}
+                          fontSize="xs" 
+                          colorScheme={inv.status === 'ACCEPTED' ? 'green' : inv.status === 'DECLINED' ? 'red' : 'blue'}
+                          w="full" 
+                          isTruncated
+                          onClick={() => onEventClick(inv.event)}
+                          cursor="pointer"
+                        >
+                          ✉️ {inv.event?.title}
+                        </Badge>
+                      ))}
+                      {dayInvitations.length > 1 && (
+                        <Text fontSize="xs" color="gray.500">+{dayInvitations.length - 1} inv</Text>
                       )}
                     </VStack>
                   )}
@@ -157,6 +209,7 @@ function IndividualPlanning({ userId, userName }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [availabilities, setAvailabilities] = useState({});
   const [loading, setLoading] = useState(true);
+  const [invitations, setInvitations] = useState([]);
   const toast = useToast();
 
   const year = currentDate.getFullYear();
@@ -165,6 +218,7 @@ function IndividualPlanning({ userId, userName }) {
 
   useEffect(() => {
     loadAvailabilities();
+    loadInvitations();
   }, [userId, month, year]);
 
   const loadAvailabilities = async () => {
@@ -178,6 +232,17 @@ function IndividualPlanning({ userId, userName }) {
       console.error('Erreur lors du chargement des disponibilités:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      const response = await fetchJson(`/api/user/${userId}/event-invitations`);
+      if (response.success) {
+        setInvitations(response.data || []);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des invitations:', error);
     }
   };
 
@@ -220,10 +285,95 @@ function IndividualPlanning({ userId, userName }) {
     }
   };
 
+  const handleInvitationResponse = async (invitationId, status) => {
+    try {
+      const response = await fetchJson(`/api/invitations/${invitationId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+
+      if (response.success) {
+        await loadInvitations();
+        toast({
+          title: `Réponse enregistrée`,
+          description: `Vous avez répondu: ${status}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        status: 'error',
+        duration: 3000,
+        isClosable: true
+      });
+    }
+  };
+
   const monthName = new Date(year, month).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  // Invitations du mois actuel
+  const monthInvitations = invitations.filter(inv => {
+    if (!inv.event) return false;
+    const eventDate = new Date(inv.event.date);
+    return eventDate.getMonth() === month && eventDate.getFullYear() === year;
+  });
 
   return (
     <VStack spacing={6} align="stretch">
+      {/* Section Invitations */}
+      {monthInvitations.length > 0 && (
+        <Box>
+          <Heading size="sm" mb={3}>📬 Invitations pour ce mois</Heading>
+          <Stack spacing={2}>
+            {monthInvitations.map(inv => (
+              <Card key={inv.id} bg={inv.status === 'PENDING' ? 'orange.50' : 'green.50'}>
+                <CardBody>
+                  <HStack justify="space-between">
+                    <VStack align="start" spacing={0}>
+                      <Text fontWeight="bold">{inv.event?.title}</Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {new Date(inv.event?.date).toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long'
+                        })}
+                      </Text>
+                    </VStack>
+                    <HStack>
+                      <Badge colorScheme={inv.status === 'ACCEPTED' ? 'green' : inv.status === 'DECLINED' ? 'red' : 'yellow'}>
+                        {inv.status}
+                      </Badge>
+                      {inv.status === 'PENDING' && (
+                        <HStack spacing={1}>
+                          <IconButton
+                            icon={<FiCheck />}
+                            colorScheme="green"
+                            size="sm"
+                            onClick={() => handleInvitationResponse(inv.id, 'ACCEPTED')}
+                            aria-label="Accepter"
+                          />
+                          <IconButton
+                            icon={<FiX />}
+                            colorScheme="red"
+                            size="sm"
+                            onClick={() => handleInvitationResponse(inv.id, 'DECLINED')}
+                            aria-label="Refuser"
+                          />
+                        </HStack>
+                      )}
+                    </HStack>
+                  </HStack>
+                </CardBody>
+              </Card>
+            ))}
+          </Stack>
+        </Box>
+      )}
+
       {/* En-tête avec navigation */}
       <Flex justify="space-between" align="center">
         <Heading size="md">
@@ -291,15 +441,105 @@ function IndividualPlanning({ userId, userName }) {
   );
 }
 
+// Modal Détails Événement
+function EventDetailsModal({ isOpen, onClose, event, invitation }) {
+  const toast = useToast();
+
+  const handleResponse = async (status) => {
+    try {
+      const response = await fetchJson(`/api/invitations/${invitation?.id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+
+      if (response.success) {
+        toast({
+          title: 'Réponse enregistrée',
+          status: 'success',
+          duration: 2000
+        });
+        onClose();
+      }
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        status: 'error'
+      });
+    }
+  };
+
+  if (!event) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>{event.title}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          <VStack align="start" spacing={3}>
+            <Box>
+              <Text fontWeight="bold">Date</Text>
+              <Text>{new Date(event.date).toLocaleDateString('fr-FR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}</Text>
+            </Box>
+            {event.location && (
+              <Box>
+                <Text fontWeight="bold">Lieu</Text>
+                <Text>{event.location}</Text>
+              </Box>
+            )}
+            {event.description && (
+              <Box>
+                <Text fontWeight="bold">Description</Text>
+                <Text>{event.description}</Text>
+              </Box>
+            )}
+
+            {invitation && invitation.status === 'PENDING' && (
+              <HStack spacing={2} w="full" pt={4}>
+                <Button
+                  flex={1}
+                  colorScheme="green"
+                  onClick={() => handleResponse('ACCEPTED')}
+                >
+                  Accepter
+                </Button>
+                <Button
+                  flex={1}
+                  colorScheme="red"
+                  onClick={() => handleResponse('DECLINED')}
+                >
+                  Refuser
+                </Button>
+              </HStack>
+            )}
+          </VStack>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+}
+
 export default function SharedPlanning() {
   const { user } = useUser();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedInvitation, setSelectedInvitation] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
   useEffect(() => {
     loadEvents();
+    loadInvitations();
   }, [currentDate]);
 
   const loadEvents = async () => {
@@ -314,16 +554,28 @@ export default function SharedPlanning() {
       }
     } catch (error) {
       console.error('Erreur lors du chargement des événements:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de charger les événements',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      });
     } finally {
       setEventsLoading(false);
     }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      if (!user?.id) return;
+      const response = await fetchJson(`/api/user/${user.id}/event-invitations`);
+      if (response.success) {
+        setInvitations(response.data || []);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des invitations:', error);
+    }
+  };
+
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    const invitation = invitations.find(inv => inv.eventId === event.id);
+    setSelectedInvitation(invitation);
+    onOpen();
   };
 
   return (
@@ -359,8 +611,10 @@ export default function SharedPlanning() {
                   <MonthlyCalendar 
                     events={events}
                     currentDate={currentDate}
+                    invitations={invitations}
                     onPrevMonth={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
                     onNextMonth={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                    onEventClick={handleEventClick}
                   />
 
                   {/* Liste des événements du mois */}
@@ -371,13 +625,13 @@ export default function SharedPlanning() {
                     ) : (
                       <Stack spacing={2}>
                         {events.map(event => (
-                          <Card key={event.id}>
+                          <Card key={event.id} cursor="pointer" onClick={() => handleEventClick(event)} _hover={{ shadow: 'md' }}>
                             <CardBody>
                               <HStack justify="space-between" align="start">
                                 <VStack align="start" spacing={1}>
-                                  <Heading size="sm">{event.name}</Heading>
+                                  <Heading size="sm">{event.title}</Heading>
                                   <Text fontSize="sm" color="gray.600">
-                                    {new Date(event.startDate).toLocaleDateString('fr-FR', {
+                                    {new Date(event.date).toLocaleDateString('fr-FR', {
                                       weekday: 'long',
                                       year: 'numeric',
                                       month: 'long',
@@ -412,6 +666,14 @@ export default function SharedPlanning() {
               </TabPanel>
             </TabPanels>
           </Tabs>
+
+          {/* Modal Détails Événement */}
+          <EventDetailsModal 
+            isOpen={isOpen}
+            onClose={onClose}
+            event={selectedEvent}
+            invitation={selectedInvitation}
+          />
         </VStack>
       </Container>
     </PageLayout>
