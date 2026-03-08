@@ -12,12 +12,17 @@ import {
   Heading,
   HStack,
   IconButton,
+  Input,
+  Textarea,
+  FormControl,
+  FormLabel,
   Modal,
   ModalBody,
   ModalCloseButton,
   ModalContent,
   ModalHeader,
   ModalOverlay,
+  ModalFooter,
   Stack,
   Tab,
   TabList,
@@ -33,7 +38,7 @@ import {
   useColorModeValue,
   useDisclosure,
 } from '@chakra-ui/react';
-import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { ChevronLeftIcon, ChevronRightIcon, AddIcon } from '@chakra-ui/icons';
 import { FiCalendar, FiCheck, FiX } from 'react-icons/fi';
 import PageLayout from '../components/Layout/PageLayout';
 import { fetchJson } from '../apiClient';
@@ -535,6 +540,17 @@ export default function PlanningRBE() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedInvitation, setSelectedInvitation] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  
+  // Modal de création d'événement
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const [creatingEvent, setCreatingEvent] = useState({
+    title: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0],
+    location: ''
+  });
+  const [creatingLoading, setCreatingLoading] = useState(false);
+  
   const toast = useToast();
 
   useEffect(() => {
@@ -566,6 +582,70 @@ export default function PlanningRBE() {
       if (response.success) {
         setInvitations(response.data || []);
       }
+    } catch (error) {
+      console.error('Erreur lors du chargement des invitations:', error);
+    }
+  };
+
+  const openCreateEventModal = (date) => {
+    setCreatingEvent({
+      title: '',
+      description: '',
+      date: date || new Date().toISOString().split('T')[0],
+      location: ''
+    });
+    onCreateOpen();
+  };
+
+  const createEvent = async () => {
+    if (!creatingEvent.title || !creatingEvent.date) {
+      toast({
+        title: 'Erreur',
+        description: 'Titre et date sont obligatoires',
+        status: 'error',
+        duration: 3000
+      });
+      return;
+    }
+
+    try {
+      setCreatingLoading(true);
+      
+      // Créer l'événement via l'API
+      const response = await fetchJson('/api/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: creatingEvent.title,
+          description: creatingEvent.description,
+          date: new Date(creatingEvent.date),
+          location: creatingEvent.location,
+          status: 'PUBLISHED'
+        })
+      });
+
+      if (response.success || response.event || response.id) {
+        toast({
+          title: 'Événement créé!',
+          description: `"${creatingEvent.title}" a été ajouté au planning`,
+          status: 'success',
+          duration: 3000
+        });
+        
+        onCreateClose();
+        // Recharger les événements
+        loadEvents();
+      }
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setCreatingLoading(false);
+    }
+  };  }
     } catch (error) {
       console.error('Erreur lors du chargement des invitations:', error);
     }
@@ -619,7 +699,17 @@ export default function PlanningRBE() {
 
                   {/* Liste des événements du mois */}
                   <Box>
-                    <Heading size="md" mb={4}>Événements du mois</Heading>
+                    <HStack justify="space-between" align="center" mb={4}>
+                      <Heading size="md">Événements du mois</Heading>
+                      <Button 
+                        leftIcon={<AddIcon />} 
+                        colorScheme="blue" 
+                        size="sm"
+                        onClick={() => openCreateEventModal()}
+                      >
+                        Ajouter un événement
+                      </Button>
+                    </HStack>
                     {events.length === 0 ? (
                       <Text color="gray.500">Aucun événement prévu ce mois-ci</Text>
                     ) : (
@@ -674,6 +764,72 @@ export default function PlanningRBE() {
             event={selectedEvent}
             invitation={selectedInvitation}
           />
+
+          {/* Modal Création d'Événement */}
+          <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>
+                <VStack align="start" spacing={1}>
+                  <Heading size="md">Créer un événement</Heading>
+                  <Text fontSize="sm" color="gray.600">Ajoutez un nouvel événement au planning partagé</Text>
+                </VStack>
+              </ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                <VStack align="stretch" spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel>Titre</FormLabel>
+                    <Input
+                      placeholder="Ex: Entretien moteur Citroën"
+                      value={creatingEvent.title}
+                      onChange={(e) => setCreatingEvent({...creatingEvent, title: e.target.value})}
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={creatingEvent.date}
+                      onChange={(e) => setCreatingEvent({...creatingEvent, date: e.target.value})}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Lieu</FormLabel>
+                    <Input
+                      placeholder="Ex: Garage RétroBus"
+                      value={creatingEvent.location}
+                      onChange={(e) => setCreatingEvent({...creatingEvent, location: e.target.value})}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Description</FormLabel>
+                    <Textarea
+                      placeholder="Détails de l'événement..."
+                      value={creatingEvent.description}
+                      onChange={(e) => setCreatingEvent({...creatingEvent, description: e.target.value})}
+                      rows={4}
+                    />
+                  </FormControl>
+                </VStack>
+              </ModalBody>
+              <ModalFooter>
+                <HStack spacing={2}>
+                  <Button variant="ghost" onClick={onCreateClose}>Annuler</Button>
+                  <Button 
+                    colorScheme="blue" 
+                    isLoading={creatingLoading}
+                    onClick={createEvent}
+                  >
+                    Créer l'événement
+                  </Button>
+                </HStack>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
         </VStack>
       </Container>
     </PageLayout>
