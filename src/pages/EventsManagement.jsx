@@ -276,7 +276,8 @@ export default function EventsManagement() {
       const response = await fetch('/api/members');
       if (!response.ok) throw new Error('Erreur chargement membres');
       const data = await response.json();
-      setAvailableMembers(Array.isArray(data) ? data : data?.data || []);
+      const membersList = Array.isArray(data) ? data : data?.members || [];
+      setAvailableMembers(membersList);
     } catch (err) {
       console.error('Erreur chargement membres:', err);
       toast({ status: "error", title: "Erreur", description: "Impossible de charger les membres" });
@@ -1147,7 +1148,7 @@ export default function EventsManagement() {
                       >
                         <Checkbox isChecked={selectedMemberIds.includes(member.id)} />
                         <VStack align="start" spacing={0}>
-                          <Text fontWeight="bold">{member.name}</Text>
+                          <Text fontWeight="bold">{member.firstName} {member.lastName}</Text>
                           <Text fontSize="sm" color="gray.600">{member.email}</Text>
                         </VStack>
                       </HStack>
