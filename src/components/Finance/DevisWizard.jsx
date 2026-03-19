@@ -163,7 +163,16 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
 
   // ===== HANDLERS =====
   const handleSave = async () => {
-    if (!isStep2Complete) {
+    // Auto-generate number if not provided
+    let number = formData.number;
+    if (!number || !number.trim()) {
+      const month = new Date().getMonth() + 1;
+      const year = new Date().getFullYear().toString().slice(-2);
+      const day = new Date().getDate();
+      number = `DEV-${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`;
+    }
+
+    if (!number || !formData.title.trim() || !formData.date) {
       toast({ status: 'error', title: 'Complétez les infos du devis', duration: 2000 });
       return;
     }
@@ -174,6 +183,7 @@ export default function DevisWizard({ onSave = () => {}, onClose = () => {} }) {
         type: 'QUOTE',
         mode: creationMode,
         ...formData,
+        number: number,
         lines: creationMode === 'generate' ? lines : [],
         totals: creationMode === 'generate' ? totals : {},
         pdfFile: creationMode === 'import' ? pdfFile : null

@@ -433,9 +433,14 @@ export const useFinanceData = (currentUser = null) => {
           });
         }
 
-        if (!res.ok) throw new Error("Erreur creation document");
-
         const data = await res.json();
+        
+        if (!res.ok) {
+          // Extraire le message d'erreur détaillé de la réponse
+          const errorMessage = data?.details || data?.error || `Erreur ${res.status}`;
+          throw new Error(errorMessage);
+        }
+        
         console.log("📦 addDocument retournant:", data);
         
         toast({
@@ -453,9 +458,10 @@ export const useFinanceData = (currentUser = null) => {
           id: data.id || data?.document?.id || data?.data?.id
         };
       } catch (error) {
+        console.error("❌ Erreur addDocument:", error.message);
         toast({
           title: "Erreur",
-          description: error.message,
+          description: error.message || "Impossible de créer le document",
           status: "error"
         });
         return null;
