@@ -301,7 +301,7 @@ export default function Header() {
         display="flex"
         alignItems="center"
         justifyContent="space-between"
-        h={{ base: "80px", md: "120px" }}
+        h={{ base: "65px", md: "120px" }}
         px={{ base: 3, md: 5 }}
         gap={4}
       >
@@ -309,7 +309,7 @@ export default function Header() {
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={{ base: "70px", md: "110px" }}
+          height={{ base: "45px", md: "110px" }}
           w="auto"
           objectFit="contain"
           flexShrink={0}
@@ -366,14 +366,42 @@ export default function Header() {
           <IconButton
             aria-label="Menu"
             icon={
-              <Box as="span" display="inline-block" w="18px" h="2px" bg="white" position="relative" _before={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'-6px',left:0}} _after={{content:'""',position:'absolute',w:'18px',h:'2px',bg:'white',top:'6px',left:0}} />
+              <Box 
+                as="span" 
+                display="inline-block" 
+                w="24px" 
+                h="2px" 
+                bg="white" 
+                position="relative" 
+                _before={{
+                  content:'""',
+                  position:'absolute',
+                  w:'24px',
+                  h:'2px',
+                  bg:'white',
+                  top:'-8px',
+                  left:0
+                }} 
+                _after={{
+                  content:'""',
+                  position:'absolute',
+                  w:'24px',
+                  h:'2px',
+                  bg:'white',
+                  top:'8px',
+                  left:0
+                }} 
+              />
             }
-            size="sm"
+            size="lg"
             variant="ghost"
             color="white"
+            _hover={{ bg: "rgba(255, 255, 255, 0.1)" }}
+            _active={{ bg: "rgba(255, 255, 255, 0.2)" }}
             onClick={navDrawer.onOpen}
             title="Ouvrir le menu"
             flexShrink={0}
+            p={2}
           />
         ) : (
           <HStack spacing={3} flexShrink={0}>
@@ -423,32 +451,143 @@ export default function Header() {
       </Box>
 
       {/* Drawer mobile navigation */}
-      <Drawer isOpen={navDrawer.isOpen} onClose={navDrawer.onClose} placement="right">
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerCloseButton />
-          <DrawerHeader bg="var(--rbe-red)" color="white">
-            <Text fontWeight="bold">👋 Bonjour {prenom || 'Utilisateur'}</Text>
+      <Drawer 
+        isOpen={navDrawer.isOpen} 
+        onClose={navDrawer.onClose} 
+        placement="right"
+        size="full"
+      >
+        <DrawerOverlay backdropFilter="blur(4px)" />
+        <DrawerContent maxW="80vw" bg="gray.50">
+          <DrawerCloseButton size="lg" mr={3} mt={2} />
+          <DrawerHeader bg="var(--rbe-red)" color="white" py={5}>
+            <Text fontWeight="bold" fontSize="lg">👋 Bonjour {prenom || 'Utilisateur'}</Text>
             {unreadCount > 0 && (
-              <Text fontSize="sm" color="whiteAlpha.800">{unreadCount} flash(s) non lu(s)</Text>
+              <Text fontSize="sm" color="whiteAlpha.800" mt={2}>{unreadCount} flash(s) non lu(s)</Text>
             )}
           </DrawerHeader>
           <DrawerBody p={0}>
             <VStack align="stretch" spacing={0}>
-              <Button as={RouterLink} to="/dashboard" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>Accueil</Button>
-              <Button as={RouterLink} to="/dashboard/vehicules" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>Véhicules</Button>
-              <Button as={RouterLink} to="/dashboard/evenements" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>Événements</Button>
-              <Button as={RouterLink} to="/dashboard/myrbe" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>MyRBE</Button>
-              <Button as={RouterLink} to="/dashboard/retromerch" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>RétroMerch</Button>
-              <Divider />
-              <Button onClick={() => { viewer.onOpen(); navDrawer.onClose(); }} variant="ghost" justifyContent="flex-start" py={4} px={5}>Voir les flashs</Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                📊 Accueil
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard/vehicules" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                🚗 Véhicules
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard/evenements" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                📅 Événements
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard/myrbe" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                👤 MyRBE
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard/retromerch" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                🛍️ RétroMerch
+              </Button>
+              <Divider my={2} />
+              <Button 
+                onClick={() => { viewer.onOpen(); navDrawer.onClose(); }} 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                ⭐ Voir les flashs
+              </Button>
               {isAdmin && (
-                <Button onClick={() => { manage.onOpen(); navDrawer.onClose(); }} variant="ghost" justifyContent="flex-start" py={4} px={5}>Gérer les flashs</Button>
+                <Button 
+                  onClick={() => { manage.onOpen(); navDrawer.onClose(); }} 
+                  variant="ghost" 
+                  justifyContent="flex-start" 
+                  py={4} 
+                  px={5}
+                  _hover={{ bg: "gray.100" }}
+                >
+                  ⚡ Gérer les flashs
+                </Button>
               )}
-              <Divider />
-              <Button as={RouterLink} to="/adhesion" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>Mon Adhésion</Button>
-              <Button as={RouterLink} to="/retromail" variant="ghost" justifyContent="flex-start" onClick={navDrawer.onClose} py={4} px={5}>RétroMail</Button>
-              <Button onClick={() => { navDrawer.onClose(); handleLogout(); }} colorScheme="red" justifyContent="flex-start" variant="ghost" py={4} px={5}>Déconnexion</Button>
+              <Divider my={2} />
+              <Button 
+                as={RouterLink} 
+                to="/adhesion" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                📋 Mon Adhésion
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/retromail" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={4} 
+                px={5}
+                _hover={{ bg: "gray.100" }}
+              >
+                📧 RétroMail
+              </Button>
+              <Button 
+                onClick={() => { navDrawer.onClose(); handleLogout(); }} 
+                colorScheme="red" 
+                justifyContent="flex-start" 
+                variant="ghost" 
+                py={4} 
+                px={5}
+                _hover={{ bg: "red.50" }}
+                mt={4}
+              >
+                🔐 Déconnexion
+              </Button>
             </VStack>
           </DrawerBody>
         </DrawerContent>
