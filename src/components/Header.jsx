@@ -305,8 +305,10 @@ export default function Header() {
         <Image
           src={isMobile ? logoMobile : logo}
           alt={isMobile ? "URBEX Mobile" : "RétroBus Essonne Intranet"}
-          height={isMobile ? "195px" : undefined}
-          w={isMobile ? "195px" : "auto"}
+          height={isMobile ? "25px" : "175px"}
+          maxW={isMobile ? "60px" : undefined}
+          w="auto"
+          objectFit="contain"
           flexShrink={0}
           display="block"
         />
