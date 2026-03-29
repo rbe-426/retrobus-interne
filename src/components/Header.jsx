@@ -301,15 +301,15 @@ export default function Header() {
         display="flex"
         alignItems="center"
         justifyContent="space-between"
-        h={{ base: "65px", md: "120px" }}
-        px={{ base: 3, md: 5 }}
-        gap={4}
+        h={{ base: "55px", md: "120px" }}
+        px={{ base: 2, md: 5 }}
+        gap={2}
       >
         {/* Logo à gauche - fixe */}
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={{ base: "45px", md: "110px" }}
+          height={{ base: "35px", md: "110px" }}
           w="auto"
           objectFit="contain"
           flexShrink={0}
@@ -369,39 +369,40 @@ export default function Header() {
               <Box 
                 as="span" 
                 display="inline-block" 
-                w="24px" 
-                h="2px" 
+                w="28px" 
+                h="3px" 
                 bg="white" 
                 position="relative" 
                 _before={{
                   content:'""',
                   position:'absolute',
-                  w:'24px',
-                  h:'2px',
+                  w:'28px',
+                  h:'3px',
                   bg:'white',
-                  top:'-8px',
+                  top:'-10px',
                   left:0
                 }} 
                 _after={{
                   content:'""',
                   position:'absolute',
-                  w:'24px',
-                  h:'2px',
+                  w:'28px',
+                  h:'3px',
                   bg:'white',
-                  top:'8px',
+                  top:'10px',
                   left:0
                 }} 
               />
             }
-            size="lg"
-            variant="ghost"
-            color="white"
-            _hover={{ bg: "rgba(255, 255, 255, 0.1)" }}
-            _active={{ bg: "rgba(255, 255, 255, 0.2)" }}
+            size="xl"
+            bg="var(--rbe-red)"
+            _hover={{ bg: "rgba(187, 31, 17, 0.8)" }}
+            _active={{ bg: "rgba(187, 31, 17, 0.9)" }}
             onClick={navDrawer.onOpen}
             title="Ouvrir le menu"
             flexShrink={0}
-            p={2}
+            p={1}
+            minW="48px"
+            h="48px"
           />
         ) : (
           <HStack spacing={3} flexShrink={0}>
