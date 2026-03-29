@@ -239,8 +239,10 @@ export default function EventsCreation() {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await eventsAPI.getAll();
-      setEvents(Array.isArray(data) ? data : []);
+      const response = await eventsAPI.getAll();
+      // Backend returns { success: true, data: events } or direct array
+      const data = Array.isArray(response) ? response : (response?.data || []);
+      setEvents(data);
     } catch (e) {
       console.error(e);
       toast({
