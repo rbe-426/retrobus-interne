@@ -548,9 +548,14 @@ export default function DashboardHome() {
                 </CardHeader>
                 <CardBody>
                   <VStack align="start" spacing={3}>
-                    <Heading size="sm" color="blue.600">
-                      {retroActus[currentActuIndex]?.title || 'Sans titre'}
-                    </Heading>
+                    <HStack spacing={2} align="center">
+                      <Heading size="sm" color="blue.600">
+                        {retroActus[currentActuIndex]?.title || 'Sans titre'}
+                      </Heading>
+                      {retroActus[currentActuIndex]?.featured && (
+                        <Badge colorScheme="purple" fontSize="xs">Vedette</Badge>
+                      )}
+                    </HStack>
                     {retroActus[currentActuIndex]?.publishedAt && (
                       <HStack spacing={2} color="gray.500" fontSize="sm">
                         <Icon as={FiCalendar} />
