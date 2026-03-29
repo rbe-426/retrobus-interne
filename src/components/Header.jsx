@@ -13,6 +13,7 @@ import { useUser } from "../context/UserContext";
 import { flashAPI } from "../api/flash.js";
 import NotificationCenter from './NotificationCenter';
 import logo from "../assets/retro_intranet_essonne.svg";
+import logoMobile from "../assets/URBEX.svg";
 import infoPng from "../assets/icons/flash-info.png";
 import notifPng from "../assets/icons/flash-notif.png";
 import posPng from "../assets/icons/flash-pos.png";
@@ -295,18 +296,17 @@ export default function Header() {
         display="flex"
         alignItems="center"
         justifyContent="space-between"
+        position="relative"
         h={isMobile ? "50px" : "120px"}
         px={isMobile ? 2 : 5}
         gap={2}
       >
         {/* Logo à gauche - fixe */}
         <Image
-          src={logo}
-          alt="RétroBus Essonne Intranet"
-          height={isMobile ? "25px" : "110px"}
-          maxW={isMobile ? "50px" : undefined}
-          w="auto"
-          objectFit="contain"
+          src={isMobile ? logoMobile : logo}
+          alt={isMobile ? "URBEX Mobile" : "RétroBus Essonne Intranet"}
+          height={isMobile ? "195px" : undefined}
+          w={isMobile ? "195px" : "auto"}
           flexShrink={0}
           display="block"
         />
@@ -395,10 +395,13 @@ export default function Header() {
             _active={{ bg: "rgba(187, 31, 17, 0.9)" }}
             onClick={navDrawer.onOpen}
             title="Ouvrir le menu"
-            flexShrink={0}
+            position="absolute"
+            right={isMobile ? -155 : 20}
+            top="50%"
+            transform="translateY(-50%)"
             p={1}
-            minW="48px"
-            h="48px"
+            minW="47px"
+            h="47px"
           />
         ) : (
           <HStack spacing={3} flexShrink={0}>
