@@ -1,5 +1,5 @@
 /* 📱 Mobile-First Global Styles */
-/* Overrides & defaults for mobile adaptation */
+/* ONLY applies to mobile screens - desktop styling untouched */
 
 :root {
   /* Mobile-first spacing */
@@ -15,61 +15,61 @@
   --rbe-font-lg: 18px;
 }
 
-/* === GENERAL ===*/
-body {
-  font-size: var(--rbe-font-base);
-}
-
-/* Container defaults */
-.chakra-container {
-  padding-left: var(--rbe-spacing-sm) !important;
-  padding-right: var(--rbe-spacing-sm) !important;
-  max-width: 100% !important;
-}
-
-/* Stack defaults - more compact on mobile*/
-.chakra-vstack,
-.chakra-hstack {
-  gap: var(--rbe-spacing-base) !important;
-}
-
-/* === FORMS ===*/
-input,
-textarea,
-[role="combobox"],
-select {
-  font-size: 16px !important; /* Empêche zoom sur iOS */
-  width: 100% !important; /* Full width par défaut */
-  padding: 0.75rem !important;
-  border-radius: 0.375rem !important;
-}
-
-textarea {
-  min-height: 120px !important;
-  max-width: 100% !important;
-}
-
-/* === BUTTONS ===*/
-button {
-  min-height: 44px !important; /* Touch target minimum */
-  min-width: 44px !important;
-  font-size: var(--rbe-font-md) !important;
-}
-
-/* Button full width on mobile */
+/* ===== MOBILE ONLY (max-width: 768px) ===== */
 @media (max-width: 768px) {
+  /* === GENERAL ===*/
+  body {
+    font-size: var(--rbe-font-base);
+  }
+
+  /* Container defaults */
+  .chakra-container {
+    padding-left: var(--rbe-spacing-sm) !important;
+    padding-right: var(--rbe-spacing-sm) !important;
+    max-width: 100% !important;
+  }
+
+  /* Stack defaults - more compact on mobile*/
+  .chakra-vstack,
+  .chakra-hstack {
+    gap: var(--rbe-spacing-base) !important;
+  }
+
+  /* === FORMS ===*/
+  input,
+  textarea,
+  [role="combobox"],
+  select {
+    font-size: 16px !important; /* Empêche zoom sur iOS */
+    width: 100% !important; /* Full width par défaut */
+    padding: 0.75rem !important;
+    border-radius: 0.375rem !important;
+  }
+
+  textarea {
+    min-height: 120px !important;
+    max-width: 100% !important;
+  }
+
+  /* === BUTTONS ===*/
+  button {
+    min-height: 44px !important; /* Touch target minimum */
+    min-width: 44px !important;
+    font-size: var(--rbe-font-md) !important;
+  }
+
+  /* Button full width on mobile */
   .chakra-button:not([data-no-full-width]) {
     width: 100% !important;
   }
 }
 
-/* === TABLES ===*/
-table {
-  font-size: var(--rbe-font-sm);
-}
-
-/* Hide table headers on mobile if needed */
+/* === TABLES (mobile only) ===*/
 @media (max-width: 768px) {
+  table {
+    font-size: var(--rbe-font-sm);
+  }
+
   table thead {
     display: none;
   }
@@ -121,10 +121,6 @@ table {
 }
 
 /* === CARDS ===*/
-.chakra-card {
-  margin-bottom: var(--rbe-spacing-md);
-}
-
 @media (max-width: 768px) {
   .chakra-card {
     margin-bottom: var(--rbe-spacing-base);
@@ -132,22 +128,27 @@ table {
 }
 
 /* === MENU / DROPDOWN ===*/
-[role="menu"] {
-  min-width: 150px !important;
-}
-
 @media (max-width: 480px) {
   [role="menu"] {
     position: fixed !important;
     width: 90% !important;
     left: 5% !important;
+    min-width: auto !important;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  [role="menu"] {
+    min-width: 150px !important;
   }
 }
 
 /* === IMAGES ===*/
-img {
-  max-width: 100% !important;
-  height: auto !important;
+@media (max-width: 768px) {
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
 }
 
 /* === FLEXBOX / GRID ===*/
@@ -178,6 +179,11 @@ img {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
+
+  body,
+  html {
+    overflow-x: hidden;
+  }
 }
 
 /* === UTILITY CLASSES ===*/
@@ -200,12 +206,14 @@ img {
 }
 
 /* Touch-friendly sizes */
-.touch-target {
-  min-height: 44px !important;
-  min-width: 44px !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* Mobile-safe text selection */
@@ -214,12 +222,6 @@ img {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-}
-
-/* Prevent horizontal scroll */
-body,
-html {
-  overflow-x: hidden;
 }
 
 /* Responsive padding helper */
