@@ -315,7 +315,7 @@ export default function Header() {
 
         {/* Navigation - cachée sur mobile */}
         {!isMobile && (
-          <HStack spacing={8} flex={1} justify="center">
+          <HStack spacing={10} flex={1} justify="center">
             <Text 
               fontSize="lg" 
               color="white"
