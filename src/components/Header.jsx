@@ -313,8 +313,8 @@ export default function Header() {
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={isMobile ? "25px" : "100px"}
-          maxW={isMobile ? "50px" : "200px"}
+          height={isMobile ? "20px" : "110px"}
+          maxW={isMobile ? "40px" : undefined}
           w="auto"
           objectFit="contain"
           flexShrink={0}
