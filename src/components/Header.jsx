@@ -5,7 +5,8 @@ import {
   ModalBody, ModalFooter, Textarea, Switch, FormControl, FormLabel, Button,
   useDisclosure, useToast, HStack, Badge, VStack, Stack, Select,
   Tooltip, VisuallyHidden, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton,
-  DrawerHeader, DrawerBody, Divider, useBreakpointValue
+  DrawerHeader, DrawerBody, Divider
+
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
@@ -108,7 +109,16 @@ export default function Header() {
   const manage = useDisclosure();
   const viewer = useDisclosure();
   const navDrawer = useDisclosure();
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  
+  // Mobile detection with fallback
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    setIsMobile(mediaQuery.matches);
+    const handleChange = (e) => setIsMobile(e.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const [flashes, setFlashes] = useState([]);
   const [loading, setLoading] = useState(true);
