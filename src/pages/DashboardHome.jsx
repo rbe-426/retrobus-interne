@@ -7,6 +7,7 @@ import {
   useToast, IconButton, Image
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
+import ReactMarkdown from 'react-markdown';
 import { 
   FiActivity, FiBell, FiCalendar, FiClock, FiCpu, 
   FiDollarSign, FiExternalLink, FiEye, FiFileText, FiGitBranch, 
@@ -562,9 +563,43 @@ export default function DashboardHome() {
                         </Text>
                       </HStack>
                     )}
-                    <Text fontSize="sm" color="gray.700">
-                      {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
-                    </Text>
+                    <Box fontSize="sm" color="gray.700" sx={{
+                      '& p': { mb: 2 },
+                      '& strong': { fontWeight: 'bold' },
+                      '& em': { fontStyle: 'italic' },
+                      '& code': { 
+                        bg: 'gray.100', 
+                        px: 1, 
+                        py: 0.5, 
+                        borderRadius: '3px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.9em'
+                      },
+                      '& h1, & h2, & h3': { 
+                        fontWeight: 'bold',
+                        my: 2
+                      },
+                      '& h1': { fontSize: '1.5em' },
+                      '& h2': { fontSize: '1.3em' },
+                      '& h3': { fontSize: '1.1em' },
+                      '& ul, & ol': { pl: 4, mb: 2 },
+                      '& li': { mb: 1 },
+                      '& a': { 
+                        color: 'blue.600',
+                        _hover: { textDecoration: 'underline' }
+                      },
+                      '& blockquote': {
+                        borderLeft: '4px solid',
+                        borderColor: 'blue.300',
+                        pl: 4,
+                        ml: 0,
+                        color: 'gray.600'
+                      }
+                    }}>
+                      <ReactMarkdown>
+                        {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
+                      </ReactMarkdown>
+                    </Box>
                     {retroActus[currentActuIndex]?.imageUrl && (
                       <Image
                         src={retroActus[currentActuIndex].imageUrl}

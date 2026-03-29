@@ -27,6 +27,7 @@ import { useUserRoles, ADMIN_ROLES } from '../hooks/useUserRoles';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
+import MarkdownEditor from '../components/MarkdownEditor';
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -816,12 +817,11 @@ const NewsManagement = () => {
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel>Contenu</FormLabel>
-                <Textarea
-                  placeholder="Contenu..."
+                <FormLabel>Contenu (Markdown supporté)</FormLabel>
+                <MarkdownEditor
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  rows={6}
+                  placeholder="**Gras** *italique* `code` [lien](url) # Titre..."
                 />
               </FormControl>
 
