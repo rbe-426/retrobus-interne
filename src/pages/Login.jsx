@@ -35,7 +35,13 @@ export default function Login() {
         : await login(id.toLowerCase(), password);
       setToken(data.token);
       setUser(data.user);
-      navigate('/dashboard');
+      
+      // Rediriger vers le changement de mot de passe obligatoire si nécessaire
+      if (data.user?.mustChangePassword || data.user?.isPasswordTemporary) {
+        navigate('/force-password-change');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (e) {
       setErr(e.message);
     } finally {

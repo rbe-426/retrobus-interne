@@ -6,11 +6,11 @@ import {
   Table, Thead, Tbody, Tr, Th, Td, Badge, Card, CardHeader, CardBody,
   Spinner, Center, SimpleGrid, Alert, AlertIcon, Menu, MenuButton,
   MenuList, MenuItem, IconButton, Divider, Tabs, TabList, TabPanels,
-  Tab, TabPanel
+  Tab, TabPanel, Code, Checkbox, useClipboard
 } from '@chakra-ui/react';
 import {
   FiPlus, FiEdit, FiTrash2, FiKey, FiUser, FiMail, FiLock,
-  FiMoreVertical, FiDownload, FiSearch, FiFilter
+  FiMoreVertical, FiDownload, FiSearch, FiFilter, FiCopy, FiCheck
 } from 'react-icons/fi';
 import { apiClient } from '../api/config.js';
 
@@ -34,8 +34,12 @@ export default function UsersAccess() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [editingAccess, setEditingAccess] = useState(null);
+  const [tempPassword, setTempPassword] = useState(null);
+  const [tempPasswordUser, setTempPasswordUser] = useState(null);
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isTempPasswordOpen, onOpen: onTempPasswordOpen, onClose: onTempPasswordClose } = useDisclosure();
+  const { value: passwordCopied, onCopy: onCopyPassword } = useClipboard(tempPassword || '');
 
   const [formData, setFormData] = useState({
     matricule: '',
@@ -154,6 +158,33 @@ export default function UsersAccess() {
     }
   };
 
+  const handleResetPassword = async (accessId, user) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir générer un mot de passe temporaire pour ${user.firstName} ${user.lastName} ?`)) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.post(`/api/admin/users/${accessId}/reset-password`);
+      
+      setTempPassword(response.tempPassword);
+      setTempPasswordUser(user);
+      onTempPasswordOpen();
+      
+      toast({
+        title: 'Succès',
+        description: `Mot de passe temporaire généré. Communiquez-le à ${user.firstName}`,
+        status: 'success',
+        duration: 5000
+      });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        status: 'error'
+      });
+    }
+  };
+
   const handleExport = () => {
     const csv = [
       ['Matricule', 'Email', 'Prénom', 'Nom', 'Rôle', 'Interne', 'Externe', 'Notes'],
@@ -200,41 +231,44 @@ export default function UsersAccess() {
   }
 
   return (
-    <Container maxW="6xl" py={8}>
-      <VStack spacing={8} align="stretch">
+    <Container maxW="100%" px={{ base: 2, md: 4, lg: 8 }} py={{ base: 4, md: 8 }}>
+      <VStack spacing={{ base: 4, md: 8 }} align="stretch">
         {/* En-tête */}
         <Box>
-          <Heading mb={2}>Gestion des Accès Utilisateur</Heading>
-          <Text color="gray.600">
+          <Heading size={{ base: "md", md: "lg" }} mb={2}>Gestion des Accès Utilisateur</Heading>
+          <Text color="gray.600" fontSize={{ base: "sm", md: "md" }}>
             Créez et gérez les accès indépendamment des adhésions (idéal pour les partenaires)
           </Text>
         </Box>
 
-        {/* Barre d'outils */}
-        <HStack spacing={4} justify="space-between">
-          <HStack spacing={3} flex={1}>
+        {/* Barre d'outils - Responsive */}
+        <VStack spacing={{ base: 3, md: 4 }} align="stretch">
+          <HStack spacing={2} direction={{ base: "column", md: "row" }} align="stretch">
             <Input
-              placeholder="Rechercher par matricule, email ou nom..."
+              placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<FiSearch />}
+              size={{ base: "sm", md: "md" }}
             />
             <Select
-              placeholder="Filtrer par rôle"
+              placeholder="Filtrer rôle"
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              maxW="200px"
+              w={{ base: "100%", md: "200px" }}
+              size={{ base: "sm", md: "md" }}
             >
               {Object.entries(ROLES).map(([key, val]) => (
                 <option key={key} value={key}>{val.label}</option>
               ))}
             </Select>
           </HStack>
-          <HStack spacing={2}>
+          <HStack spacing={2} justify={{ base: "stretch", md: "flex-end" }}>
             <Button
               leftIcon={<FiDownload />}
               variant="outline"
               onClick={handleExport}
+              size={{ base: "sm", md: "md" }}
+              flex={{ base: 1, md: "auto" }}
             >
               Exporter
             </Button>
@@ -242,43 +276,45 @@ export default function UsersAccess() {
               leftIcon={<FiPlus />}
               colorScheme="blue"
               onClick={handleCreate}
+              size={{ base: "sm", md: "md" }}
+              flex={{ base: 1, md: "auto" }}
             >
               Nouvel accès
             </Button>
           </HStack>
-        </HStack>
+        </VStack>
 
-        {/* Statistiques */}
-        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+        {/* Statistiques - Responsive Grid */}
+        <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={{ base: 3, md: 4 }}>
           <Card>
             <CardBody>
               <VStack spacing={2}>
-                <Text fontSize="sm" color="gray.600">Total accès</Text>
-                <Heading>{accesses.length}</Heading>
+                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Total accès</Text>
+                <Heading size={{ base: "sm", md: "md" }}>{accesses.length}</Heading>
               </VStack>
             </CardBody>
           </Card>
           <Card>
             <CardBody>
               <VStack spacing={2}>
-                <Text fontSize="sm" color="gray.600">Accès internes</Text>
-                <Heading>{accesses.filter(a => a.hasInternalAccess).length}</Heading>
+                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Accès internes</Text>
+                <Heading size={{ base: "sm", md: "md" }}>{accesses.filter(a => a.hasInternalAccess).length}</Heading>
               </VStack>
             </CardBody>
           </Card>
           <Card>
             <CardBody>
               <VStack spacing={2}>
-                <Text fontSize="sm" color="gray.600">Accès externes</Text>
-                <Heading>{accesses.filter(a => a.hasExternalAccess).length}</Heading>
+                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Accès externes</Text>
+                <Heading size={{ base: "sm", md: "md" }}>{accesses.filter(a => a.hasExternalAccess).length}</Heading>
               </VStack>
             </CardBody>
           </Card>
           <Card>
             <CardBody>
               <VStack spacing={2}>
-                <Text fontSize="sm" color="gray.600">Partenaires</Text>
-                <Heading>{accesses.filter(a => a.role === 'PARTNER').length}</Heading>
+                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Partenaires</Text>
+                <Heading size={{ base: "sm", md: "md" }}>{accesses.filter(a => a.role === 'PARTNER').length}</Heading>
               </VStack>
             </CardBody>
           </Card>
@@ -287,7 +323,7 @@ export default function UsersAccess() {
         {/* Tableau des accès */}
         <Card>
           <CardHeader>
-            <Heading size="md">Liste des accès</Heading>
+            <Heading size={{ base: "sm", md: "md" }}>Liste des accès</Heading>
           </CardHeader>
           <CardBody>
             {filteredAccesses.length === 0 ? (
@@ -299,104 +335,159 @@ export default function UsersAccess() {
                 </Box>
               </Alert>
             ) : (
-              <Box overflowX="auto">
-                <Table variant="simple" size="sm">
-                  <Thead>
-                    <Tr bg="gray.50">
-                      <Th>Matricule</Th>
-                      <Th>Nom complet</Th>
-                      <Th>Email</Th>
-                      <Th>Rôle</Th>
-                      <Th>Accès</Th>
-                      <Th w="40px">Actions</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredAccesses.map(access => (
-                      <Tr key={access.id}>
-                        <Td fontWeight="bold" color="blue.600">{access.matricule}</Td>
-                        <Td>{access.firstName} {access.lastName}</Td>
-                        <Td fontSize="sm">{access.email}</Td>
-                        <Td>
-                          <Badge colorScheme={ROLES[access.role]?.color || 'gray'}>
-                            {ROLES[access.role]?.label || access.role}
-                          </Badge>
-                        </Td>
-                        <Td>
-                          <HStack spacing={1}>
-                            {access.hasInternalAccess && (
-                              <Badge size="sm" colorScheme="green">Interne</Badge>
-                            )}
-                            {access.hasExternalAccess && (
-                              <Badge size="sm" colorScheme="purple">Externe</Badge>
-                            )}
-                          </HStack>
-                        </Td>
-                        <Td>
+              <>
+                {/* Tableau - Desktop */}
+                <Box display={{ base: 'none', lg: 'block' }} overflowX="auto">
+                  <Table variant="simple" size="sm">
+                    <Thead>
+                      <Tr bg="gray.50">
+                        <Th fontSize={{ base: "xs", md: "sm" }}>Matricule</Th>
+                        <Th fontSize={{ base: "xs", md: "sm" }}>Nom complet</Th>
+                        <Th fontSize={{ base: "xs", md: "sm" }}>Email</Th>
+                        <Th fontSize={{ base: "xs", md: "sm" }}>Rôle</Th>
+                        <Th fontSize={{ base: "xs", md: "sm" }}>Accès</Th>
+                        <Th w="50px" fontSize={{ base: "xs", md: "sm" }}>Actions</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {filteredAccesses.map(access => (
+                        <Tr key={access.id}>
+                          <Td fontWeight="bold" color="blue.600" fontSize={{ base: "xs", md: "sm" }}>{access.matricule}</Td>
+                          <Td fontSize={{ base: "xs", md: "sm" }}>{access.firstName} {access.lastName}</Td>
+                          <Td fontSize={{ base: "xs", md: "sm" }}>{access.email}</Td>
+                          <Td>
+                            <Badge fontSize={{ base: "xs", md: "sm" }} colorScheme={ROLES[access.role]?.color || 'gray'}>
+                              {ROLES[access.role]?.label || access.role}
+                            </Badge>
+                          </Td>
+                          <Td>
+                            <HStack spacing={1}>
+                              {access.hasInternalAccess && (
+                                <Badge size="sm" fontSize={{ base: "xs", md: "sm" }} colorScheme="green">Interne</Badge>
+                              )}
+                              {access.hasExternalAccess && (
+                                <Badge size="sm" fontSize={{ base: "xs", md: "sm" }} colorScheme="purple">Externe</Badge>
+                              )}
+                            </HStack>
+                          </Td>
+                          <Td>
+                            <Menu>
+                              <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="sm" />
+                              <MenuList>
+                                <MenuItem icon={<FiEdit />} onClick={() => handleEdit(access)}>
+                                  Modifier
+                                </MenuItem>
+                                <MenuItem icon={<FiLock />} onClick={() => handleResetPassword(access.id, access)} color="orange.500">
+                                  Mot de passe
+                                </MenuItem>
+                                <MenuItem icon={<FiTrash2 />} onClick={() => handleDelete(access.id)} color="red.500">
+                                  Supprimer
+                                </MenuItem>
+                              </MenuList>
+                            </Menu>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
+
+                {/* Cards - Mobile */}
+                <VStack spacing={3} display={{ base: 'flex', lg: 'none' }}>
+                  {filteredAccesses.map(access => (
+                    <Box key={access.id} p={4} borderRadius="lg" borderWidth="1px" borderColor="gray.200" w="100%">
+                      <VStack align="start" spacing={2}>
+                        <HStack justify="space-between" w="100%">
+                          <Box>
+                            <Text fontWeight="bold" color="blue.600" fontSize="sm">{access.matricule}</Text>
+                            <Text fontSize="sm">{access.firstName} {access.lastName}</Text>
+                          </Box>
                           <Menu>
                             <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" size="sm" />
                             <MenuList>
                               <MenuItem icon={<FiEdit />} onClick={() => handleEdit(access)}>
                                 Modifier
                               </MenuItem>
+                              <MenuItem icon={<FiLock />} onClick={() => handleResetPassword(access.id, access)} color="orange.500">
+                                Mot de passe
+                              </MenuItem>
                               <MenuItem icon={<FiTrash2 />} onClick={() => handleDelete(access.id)} color="red.500">
                                 Supprimer
                               </MenuItem>
                             </MenuList>
                           </Menu>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
+                        </HStack>
+                        <Divider />
+                        <VStack align="start" w="100%" spacing={1}>
+                          <Text fontSize="xs" color="gray.600">{access.email}</Text>
+                          <HStack spacing={2}>
+                            <Badge fontSize="xs" colorScheme={ROLES[access.role]?.color || 'gray'}>
+                              {ROLES[access.role]?.label || access.role}
+                            </Badge>
+                            {access.hasInternalAccess && (
+                              <Badge fontSize="xs" colorScheme="green">Interne</Badge>
+                            )}
+                            {access.hasExternalAccess && (
+                              <Badge fontSize="xs" colorScheme="purple">Externe</Badge>
+                            )}
+                          </HStack>
+                        </VStack>
+                      </VStack>
+                    </Box>
+                  ))}
+                </VStack>
+              </>
             )}
           </CardBody>
         </Card>
       </VStack>
 
       {/* Modal création/édition */}
-      <Modal isOpen={isOpen} onClose={onClose} size="lg">
+      <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "lg" }}>
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
+        <ModalContent mx={{ base: 0, md: "auto" }}>
+          <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {editingAccess ? 'Modifier l\'accès' : 'Créer un nouvel accès'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4}>
               <FormControl isRequired>
-                <FormLabel>Matricule</FormLabel>
+                <FormLabel fontSize={{ base: "sm", md: "md" }}>Matricule</FormLabel>
                 <Input
                   value={formData.matricule}
                   onChange={(e) => setFormData(p => ({ ...p, matricule: e.target.value }))}
                   placeholder="exemple: j.dupont"
+                  size={{ base: "sm", md: "md" }}
                 />
               </FormControl>
 
-              <SimpleGrid columns={2} spacing={4} w="100%">
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="100%">
                 <FormControl isRequired>
-                  <FormLabel>Prénom</FormLabel>
+                  <FormLabel fontSize={{ base: "sm", md: "md" }}>Prénom</FormLabel>
                   <Input
                     value={formData.firstName}
                     onChange={(e) => setFormData(p => ({ ...p, firstName: e.target.value }))}
+                    size={{ base: "sm", md: "md" }}
                   />
                 </FormControl>
                 <FormControl isRequired>
-                  <FormLabel>Nom</FormLabel>
+                  <FormLabel fontSize={{ base: "sm", md: "md" }}>Nom</FormLabel>
                   <Input
                     value={formData.lastName}
                     onChange={(e) => setFormData(p => ({ ...p, lastName: e.target.value }))}
+                    size={{ base: "sm", md: "md" }}
                   />
                 </FormControl>
               </SimpleGrid>
 
               <FormControl isRequired>
-                <FormLabel>Email</FormLabel>
+                <FormLabel fontSize={{ base: "sm", md: "md" }}>Email</FormLabel>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
+                  size={{ base: "sm", md: "md" }}
                 />
               </FormControl>
 
@@ -461,6 +552,65 @@ export default function UsersAccess() {
                 {editingAccess ? 'Modifier' : 'Créer'}
               </Button>
             </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal mot de passe temporaire */}
+      <Modal isOpen={isTempPasswordOpen} onClose={onTempPasswordClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>🔑 Mot de passe temporaire généré</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <Alert status="warning">
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold">Important !</Text>
+                  <Text fontSize="sm">
+                    Communiquez ce mot de passe à {tempPasswordUser?.firstName} {tempPasswordUser?.lastName}.
+                    Il devra le changer lors de sa première connexion.
+                  </Text>
+                </Box>
+              </Alert>
+
+              <Box w="100%">
+                <Text fontSize="sm" fontWeight="bold" mb={2}>Mot de passe temporaire :</Text>
+                <HStack>
+                  <Code p={3} borderRadius="lg" flex={1} fontSize="lg" fontWeight="bold" bg="gray.100">
+                    {tempPassword}
+                  </Code>
+                  <Button
+                    leftIcon={passwordCopied ? <FiCheck /> : <FiCopy />}
+                    onClick={onCopyPassword}
+                    size="sm"
+                  >
+                    {passwordCopied ? 'Copié !' : 'Copier'}
+                  </Button>
+                </HStack>
+              </Box>
+
+              <Box w="100%" p={3} bg="blue.50" borderRadius="lg">
+                <Text fontSize="sm">
+                  <strong>Identifiants :</strong><br/>
+                  Email/Matricule : {tempPasswordUser?.email || tempPasswordUser?.matricule}<br/>
+                  Mot de passe : {tempPassword}
+                </Text>
+              </Box>
+
+              <Checkbox defaultChecked>
+                <Text fontSize="sm">
+                  J'ai communiqué le mot de passe à l'utilisateur
+                </Text>
+              </Checkbox>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button colorScheme="blue" onClick={onTempPasswordClose}>
+              Fermer
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

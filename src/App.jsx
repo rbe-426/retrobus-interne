@@ -30,6 +30,7 @@ import StockManagement from "./pages/StockManagement";
 import FlashManagement from "./pages/FlashManagement";
 import Adhesion from "./pages/Adhesion";
 import Login from "./pages/Login";
+import ForcePasswordChange from "./pages/ForcePasswordChange";
 import MobileVehicle from "./pages/MobileVehicle";
 import Retromail from "./pages/Retromail";
 import Newsletter from "./pages/Newsletter";
@@ -68,6 +69,9 @@ export default function App() {
         <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
+        
+        {/* Route de changement de mot de passe obligatoire */}
+        <Route path="/force-password-change" element={<ProtectedRoute><ForcePasswordChange /></ProtectedRoute>} />
         
         {/* Route de test du thème */}
         <Route path="/test-theme" element={<ThemeShowcase />} />
