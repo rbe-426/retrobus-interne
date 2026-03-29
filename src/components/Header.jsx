@@ -110,14 +110,18 @@ export default function Header() {
   const viewer = useDisclosure();
   const navDrawer = useDisclosure();
   
-  // Mobile detection with fallback
-  const [isMobile, setIsMobile] = useState(false);
+  // Mobile detection - more robust
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
-    setIsMobile(mediaQuery.matches);
-    const handleChange = (e) => setIsMobile(e.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    const checkMobile = () => {
+      const isCurrentlyMobile = window.innerWidth <= 768;
+      setIsMobile(isCurrentlyMobile);
+      console.log('📱 Mobile check:', isCurrentlyMobile, 'Width:', window.innerWidth);
+    };
+    
+    checkMobile(); // Check on mount
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const [flashes, setFlashes] = useState([]);
@@ -301,18 +305,20 @@ export default function Header() {
         display="flex"
         alignItems="center"
         justifyContent="space-between"
-        h={{ base: "55px", md: "120px" }}
-        px={{ base: 2, md: 5 }}
+        h={isMobile ? "50px" : "120px"}
+        px={isMobile ? 2 : 5}
         gap={2}
       >
         {/* Logo à gauche - fixe */}
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={{ base: "35px", md: "110px" }}
+          height={isMobile ? "25px" : "100px"}
+          maxW={isMobile ? "50px" : "200px"}
           w="auto"
           objectFit="contain"
           flexShrink={0}
+          display="block"
         />
 
         {/* Navigation - cachée sur mobile */}
