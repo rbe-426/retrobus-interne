@@ -5,7 +5,7 @@ import {
   ModalBody, ModalFooter, Textarea, Switch, FormControl, FormLabel, Button,
   useDisclosure, useToast, HStack, Badge, VStack, Stack, Select,
   Tooltip, VisuallyHidden, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton,
-  DrawerHeader, DrawerBody, Divider
+  DrawerHeader, DrawerBody, Divider, useMediaQuery
 
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -110,19 +110,9 @@ export default function Header() {
   const viewer = useDisclosure();
   const navDrawer = useDisclosure();
   
-  // Mobile detection - more robust
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  useEffect(() => {
-    const checkMobile = () => {
-      const isCurrentlyMobile = window.innerWidth <= 768;
-      setIsMobile(isCurrentlyMobile);
-      console.log('📱 Mobile check:', isCurrentlyMobile, 'Width:', window.innerWidth);
-    };
-    
-    checkMobile(); // Check on mount
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // Mobile detection using Chakra UI useMediaQuery hook (more reliable)
+  const [isLessThan768] = useMediaQuery("(max-width: 768px)");
+  const isMobile = isLessThan768 === true;
 
   const [flashes, setFlashes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -313,8 +303,8 @@ export default function Header() {
         <Image
           src={logo}
           alt="RétroBus Essonne Intranet"
-          height={isMobile ? "20px" : "110px"}
-          maxW={isMobile ? "40px" : undefined}
+          height={isMobile ? "25px" : "110px"}
+          maxW={isMobile ? "50px" : undefined}
           w="auto"
           objectFit="contain"
           flexShrink={0}
