@@ -52,6 +52,7 @@ import PermissionsManager from "./components/PermissionsManager";
 import AdhesionManagement from "./pages/AdhesionManagement";
 import EventCreationWizardPage from "./pages/EventCreationWizardPage";
 import EventWizardDemoPage from "./pages/EventWizardDemoPage";
+import AccountsManagement from "./pages/AccountsManagement";
 
 export default function App() {
   const { isAuthenticated } = useUser();
@@ -123,6 +124,7 @@ export default function App() {
         
         {/* 👥 Gestion des membres */}
         <Route path="/dashboard/members-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><MembersManagement /></RoleProtectedRoute>} />
+        <Route path="/dashboard/accounts-management" element={<RoleProtectedRoute allowedRoles={['ADMIN']}><AccountsManagement /></RoleProtectedRoute>} />
         <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
         <Route path="/adhesion" element={<ProtectedRoute><Adhesion /></ProtectedRoute>} />
         
