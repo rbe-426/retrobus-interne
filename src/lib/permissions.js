@@ -39,6 +39,9 @@ export const RESOURCES = {
   MEMBER_EDIT: 'members:edit',
   MEMBER_DELETE: 'members:delete',
   
+  // Adhésions (Gestion des adhésions - édition)
+  ADHESION_MANAGEMENT: 'adhesion:management',
+  
   // Stocks
   STOCK: 'stock:access',
   STOCK_VIEW: 'stock:view',
@@ -60,7 +63,8 @@ export const RESOURCES = {
   RETROSUPPORT_CREATE: 'retrosupport:create',
   
   // RétroDemandes
-  RETRODEMANDES: 'retrodemandes:access',
+  RETRO_DEMANDES: 'retrodemandes:access',
+  RETRODEMANDES: 'retrodemandes:access', // Alias pour compatibilité
   RETRODEMANDES_VIEW: 'retrodemandes:view',
   RETRODEMANDES_CREATE: 'retrodemandes:create',
   RETRODEMANDES_EDIT: 'retrodemandes:edit',
