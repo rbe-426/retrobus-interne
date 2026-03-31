@@ -71,7 +71,7 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
                 <Badge colorScheme="blue" variant="subtle">
                   🔑 {member.matricule}
                 </Badge>
-                {member.loginEnabled ? (
+                {member.status === 'active' ? (
                   <Badge colorScheme="green" size="sm">✅ Accès activé</Badge>
                 ) : (
                   <Badge colorScheme="gray" size="sm">❌ Accès désactivé</Badge>
