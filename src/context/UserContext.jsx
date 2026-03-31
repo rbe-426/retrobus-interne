@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { normalizeRole as normRole } from '../lib/roles';
 import ForcePasswordChange from '../components/ForcePasswordChange';
 import { tokenManager, StorageManager, validateSession } from '../api/authService.js';
+import { useSessionTimeout } from '../hooks/useSessionTimeout';
 
 const UserContext = createContext(null);
 
@@ -247,6 +248,9 @@ export function UserProvider({ children }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // ✅ Gérer la déconnexion par inactivité et fermeture d'onglet (seulement si authentifié)
+  useSessionTimeout(logout, { inactivityMinutes: 15, enabled: isAuthenticated });
 
   const username = user?.username || '';
   const prenom = user?.prenom || user?.firstName || '';
