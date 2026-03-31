@@ -217,40 +217,66 @@ export default function MemberProfilesManager() {
       setSaving(true);
       const token = localStorage.getItem('token');
       
-      try {
-        const response = await fetch(`/api/settings/member-profiles/${selectedMemberId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ memberProfile: formData, documents })
-        });
-        
-        if (response.ok) {
-          toast({
-            status: 'success',
-            title: 'Sauvegardé',
-            description: 'Profil adhérent mis à jour'
+      // 🔄 Préparer les données UNIQUEMENT pour les champs BD réels
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        postalCode: formData.postalCode,
+        city: formData.city,
+        birthDate: formData.birthDate ? new Date(formData.birthDate).toISOString() : null,
+        membershipType: formData.membershipType,
+        paymentAmount: formData.paymentAmount ? parseFloat(formData.paymentAmount) : null,
+        paymentMethod: formData.paymentMethod,
+        newsletter: formData.newsletter,
+        notes: formData.notes
+        // ⚠️ licenseNumber, medicalCertificate, etc. ne sont pas dans la BD
+        // Ils seront ignorés/stockés dans notes si critiques
+      };
+
+      // ✅ Essayer avec le bon endpoint Prisma
+      let success = false;
+      const candidates = [
+        `/api/members/${selectedMemberId}`,
+        `${import.meta.env.VITE_API_URL || ''}/api/members/${selectedMemberId}`
+      ];
+
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
           });
-          return;
+          
+          if (response.ok) {
+            toast({
+              status: 'success',
+              title: 'Sauvegardé ✅',
+              description: 'Profil adhérent synchronisé avec la base de données'
+            });
+            success = true;
+            break;
+          }
+        } catch (e) {
+          console.warn(`Tentative échouée: ${url}`, e.message);
         }
-      } catch (apiError) {
-        console.log('API non disponible, sauvegarde locale');
       }
 
-      // Fallback localStorage
-      localStorage.setItem(`memberProfile_${selectedMemberId}`, JSON.stringify(formData));
-      toast({
-        status: 'success',
-        title: 'Sauvegardé',
-        description: 'Profil enregistré localement'
-      });
+      if (!success) {
+        throw new Error('Tous les endpoints ont échoué');
+      }
     } catch (error) {
+      console.error('❌ Erreur sauvegarde:', error);
       toast({
         status: 'error',
         title: 'Erreur',
-        description: 'Impossible de sauvegarder'
+        description: error.message || 'Impossible de sauvegarder le profil'
       });
     } finally {
       setSaving(false);
@@ -363,7 +389,16 @@ export default function MemberProfilesManager() {
     <VStack spacing={6} align="stretch">
       <Alert status="info">
         <AlertIcon />
-        Remplissez les informations qui seront affichées dans le profil "Mon Adhésion" des adhérents
+        <Box>
+          <Text fontWeight="bold">✅ Champs synchronisés avec "Mon Adhésion":</Text>
+          <Text fontSize="sm">
+            Prénom, Nom, Email, Téléphone, Adresse, Code postal, Ville, Date de naissance, 
+            Type d'adhésion, Montant, Méthode de paiement, Newsletter, Notes
+          </Text>
+          <Text fontSize="xs" mt={2} color="orange.600" fontWeight="bold">
+            ⚠️ Les champs "Conducteur" et "Urgence" sont informatifs seulement
+          </Text>
+        </Box>
       </Alert>
 
       {/* Sélecteur d'adhérent */}

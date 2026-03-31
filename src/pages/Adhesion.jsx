@@ -101,64 +101,51 @@ export default function MyMembership() {
     await refreshMember(true);
   };
 
-  // Charger les données configurées par l'admin (MemberProfilesManager) et les fusionner une seule fois
+  // Charger les données qui sont maintenant dans la BD Prisma (pas d'API spéciale)
   const loadAndMergeAdminProfileData = async (memberId) => {
     try {
-      console.log('🔍 Chargement profil admin pour memberId:', memberId);
+      console.log('🔍 Chargement profil depuis BD Prisma pour memberId:', memberId);
       const token = localStorage.getItem('token');
-      let adminData = null;
       
-      // Essayer l'API d'abord
-      try {
-        const response = await fetch(`/api/settings/member-profiles/${memberId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+      // ✅ Charger directement depuis Prisma via /api/members/me ou /api/members/:id
+      const endpoints = [
+        `${apiBase ?? ''}/api/members/me`,
+        `${API_BASE_URL || ''}/api/members/me`,
+        `/api/members/me`
+      ];
+      
+      let response = null;
+      for (const endpoint of endpoints) {
+        try {
+          const r = await fetch(endpoint, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (r.ok) {
+            response = r;
+            console.log('✅ Données chargées depuis:', endpoint);
+            break;
           }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          adminData = data.memberProfile;
-          console.log('✅ Données admin chargées depuis API:', adminData);
-        }
-      } catch (apiError) {
-        console.log('API profil admin non disponible');
-      }
-
-      // Fallback localStorage
-      if (!adminData) {
-        const localStorageKey = `memberProfile_${memberId}`;
-        console.log('📦 Clé localStorage:', localStorageKey);
-        const stored = localStorage.getItem(localStorageKey);
-        console.log('📦 Données localStorage brutes:', stored);
-        if (stored) {
-          try {
-            adminData = JSON.parse(stored);
-            console.log('✅ Données admin chargées depuis localStorage:', adminData);
-          } catch (parseError) {
-            console.error('Erreur parsing données admin:', parseError);
-          }
+        } catch (err) {
+          console.warn(`❌ Tentative échouée: ${endpoint}`, err.message);
         }
       }
 
-      // Fusionner une seule fois (évite le double rendu)
-      if (adminData) {
-        console.log('🔄 Fusion des données...');
+      if (response) {
+        const apiData = await response.json();
+        const loadedData = apiData.data || apiData;
+        console.log('✅ Données Prisma reçues:', loadedData);
+
+        // Mettre à jour DIRECTEMENT avec les données Prisma
         setMemberData(prev => {
-          if (!prev) {
-            console.log('❌ prev est null, retour adminData seul');
-            return adminData;
-          }
-          // Fusionner : données admin + données du contexte (contexte prioritaire pour ID, statut, etc.)
-          const merged = { ...adminData, ...prev, id: prev.id, membershipStatus: prev.membershipStatus };
-          console.log('✅ Données fusionnées:', merged);
-          return merged;
+          if (!prev) return loadedData;
+          // Fusionner données Prisma + infos statut du contexte
+          return { ...loadedData, id: prev.id, membershipStatus: prev.membershipStatus };
         });
       } else {
-        console.log('⚠️ Aucune donnée admin trouvée');
+        console.log('⚠️ Impossible de charger depuis Prisma, données du contexte uniquement');
       }
     } catch (error) {
-      console.error('Erreur chargement profil admin:', error);
+      console.error('❌ Erreur chargement profil:', error);
     }
   };
 
