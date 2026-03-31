@@ -250,7 +250,9 @@ const AccessManagement = () => {
     setEditFormData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
-      role: user.role || 'USER'
+      role: user.role || 'USER',
+      hasInternalAccess: user.hasInternalAccess !== false,
+      hasExternalAccess: user.hasExternalAccess !== false
     });
     onEditOpen();
   };
@@ -271,7 +273,9 @@ const AccessManagement = () => {
       await apiClient.put(`/api/admin/users/${editingUserId}`, {
         firstName: editFormData.firstName,
         lastName: editFormData.lastName,
-        role: editFormData.role
+        role: editFormData.role,
+        hasInternalAccess: editFormData.hasInternalAccess,
+        hasExternalAccess: editFormData.hasExternalAccess
       });
 
       toast({
@@ -285,7 +289,9 @@ const AccessManagement = () => {
       setEditFormData({
         firstName: '',
         lastName: '',
-        role: 'USER'
+        role: 'USER',
+        hasInternalAccess: true,
+        hasExternalAccess: true
       });
       onEditClose();
       await loadUsers();
@@ -305,6 +311,36 @@ const AccessManagement = () => {
   const handleOpenDeleteModal = (user) => {
     setUserToDelete(user);
     onDeleteOpen();
+  };
+
+  const handleGenerateTemporaryPassword = async () => {
+    if (!editingUserId) return;
+
+    try {
+      setIsEditingUser(true);
+      const response = await apiClient.post(`/api/admin/users/${editingUserId}/reset-password`, {
+        temporary: true
+      });
+
+      const tempPassword = response.data.temporaryPassword;
+      
+      toast({
+        title: '✅ Mot de passe temporaire généré',
+        description: `Mot de passe : ${tempPassword} (À communiquer de manière sécurisée)`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de générer le mot de passe',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setIsEditingUser(false);
+    }
   };
 
   const handleDeleteUser = async () => {
@@ -545,45 +581,116 @@ const AccessManagement = () => {
       <Modal isOpen={isEditOpen} onClose={onEditClose} isCentered size="lg">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Modifier l'utilisateur</ModalHeader>
+          <ModalHeader pb={2}>Modifier l'utilisateur</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Prénom</FormLabel>
-                <Input
-                  placeholder="Prénom"
-                  value={editFormData.firstName}
-                  onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})}
-                />
-              </FormControl>
+            <VStack spacing={6} align="stretch">
+              {/* Section: Informations personnelles */}
+              <Box>
+                <Heading as="h4" size="sm" mb={3} color="blue.600" display="flex" alignItems="center" gap={2}>
+                  <Box as="span" fontSize="lg">👤</Box> Informations personnelles
+                </Heading>
+                <VStack spacing={3} pl={4} borderLeft="2px" borderColor="blue.200">
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" fontWeight="600">Prénom</FormLabel>
+                    <Input
+                      placeholder="Prénom"
+                      value={editFormData.firstName}
+                      onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})}
+                      size="sm"
+                    />
+                  </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel>Nom</FormLabel>
-                <Input
-                  placeholder="Nom"
-                  value={editFormData.lastName}
-                  onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
-                />
-              </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" fontWeight="600">Nom</FormLabel>
+                    <Input
+                      placeholder="Nom"
+                      value={editFormData.lastName}
+                      onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
+                      size="sm"
+                    />
+                  </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel>Rôle</FormLabel>
-                <Select
-                  value={editFormData.role}
-                  onChange={(e) => setEditFormData({...editFormData, role: e.target.value})}
-                >
-                  <option value="USER">Utilisateur</option>
-                  <option value="PARTENAIRE">Partenaire</option>
-                  <option value="ADMIN">Administrateur</option>
-                </Select>
-              </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" fontWeight="600">Rôle</FormLabel>
+                    <Select
+                      value={editFormData.role}
+                      onChange={(e) => setEditFormData({...editFormData, role: e.target.value})}
+                      size="sm"
+                    >
+                      <option value="USER">Utilisateur</option>
+                      <option value="PARTENAIRE">Partenaire</option>
+                      <option value="ADMIN">Administrateur</option>
+                    </Select>
+                  </FormControl>
+                </VStack>
+              </Box>
+
+              {/* Section: Contrôle d'accès */}
+              <Box>
+                <Heading as="h4" size="sm" mb={3} color="purple.600" display="flex" alignItems="center" gap={2}>
+                  <Box as="span" fontSize="lg">🔐</Box> Contrôle d'accès
+                </Heading>
+                <VStack spacing={3} pl={4} borderLeft="2px" borderColor="purple.200">
+                  <Box p={3} bg="purple.50" borderRadius="md" w="full">
+                    <HStack justify="space-between">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="600" fontSize="sm">Accès Intranet</Text>
+                        <Text fontSize="xs" color="gray.600">Accès aux pages d'administration interne</Text>
+                      </VStack>
+                      <Switch
+                        isChecked={editFormData.hasInternalAccess !== false}
+                        onChange={(e) => setEditFormData({...editFormData, hasInternalAccess: e.target.checked})}
+                        colorScheme="purple"
+                      />
+                    </HStack>
+                  </Box>
+
+                  <Box p={3} bg="orange.50" borderRadius="md" w="full">
+                    <HStack justify="space-between">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="600" fontSize="sm">Accès Site Public</Text>
+                        <Text fontSize="xs" color="gray.600">Accès au site externe (MyRBE)</Text>
+                      </VStack>
+                      <Switch
+                        isChecked={editFormData.hasExternalAccess !== false}
+                        onChange={(e) => setEditFormData({...editFormData, hasExternalAccess: e.target.checked})}
+                        colorScheme="orange"
+                      />
+                    </HStack>
+                  </Box>
+                </VStack>
+              </Box>
+
+              {/* Section: Mot de passe */}
+              <Box>
+                <Heading as="h4" size="sm" mb={3} color="teal.600" display="flex" alignItems="center" gap={2}>
+                  <Box as="span" fontSize="lg">🔑</Box> Mot de passe
+                </Heading>
+                <VStack spacing={3} pl={4} borderLeft="2px" borderColor="teal.200">
+                  <Box p={3} bg="teal.50" borderRadius="md" w="full">
+                    <Text fontSize="sm" mb={2} color="gray.700">
+                      Force l'utilisateur à changer son mot de passe à la prochaine connexion
+                    </Text>
+                    <Button
+                      size="sm"
+                      colorScheme="teal"
+                      leftIcon={<Box as="span">🔄</Box>}
+                      w="full"
+                      onClick={handleGenerateTemporaryPassword}
+                      isLoading={isEditingUser}
+                    >
+                      Générer un mot de passe temporaire
+                    </Button>
+                  </Box>
+                </VStack>
+              </Box>
             </VStack>
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onEditClose}>Annuler</Button>
             <Button colorScheme="blue" isLoading={isEditingUser} onClick={handleSaveEdit}>
-              Enregistrer
+              Enregistrer les modifications
             </Button>
           </ModalFooter>
         </ModalContent>
