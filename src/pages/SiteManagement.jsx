@@ -322,7 +322,7 @@ const AccessManagement = () => {
         temporary: true
       });
 
-      const tempPassword = response.data.temporaryPassword;
+      const tempPassword = response.data.tempPassword;
       
       toast({
         title: '✅ Mot de passe temporaire généré',

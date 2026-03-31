@@ -42,7 +42,7 @@ const MEMBER_ROLES = {
 };
 
 // === COMPOSANTS MODERNES ===
-function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember }) {
+function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const statusConfig = MEMBERSHIP_STATUS[member.membershipStatus] || MEMBERSHIP_STATUS.PENDING;
   const roleConfig = MEMBER_ROLES[member.role] || MEMBER_ROLES.MEMBER;
@@ -80,25 +80,38 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember 
             )}
           </VStack>
 
-          <Menu>
-            <MenuButton as={IconButton} icon={<FiSettings />} variant="ghost" size="sm" />
-            <MenuList>
-              <MenuItem icon={<FiEdit />} onClick={() => onEdit(member)}>
-                Modifier
-              </MenuItem>
-              <MenuItem icon={<FiUserX />} onClick={() => onTerminate(member)} color="red.500">
-                Terminer l'adhésion
-              </MenuItem>
-              <MenuItem icon={<FiKey />} onClick={() => onLinkAccess(member)}>
-                Associer à un accès existant
-              </MenuItem>
-              {member.membershipStatus === 'CANCELLED' && (
-                <MenuItem icon={<FiTrash2 />} onClick={() => onDeleteMember(member)} color="red.600">
-                  Effacer l'adhérent
+          <VStack spacing={1}>
+            {member.membershipStatus === 'PENDING' && (
+              <Button
+                size="xs"
+                colorScheme="blue"
+                leftIcon={<FiUserCheck />}
+                onClick={() => onActivateAdhesion(member)}
+                variant="solid"
+              >
+                Activer
+              </Button>
+            )}
+            <Menu>
+              <MenuButton as={IconButton} icon={<FiSettings />} variant="ghost" size="sm" />
+              <MenuList>
+                <MenuItem icon={<FiEdit />} onClick={() => onEdit(member)}>
+                  Modifier
                 </MenuItem>
-              )}
-            </MenuList>
-          </Menu>
+                <MenuItem icon={<FiUserX />} onClick={() => onTerminate(member)} color="red.500">
+                  Terminer l'adhésion
+                </MenuItem>
+                <MenuItem icon={<FiKey />} onClick={() => onLinkAccess(member)}>
+                  Associer à un accès existant
+                </MenuItem>
+                {member.membershipStatus === 'CANCELLED' && (
+                  <MenuItem icon={<FiTrash2 />} onClick={() => onDeleteMember(member)} color="red.600">
+                    Effacer l'adhérent
+                  </MenuItem>
+                )}
+              </MenuList>
+            </Menu>
+          </VStack>
         </Flex>
       </CardHeader>
 
@@ -507,6 +520,37 @@ export default function MembersManagement() {
       toast({ title: 'Erreur', description: e.message, status: 'error' });
     }
   };
+
+  const handleActivateAdhesion = async (member) => {
+    try {
+      const resp = await fetch(apiUrl(`/api/members/${member.id}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ membershipStatus: 'ACTIVE' })
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data?.error || 'Activation impossible');
+      }
+      const updated = await resp.json();
+      setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+      toast({
+        title: "Adhésion activée",
+        description: `${member.firstName} ${member.lastName} est maintenant actif`,
+        status: 'success'
+      });
+    } catch (e) {
+      toast({
+        title: 'Erreur',
+        description: e.message,
+        status: 'error'
+      });
+    }
+  };
+
   const handleMemberCreated = (newMember) => {
     setMembers(prev => [newMember, ...prev]);
     calculateStats([newMember, ...members]);
@@ -674,6 +718,7 @@ export default function MembersManagement() {
               onLinkAccess={handleLinkAccess}
               onTerminate={handleTerminate}
               onDeleteMember={handleDeleteMember}
+              onActivateAdhesion={handleActivateAdhesion}
             />
           ))}
         </SimpleGrid>
