@@ -523,14 +523,27 @@ export default function MembersManagement() {
           isClosable: true
         });
       } else {
-        await membersAPI.create(memberData);
-        toast({
-          status: "success",
-          title: "Membre créé",
-          description: `${formData.firstName} ${formData.lastName} a été ajouté avec succès`,
-          duration: 5000,
-          isClosable: true
-        });
+        const response = await membersAPI.create(memberData);
+        
+        // Afficher le password temporaire si créé
+        if (formData.loginEnabled && (response?.temporaryPassword || formData.temporaryPassword)) {
+          const displayPassword = response?.temporaryPassword || formData.temporaryPassword;
+          toast({
+            status: "success",
+            title: "Membre créé avec accès MyRBE",
+            description: `${formData.firstName} ${formData.lastName} a été ajouté. Mot de passe temporaire: ${displayPassword}`,
+            duration: 10000,
+            isClosable: true
+          });
+        } else {
+          toast({
+            status: "success",
+            title: "Membre créé",
+            description: `${formData.firstName} ${formData.lastName} a été ajouté avec succès`,
+            duration: 5000,
+            isClosable: true
+          });
+        }
       }
 
       onCreateClose();

@@ -235,88 +235,199 @@ function EditAccountModal({ isOpen, onClose, account, onSave }) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
-          {account ? 'Modifier le compte' : 'Créer un nouveau compte'}
+          <VStack align="start" spacing={0}>
+            <Text fontSize="xl" fontWeight="bold">
+              {account ? '📋 Modifier le compte' : '➕ Créer un nouveau compte'}
+            </Text>
+            {account && (
+              <Text fontSize="sm" color="gray.600">
+                {account.firstName} {account.lastName} • {account.email}
+              </Text>
+            )}
+          </VStack>
         </ModalHeader>
         <ModalCloseButton />
 
         <ModalBody>
-          <VStack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel>Prénom</FormLabel>
-              <Input
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                placeholder="Jean"
-              />
-            </FormControl>
-
-            <FormControl isRequired>
-              <FormLabel>Nom</FormLabel>
-              <Input
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                placeholder="Dupont"
-              />
-            </FormControl>
-
-            <FormControl isRequired>
-              <FormLabel>Email</FormLabel>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="jean@example.com"
-              />
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Type de compte</FormLabel>
-              <Select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              >
-                {Object.entries(ACCOUNT_TYPES).map(([key, config]) => (
-                  <option key={key} value={key}>
-                    {config.label} - {config.description}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Accès</FormLabel>
-              <VStack align="start" spacing={2}>
-                <HStack>
-                  <Checkbox
-                    isChecked={formData.hasInternalAccess}
-                    onChange={(e) => setFormData({ ...formData, hasInternalAccess: e.target.checked })}
+          <VStack spacing={6}>
+            {/* SECTION : INFORMATIONS DE BASE */}
+            <Box w="full" borderWidth={1} borderRadius="lg" p={4} bg="gray.50">
+              <Heading size="sm" mb={4} display="flex" alignItems="center" gap={2}>
+                👤 Informations de base
+              </Heading>
+              <VStack spacing={3}>
+                <FormControl isRequired>
+                  <FormLabel fontSize="sm" fontWeight="600">Prénom</FormLabel>
+                  <Input
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    placeholder="Jean"
+                    size="sm"
                   />
-                  <Text fontSize="sm">Accès interne (Intranet)</Text>
-                </HStack>
-                <HStack>
-                  <Checkbox
-                    isChecked={formData.hasExternalAccess}
-                    onChange={(e) => setFormData({ ...formData, hasExternalAccess: e.target.checked })}
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel fontSize="sm" fontWeight="600">Nom</FormLabel>
+                  <Input
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    placeholder="Dupont"
+                    size="sm"
                   />
-                  <Text fontSize="sm">Accès externe (Site public)</Text>
-                </HStack>
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel fontSize="sm" fontWeight="600">Email</FormLabel>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="jean@example.com"
+                    size="sm"
+                    isDisabled={!!account}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">Type de compte</FormLabel>
+                  <Select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    size="sm"
+                  >
+                    {Object.entries(ACCOUNT_TYPES).map(([key, config]) => (
+                      <option key={key} value={key}>
+                        {config.label}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
               </VStack>
-            </FormControl>
+            </Box>
 
-            <FormControl>
-              <FormLabel>Notes</FormLabel>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Notes optionnelles..."
-                size="sm"
-                rows={3}
-              />
-            </FormControl>
+            {/* SECTION : CONTRÔLE D'ACCÈS */}
+            <Box w="full" borderWidth={1} borderRadius="lg" p={4} bg="blue.50">
+              <Heading size="sm" mb={4} display="flex" alignItems="center" gap={2}>
+                🔐 Contrôle d'accès
+              </Heading>
+              <VStack spacing={3} align="start">
+                <FormControl display="flex" alignItems="center">
+                  <HStack spacing={3} flex={1}>
+                    <Switch
+                      isChecked={formData.hasInternalAccess}
+                      onChange={(e) => setFormData({ ...formData, hasInternalAccess: e.target.checked })}
+                      colorScheme="green"
+                    />
+                    <VStack align="start" spacing={0}>
+                      <FormLabel margin={0} fontSize="sm" fontWeight="600" cursor="pointer">
+                        Accès interne (Intranet)
+                      </FormLabel>
+                      <Text fontSize="xs" color="gray.600">
+                        Permet de se connecter au tableau de bord interne
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </FormControl>
+
+                <Divider />
+
+                <FormControl display="flex" alignItems="center">
+                  <HStack spacing={3} flex={1}>
+                    <Switch
+                      isChecked={formData.hasExternalAccess}
+                      onChange={(e) => setFormData({ ...formData, hasExternalAccess: e.target.checked })}
+                      colorScheme="green"
+                    />
+                    <VStack align="start" spacing={0}>
+                      <FormLabel margin={0} fontSize="sm" fontWeight="600" cursor="pointer">
+                        Accès externe (Site public)
+                      </FormLabel>
+                      <Text fontSize="xs" color="gray.600">
+                        Accès aux fonctionnalités du site public
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </FormControl>
+
+                {!formData.hasInternalAccess && !formData.hasExternalAccess && (
+                  <Alert status="warning" borderRadius="md" mt={2}>
+                    <AlertIcon />
+                    <Text fontSize="sm">⚠️ Cet utilisateur n'aura accès à aucun service</Text>
+                  </Alert>
+                )}
+
+                {(formData.hasInternalAccess || formData.hasExternalAccess) && (
+                  <Alert status="success" borderRadius="md" mt={2}>
+                    <AlertIcon />
+                    <Text fontSize="sm">✅ Accès activé - L'utilisateur pourra se connecter</Text>
+                  </Alert>
+                )}
+              </VStack>
+            </Box>
+
+            {/* SECTION : GESTION DU MOT DE PASSE */}
+            {account && (
+              <Box w="full" borderWidth={1} borderRadius="lg" p={4} bg="orange.50">
+                <Heading size="sm" mb={4} display="flex" alignItems="center" gap={2}>
+                  🔑 Mot de passe
+                </Heading>
+                <VStack spacing={3} align="start">
+                  <HStack spacing={2} w="full">
+                    <Button
+                      size="sm"
+                      leftIcon={<FiKey />}
+                      colorScheme="orange"
+                      variant="outline"
+                      flex={1}
+                      onClick={() => {
+                        // Déclencher le modal de réinitialisation
+                        // À faire via la fonction parent
+                      }}
+                    >
+                      Générer un MDP temporaire
+                    </Button>
+                  </HStack>
+                  <Text fontSize="xs" color="gray.600">
+                    Génère un nouveau mot de passe temporaire que l'utilisateur devra changer à la première connexion
+                  </Text>
+                </VStack>
+              </Box>
+            )}
+
+            {/* SECTION : LIAISONS & NOTES */}
+            <Box w="full" borderWidth={1} borderRadius="lg" p={4} bg="purple.50">
+              <Heading size="sm" mb={4} display="flex" alignItems="center" gap={2}>
+                🔗 Liaisons & Informations
+              </Heading>
+              <VStack spacing={3}>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="600">Notes</FormLabel>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Notes optionnelles sur cet utilisateur..."
+                    size="sm"
+                    rows={3}
+                  />
+                </FormControl>
+
+                {account?.linkedMemberId && (
+                  <Alert status="info" borderRadius="md">
+                    <AlertIcon />
+                    <Box>
+                      <Text fontSize="sm" fontWeight="600">Lié à un adhérent</Text>
+                      <Text fontSize="xs" color="gray.600">
+                        ID: {account.linkedMemberId}
+                      </Text>
+                    </Box>
+                  </Alert>
+                )}
+              </VStack>
+            </Box>
           </VStack>
         </ModalBody>
 
@@ -325,8 +436,8 @@ function EditAccountModal({ isOpen, onClose, account, onSave }) {
             <Button variant="ghost" onClick={onClose}>
               Annuler
             </Button>
-            <Button colorScheme="blue" onClick={handleSave} isLoading={loading}>
-              Sauvegarder
+            <Button colorScheme="blue" onClick={handleSave} isLoading={loading} leftIcon={<FiCheck />}>
+              {account ? 'Mettre à jour' : 'Créer'}
             </Button>
           </HStack>
         </ModalFooter>
