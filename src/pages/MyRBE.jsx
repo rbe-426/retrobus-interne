@@ -177,7 +177,11 @@ export default function MyRBE() {
         p.resource === card.resource && p.actions && p.actions.includes('DENY')
       );
       if (isDenied) {
+        console.log(`   🔒 Card "${card.title}" (${card.resource}): DENIED - hiding`);
         return false; // Masquer la carte si accès refusé
+      }
+      if (userPermissions.length > 0) {
+        console.log(`   ✅ Card "${card.title}" (${card.resource}): allowed - showing`);
       }
     }
 
@@ -229,6 +233,18 @@ export default function MyRBE() {
 
   // Filtrer les cartes en fonction des permissions
   const visibleCards = cards.filter(shouldShowCard);
+
+  // Log pour diagnostic
+  console.log('🔍 MyRBE DEBUG:');
+  console.log(`   user?.id: ${user?.id}`);
+  console.log(`   userRole: ${userRole}`);
+  console.log(`   isAdmin: ${isAdmin}`);
+  console.log(`   permissionsLoading: ${permissionsLoading}`);
+  console.log(`   userPermissions.length: ${userPermissions.length}`);
+  if (userPermissions.length > 0) {
+    console.log(`   userPermissions:`, userPermissions);
+  }
+  console.log(`   visibleCards: ${visibleCards.length}/${cards.length}`);
 
   if (permissionsLoading) {
     return (

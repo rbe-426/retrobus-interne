@@ -10,14 +10,23 @@ export function useUserPermissions(userId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('🔍 useUserPermissions: userId is empty, skipping');
+      return;
+    }
+
+    console.log(`🔍 useUserPermissions: Starting to load permissions for userId: ${userId}`);
 
     const loadPermissions = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        const data = await fetchJson(`/api/user-permissions/${userId}`);
+        const url = `/api/user-permissions/${userId}`;
+        console.log(`   Fetching: ${url}`);
+        
+        const data = await fetchJson(url);
+        console.log(`   Response:`, data);
 
         if (data.success) {
           // Parser les actions si elles sont en JSON string
@@ -27,12 +36,14 @@ export function useUserPermissions(userId) {
               ? p.actions 
               : JSON.parse(p.actions || '[]')
           }));
+          console.log(`   ✅ Loaded ${parsed.length} permissions:`, parsed);
           setPermissions(parsed);
         } else {
+          console.log(`   ❌ No success in response`);
           setError(data.error || 'Failed to load permissions');
         }
       } catch (err) {
-        console.error('Error loading permissions:', err);
+        console.error('❌ Error loading permissions:', err);
         setError(err.message);
       } finally {
         setLoading(false);
