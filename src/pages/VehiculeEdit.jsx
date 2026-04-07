@@ -194,7 +194,10 @@ export default function VehiculeEdit() {
         history: data.history,
         backgroundImage: data.backgroundImage,
         thumbnailImage: data.thumbnailImage,
-        caracteristiques: data.caracteristiques,
+        // Ensure caracteristiques is properly stringified if it's an array or object
+        caracteristiques: Array.isArray(data.caracteristiques) 
+          ? JSON.stringify(data.caracteristiques)
+          : (typeof data.caracteristiques === 'string' ? data.caracteristiques : JSON.stringify(data.caracteristiques || [])),
         isPublic: data.isPublic
       };
       
