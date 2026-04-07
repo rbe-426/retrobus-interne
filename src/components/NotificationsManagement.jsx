@@ -30,6 +30,7 @@ const NotificationsManagement = () => {
   const bgHover = useColorModeValue('gray.50', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const textSubtle = useColorModeValue('gray.600', 'gray.400');
+  const bgTableHead = useColorModeValue('gray.100', 'gray.700');
 
   const [form, setForm] = useState({
     title: '',
@@ -286,7 +287,7 @@ const NotificationsManagement = () => {
         /* Tableau des notifications */
         <Box overflowX="auto" borderRadius="md" border="1px" borderColor={borderColor}>
           <Table variant="simple" size="sm">
-            <Thead bg={useColorModeValue('gray.100', 'gray.700')}>
+            <Thead bg={bgTableHead}>
               <Tr>
                 <Th>Titre</Th>
                 <Th>Type</Th>
