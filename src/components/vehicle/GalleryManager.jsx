@@ -43,33 +43,64 @@ export default function GalleryManager({
   };
 
   const upload = async (files) => {
-    if (!files?.length) return;
-    setUploading(true);
-    const fd = new FormData();
-    [...files].forEach(f => fd.append('images', f));
+    if (!files?.length) {
+      console.log(`🔍 [GALLERY] No files to upload`);
+      return;
+    }
     
-    console.log('🔍 Upload debug:', {
+    console.log(`\n🔍 [GALLERY] Starting upload:`, {
       endpoint: uploadEndpoint,
       filesCount: files.length,
-      hasAuth: !!authHeader
+      hasAuth: !!authHeader,
+      fileDetails: Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type }))
     });
     
+    setUploading(true);
+    
     try {
+      // Convert all files to BASE64 (like VehiculeEdit does)
+      const base64Images = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`  📄 [GALLERY] Converting file ${i+1}/${files.length} to BASE64: ${file.name}`);
+        
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUri = e.target.result;
+            console.log(`    ✅ Converted ${file.name}: ${dataUri.substring(0, 50)}...`);
+            resolve(dataUri);
+          };
+          reader.onerror = () => {
+            console.error(`    ❌ Failed to read ${file.name}`);
+            reject(new Error(`Failed to read ${file.name}`));
+          };
+          reader.readAsDataURL(file);
+        });
+        
+        base64Images.push(base64);
+      }
+      
+      console.log(`✅ [GALLERY] All files converted to BASE64, sending to ${uploadEndpoint}`);
+      
       const res = await fetch(uploadEndpoint, { 
-        method:'POST', 
-        headers:{ 'Authorization': authHeader }, 
-        body: fd 
+        method: 'POST', 
+        headers: { 
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }, 
+        body: JSON.stringify({ images: base64Images })
       });
       
-      console.log('📡 Upload response:', {
+      console.log(`📡 [GALLERY] Response received:`, {
         status: res.status,
         statusText: res.statusText,
-        headers: Object.fromEntries(res.headers)
+        contentType: res.headers.get('content-type')
       });
       
       if (!res.ok) {
         const txt = await res.text().catch(()=> '');
-        console.error('❌ Upload failed:', res.status, txt);
+        console.error(`❌ [GALLERY] Upload failed HTTP ${res.status}:`, txt.substring(0, 200));
         toast({ 
           status: 'error', 
           title: 'Échec upload',
@@ -77,11 +108,17 @@ export default function GalleryManager({
         });
         throw new Error(`HTTP ${res.status}: ${txt}`);
       }
+      
       const j = await res.json();
+      console.log(`✅ [GALLERY] Upload successful, response:`, {
+        gallery_count: j.gallery?.length,
+        first_image: j.gallery?.[0]?.substring(0, 50)
+      });
       onChange(j.gallery || []);
       toast({ status: 'success', title: 'Images ajoutées' });
     } catch (err) {
-      console.error('Upload error', err);
+      console.error(`❌ [GALLERY] Upload error:`, err.message);
+      console.error(`❌ [GALLERY] Error details:`, err);
       toast({ 
         status: 'error', 
         title: 'Échec upload',

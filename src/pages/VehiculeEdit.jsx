@@ -113,19 +113,30 @@ export default function VehiculeEdit() {
     });
   };
 
-  const handleBackgroundImageUpload = async (e) => {
+  const handleBackgroundImageUpload = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log(`🔍 [UPLOAD] No background file selected`);
+      return;
+    }
 
-    // Lire le fichier comme BASE64
+    console.log(`🔍 [UPLOAD] Background image selected:`, {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUri = event.target.result;
+      console.log(`✅ [UPLOAD] Background image converted to BASE64 (${dataUri.length} bytes)`);
+      console.log(`✅ [UPLOAD] Preview: ${dataUri.substring(0, 50)}...`);
       setBackgroundImagePreview(dataUri);
       updateField('backgroundImage', dataUri);
       toast({ status: 'success', title: 'Image de fond sélectionnée' });
     };
     reader.onerror = () => {
+      console.error(`❌ [UPLOAD] Error reading background file`);
       toast({ status: 'error', title: 'Erreur lecture fichier' });
     };
     reader.readAsDataURL(file);
@@ -133,16 +144,28 @@ export default function VehiculeEdit() {
 
   const handleThumbnailImageUpload = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log(`🔍 [UPLOAD] No thumbnail file selected`);
+      return;
+    }
+
+    console.log(`🔍 [UPLOAD] Thumbnail image selected:`, {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUri = event.target.result;
+      console.log(`✅ [UPLOAD] Thumbnail image converted to BASE64 (${dataUri.length} bytes)`);
+      console.log(`✅ [UPLOAD] Preview: ${dataUri.substring(0, 50)}...`);
       setThumbnailImagePreview(dataUri);
       updateField('thumbnailImage', dataUri);
       toast({ status: 'success', title: 'Image miniature sélectionnée' });
     };
     reader.onerror = () => {
+      console.error(`❌ [UPLOAD] Error reading thumbnail file`);
       toast({ status: 'error', title: 'Erreur lecture fichier' });
     };
     reader.readAsDataURL(file);
@@ -151,32 +174,48 @@ export default function VehiculeEdit() {
   const save = async () => {
     setSaving(true);
     try {
+      console.log(`\n🔍 [SAVE DEBUG] Starting save for parc: ${parc}`);
+      console.log(`🔍 [SAVE DEBUG] Data keys:`, Object.keys(data || {}));
+      console.log(`🔍 [SAVE DEBUG] backgroundImage length:`, data?.backgroundImage ? data.backgroundImage.length : 'null');
+      console.log(`🔍 [SAVE DEBUG] thumbnailImage length:`, data?.thumbnailImage ? data.thumbnailImage.length : 'null');
+      console.log(`🔍 [SAVE DEBUG] type:`, data?.type);
+      
+      const payload = {
+        modele: data.modele,
+        marque: data.marque,
+        type: data.type,
+        subtitle: data.subtitle,
+        etat: data.etat,
+        immat: data.immat,
+        energie: data.energie,
+        miseEnCirculation: data.miseEnCirculation,
+        description: data.description,
+        history: data.history,
+        backgroundImage: data.backgroundImage,
+        thumbnailImage: data.thumbnailImage,
+        caracteristiques: data.caracteristiques,
+        isPublic: data.isPublic
+      };
+      
+      console.log(`🔍 [SAVE DEBUG] Sending payload, size: ${JSON.stringify(payload).length} bytes`);
+      console.log(`🔍 [SAVE DEBUG] backgroundImage type:`, typeof payload.backgroundImage);
+      console.log(`🔍 [SAVE DEBUG] backgroundImage preview:`, payload.backgroundImage ? payload.backgroundImage.substring(0, 50) : 'null');
+      
       const response = await fetch(`${API_BASE}/vehicles/${parc}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({
-          modele: data.modele,
-          marque: data.marque,
-          type: data.type,
-          subtitle: data.subtitle,
-          etat: data.etat,
-          immat: data.immat,
-          energie: data.energie,
-          miseEnCirculation: data.miseEnCirculation,
-          description: data.description,
-          history: data.history,
-          backgroundImage: data.backgroundImage,
-          thumbnailImage: data.thumbnailImage,
-          caracteristiques: data.caracteristiques,
-          isPublic: data.isPublic
-        })
+        body: JSON.stringify(payload)
       });
+
+      console.log(`✅ [SAVE DEBUG] Response status: ${response.status}`);
+      console.log(`✅ [SAVE DEBUG] Response headers:`, Object.fromEntries(response.headers));
 
       if (!response.ok) {
         const err = await response.json();
+        console.error(`❌ [SAVE DEBUG] API error:`, err);
         throw new Error(err.error || 'Erreur modification');
       }
 
