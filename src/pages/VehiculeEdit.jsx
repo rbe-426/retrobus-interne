@@ -48,7 +48,8 @@ export default function VehiculeEdit() {
           throw new Error('Véhicule non trouvé');
         }
 
-        const vehicleData = await response.json();
+        const responseData = await response.json();
+        const vehicleData = responseData.vehicle || responseData;
         setData({
           ...vehicleData,
           caracteristiques: vehicleData.caracteristiques || [],

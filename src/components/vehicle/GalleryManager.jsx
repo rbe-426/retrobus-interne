@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { Box, SimpleGrid, Image, HStack, IconButton, Input, useToast, Text } from '@chakra-ui/react';
 import { FiTrash2, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 
@@ -11,6 +11,7 @@ export default function GalleryManager({
 }) {
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const move = (i, dir) => {
     const copy = [...value];
@@ -43,16 +44,19 @@ export default function GalleryManager({
   };
 
   const upload = async (files) => {
-    if (!files?.length) {
+    // IMPORTANT: Convert FileList to Array immediately (FileList is not persisted in async context)
+    const filesArray = files ? Array.from(files) : [];
+    
+    if (!filesArray?.length) {
       console.log(`🔍 [GALLERY] No files to upload`);
       return;
     }
     
     console.log(`\n🔍 [GALLERY] Starting upload:`, {
       endpoint: uploadEndpoint,
-      filesCount: files.length,
+      filesCount: filesArray.length,
       hasAuth: !!authHeader,
-      fileDetails: Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type }))
+      fileDetails: filesArray.map(f => ({ name: f.name, size: f.size, type: f.type }))
     });
     
     setUploading(true);
@@ -60,8 +64,8 @@ export default function GalleryManager({
     try {
       // Convert all files to BASE64 (like VehiculeEdit does)
       const base64Images = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
         console.log(`  📄 [GALLERY] Converting file ${i+1}/${files.length} to BASE64: ${file.name}`);
         
         const base64 = await new Promise((resolve, reject) => {
@@ -116,6 +120,11 @@ export default function GalleryManager({
       });
       onChange(j.gallery || []);
       toast({ status: 'success', title: 'Images ajoutées' });
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       console.error(`❌ [GALLERY] Upload error:`, err.message);
       console.error(`❌ [GALLERY] Error details:`, err);
@@ -161,6 +170,7 @@ export default function GalleryManager({
   return (
     <Box>
       <Input
+        ref={fileInputRef}
         type="file"
         multiple
         accept="image/*"
