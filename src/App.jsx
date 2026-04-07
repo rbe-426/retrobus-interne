@@ -4,6 +4,7 @@ import { Box } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -64,10 +65,11 @@ export default function App() {
   const showHeader = isAuthenticated && location.pathname !== '/login';
 
   return (
-    <Box display="flex" flexDirection="column" minH="100vh">
-      {showHeader && <Header />}
-      <Box flex="1">
-        <Routes>
+    <ErrorBoundary>
+      <Box display="flex" flexDirection="column" minH="100vh">
+        {showHeader && <Header />}
+        <Box flex="1">
+          <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
         
@@ -152,5 +154,6 @@ export default function App() {
       </Box>
       {showHeader && <Footer />}
     </Box>
+    </ErrorBoundary>
   );
 }
