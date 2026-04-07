@@ -29,6 +29,7 @@ import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
 import MarkdownEditor from '../components/MarkdownEditor';
 import NotificationsManagement from '../components/NotificationsManagement';
+import HomeAnnouncementsManagement from '../components/HomeAnnouncementsManagement';
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -1383,6 +1384,12 @@ const SiteManagement = () => {
       label: '🔔 Notifications',
       icon: FiBell,
       render: () => <NotificationsManagement />,
+    },
+    {
+      id: 'announcements',
+      label: '📢 Annonces d\'Accueil',
+      icon: FiBell,
+      render: () => <HomeAnnouncementsManagement />,
     },
     {
       id: 'news',
