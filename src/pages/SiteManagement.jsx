@@ -14,7 +14,7 @@ import {
   FiEdit, FiTrash2, FiPlus, FiUsers, FiSettings, FiGlobe, FiMail,
   FiShare, FiChevronLeft, FiChevronRight, FiArrowUpRight, FiSearch,
   FiRefreshCw, FiShield, FiLock, FiUnlock, FiActivity, FiEdit2,
-  FiAlertCircle
+  FiAlertCircle, FiBell
 } from 'react-icons/fi';
 import { FaEdit, FaTrash, FaPlus, FaEye } from 'react-icons/fa';
 
@@ -28,6 +28,7 @@ import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
 import MarkdownEditor from '../components/MarkdownEditor';
+import NotificationsManagement from '../components/NotificationsManagement';
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -1376,6 +1377,12 @@ const SiteManagement = () => {
       label: '🛡️ Permissions',
       icon: FiLock,
       render: () => <PermissionsManagement />,
+    },
+    {
+      id: 'notifications',
+      label: '🔔 Notifications',
+      icon: FiBell,
+      render: () => <NotificationsManagement />,
     },
     {
       id: 'news',

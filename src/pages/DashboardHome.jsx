@@ -505,14 +505,14 @@ export default function DashboardHome() {
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Membres actifs</StatLabel>
+                    <StatLabel color="gray.600">Adhérents</StatLabel>
                     <StatNumber color="purple.500">
                       <HStack>
                         <Icon as={FiUsers} />
                         {stats.members.loading ? (
                           <Spinner size="sm" />
                         ) : (
-                          <Text>{stats.members.active}/{stats.members.total}</Text>
+                          <Text>{stats.members.total === 0 ? 'Aucun adhérent' : `${stats.members.total} adhérent${stats.members.total !== 1 ? 's' : ''}`}</Text>
                         )}
                       </HStack>
                     </StatNumber>
