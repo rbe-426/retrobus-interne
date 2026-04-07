@@ -436,23 +436,27 @@ export default function DashboardHome() {
         <GridItem colSpan={{ base: 1, lg: 3 }}>
           <VStack spacing={8} align="stretch">
             {/* Statistiques principales */}
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6}>
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg">
+            <HStack spacing={6} wrap="wrap">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Véhicules actifs</StatLabel>
+                    <StatLabel color="gray.600">Véhicules</StatLabel>
                     <StatNumber color="blue.500">
                       <HStack>
                         <Icon as={FiTruck} />
                         {stats.vehicles.loading ? (
                           <Spinner size="sm" />
                         ) : (
-                          <Text>{stats.vehicles.active}/{stats.vehicles.total}</Text>
+                          <Text>
+                            {stats.vehicles.total === 0 
+                              ? 'Aucun véhicule' 
+                              : `${stats.vehicles.total} véhicule${stats.vehicles.total !== 1 ? 's' : ''}`}
+                          </Text>
                         )}
                       </HStack>
                     </StatNumber>
                     <Progress 
-                      value={stats.vehicles.total > 0 ? (stats.vehicles.active / stats.vehicles.total) * 100 : 0} 
+                      value={stats.vehicles.total > 0 ? 100 : 0} 
                       colorScheme="blue" 
                       size="sm" 
                       mt={2} 
@@ -462,22 +466,33 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Événements à venir</StatLabel>
+                    <StatLabel color="gray.600">Événements</StatLabel>
                     <StatNumber color="green.500">
-                      <HStack>
-                        <Icon as={FiCalendar} />
-                        {stats.events.loading ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <Text>{stats.events.upcoming}/{stats.events.total}</Text>
+                      <VStack align="flex-start" spacing={1}>
+                        <HStack>
+                          <Icon as={FiCalendar} />
+                          {stats.events.loading ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <Text>
+                              {stats.events.total === 0 
+                                ? 'Aucun événement' 
+                                : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
+                            </Text>
+                          )}
+                        </HStack>
+                        {!stats.events.loading && stats.events.published > 0 && (
+                          <Badge colorScheme="blue" fontSize="xs">
+                            dont {stats.events.published} public{stats.events.published !== 1 ? 's' : ''}
+                          </Badge>
                         )}
-                      </HStack>
+                      </VStack>
                     </StatNumber>
                     <Progress 
-                      value={stats.events.total > 0 ? (stats.events.upcoming / stats.events.total) * 100 : 0} 
+                      value={stats.events.total > 0 ? 100 : 0} 
                       colorScheme="green" 
                       size="sm" 
                       mt={2} 
@@ -487,7 +502,7 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Membres actifs</StatLabel>
@@ -511,11 +526,11 @@ export default function DashboardHome() {
                   </Stat>
                 </CardBody>
               </Card>
-            </SimpleGrid>
+            </HStack>
 
             {/* Les RétroActus */}
             {retroActus.length > 0 && (
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto">
                 <CardHeader>
                   <HStack justify="space-between">
                     <Heading size="md" fontWeight="700">📰 Les RétroActus</Heading>
