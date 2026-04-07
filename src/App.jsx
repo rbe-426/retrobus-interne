@@ -22,6 +22,7 @@ import FinanceNew from "./pages/FinanceNew";
 import Vehicules from "./pages/Vehicules";
 import VehiculeShow from "./pages/VehiculeShow";
 import VehiculeCreate from "./pages/VehiculeCreate";
+import VehiculeEdit from "./pages/VehiculeEdit";
 import RetroBus from "./pages/RetroBus";
 import EventsManagement from "./pages/EventsManagement";
 import EventsCreation from "./pages/EventsCreation";
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/echancier" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EchancierPage /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Vehicules /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/ajouter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RequireCreator><VehiculeCreate /></RequireCreator></RoleProtectedRoute>} />
+        <Route path="/dashboard/vehicules/:parc/edit" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><VehiculeEdit /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/:parc" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><VehiculeShow /></RoleProtectedRoute>} />
         
         {/* 📅 Routes des événements */}

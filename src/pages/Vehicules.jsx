@@ -114,21 +114,42 @@ const Vehicules = () => {
                   </Badge>
                 </HStack>
               </CardHeader>
-              <CardBody pt={0}>
+              {vehicle.thumbnailImage && (
+                <Box px={4} pt={2}>
+                  <Image
+                    src={vehicle.thumbnailImage}
+                    alt={vehicle.modele}
+                    w="100%"
+                    h="120px"
+                    objectFit="cover"
+                    borderRadius="md"
+                    mb={2}
+                  />
+                </Box>
+              )}
+              <CardBody pt={vehicle.thumbnailImage ? 2 : 0}>
                 <VStack align="start" spacing={2}>
-                  <Text><strong>Modèle:</strong> {vehicle.modele || 'Non spécifié'}</Text>
+                  <HStack spacing={2} align="center">
+                    <Text><strong>Modèle:</strong> {vehicle.modele || 'Non spécifié'}</Text>
+                    {vehicle.type && (
+                      <Badge colorScheme="cyan" fontSize="xs">
+                        {vehicle.type}
+                      </Badge>
+                    )}
+                  </HStack>
                   <Text><strong>Marque:</strong> {vehicle.marque || 'Non spécifiée'}</Text>
                   {vehicle.immat && <Text><strong>Immat:</strong> {vehicle.immat}</Text>}
                   
                   <HStack spacing={2} pt={4} w="100%">
                     <Button
                       as={RouterLink}
-                      to={`/dashboard/vehicules/${vehicle.parc}`}
+                      to={`/dashboard/vehicules/${vehicle.parc}/edit`}
                       leftIcon={<FiEdit />}
                       size="sm"
                       flex={1}
+                      colorScheme="blue"
                     >
-                      Gérer
+                      Éditer
                     </Button>
                     <Button
                       leftIcon={<FiGrid />}
