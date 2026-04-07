@@ -2,298 +2,224 @@
  * NotificationCenter.jsx
  * 
  * Composant de gestion des notifications internes
- * - Affiche un badge avec le nombre de messages non lus
- * - Popup pour voir/lire/supprimer les messages
- * - Lien vers les paramètres de notifications
+ * - Affiche un badge avec le nombre de notifications actives
+ * - Popup pour voir les notifications du système
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Bell, X, Check, Trash2, Settings } from 'lucide-react';
+import { Bell, X, AlertTriangle, Info, CheckCircle } from 'lucide-react';
+import { notificationsAPI } from '../api/notifications';
 import './NotificationCenter.css';
 
 export default function NotificationCenter() {
-  const [messages, setMessages] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showPreferences, setShowPreferences] = useState(false);
-  const [preferences, setPreferences] = useState({});
 
-  // Récupérer les notifications
+  // Récupérer les notifications actives
   const fetchNotifications = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const res = await fetch('/api/notifications/inbox?limit=20', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!res.ok) throw new Error('Failed to fetch');
-
-      const data = await res.json();
-      if (data.success) {
-        setMessages(data.messages || []);
-        setUnreadCount(data.unread || 0);
+      setLoading(true);
+      const data = await notificationsAPI.getAll();
+      
+      if (Array.isArray(data)) {
+        // Filtrer les notifications actives
+        const activeNotifications = data.filter(n => n.active !== false);
+        setNotifications(activeNotifications);
+        // Compter les notifications importants (priorité high)
+        const importantCount = activeNotifications.filter(n => n.priority === 'high').length;
+        setUnreadCount(importantCount > 0 ? importantCount : activeNotifications.length);
       }
     } catch (error) {
-      console.error('❌ Fetch notifications error:', error);
+      console.error('❌ Erreur récupération notifications:', error);
+      setNotifications([]);
+      setUnreadCount(0);
+    } finally {
+      setLoading(false);
     }
   }, []);
-
-  // Récupérer les préférences
-  const fetchPreferences = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const res = await fetch('/api/notifications/preferences', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setPreferences(data.preferences || {});
-      }
-    } catch (error) {
-      console.error('❌ Fetch preferences error:', error);
-    }
-  }, []);
-
-  // Marquer comme lu
-  const markAsRead = async (messageId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/notifications/mark-read/${messageId}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        fetchNotifications();
-      }
-    } catch (error) {
-      console.error('❌ Mark read error:', error);
-    }
-  };
-
-  // Supprimer un message
-  const deleteMessage = async (messageId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/notifications/message/${messageId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        fetchNotifications();
-      }
-    } catch (error) {
-      console.error('❌ Delete error:', error);
-    }
-  };
-
-  // Marquer tout comme lu
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        fetchNotifications();
-      }
-    } catch (error) {
-      console.error('❌ Mark all read error:', error);
-    }
-  };
-
-  // Mettre à jour les préférences
-  const updatePreference = async (key, value) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/notifications/preferences', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ [key]: value })
-      });
-
-      if (res.ok) {
-        fetchPreferences();
-      }
-    } catch (error) {
-      console.error('❌ Update preferences error:', error);
-    }
-  };
 
   // Initialisation et polling
   useEffect(() => {
     fetchNotifications();
-    fetchPreferences();
-
     // Rafraîchir toutes les 30 secondes
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, [fetchNotifications, fetchPreferences]);
+  }, [fetchNotifications]);
+
+  // Icône en fonction du type de notification
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'error':
+        return <AlertTriangle size={16} style={{ color: '#f56565' }} />;
+      case 'success':
+        return <CheckCircle size={16} style={{ color: '#48bb78' }} />;
+      case 'warning':
+        return <AlertTriangle size={16} style={{ color: '#ed8936' }} />;
+      default:
+        return <Info size={16} style={{ color: '#4299e1' }} />;
+    }
+  };
+
+  // Badge de priorité
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high':
+        return '#f56565';
+      case 'normal':
+        return '#ed8936';
+      case 'low':
+        return '#4299e1';
+      default:
+        return '#718096';
+    }
+  };
 
   return (
     <div className="notification-center">
       {/* Bouton cloche */}
       <button
         className="bell-button"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setShowPreferences(false);
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         title="Notifications"
+        style={{ position: 'relative' }}
       >
         <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+          <span 
+            className="badge" 
+            style={{
+              position: 'absolute',
+              top: '-5px',
+              right: '-5px',
+              backgroundColor: '#f56565',
+              color: 'white',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
         )}
       </button>
 
       {/* Popup de notifications */}
       {isOpen && (
-        <div className="notification-popup">
+        <div 
+          className="notification-popup"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: '0',
+            marginTop: '10px',
+            width: '350px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            maxHeight: '500px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
           {/* En-tête */}
-          <div className="popup-header">
-            <h3>Notifications {messages.length > 0 && `(${messages.length})`}</h3>
-            <div className="header-actions">
-              <button
-                className="icon-button"
-                onClick={() => setShowPreferences(!showPreferences)}
-                title="Paramètres"
-              >
-                <Settings size={16} />
-              </button>
-              <button className="close-button" onClick={() => setIsOpen(false)}>
-                <X size={16} />
-              </button>
-            </div>
+          <div 
+            style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>
+              Notifications {notifications.length > 0 && `(${notifications.length})`}
+            </h3>
+            <button 
+              className="close-button" 
+              onClick={() => setIsOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Contenu */}
-          <div className="popup-content">
-            {showPreferences ? (
-              // Préférences de notification
-              <div className="preferences-panel">
-                <h4>Préférences de notification</h4>
-                
-                <label className="pref-item">
-                  <input
-                    type="checkbox"
-                    checked={preferences.ticketNotifications !== false}
-                    onChange={(e) => updatePreference('ticketNotifications', e.target.checked)}
-                  />
-                  <span>🎫 Notifications de tickets</span>
-                </label>
-
-                <label className="pref-item">
-                  <input
-                    type="checkbox"
-                    checked={preferences.eventNotifications !== false}
-                    onChange={(e) => updatePreference('eventNotifications', e.target.checked)}
-                  />
-                  <span>🎉 Notifications d'événements</span>
-                </label>
-
-                <label className="pref-item">
-                  <input
-                    type="checkbox"
-                    checked={preferences.reportNotifications !== false}
-                    onChange={(e) => updatePreference('reportNotifications', e.target.checked)}
-                  />
-                  <span>📋 Notifications de rapports</span>
-                </label>
-
-                <label className="pref-item">
-                  <input
-                    type="checkbox"
-                    checked={preferences.maintenanceNotifications !== false}
-                    onChange={(e) => updatePreference('maintenanceNotifications', e.target.checked)}
-                  />
-                  <span>⚠️ Alertes de maintenance</span>
-                </label>
-
-                <label className="pref-item">
-                  <input
-                    type="checkbox"
-                    checked={preferences.systemNotifications !== false}
-                    onChange={(e) => updatePreference('systemNotifications', e.target.checked)}
-                  />
-                  <span>🔔 Messages système</span>
-                </label>
+          <div 
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '12px 0'
+            }}
+          >
+            {loading ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: '#a0aec0' }}>
+                Chargement...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: '#a0aec0' }}>
+                <Bell size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                <p style={{ margin: 0 }}>Aucune notification</p>
               </div>
             ) : (
-              // Liste de messages
-              <>
-                {messages.length === 0 ? (
-                  <div className="empty-state">
-                    <Bell size={48} />
-                    <p>Aucune notification</p>
-                  </div>
-                ) : (
-                  <div className="messages-list">
-                    {unreadCount > 0 && (
-                      <div className="mark-all-read">
-                        <button onClick={markAllAsRead}>
-                          ✓ Marquer tout comme lu
-                        </button>
+              <div>
+                {notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #edf2f7',
+                      borderLeft: `4px solid ${getPriorityColor(notif.priority)}`,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f7fafc'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                        {getNotificationIcon(notif.type)}
                       </div>
-                    )}
-
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`message-item ${msg.readAt ? 'read' : 'unread'}`}
-                      >
-                        <div className="message-header">
-                          <strong>{msg.title}</strong>
-                          <small>
-                            {formatTime(new Date(msg.createdAt))}
-                          </small>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 'bold',
+                          fontSize: '13px',
+                          marginBottom: '4px',
+                          color: '#2d3748'
+                        }}>
+                          {notif.title}
                         </div>
-
-                        <div
-                          className="message-content"
-                          dangerouslySetInnerHTML={{
-                            __html: msg.content
-                          }}
-                        />
-
-                        <div className="message-footer">
-                          <small className="type-badge">{msg.type}</small>
-                          <div className="message-actions">
-                            {!msg.readAt && (
-                              <button
-                                className="action-button"
-                                onClick={() => markAsRead(msg.id)}
-                                title="Marquer comme lu"
-                              >
-                                <Check size={14} />
-                              </button>
-                            )}
-                            <button
-                              className="action-button delete"
-                              onClick={() => deleteMessage(msg.id)}
-                              title="Supprimer"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#718096',
+                          lineHeight: '1.4',
+                          marginBottom: '4px'
+                        }}>
+                          {notif.message}
+                        </div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#a0aec0'
+                        }}>
+                          {formatTime(new Date(notif.createdAt))}
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
           </div>
         </div>
