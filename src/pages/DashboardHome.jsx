@@ -23,6 +23,9 @@ import { eventsAPI } from '../api/events';
 import { membersAPI } from '../api/members';
 import { apiClient } from '../api/config';
 
+// Import annonces d'accueil
+import HomeAnnouncements, { useHomeAnnouncements } from '../components/HomeAnnouncement';
+
 const ANN_KEY = "rbe:announcements";
 
 function loadFlashes() {
@@ -52,6 +55,9 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [retroActus, setRetroActus] = useState([]);
   const [currentActuIndex, setCurrentActuIndex] = useState(0);
+  
+  // Hook pour les annonces d'accueil
+  const { announcements, removeAnnouncement } = useHomeAnnouncements();
   
   const toast = useToast();
   const cardBg = useColorModeValue("white", "gray.800");
@@ -413,6 +419,12 @@ export default function DashboardHome() {
 
   return (
     <Container maxW="container.xl" py={4} fontFamily="Montserrat, sans-serif">
+      {/* Annonces d'accueil - affichées en priorité en haut */}
+      <HomeAnnouncements 
+        announcements={announcements} 
+        onRemove={removeAnnouncement}
+      />
+
       {/* En-tête avec salutation */}
       <Box
         bg={footerBg}
