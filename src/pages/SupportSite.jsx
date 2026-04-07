@@ -10,6 +10,7 @@ import {
 } from '@chakra-ui/react';
 import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
+import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
 
 function TicketCard({ report, onUpdate, onComment, onStatusChange, onDelete }) {
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -191,6 +192,48 @@ export default function SupportSite() {
         const err = await res.json().catch(()=>({error:'create failed'}));
         throw new Error(err.error || 'create failed');
       }
+      
+      // ✅ Créer une notification d'accueil pour les admins
+      const priorityLabel = {
+        low: '🟢 Faible',
+        medium: '🟡 Moyen',
+        high: '🟠 Élevé',
+        critical: '🔴 Critique'
+      }[reportFormData.priority] || '🟡 Moyen';
+
+      const severity = reportFormData.priority === 'critical' ? 'critical' : reportFormData.priority === 'high' ? 'warning' : 'info';
+
+      addHomeAnnouncement({
+        severity: severity,
+        title: `🎫 Nouveau ticket RétroSupport - ${reportFormData.priority}`,
+        message: `"${reportFormData.title}" déposé par ${user?.prenom || 'un utilisateur'}. ${reportFormData.description.substring(0, 100)}...`,
+        dismissible: true,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24h
+      });
+
+      // ✅ Créer une notification système pour l'admin (Waiyl BELAIDI)
+      try {
+        const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+        await fetch(`${base}/api/notifications`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            title: `🎫 Nouveau ticket: ${reportFormData.title}`,
+            message: `Priorité: ${priorityLabel}\nDéposé par: ${user?.prenom || 'Utilisateur'}\n${reportFormData.description.substring(0, 150)}...`,
+            type: severity === 'critical' ? 'error' : severity === 'warning' ? 'warning' : 'info',
+            priority: reportFormData.priority || 'normal',
+            active: true,
+            targetedTo: 'admins' // Notification dédiée aux admins
+          })
+        });
+      } catch (notifError) {
+        console.warn('⚠️ Erreur création notification système:', notifError);
+        // Ne pas bloquer si la notification système échoue
+      }
+
       await fetchReports();
       setReportFormData({ title: '', description: '', category: '', priority: 'medium', type: 'bug' });
       setReportScreenshots([]);
