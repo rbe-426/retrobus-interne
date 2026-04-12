@@ -1,14 +1,3 @@
-/**
- * VehiculeEdit.jsx
- * 
- * Page pour éditer un véhicule existant y compris:
- * - Les infos générales
- * - L'image de fond (backgroundImage)
- * - La visibilité publique (isPublic)
- * - La galerie de photos
- * - Les caractéristiques
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Heading, VStack, Input, Textarea, Button, SimpleGrid, Text, useToast,
@@ -18,7 +7,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiX } from 'react-icons/fi';
 import GalleryManager from '../components/vehicle/GalleryManager.jsx';
-import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
+import CaracteristiquesForm from '../components/vehicle/CaracteristiquesForm.jsx';
 import VehicleTechnicalInfoEditor from '../components/vehicle/VehicleTechnicalInfoEditor.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
@@ -34,6 +23,34 @@ export default function VehiculeEdit() {
   const [backgroundImagePreview, setBackgroundImagePreview] = useState(null);
   const [thumbnailImagePreview, setThumbnailImagePreview] = useState(null);
   const fileInputRef = useRef(null);
+  const draftKey = `vehicle_draft_${parc}`;
+
+  // Auto-save draft to localStorage whenever data changes
+  useEffect(() => {
+    if (data && parc) {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(data));
+        console.log(`💾 [DRAFT AUTO-SAVE] Saved draft for parc ${parc} to localStorage`);
+      } catch (e) {
+        console.error('❌ Failed to save draft:', e.message);
+      }
+    }
+  }, [data, parc]);
+
+  // Restore draft from localStorage if saving failed
+  const restoreDraftIfAvailable = () => {
+    try {
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        const draftData = JSON.parse(draft);
+        console.log(`📥 [DRAFT RESTORE] Restored draft for parc ${parc} from localStorage`);
+        return draftData;
+      }
+    } catch (e) {
+      console.error('❌ Failed to restore draft:', e.message);
+    }
+    return null;
+  };
 
   // Charger le véhicule
   useEffect(() => {
@@ -50,9 +67,29 @@ export default function VehiculeEdit() {
 
         const responseData = await response.json();
         const vehicleData = responseData.vehicle || responseData;
+        
+        // Ensure caracteristiques is always an array for the editor
+        let caracteristiques = vehicleData.caracteristiques || [];
+        if (typeof caracteristiques === 'string') {
+          try {
+            caracteristiques = JSON.parse(caracteristiques);
+          } catch (e) {
+            caracteristiques = [];
+          }
+        }
+        // If it's an object (from normalizeVehicleWithCaracteristiques), extract the array
+        if (caracteristiques && typeof caracteristiques === 'object' && !Array.isArray(caracteristiques)) {
+          // Try to extract the original array - look for a `_raw` or similar
+          // Otherwise reconstruct from the object keys
+          caracteristiques = Object.entries(caracteristiques)
+            .filter(([k, v]) => !k.startsWith('_') && k.length > 0)
+            .map(([k, v]) => ({ label: k, value: v }))
+            .slice(0, 20); // Limit to reasonable count
+        }
+        
         setData({
           ...vehicleData,
-          caracteristiques: vehicleData.caracteristiques || [],
+          caracteristiques: Array.isArray(caracteristiques) ? caracteristiques : [],
           gallery: vehicleData.gallery || []
         });
         
@@ -73,8 +110,21 @@ export default function VehiculeEdit() {
         }
       } catch (e) {
         console.error('❌ Erreur chargement:', e);
-        toast({ status: 'error', title: 'Erreur', description: 'Impossible de charger le véhicule' });
-        navigate('/dashboard/vehicules');
+        
+        // Try to restore from draft
+        const draft = restoreDraftIfAvailable();
+        if (draft) {
+          console.log('📥 Utilisé draft auto-sauvegardé');
+          setData(draft);
+          toast({ 
+            status: 'warning', 
+            title: 'Brouillon restauré',
+            description: 'Les données précédentes ont été récupérées' 
+          });
+        } else {
+          toast({ status: 'error', title: 'Erreur', description: 'Impossible de charger le véhicule' });
+          navigate('/dashboard/vehicules');
+        }
       } finally {
         setLoading(false);
       }
@@ -228,6 +278,14 @@ export default function VehiculeEdit() {
         title: 'Véhicule mis à jour',
         description: `Le véhicule ${parc} a été modifié avec succès`
       });
+      
+      // Clear draft after successful save
+      try {
+        localStorage.removeItem(draftKey);
+        console.log(`🗑️ [DRAFT CLEANUP] Cleared draft for parc ${parc}`);
+      } catch (e) {
+        console.error('❌ Failed to clear draft:', e.message);
+      }
       
       navigate('/dashboard/vehicules');
     } catch (e) {
@@ -505,16 +563,14 @@ export default function VehiculeEdit() {
           </CardBody>
         </Card>
 
-        {/* Bloc Caractéristiques additionnelles */}
-        <Card>
+        {/* Bloc caractéristiques additionnelles */}
+        <Card bg="orange.50" borderWidth={2} borderColor="orange.200">
           <CardBody>
-            <VStack align="stretch" spacing={4}>
-              <Heading size="md">📋 Caractéristiques additionnelles</Heading>
-              <CaracteristiquesEditor 
-                value={data.caracteristiques || []}
-                onChange={v => updateField('caracteristiques', v)}
-              />
-            </VStack>
+            <CaracteristiquesForm 
+              value={data.caracteristiques || []}
+              onChange={v => updateField('caracteristiques', v)}
+              editable={true}
+            />
           </CardBody>
         </Card>
 
