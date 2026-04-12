@@ -2,6 +2,9 @@
 // Si VITE_API_URL est absent, on utilise des URLs relatives (proxy Vite en dev)
 const API_BASE_URL = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
+// Import CSRF client utilities
+import { getStoredCSRFToken } from '../lib/csrfClient.js';
+
 // Headers par défaut
 const getDefaultHeaders = (options = {}) => ({
   'Content-Type': 'application/json',
@@ -14,6 +17,22 @@ const getAuthHeaders = (token, options = {}) => ({
   'Authorization': `Bearer ${token}`,
   ...options.headers,
 });
+
+// Headers pour les mutations (POST, PUT, PATCH, DELETE) - ajoute le token CSRF
+const getMutationHeaders = (token, options = {}) => {
+  const headers = getAuthHeaders(token, options);
+  
+  // Ajouter le token CSRF s'il existe
+  const csrfToken = getStoredCSRFToken();
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+    console.log('🔐 CSRF token injected in request headers');
+  } else {
+    console.warn('⚠️  No CSRF token available for mutation - server may reject it');
+  }
+  
+  return headers;
+};
 
 // Fonction pour parser la réponse de manière sécurisée
 const parseResponse = async (response) => {
@@ -85,7 +104,7 @@ export const apiClient = {
   post: async (url, data, options = {}) => {
     const token = localStorage.getItem('token');
     const headers = token 
-      ? getAuthHeaders(token, options)
+      ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
     console.log(`🔗 POST ${API_BASE_URL}${url}`, data);
@@ -109,6 +128,14 @@ export const apiClient = {
           return;
         }
         
+        if (response.status === 403) {
+          const errorData = await parseResponse(response);
+          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
+            console.error('🔐 CSRF validation failed:', errorData.error);
+            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
+          }
+        }
+        
         // Essayer de récupérer le message d'erreur du serveur
         const errorData = await parseResponse(response);
         const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
@@ -125,7 +152,7 @@ export const apiClient = {
   put: async (url, data, options = {}) => {
     const token = localStorage.getItem('token');
     const headers = token 
-      ? getAuthHeaders(token, options)
+      ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
     console.log(`🔗 PUT ${API_BASE_URL}${url}`, data);
@@ -149,6 +176,14 @@ export const apiClient = {
           return;
         }
         
+        if (response.status === 403) {
+          const errorData = await parseResponse(response);
+          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
+            console.error('🔐 CSRF validation failed:', errorData.error);
+            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
+          }
+        }
+
         const errorData = await parseResponse(response);
         const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
         throw new Error(errorMessage);
@@ -164,7 +199,7 @@ export const apiClient = {
   patch: async (url, data, options = {}) => {
     const token = localStorage.getItem('token');
     const headers = token 
-      ? getAuthHeaders(token, options)
+      ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
     console.log(`🔗 PATCH ${API_BASE_URL}${url}`, data);
@@ -188,6 +223,14 @@ export const apiClient = {
           return;
         }
         
+        if (response.status === 403) {
+          const errorData = await parseResponse(response);
+          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
+            console.error('🔐 CSRF validation failed:', errorData.error);
+            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
+          }
+        }
+        
         const errorData = await parseResponse(response);
         const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
         throw new Error(errorMessage);
@@ -203,7 +246,7 @@ export const apiClient = {
   delete: async (url, options = {}) => {
     const token = localStorage.getItem('token');
     const headers = token 
-      ? getAuthHeaders(token, options)
+      ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
     console.log(`🔗 DELETE ${API_BASE_URL}${url}`);
@@ -224,6 +267,14 @@ export const apiClient = {
           localStorage.removeItem('user');
           window.location.href = '/login';
           return;
+        }
+        
+        if (response.status === 403) {
+          const errorData = await parseResponse(response);
+          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
+            console.error('🔐 CSRF validation failed:', errorData.error);
+            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
+          }
         }
         
         const errorData = await parseResponse(response);

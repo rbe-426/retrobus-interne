@@ -3,6 +3,7 @@ import { Box, Button, Input, VStack, Text, Image, useColorModeValue } from '@cha
 import { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
+import { fetchCSRFToken } from '../lib/csrfClient';
 
 // Bannière (2000x600) placée dans: interne/public/univers_rbe.png
 const BANNER_SRC = '/univers_rbe.png';
@@ -35,6 +36,15 @@ export default function Login() {
         : await login(id.toLowerCase(), password);
       setToken(data.token);
       setUser(data.user);
+      
+      // 🔐 Fetch CSRF token after successful login
+      try {
+        await fetchCSRFToken();
+        console.log('✅ CSRF token obtained after login');
+      } catch (csrfError) {
+        console.error('❌ CSRF token fetch failed, but continuing:', csrfError.message);
+        // Ne pas bloquer le login si CSRF fail - le serveur le refusera aux mutations
+      }
       
       // Rediriger vers le changement de mot de passe obligatoire si nécessaire
       if (data.user?.mustChangePassword || data.user?.isPasswordTemporary) {

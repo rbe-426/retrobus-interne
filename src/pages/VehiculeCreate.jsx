@@ -9,6 +9,7 @@ import { FiArrowLeft, FiSave, FiX } from 'react-icons/fi';
 import GalleryManager from '../components/vehicle/GalleryManager.jsx';
 import CaracteristiquesForm from '../components/vehicle/CaracteristiquesForm.jsx';
 import VehicleTechnicalInfoEditor from '../components/vehicle/VehicleTechnicalInfoEditor.jsx';
+import { vehicleSchema, showValidationErrors } from '../lib/validation.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -53,10 +54,14 @@ export default function VehiculeCreate() {
   };
 
   const save = async () => {
-    if (!data.parc.trim()) {
-      toast({ status: 'error', title: 'Parc requis' });
-      return;
+    // 🔐 VALIDATION - Vérifier les données avant envoi
+    const validationResult = vehicleSchema.validate(data);
+    if (!validationResult.valid) {
+      console.warn('❌ [VALIDATION] Erreurs détectées:', validationResult.errors);
+      showValidationErrors(validationResult, toast);
+      return; // Ne pas continuer si erreurs
     }
+    console.log('✅ [VALIDATION] Tous les champs sont valides');
 
     setSaving(true);
     try {
