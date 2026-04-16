@@ -37,13 +37,17 @@ export default function Login() {
       setToken(data.token);
       setUser(data.user);
       
-      // 🔐 Fetch CSRF token after successful login
+      // 🔐 Fetch CSRF token after successful login (asynchronous, non-blocking)
+      // Utilisé pour les mutations GET /api/csrf-token après connexion réussie
+      // On lance fetchCSRFToken() sans bloquer - les mutations le refuseront sans token
       try {
-        await fetchCSRFToken();
-        console.log('✅ CSRF token obtained after login');
-      } catch (csrfError) {
-        console.error('❌ CSRF token fetch failed, but continuing:', csrfError.message);
-        // Ne pas bloquer le login si CSRF fail - le serveur le refusera aux mutations
+        // Démarrer en arrière-plan
+        fetchCSRFToken()
+          .then(() => console.log('✅ CSRF token obtained after login'))
+          .catch((csrfError) => console.error('❌ CSRF token fetch failed:', csrfError.message));
+      } catch (synchronousError) {
+        // Pas d'attente - juste log
+        console.error('❌ CSRF async start failed:', synchronousError.message);
       }
       
       // Rediriger vers le changement de mot de passe obligatoire si nécessaire
