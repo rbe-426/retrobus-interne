@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { Box } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
 import { fetchCSRFToken } from "./lib/csrfClient";
