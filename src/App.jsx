@@ -1,7 +1,8 @@
-import React from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Box } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
+import { fetchCSRFToken } from "./lib/csrfClient";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -64,6 +65,15 @@ export default function App() {
   console.log('🛣️ Current route:', location.pathname);
   
   const showHeader = isAuthenticated && location.pathname !== '/login';
+
+  // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
+  useEffect(() => {
+    if (isAuthenticated && location.pathname !== '/login') {
+      fetchCSRFToken()
+        .then(() => console.log('✅ CSRF token fetched after authentication'))
+        .catch(err => console.error('❌ CSRF token fetch failed (non-blocking):', err.message));
+    }
+  }, [isAuthenticated, location.pathname]);
 
   return (
     <ErrorBoundary>
