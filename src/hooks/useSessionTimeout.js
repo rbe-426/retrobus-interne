@@ -9,8 +9,9 @@ import { useEffect, useRef } from 'react';
  * @param {Object} options
  * @param {number} [options.inactivityMinutes=15] - Délai d'inactivité (défaut: 15 min)
  * @param {boolean} [options.enabled=true] - Activer/désactiver le hook
+ * @param {boolean} [options.enableBeforeUnloadWarning=false] - Afficher un avertissement avant fermeture (désactivé par défaut pour éviter les interférences)
  */
-export function useSessionTimeout(onLogout, { inactivityMinutes = 15, enabled = true } = {}) {
+export function useSessionTimeout(onLogout, { inactivityMinutes = 15, enabled = true, enableBeforeUnloadWarning = false } = {}) {
   const inactivityTimeoutRef = useRef(null);
   const inactivityMs = inactivityMinutes * 60 * 1000;
 
@@ -58,7 +59,7 @@ export function useSessionTimeout(onLogout, { inactivityMinutes = 15, enabled = 
 
   // ========== GESTION DE LA FERMETURE D'ONGLET/FENÊTRE ==========
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !enableBeforeUnloadWarning) return;
 
     const handleBeforeUnload = (e) => {
       // Essayer de nettoyer la session (best-effort, peut ne pas s'exécuter)
@@ -76,5 +77,5 @@ export function useSessionTimeout(onLogout, { inactivityMinutes = 15, enabled = 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [onLogout, enabled]);
+  }, [onLogout, enabled, enableBeforeUnloadWarning]);
 }
