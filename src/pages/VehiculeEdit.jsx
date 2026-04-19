@@ -27,11 +27,16 @@ export default function VehiculeEdit() {
   const draftKey = `vehicle_draft_${parc}`;
 
   // Auto-save draft to localStorage whenever data changes
+  // Exclure les images base64 pour éviter de dépasser le quota localStorage
   useEffect(() => {
     if (data && parc) {
       try {
-        localStorage.setItem(draftKey, JSON.stringify(data));
-        console.log(`💾 [DRAFT AUTO-SAVE] Saved draft for parc ${parc} to localStorage`);
+        const draftWithoutImages = {
+          ...data,
+          backgroundImage: data.backgroundImage?.startsWith('data:') ? null : data.backgroundImage,
+          thumbnailImage: data.thumbnailImage?.startsWith('data:') ? null : data.thumbnailImage,
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draftWithoutImages));
       } catch (e) {
         console.error('❌ Failed to save draft:', e.message);
       }
@@ -88,8 +93,12 @@ export default function VehiculeEdit() {
             .slice(0, 20); // Limit to reasonable count
         }
         
+        // Convertir les dates ISO (2004-04-27T00:00:00.000Z) en yyyy-MM-dd pour les inputs type="date"
+        const toDateInput = (v) => v ? String(v).slice(0, 10) : '';
+
         setData({
           ...vehicleData,
+          miseEnCirculation: toDateInput(vehicleData.miseEnCirculation),
           caracteristiques: Array.isArray(caracteristiques) ? caracteristiques : [],
           gallery: vehicleData.gallery || []
         });
