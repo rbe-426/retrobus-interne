@@ -50,8 +50,8 @@ export const vehicleSchema = {
     }
 
     // Type - Optionnel mais valider si présent
-    if (data.type && !['Bus', 'Voiture', 'Camion', 'Train-Tram'].includes(data.type)) {
-      errors.type = 'Type invalide. Doit être: Bus, Voiture, Camion, ou Train-Tram';
+    if (data.type && !['Bus', 'Voiture', 'Camion', 'Train-Tram', 'Train/Tram'].includes(data.type)) {
+      errors.type = 'Type invalide. Doit être: Bus, Voiture, Camion, ou Train/Tram';
     }
 
     // Marque - Requis
@@ -77,9 +77,9 @@ export const vehicleSchema = {
       errors.immat = 'Format d\'immatriculation invalide (ex: AB-123-CD)';
     }
 
-    // État - Optionnel
-    if (data.etat && !['Neuf', 'Bon', 'Usé', 'Réparation'].includes(data.etat)) {
-      errors.etat = 'État invalide';
+    // État - Optionnel, texte libre
+    if (data.etat && String(data.etat).trim().length > 50) {
+      errors.etat = 'État ne peut pas dépasser 50 caractères';
     }
 
     // Mise en circulation - Optionnel mais valider format date
@@ -87,9 +87,9 @@ export const vehicleSchema = {
       errors.miseEnCirculation = 'Date de mise en circulation invalide';
     }
 
-    // Énergie - Optionnel
-    if (data.energie && !['Essence', 'Diesel', 'Électrique', 'Hybride', 'GPL', 'Autre'].includes(data.energie)) {
-      errors.energie = 'Type d\'énergie invalide';
+    // Énergie - Optionnel, texte libre
+    if (data.energie && String(data.energie).trim().length > 30) {
+      errors.energie = 'Énergie ne peut pas dépasser 30 caractères';
     }
 
     // Fuel - Optionnel
