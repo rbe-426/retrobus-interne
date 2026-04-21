@@ -8,9 +8,10 @@ import {
   NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper,
   NumberDecrementStepper, Alert, AlertIcon
 } from "@chakra-ui/react";
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle } from "react-icons/fi";
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBusinessRules";
+import BankStatementImport from "./BankStatementImport";
 
 const FinanceTransactions = () => {
   const {
@@ -33,6 +34,7 @@ const FinanceTransactions = () => {
   });
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isBankImportOpen, onOpen: onBankImportOpen, onClose: onBankImportClose } = useDisclosure();
 
   const categories = ["Tous", ...Object.keys(TRANSACTION_CATEGORIES)];
 
@@ -79,9 +81,14 @@ const FinanceTransactions = () => {
             Historique des mouvements financiers
           </Text>
         </Box>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen} isLoading={loading}>
-          Nouvelle transaction
-        </Button>
+        <HStack>
+          <Button leftIcon={<FiUpload />} colorScheme="teal" variant="outline" onClick={onBankImportOpen} isLoading={loading}>
+            Importer relevé
+          </Button>
+          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen} isLoading={loading}>
+            Nouvelle transaction
+          </Button>
+        </HStack>
       </HStack>
 
       {/* Filtres */}
@@ -222,6 +229,21 @@ const FinanceTransactions = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Modal Import Relevé Bancaire */}
+      <BankStatementImport
+        isOpen={isBankImportOpen}
+        onClose={onBankImportClose}
+        onImported={() => {
+          onBankImportClose();
+          toast({
+            title: "Relevé importé",
+            description: "Les transactions ont été ajoutées avec succès",
+            status: "success",
+            duration: 3000
+          });
+        }}
+      />
     </VStack>
   );
 };
