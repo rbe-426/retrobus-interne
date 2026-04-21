@@ -8,7 +8,8 @@ import {
   FiSettings,
   FiFileText,
   FiActivity,
-  FiShoppingCart
+  FiShoppingCart,
+  FiAlertCircle
 } from "react-icons/fi";
 import {
   Box, VStack, HStack, Heading, Text, Button, Icon, Flex
@@ -24,6 +25,7 @@ import FinanceSettings from "../components/Finance/Settings";
 import ExpenseReports from "../components/Finance/ExpenseReports";
 import ExpenseReportsManagement from "../components/Finance/ExpenseReportsManagement";
 import Simulations from "../components/Finance/Simulations";
+import FinanceDebts from "../components/Finance/Debts";
 import { useFinanceData } from "../hooks/useFinanceData";
 import { useUser } from "../context/UserContext";
 import { useUserRoles } from "../hooks/useUserRoles";
@@ -64,7 +66,8 @@ const FinanceNew = () => {
     { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Vue d'ensemble" },
     { id: "transactions", label: "Transactions", icon: FiCreditCard, description: "Mouvements financiers" },
     { id: "scheduled", label: "Opérations programmées", icon: FiCalendar, description: "Paiements récurrents" },
-    { id: "invoicing", label: "Facturation", icon: FiFileText, description: "Devis & Factures" },
+    { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Gestion documents" },
+    { id: "debts", label: "Dettes", icon: FiAlertCircle, description: "Créanciers & échéances" },
     { id: "ndf", label: "Notes de frais", icon: FiShoppingCart, description: "Gestion NDF" },
     { id: "simulations", label: "Simulations", icon: FiActivity, description: "Projections" },
     { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyses" },
@@ -82,6 +85,8 @@ const FinanceNew = () => {
         return <FinanceScheduledOps />;
       case "invoicing":
         return <FinanceInvoicing />;
+      case "debts":
+        return <FinanceDebts />;
       case "ndf":
         return activeSubTab === "my-notes" ? <ExpenseReports /> : <ExpenseReportsManagement currentUser={user} userRoles={roles} />;
       case "simulations":
