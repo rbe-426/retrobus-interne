@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Input, Select, Table, Thead, Tbody,
@@ -6,9 +6,9 @@ import {
   InputLeftElement, useToast, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, FormControl, FormLabel,
   NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper,
-  NumberDecrementStepper, Alert, AlertIcon
+  NumberDecrementStepper, Alert, AlertIcon, IconButton, Tooltip
 } from "@chakra-ui/react";
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload } from "react-icons/fi";
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload, FiLink, FiX } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBusinessRules";
 import BankStatementImport from "./BankStatementImport";
@@ -20,6 +20,8 @@ const FinanceTransactions = () => {
     deleteTransaction,
     loading
   } = useFinanceData();
+  
+  const [availableDocuments, setAvailableDocuments] = useState([]);
 
   const [filterCategory, setFilterCategory] = useState("Tous");
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,6 +39,100 @@ const FinanceTransactions = () => {
   const { isOpen: isBankImportOpen, onOpen: onBankImportOpen, onClose: onBankImportClose } = useDisclosure();
 
   const categories = ["Tous", ...Object.keys(TRANSACTION_CATEGORIES)];
+
+  // Charger les documents disponibles au montage
+  useEffect(() => {
+    loadAvailableDocuments();
+  }, []);
+
+  const loadAvailableDocuments = async () => {
+    try {
+      const response = await fetch(
+        import.meta.env.VITE_API_URL + "/api/finance/available-documents" || "http://localhost:4000/api/finance/available-documents",
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableDocuments(data.documents || []);
+      }
+    } catch (error) {
+      console.error("Erreur chargement documents:", error);
+    }
+  };
+
+  const handleLinkDocument = async (transactionId, documentId, documentType, documentNumber) => {
+    try {
+      const response = await fetch(
+        import.meta.env.VITE_API_URL + `/api/finance/transactions/${transactionId}/link` || `http://localhost:4000/api/finance/transactions/${transactionId}/link`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            linkedDocumentId: documentId,
+            linkedDocumentType: documentType,
+            linkedDocumentNumber: documentNumber
+          })
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Document lié",
+          description: `Transaction liée au ${documentType} ${documentNumber}`,
+          status: "success",
+          duration: 3000
+        });
+        // Recharger les transactions
+        window.location.reload();
+      } else {
+        throw new Error("Erreur liaison");
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de lier le document",
+        status: "error",
+        duration: 3000
+      });
+    }
+  };
+
+  const handleUnlinkDocument = async (transactionId) => {
+    try {
+      const response = await fetch(
+        import.meta.env.VITE_API_URL + `/api/finance/transactions/${transactionId}/link` || `http://localhost:4000/api/finance/transactions/${transactionId}/link`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Document délié",
+          status: "success",
+          duration: 3000
+        });
+        window.location.reload();
+      } else {
+        throw new Error("Erreur déliaison");
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de délier le document",
+        status: "error",
+        duration: 3000
+      });
+    }
+  };
 
   const filteredTransactions = (transactions || []).filter(t => {
     const matchesSearch = (t.description || "").toLowerCase().includes(searchTerm.toLowerCase());
@@ -128,6 +224,7 @@ const FinanceTransactions = () => {
                 <Th>Description</Th>
                 <Th>Catégorie</Th>
                 <Th isNumeric>Montant</Th>
+                <Th>Document lié</Th>
                 <Th>Actions</Th>
               </Tr>
             </Thead>
@@ -140,6 +237,42 @@ const FinanceTransactions = () => {
                     <Td>{t.category}</Td>
                     <Td isNumeric fontWeight="600" color={t.type === "CREDIT" ? "green.500" : "red.500"}>
                       {t.type === "CREDIT" ? "+" : "-"}{Math.abs(t.amount).toFixed(2)} €
+                    </Td>
+                    <Td>{t.linkedDocumentId ? (
+                        <HStack spacing={2}>
+                          <Badge colorScheme="blue" fontSize="xs">
+                            {t.linkedDocumentType} {t.linkedDocumentNumber}
+                          </Badge>
+                          <Tooltip label="Délier">
+                            <IconButton
+                              size="xs"
+                              icon={<FiX />}
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => handleUnlinkDocument(t.id)}
+                            />
+                          </Tooltip>
+                        </HStack>
+                      ) : (
+                        <Select
+                          size="sm"
+                          placeholder="Lier à un document..."
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const doc = availableDocuments.find(d => d.id === e.target.value);
+                              if (doc) {
+                                handleLinkDocument(t.id, doc.id, doc.displayType, doc.number);
+                              }
+                            }
+                          }}
+                        >
+                          {availableDocuments.map(doc => (
+                            <option key={doc.id} value={doc.id}>
+                              {doc.displayType} {doc.number} - {doc.title} ({doc.amount}€)
+                            </option>
+                          ))}
+                        </Select>
+                      )}
                     </Td>
                     <Td>
                       <Button
@@ -155,7 +288,7 @@ const FinanceTransactions = () => {
                 ))
               ) : (
                 <Tr>
-                  <Td colSpan={5} textAlign="center" py={8} color="gray.500">
+                  <Td colSpan={6} textAlign="center" py={8} color="gray.500">
                     Aucune transaction trouvée
                   </Td>
                 </Tr>
