@@ -21,6 +21,29 @@ const AUTH_CONFIG = {
   CACHE_EXPIRY: 5 * 60 * 1000, // 5 minutes
 };
 
+function decodeJwtPayload(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - base64.length % 4) % 4), '=');
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(token) {
+  if (!token) return true;
+  if (String(token).startsWith(AUTH_CONFIG.LOCAL_DEV_TOKEN_PREFIX)) return false;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp <= now;
+}
+
 // ============================================================================
 // GESTION TOKEN - SOURCE UNIQUE
 // ============================================================================
@@ -36,6 +59,10 @@ class TokenManager {
    * Doit toujours passer par setToken() qui notifie les listeners
    */
   getToken() {
+    if (this.token && isTokenExpired(this.token)) {
+      this.setToken(null);
+      return null;
+    }
     return this.token;
   }
 
@@ -48,6 +75,7 @@ class TokenManager {
       localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, newToken);
     } else {
       localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+      localStorage.removeItem(AUTH_CONFIG.USER_KEY);
     }
     this.notifyListeners();
   }
@@ -58,6 +86,13 @@ class TokenManager {
   hydrate() {
     const stored = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
     this.token = stored || null;
+
+    if (this.token && isTokenExpired(this.token)) {
+      this.token = null;
+      localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+      localStorage.removeItem(AUTH_CONFIG.USER_KEY);
+    }
+
     this.notifyListeners();
   }
 
@@ -179,6 +214,10 @@ export async function validateSession(token) {
   // Dev tokens: toujours valides
   if (String(token).startsWith(AUTH_CONFIG.LOCAL_DEV_TOKEN_PREFIX)) {
     return true;
+  }
+
+  if (isTokenExpired(token)) {
+    return false;
   }
 
   // JWT: vérifier auprès du serveur

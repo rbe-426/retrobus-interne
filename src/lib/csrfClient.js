@@ -129,7 +129,7 @@ export const hasValidCSRFToken = () => {
  */
 export const fetchWithCSRF = async (url, options = {}) => {
   // Obtenir le token stocké
-  const csrfToken = getStoredCSRFToken();
+  let csrfToken = getStoredCSRFToken();
 
   // Si c'est une mutation (POST, PUT, DELETE) et qu'on a pas de token, fetch d'abord
   const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method || 'GET');
@@ -137,7 +137,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
   if (isMutation && !csrfToken) {
     console.warn('⚠️  No CSRF token available for mutation. Fetching new one...');
     try {
-      await fetchCSRFToken();
+      csrfToken = await fetchCSRFToken();
     } catch (error) {
       console.error('❌ Could not fetch CSRF token for mutation');
       throw error;

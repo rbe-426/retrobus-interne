@@ -16,6 +16,7 @@ import {
   canModifyBalance,
   canApprovePayments
 } from "../utils/financeBusinessRules";
+import { fetchWithCSRF } from "../lib/csrfClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -277,7 +278,7 @@ export const useFinanceData = (currentUser = null) => {
 
         setLoading(true);
 
-        const res = await fetch(`${API_BASE}/api/finance/transactions`, {
+        const res = await fetchWithCSRF(`${API_BASE}/api/finance/transactions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -301,7 +302,7 @@ export const useFinanceData = (currentUser = null) => {
         // MÉTIER: Sauvegarder les allocations si présentes
         if (allocations.length > 0) {
           try {
-            await fetch(`${API_BASE}/api/finance/transactions/${data.id}/allocations`, {
+            await fetchWithCSRF(`${API_BASE}/api/finance/transactions/${data.id}/allocations`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -343,7 +344,7 @@ export const useFinanceData = (currentUser = null) => {
   const deleteTransaction = useCallback(
     async (id) => {
       try {
-        const res = await fetch(`${API_BASE}/api/finance/transactions/${id}`, {
+        const res = await fetchWithCSRF(`${API_BASE}/api/finance/transactions/${id}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
