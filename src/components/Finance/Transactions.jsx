@@ -6,25 +6,35 @@ import {
   InputLeftElement, useToast, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, FormControl, FormLabel,
   NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper,
-  NumberDecrementStepper, Alert, AlertIcon, IconButton, Tooltip
+  NumberDecrementStepper, Alert, AlertIcon, IconButton, Tooltip, Spinner
 } from "@chakra-ui/react";
 import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload, FiLink, FiX } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBusinessRules";
 import BankStatementImport from "./BankStatementImport";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 const FinanceTransactions = () => {
   const {
-    transactions,
     addTransaction,
     deleteTransaction,
     loading
   } = useFinanceData();
   
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsTotal, setTransactionsTotal] = useState(0);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [availableDocuments, setAvailableDocuments] = useState([]);
 
   const [filterCategory, setFilterCategory] = useState("Tous");
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [amountMin, setAmountMin] = useState("");
+  const [amountMax, setAmountMax] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [isAdding, setIsAdding] = useState(false);
   const [allocations, setAllocations] = useState([]);
   const [formData, setFormData] = useState({
@@ -39,16 +49,64 @@ const FinanceTransactions = () => {
   const { isOpen: isBankImportOpen, onOpen: onBankImportOpen, onClose: onBankImportClose } = useDisclosure();
 
   const categories = ["Tous", ...Object.keys(TRANSACTION_CATEGORIES)];
+  const pageCount = Math.max(1, Math.ceil(transactionsTotal / pageSize));
 
   // Charger les documents disponibles au montage
   useEffect(() => {
     loadAvailableDocuments();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterCategory, searchTerm, dateFrom, dateTo, amountMin, amountMax, pageSize]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [currentPage, pageSize, filterCategory, searchTerm, dateFrom, dateTo, amountMin, amountMax]);
+
+  const loadTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(pageSize)
+      });
+
+      if (searchTerm.trim()) params.set("search", searchTerm.trim());
+      if (filterCategory !== "Tous") params.set("category", filterCategory);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (amountMin !== "") params.set("amountMin", amountMin);
+      if (amountMax !== "") params.set("amountMax", amountMax);
+
+      const response = await fetch(`${API_BASE}/api/finance/transactions?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur chargement transactions");
+      }
+
+      const data = await response.json();
+      setTransactions(data.transactions || []);
+      setTransactionsTotal(data.total || 0);
+    } catch (error) {
+      console.error("Erreur chargement transactions:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les transactions",
+        status: "error",
+        duration: 4000
+      });
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   const loadAvailableDocuments = async () => {
     try {
       const response = await fetch(
-        import.meta.env.VITE_API_URL + "/api/finance/available-documents" || "http://localhost:4000/api/finance/available-documents",
+        `${API_BASE}/api/finance/available-documents`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
         }
@@ -65,7 +123,7 @@ const FinanceTransactions = () => {
   const handleLinkDocument = async (transactionId, documentId, documentType, documentNumber) => {
     try {
       const response = await fetch(
-        import.meta.env.VITE_API_URL + `/api/finance/transactions/${transactionId}/link` || `http://localhost:4000/api/finance/transactions/${transactionId}/link`,
+        `${API_BASE}/api/finance/transactions/${transactionId}/link`,
         {
           method: "POST",
           headers: {
@@ -87,8 +145,7 @@ const FinanceTransactions = () => {
           status: "success",
           duration: 3000
         });
-        // Recharger les transactions
-        window.location.reload();
+        await loadTransactions();
       } else {
         throw new Error("Erreur liaison");
       }
@@ -105,7 +162,7 @@ const FinanceTransactions = () => {
   const handleUnlinkDocument = async (transactionId) => {
     try {
       const response = await fetch(
-        import.meta.env.VITE_API_URL + `/api/finance/transactions/${transactionId}/link` || `http://localhost:4000/api/finance/transactions/${transactionId}/link`,
+        `${API_BASE}/api/finance/transactions/${transactionId}/link`,
         {
           method: "DELETE",
           headers: {
@@ -120,7 +177,7 @@ const FinanceTransactions = () => {
           status: "success",
           duration: 3000
         });
-        window.location.reload();
+        await loadTransactions();
       } else {
         throw new Error("Erreur déliaison");
       }
@@ -133,12 +190,6 @@ const FinanceTransactions = () => {
       });
     }
   };
-
-  const filteredTransactions = (transactions || []).filter(t => {
-    const matchesSearch = (t.description || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "Tous" || t.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
 
   const handleAdd = async () => {
     setIsAdding(true);
@@ -155,6 +206,7 @@ const FinanceTransactions = () => {
         });
         setAllocations([]);
         onClose();
+        await loadTransactions();
       }
     } finally {
       setIsAdding(false);
@@ -164,6 +216,7 @@ const FinanceTransactions = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Confirmer la suppression ? Cette action est irreversible.")) {
       await deleteTransaction(id);
+      await loadTransactions();
     }
   };
 
@@ -190,33 +243,73 @@ const FinanceTransactions = () => {
       {/* Filtres */}
       <Card>
         <CardBody>
-          <HStack spacing={4}>
-            <InputGroup flex={1}>
-              <InputLeftElement pointerEvents="none">
-                <Icon as={FiSearch} color="gray.300" />
-              </InputLeftElement>
-              <Input
-                placeholder="Rechercher une transaction..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
-            <Select
-              w="200px"
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </Select>
-          </HStack>
+          <VStack spacing={4} align="stretch">
+            <HStack spacing={4} align="stretch">
+              <InputGroup flex={2}>
+                <InputLeftElement pointerEvents="none">
+                  <Icon as={FiSearch} color="gray.300" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Mots-clés, libellé, catégorie, montant ou date..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </InputGroup>
+              <Select
+                w="220px"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+              >
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </Select>
+            </HStack>
+            <HStack spacing={4} align="stretch" flexWrap="wrap">
+              <FormControl maxW="180px">
+                <FormLabel mb={1} fontSize="sm">Date début</FormLabel>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              </FormControl>
+              <FormControl maxW="180px">
+                <FormLabel mb={1} fontSize="sm">Date fin</FormLabel>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </FormControl>
+              <FormControl maxW="160px">
+                <FormLabel mb={1} fontSize="sm">Montant min</FormLabel>
+                <Input type="number" step="0.01" value={amountMin} onChange={(e) => setAmountMin(e.target.value)} placeholder="0.00" />
+              </FormControl>
+              <FormControl maxW="160px">
+                <FormLabel mb={1} fontSize="sm">Montant max</FormLabel>
+                <Input type="number" step="0.01" value={amountMax} onChange={(e) => setAmountMax(e.target.value)} placeholder="9999.99" />
+              </FormControl>
+              <Button
+                alignSelf="end"
+                variant="ghost"
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterCategory("Tous");
+                  setDateFrom("");
+                  setDateTo("");
+                  setAmountMin("");
+                  setAmountMax("");
+                }}
+              >
+                Réinitialiser
+              </Button>
+            </HStack>
+          </VStack>
         </CardBody>
       </Card>
 
       {/* Tableau des transactions */}
       <Card overflowX="auto">
         <CardBody p={0}>
+          {transactionsLoading ? (
+            <Flex justify="center" align="center" py={10}>
+              <Spinner color="blue.500" />
+            </Flex>
+          ) : (
+          <>
           <Table variant="simple">
             <Thead>
               <Tr bg="gray.50">
@@ -229,8 +322,8 @@ const FinanceTransactions = () => {
               </Tr>
             </Thead>
             <Tbody>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map(t => (
+              {transactions.length > 0 ? (
+                transactions.map(t => (
                   <Tr key={t.id} _hover={{ bg: "gray.50" }}>
                     <Td>{new Date(t.date).toLocaleDateString()}</Td>
                     <Td fontWeight="500">{t.description}</Td>
@@ -295,6 +388,35 @@ const FinanceTransactions = () => {
               )}
             </Tbody>
           </Table>
+          <Flex justify="space-between" align="center" px={4} py={3} borderTop="1px solid" borderColor="gray.100" wrap="wrap" gap={3}>
+            <Text fontSize="sm" color="gray.600">
+              {transactionsTotal} transaction(s) au total
+            </Text>
+            <HStack spacing={3}>
+              <Button size="sm" variant="outline" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} isDisabled={currentPage === 1}>
+                Précédent
+              </Button>
+              <HStack spacing={2}>
+                <Text fontSize="sm">Page</Text>
+                <Select size="sm" w="90px" value={String(currentPage)} onChange={(e) => setCurrentPage(Number(e.target.value))}>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                    <option key={page} value={page}>{page}</option>
+                  ))}
+                </Select>
+                <Text fontSize="sm">/ {pageCount}</Text>
+              </HStack>
+              <Select size="sm" w="110px" value={String(pageSize)} onChange={(e) => setPageSize(Number(e.target.value))}>
+                {[10, 20, 50, 100].map((size) => (
+                  <option key={size} value={size}>{size} / page</option>
+                ))}
+              </Select>
+              <Button size="sm" variant="outline" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} isDisabled={currentPage >= pageCount}>
+                Suivant
+              </Button>
+            </HStack>
+          </Flex>
+          </>
+          )}
         </CardBody>
       </Card>
 
@@ -367,8 +489,9 @@ const FinanceTransactions = () => {
       <BankStatementImport
         isOpen={isBankImportOpen}
         onClose={onBankImportClose}
-        onImported={() => {
+        onImported={async () => {
           onBankImportClose();
+          await loadTransactions();
           toast({
             title: "Relevé importé",
             description: "Les transactions ont été ajoutées avec succès",

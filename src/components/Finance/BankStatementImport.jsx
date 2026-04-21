@@ -28,6 +28,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
   const [rows, setRows] = useState([]); // transactions avec selected + category editables
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [parsedFiles, setParsedFiles] = useState([]); // Liste des fichiers parsés
 
   const reset = () => {
     setStep('upload');
@@ -36,54 +37,104 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
     setParsing(false);
     setImporting(false);
     setProgress(0);
+    setParsedFiles([]);
     if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleClose = () => { reset(); onClose(); };
 
-  // ─── Étape 1 : Upload + parsing ──────────────────────────────────────────
+  // ─── Étape 1 : Upload + parsing (multiple PDFs) ──────────────────────────────────────────
   const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith('.pdf') && file.type !== 'application/pdf') {
-      toast({ status: 'error', title: 'Fichier invalide', description: 'Sélectionnez un fichier PDF.' });
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Vérifier que tous les fichiers sont des PDFs
+    const invalidFiles = files.filter(f => !f.name.endsWith('.pdf') && f.type !== 'application/pdf');
+    if (invalidFiles.length > 0) {
+      toast({ status: 'error', title: 'Fichier(s) invalide(s)', description: 'Sélectionnez uniquement des fichiers PDF.' });
       return;
     }
 
     setParsing(true);
     setStep('upload');
+    
+    const allTransactions = [];
+    const fileResults = [];
+    let transactionIdCounter = 0;
+
     try {
-      // Récupérer un nouveau token CSRF pour être sûr qu'il est valide
+      // Récupérer un nouveau token CSRF
       await fetchCSRFToken(API_BASE);
       
-      const formData = new FormData();
-      formData.append('pdf', file);
+      // Parser chaque PDF
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgress(Math.round((i / files.length) * 100));
+        
+        try {
+          const formData = new FormData();
+          formData.append('pdf', file);
 
-      const res = await fetch(`${API_BASE}/api/finance/import-bank-statement`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'X-CSRF-Token': localStorage.getItem('X-CSRF-Token') || '',
-        },
-        body: formData,
-      });
+          const res = await fetch(`${API_BASE}/api/finance/import-bank-statement`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+              'X-CSRF-Token': localStorage.getItem('X-CSRF-Token') || '',
+            },
+            body: formData,
+          });
 
-      // Mettre à jour le token CSRF depuis la réponse (si disponible)
-      updateCSRFTokenFromResponse(res);
+          updateCSRFTokenFromResponse(res);
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || `HTTP ${res.status}`);
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          
+          // Ajouter les transactions avec des IDs uniques
+          const transactionsWithIds = data.transactions.map(t => ({
+            ...t,
+            _id: transactionIdCounter++,
+            _source: file.name,
+            _bank: data.bank,
+            selected: true
+          }));
+          
+          allTransactions.push(...transactionsWithIds);
+          fileResults.push({
+            fileName: file.name,
+            bank: data.bank,
+            period: data.period,
+            count: data.transactions.length
+          });
+        } catch (err) {
+          toast({ 
+            status: 'warning', 
+            title: `Erreur ${file.name}`, 
+            description: err.message,
+            duration: 5000
+          });
+        }
       }
 
-      const data = await res.json();
-      setResult(data);
-      setRows(data.transactions.map((t, idx) => ({ ...t, _id: idx, selected: true })));
+      setProgress(100);
+      setParsedFiles(fileResults);
+      setRows(allTransactions);
       setStep('review');
+      
+      toast({
+        status: 'success',
+        title: `${files.length} relevé(s) analysé(s)`,
+        description: `${allTransactions.length} transaction(s) totale(s) détectée(s)`,
+        duration: 4000
+      });
     } catch (err) {
       toast({ status: 'error', title: 'Erreur de lecture', description: err.message });
     } finally {
       setParsing(false);
+      setProgress(0);
     }
   };
 
@@ -186,19 +237,25 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
                 {parsing ? (
                   <VStack spacing={3}>
                     <Spinner size="xl" color="blue.500" />
-                    <Text color="blue.600">Analyse du PDF en cours…</Text>
+                    <Text color="blue.600">Analyse des PDFs en cours…</Text>
+                    {progress > 0 && (
+                      <Box w="80%">
+                        <Progress value={progress} colorScheme="blue" size="sm" borderRadius="md" />
+                        <Text fontSize="xs" color="gray.500" mt={1}>{progress}%</Text>
+                      </Box>
+                    )}
                   </VStack>
                 ) : (
                   <VStack spacing={3}>
                     <Text fontSize="3xl">📄</Text>
                     <Heading size="md" color="blue.600">Glissez ou cliquez pour sélectionner</Heading>
-                    <Text color="gray.500">Relevé bancaire au format PDF (max 20 Mo)</Text>
-                    <Button colorScheme="blue" variant="outline" size="sm">Choisir un fichier</Button>
+                    <Text color="gray.500">Relevés bancaires au format PDF (sélection multiple possible)</Text>
+                    <Button colorScheme="blue" variant="outline" size="sm">Choisir un ou plusieurs fichiers</Button>
                   </VStack>
                 )}
               </Box>
 
-              <input ref={fileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={handleFile} />
+              <input ref={fileRef} type="file" accept=".pdf,application/pdf" multiple style={{ display: 'none' }} onChange={handleFile} />
 
               <Alert status="info" borderRadius="md" maxW="500px">
                 <AlertIcon />
@@ -211,13 +268,16 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
           )}
 
           {/* ── Étape 2 : Révision ── */}
-          {step === 'review' && result && (
+          {step === 'review' && (
             <VStack spacing={4} align="stretch">
               {/* Résumé */}
               <HStack spacing={4} bg="blue.50" borderRadius="md" p={3} flexWrap="wrap">
-                <Tag colorScheme="blue"><TagLabel>🏦 {result.bank}</TagLabel></Tag>
-                {result.period && <Tag colorScheme="purple"><TagLabel>📅 {result.period}</TagLabel></Tag>}
-                <Tag colorScheme="gray"><TagLabel>📄 {result.pageCount} page(s)</TagLabel></Tag>
+                <Tag colorScheme="blue"><TagLabel>📁 {parsedFiles.length} relevé(s)</TagLabel></Tag>
+                {parsedFiles.map((f, idx) => (
+                  <Tag key={idx} colorScheme="purple" size="sm">
+                    <TagLabel>{f.fileName} ({f.count} trans.)</TagLabel>
+                  </Tag>
+                ))}
                 <Tag colorScheme="green"><TagLabel>✅ {rows.filter(r=>r.selected).length} / {rows.length} sélectionnées</TagLabel></Tag>
               </HStack>
 
