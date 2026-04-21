@@ -6,6 +6,7 @@ import {
   Input, useToast, Progress, Tag, TagLabel, Tooltip, IconButton
 } from '@chakra-ui/react';
 import { FiUpload, FiCheckSquare, FiSquare, FiInfo } from 'react-icons/fi';
+import { updateCSRFTokenFromResponse } from '../../lib/csrfClient';
 
 const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
@@ -64,6 +65,9 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
         body: formData,
       });
 
+      // Mettre à jour le token CSRF depuis la réponse (si disponible)
+      updateCSRFTokenFromResponse(res);
+
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -119,6 +123,10 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
             date: t.date,
           }),
         });
+        
+        // Mettre à jour le token CSRF depuis la réponse pour la prochaine requête
+        updateCSRFTokenFromResponse(res);
+        
         if (res.ok) ok++; else errors++;
       } catch {
         errors++;
