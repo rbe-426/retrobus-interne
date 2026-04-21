@@ -24,6 +24,7 @@ import {
 } from "react-icons/fi";
 import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 import DevisLinesManager from '../components/DevisLinesManager';
+import BankStatementImport from '../components/Finance/BankStatementImport';
 
 
 const AdminFinance = () => {
@@ -182,6 +183,7 @@ const AdminFinance = () => {
   const { isOpen: isTemplatePreviewOpen, onOpen: onTemplatePreviewOpen, onClose: onTemplatePreviewClose } = useDisclosure();
 
   // Edition/Liaison transaction
+  const { isOpen: isBankImportOpen, onOpen: onBankImportOpen, onClose: onBankImportClose } = useDisclosure();
   const { isOpen: isEditTxOpen, onOpen: onEditTxOpen, onClose: onEditTxClose } = useDisclosure();
   const [editingTransaction, setEditingTransaction] = useState(null);
   const { isOpen: isLinkDocOpen, onOpen: onLinkDocOpen, onClose: onLinkDocClose } = useDisclosure();
@@ -2269,14 +2271,25 @@ const AdminFinance = () => {
               <VStack spacing={4} align="stretch">
                 <HStack justify="space-between">
                   <Heading size="md">Transactions</Heading>
-                  <Button
-                    leftIcon={<FiPlus />}
-                    colorScheme="blue"
-                    onClick={onTransactionOpen}
-                    size="sm"
-                  >
-                    Nouvelle transaction
-                  </Button>
+                  <HStack>
+                    <Button
+                      leftIcon={<FiUpload />}
+                      colorScheme="teal"
+                      variant="outline"
+                      onClick={onBankImportOpen}
+                      size="sm"
+                    >
+                      Importer relevé
+                    </Button>
+                    <Button
+                      leftIcon={<FiPlus />}
+                      colorScheme="blue"
+                      onClick={onTransactionOpen}
+                      size="sm"
+                    >
+                      Nouvelle transaction
+                    </Button>
+                  </HStack>
                 </HStack>
 
                 {loading ? (
@@ -4606,6 +4619,12 @@ const AdminFinance = () => {
           </ModalContent>
         </Modal>
       </VStack>
+
+      <BankStatementImport
+        isOpen={isBankImportOpen}
+        onClose={onBankImportClose}
+        onImported={() => { loadTransactions(); }}
+      />
     </Box>
   );
 };
