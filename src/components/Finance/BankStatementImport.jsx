@@ -6,7 +6,7 @@ import {
   Input, useToast, Progress, Tag, TagLabel, Tooltip, IconButton
 } from '@chakra-ui/react';
 import { FiUpload, FiCheckSquare, FiSquare, FiInfo } from 'react-icons/fi';
-import { updateCSRFTokenFromResponse } from '../../lib/csrfClient';
+import { updateCSRFTokenFromResponse, fetchCSRFToken } from '../../lib/csrfClient';
 
 const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
@@ -53,6 +53,9 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
     setParsing(true);
     setStep('upload');
     try {
+      // Récupérer un nouveau token CSRF pour être sûr qu'il est valide
+      await fetchCSRFToken(API_BASE);
+      
       const formData = new FormData();
       formData.append('pdf', file);
 
@@ -104,6 +107,13 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
     setProgress(0);
     let ok = 0;
     let errors = 0;
+
+    // Récupérer un nouveau token CSRF avant de commencer l'import
+    try {
+      await fetchCSRFToken(API_BASE);
+    } catch (err) {
+      console.error('Erreur récupération token CSRF:', err);
+    }
 
     for (let i = 0; i < selectedRows.length; i++) {
       const t = selectedRows[i];
