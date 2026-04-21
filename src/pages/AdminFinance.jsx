@@ -131,6 +131,19 @@ const AdminFinance = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
+  // Dettes et créances
+  const [debts, setDebts] = useState([]);
+  const [newDebt, setNewDebt] = useState({
+    type: 'DETTE',
+    amount: '',
+    description: '',
+    debtorType: 'MEMBER',
+    debtorName: '',
+    debtorId: '',
+    dueDate: '',
+    status: 'EN_COURS'
+  });
+
   // Rapports financiers
   const currentYear = new Date().getFullYear();
   const [reportYear, setReportYear] = useState(currentYear);
@@ -203,6 +216,7 @@ const AdminFinance = () => {
   const { isOpen: isSimulationResultsOpen, onOpen: onSimulationResultsOpen, onClose: onSimulationResultsClose } = useDisclosure();
   const { isOpen: isDeclarePaymentOpen, onOpen: onDeclarePaymentOpen, onClose: onDeclarePaymentClose } = useDisclosure();
   const { isOpen: isPaymentsListOpen, onOpen: onPaymentsListOpen, onClose: onPaymentsListClose } = useDisclosure();
+  const { isOpen: isDebtOpen, onOpen: onDebtOpen, onClose: onDebtClose } = useDisclosure();
 
   // === API HELPERS ===
   // Base API: prefer same-origin relative in prod to avoid CORS; in local dev use VITE_API_* or localhost:3000
@@ -291,6 +305,7 @@ const AdminFinance = () => {
         loadSimulationData(),
         loadBalanceHistory(),
         loadExpenseReports(),
+        loadDebts(),
         loadDocuments(),
         loadReports(reportYear),
         loadFinanceCategories(),
@@ -299,7 +314,7 @@ const AdminFinance = () => {
       
       // Compter les succès
       const successCount = results.filter(r => r.status === 'fulfilled').length;
-      console.log(`✅ Chargement finances: ${successCount}/10 sources réussies`);
+      console.log(`✅ Chargement finances: ${successCount}/11 sources réussies`);
       
     } catch (error) {
       console.error('❌ Erreur chargement données financières:', error);
@@ -571,6 +586,107 @@ const AdminFinance = () => {
     } catch (e) {
       console.error('❌ Export PDF:', e);
       toast({ status: 'error', title: 'Export PDF échoué' });
+    }
+  };
+
+  // === FONCTIONS DETTES ET CRÉANCES ===
+  const loadDebts = async () => {
+    try {
+      const response = await fetch(apiUrl('/api/finance/debts'), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDebts(data.debts || []);
+      } else {
+        setDebts([]);
+      }
+    } catch (e) {
+      console.error('❌ Erreur chargement dettes:', e);
+      setDebts([]);
+    }
+  };
+
+  const createDebt = async () => {
+    if (!newDebt.amount || !newDebt.description || !newDebt.debtorName) {
+      toast({ status: 'warning', title: 'Montant, description et nom requis' });
+      return;
+    }
+    try {
+      const response = await fetch(apiUrl('/api/finance/debts'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newDebt)
+      });
+      if (response.ok) {
+        toast({ status: 'success', title: 'Dette/créance créée' });
+        setNewDebt({
+          type: 'DETTE',
+          amount: '',
+          description: '',
+          debtorType: 'MEMBER',
+          debtorName: '',
+          debtorId: '',
+          dueDate: '',
+          status: 'EN_COURS'
+        });
+        onDebtClose();
+        loadDebts();
+      } else {
+        toast({ status: 'error', title: 'Erreur création dette/créance' });
+      }
+    } catch (e) {
+      console.error('❌ Erreur création dette:', e);
+      toast({ status: 'error', title: 'Erreur création dette/créance' });
+    }
+  };
+
+  const updateDebtStatus = async (debtId, newStatus) => {
+    try {
+      const response = await fetch(apiUrl(`/api/finance/debts/${debtId}`), {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (response.ok) {
+        toast({ status: 'success', title: 'Statut mis à jour' });
+        loadDebts();
+      } else {
+        toast({ status: 'error', title: 'Erreur mise à jour statut' });
+      }
+    } catch (e) {
+      console.error('❌ Erreur update status dette:', e);
+      toast({ status: 'error', title: 'Erreur mise à jour statut' });
+    }
+  };
+
+  const deleteDebt = async (debtId) => {
+    if (!confirm('Supprimer cette dette/créance ?')) return;
+    try {
+      const response = await fetch(apiUrl(`/api/finance/debts/${debtId}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        toast({ status: 'success', title: 'Dette/créance supprimée' });
+        loadDebts();
+      } else {
+        toast({ status: 'error', title: 'Erreur suppression' });
+      }
+    } catch (e) {
+      console.error('❌ Erreur suppression dette:', e);
+      toast({ status: 'error', title: 'Erreur suppression' });
     }
   };
 
@@ -2262,6 +2378,7 @@ const AdminFinance = () => {
             <Tab>🧾 Notes de frais</Tab>
             <Tab>🧮 Simulations</Tab>
             <Tab>📊 Rapports</Tab>
+            <Tab>💰 Dettes</Tab>
             <Tab>⚙️ Configuration</Tab>
           </TabList>
 
@@ -3106,6 +3223,147 @@ const AdminFinance = () => {
                       </CardBody>
                     </Card>
                   </VStack>
+                )}
+              </VStack>
+            </TabPanel>
+
+            {/* Onglet Dettes */}
+            <TabPanel>
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between">
+                  <Heading size="md">Gestion des Dettes et Créances</Heading>
+                  <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onDebtOpen} size="sm">
+                    Nouvelle dette/créance
+                  </Button>
+                </HStack>
+
+                {/* Stats */}
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                  <Card>
+                    <CardBody>
+                      <Stat>
+                        <StatLabel>Dettes en cours</StatLabel>
+                        <StatNumber color="red.600">
+                          {formatCurrency(
+                            debts
+                              .filter(d => d.type === 'DETTE' && d.status === 'EN_COURS')
+                              .reduce((sum, d) => sum + parseFloat(d.amount || 0), 0)
+                          )}
+                        </StatNumber>
+                      </Stat>
+                    </CardBody>
+                  </Card>
+                  <Card>
+                    <CardBody>
+                      <Stat>
+                        <StatLabel>Créances en cours</StatLabel>
+                        <StatNumber color="green.600">
+                          {formatCurrency(
+                            debts
+                              .filter(d => d.type === 'CRÉANCE' && d.status === 'EN_COURS')
+                              .reduce((sum, d) => sum + parseFloat(d.amount || 0), 0)
+                          )}
+                        </StatNumber>
+                      </Stat>
+                    </CardBody>
+                  </Card>
+                  <Card>
+                    <CardBody>
+                      <Stat>
+                        <StatLabel>Solde net</StatLabel>
+                        <StatNumber>
+                          {formatCurrency(
+                            debts
+                              .filter(d => d.status === 'EN_COURS')
+                              .reduce((sum, d) => {
+                                const amt = parseFloat(d.amount || 0);
+                                return d.type === 'CRÉANCE' ? sum + amt : sum - amt;
+                              }, 0)
+                          )}
+                        </StatNumber>
+                      </Stat>
+                    </CardBody>
+                  </Card>
+                </SimpleGrid>
+
+                {/* Liste des dettes */}
+                {loading ? (
+                  <Box textAlign="center" p={8}>
+                    <Spinner size="lg" />
+                    <Text mt={2}>Chargement...</Text>
+                  </Box>
+                ) : debts.length === 0 ? (
+                  <Alert status="info">
+                    <AlertIcon />
+                    Aucune dette ou créance enregistrée
+                  </Alert>
+                ) : (
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                    {debts.map((debt) => (
+                      <Card key={debt.id} borderLeft="4px solid" borderColor={debt.type === 'DETTE' ? 'red.500' : 'green.500'}>
+                        <CardHeader>
+                          <VStack align="start" spacing={1}>
+                            <HStack>
+                              <Badge colorScheme={debt.type === 'DETTE' ? 'red' : 'green'}>
+                                {debt.type}
+                              </Badge>
+                              <Badge variant="outline">
+                                {debt.debtorType === 'MEMBER' ? '👤 Membre' : debt.debtorType === 'ASSOCIATION' ? '🏢 Association' : '📌 Autre'}
+                              </Badge>
+                            </HStack>
+                            <Heading size="sm" noOfLines={2}>{debt.description}</Heading>
+                          </VStack>
+                        </CardHeader>
+                        <CardBody>
+                          <VStack align="start" spacing={2}>
+                            <HStack justify="space-between" width="100%">
+                              <Text fontSize="sm" color="gray.600">Montant</Text>
+                              <Text fontWeight="bold" fontSize="lg" color={debt.type === 'DETTE' ? 'red.600' : 'green.600'}>
+                                {debt.type === 'DETTE' ? '- ' : '+ '}{formatCurrency(Math.abs(debt.amount))}
+                              </Text>
+                            </HStack>
+                            <HStack justify="space-between" width="100%">
+                              <Text fontSize="sm" color="gray.600">Débiteur/Créancier</Text>
+                              <Text fontWeight="medium">{debt.debtorName}</Text>
+                            </HStack>
+                            {debt.dueDate && (
+                              <HStack justify="space-between" width="100%">
+                                <Text fontSize="sm" color="gray.600">Échéance</Text>
+                                <Text>{formatDate(debt.dueDate)}</Text>
+                              </HStack>
+                            )}
+                            <HStack justify="space-between" width="100%">
+                              <Text fontSize="sm" color="gray.600">Statut</Text>
+                              <Badge colorScheme={debt.status === 'PAYÉE' ? 'green' : debt.status === 'ANNULÉE' ? 'gray' : 'orange'}>
+                                {debt.status}
+                              </Badge>
+                            </HStack>
+                          </VStack>
+                        </CardBody>
+                        <CardFooter pt={0}>
+                          <HStack>
+                            {debt.status === 'EN_COURS' && (
+                              <Button
+                                size="sm"
+                                colorScheme="green"
+                                onClick={() => updateDebtStatus(debt.id, 'PAYÉE')}
+                              >
+                                Marquer payée
+                              </Button>
+                            )}
+                            <IconButton
+                              aria-label="Supprimer"
+                              icon={<FiTrash2 />}
+                              size="sm"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => deleteDebt(debt.id)}
+                            />
+                          </HStack>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
                 )}
               </VStack>
             </TabPanel>
@@ -4619,6 +4877,106 @@ const AdminFinance = () => {
           </ModalContent>
         </Modal>
       </VStack>
+
+      {/* Modal Nouvelle Dette/Créance */}
+      <Modal isOpen={isDebtOpen} onClose={onDebtClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Nouvelle Dette ou Créance</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Type</FormLabel>
+                <Select
+                  value={newDebt.type}
+                  onChange={(e) => setNewDebt(prev => ({ ...prev, type: e.target.value }))}
+                >
+                  <option value="DETTE">Dette (nous devons de l'argent)</option>
+                  <option value="CRÉANCE">Créance (on nous doit de l'argent)</option>
+                </Select>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Montant (€)</FormLabel>
+                <NumberInput
+                  value={newDebt.amount}
+                  onChange={(value) => setNewDebt(prev => ({ ...prev, amount: value }))}
+                  precision={2}
+                  step={0.01}
+                >
+                  <NumberInputField placeholder="0.00" />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Description</FormLabel>
+                <Input
+                  value={newDebt.description}
+                  onChange={(e) => setNewDebt(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description de la dette/créance"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Type de débiteur/créancier</FormLabel>
+                <Select
+                  value={newDebt.debtorType}
+                  onChange={(e) => setNewDebt(prev => ({ ...prev, debtorType: e.target.value }))}
+                >
+                  <option value="MEMBER">👤 Membre</option>
+                  <option value="ASSOCIATION">🏢 Association</option>
+                  <option value="OTHER">📌 Autre (fournisseur, institution...)</option>
+                </Select>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Nom du débiteur/créancier</FormLabel>
+                <Input
+                  value={newDebt.debtorName}
+                  onChange={(e) => setNewDebt(prev => ({ ...prev, debtorName: e.target.value }))}
+                  placeholder="Nom de la personne ou organisation"
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Date d'échéance</FormLabel>
+                <Input
+                  type="date"
+                  value={newDebt.dueDate}
+                  onChange={(e) => setNewDebt(prev => ({ ...prev, dueDate: e.target.value }))}
+                />
+              </FormControl>
+
+              <Alert status="info" fontSize="sm">
+                <AlertIcon />
+                <VStack align="start" spacing={0}>
+                  <Text fontWeight="bold">
+                    {newDebt.type === 'DETTE' ? '⚠️ Dette' : '✅ Créance'}
+                  </Text>
+                  <Text>
+                    {newDebt.type === 'DETTE'
+                      ? 'Une dette représente un montant que l\'association doit payer.'
+                      : 'Une créance représente un montant qui est dû à l\'association.'}
+                  </Text>
+                </VStack>
+              </Alert>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onDebtClose}>
+              Annuler
+            </Button>
+            <Button colorScheme="blue" onClick={createDebt}>
+              Créer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <BankStatementImport
         isOpen={isBankImportOpen}
