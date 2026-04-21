@@ -57,7 +57,10 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
 
       const res = await fetch(`${API_BASE}/api/finance/import-bank-statement`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'X-CSRF-Token': localStorage.getItem('X-CSRF-Token') || '',
+        },
         body: formData,
       });
 
