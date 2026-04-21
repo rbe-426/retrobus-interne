@@ -275,11 +275,12 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
                               w="130px"
                             />
                           </Td>
-                          <Td maxW="260px">
+                          <Td maxW="400px">
                             <Input
                               size="xs"
                               value={row.description}
                               onChange={e => updateRow(row._id, 'description', e.target.value)}
+                              title={row.description}
                             />
                           </Td>
                           <Td>
@@ -287,9 +288,9 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
                               size="xs"
                               value={row.type}
                               onChange={e => updateRow(row._id, 'type', e.target.value)}
-                              w="100px"
+                              w="140px"
                             >
-                              <option value="CREDIT">Recette</option>
+                              <option value="CREDIT">Rentrée d'argent</option>
                               <option value="DEBIT">Dépense</option>
                             </Select>
                           </Td>

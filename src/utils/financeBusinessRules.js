@@ -92,8 +92,8 @@ export const getCategoryLabel = (category) => {
 // ============= TYPES DE TRANSACTIONS =============
 
 export const TRANSACTION_TYPES = {
-  'CREDIT': { label: 'Crédit (Entrée)', color: 'green' },
-  'DEBIT': { label: 'Débit (Sortie)', color: 'red' }
+  'CREDIT': { label: 'Rentrée d\'argent', color: 'green' },
+  'DEBIT': { label: 'Dépense', color: 'red' }
 };
 
 // ============= STATUTS DOCUMENTS =============
