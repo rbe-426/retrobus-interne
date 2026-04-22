@@ -128,6 +128,23 @@ export const hasValidCSRFToken = () => {
  * Exemple: fetchWithCSRF('/api/vehicles', { method: 'POST', body: {...} })
  */
 export const fetchWithCSRF = async (url, options = {}) => {
+  // Extraire le baseURL depuis l'URL fournie ou utiliser la variable d'environnement
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  let baseURL = '';
+  
+  // Si l'URL est relative, utiliser API_BASE
+  if (!url.startsWith('http')) {
+    baseURL = API_BASE;
+  } else {
+    // Si URL absolue, extraire le baseURL
+    try {
+      const urlObj = new URL(url);
+      baseURL = `${urlObj.protocol}//${urlObj.host}`;
+    } catch (_) {
+      baseURL = API_BASE;
+    }
+  }
+
   // Obtenir le token stocké
   let csrfToken = getStoredCSRFToken();
 
@@ -137,9 +154,10 @@ export const fetchWithCSRF = async (url, options = {}) => {
   if (isMutation && !csrfToken) {
     console.warn('⚠️  No CSRF token available for mutation. Fetching new one...');
     try {
-      csrfToken = await fetchCSRFToken();
+      csrfToken = await fetchCSRFToken(baseURL);
+      console.log('✅ Fresh CSRF token obtained:', csrfToken ? 'present' : 'missing');
     } catch (error) {
-      console.error('❌ Could not fetch CSRF token for mutation');
+      console.error('❌ Could not fetch CSRF token for mutation:', error);
       throw error;
     }
   }
@@ -150,9 +168,18 @@ export const fetchWithCSRF = async (url, options = {}) => {
     'Content-Type': 'application/json',
   };
 
+  // Ajouter le token d'authentification Bearer si disponible
+  const authToken = localStorage.getItem('token');
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
   // Ajouter le token CSRF si mutation
   if (isMutation && csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;
+    console.log('🔐 CSRF token added to headers for', options.method, url);
+  } else if (isMutation && !csrfToken) {
+    console.error('❌ No CSRF token available for mutation!');
   }
 
   // Faire la requête

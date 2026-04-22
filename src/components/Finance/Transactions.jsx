@@ -42,7 +42,8 @@ const FinanceTransactions = () => {
     amount: "",
     description: "",
     category: "ADHESION",
-    date: new Date().toISOString().split("T")[0]
+    date: new Date().toISOString().split("T")[0],
+    linkedDebtId: null
   });
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -202,7 +203,8 @@ const FinanceTransactions = () => {
           amount: "",
           description: "",
           category: "ADHESION",
-          date: new Date().toISOString().split("T")[0]
+          date: new Date().toISOString().split("T")[0],
+          linkedDebtId: null
         });
         setAllocations([]);
         onClose();
@@ -421,7 +423,7 @@ const FinanceTransactions = () => {
       </Card>
 
       {/* Modal Nouvelle Transaction */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} size="lg">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Nouvelle Transaction</ModalHeader>
@@ -471,6 +473,24 @@ const FinanceTransactions = () => {
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Lier à une dette/créance (optionnel)</FormLabel>
+                <Select
+                  placeholder="Aucune"
+                  value={formData.linkedDebtId || ""}
+                  onChange={(e) => setFormData({ ...formData, linkedDebtId: e.target.value || null })}
+                >
+                  {availableDocuments.filter(d => d.displayType === "DETTE" || d.displayType === "CRÉANCE").map(doc => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.displayType} — {doc.title} ({doc.amount}€)
+                      {doc.remainingAmount !== undefined && ` — Reste: ${doc.remainingAmount.toFixed(2)}€`}
+                    </option>
+                  ))}
+                </Select>
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  En liant cette transaction à une dette, le montant contribuera automatiquement à sa résorption.
+                </Text>
               </FormControl>
             </VStack>
           </ModalBody>
