@@ -186,8 +186,8 @@ const FinanceDebts = () => {
 
   const totalDettes = debts.filter(d => d.type === "DETTE" && d.status !== "ANNULÉE").reduce((s, d) => s + d.amount, 0);
   const totalCreances = debts.filter(d => d.type === "CRÉANCE" && d.status !== "ANNULÉE").reduce((s, d) => s + d.amount, 0);
-  const totalRestantDettes = debts.filter(d => d.type === "DETTE" && d.status !== "ANNULÉE").reduce((s, d) => s + (d.remainingAmount || d.amount), 0);
-  const totalRestantCreances = debts.filter(d => d.type === "CRÉANCE" && d.status !== "ANNULÉE").reduce((s, d) => s + (d.remainingAmount || d.amount), 0);
+  const totalRestantDettes = debts.filter(d => d.type === "DETTE" && d.status !== "ANNULÉE").reduce((s, d) => s + (d.remainingAmount ?? d.amount), 0);
+  const totalRestantCreances = debts.filter(d => d.type === "CRÉANCE" && d.status !== "ANNULÉE").reduce((s, d) => s + (d.remainingAmount ?? d.amount), 0);
 
   const StatusBadge = ({ status }) => {
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.EN_COURS;
