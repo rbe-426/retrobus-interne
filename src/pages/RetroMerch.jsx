@@ -38,6 +38,7 @@ import {
   Spinner
 } from "@chakra-ui/react";
 import retromerchService from "../lib/retromerchService";
+import SiteBuilder from "../components/RetroMerch/SiteBuilder";
 
 const RetroMerch = () => {
   const toast = useToast();
@@ -306,10 +307,7 @@ const RetroMerch = () => {
 
   const LayoutContent = () => (
     <Box>
-      <Heading size="sm" mb={4}>Mise-en-page de la boutique</Heading>
-      <Box p={6} bg="gray.100" borderRadius="lg" textAlign="center">
-        <Text color="gray.600">Constructeur de layout - Bientôt disponible</Text>
-      </Box>
+      <SiteBuilder />
     </Box>
   );
 

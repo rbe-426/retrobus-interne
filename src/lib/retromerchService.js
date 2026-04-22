@@ -3,38 +3,50 @@
  * Fournit des fonctions pour interagir avec les endpoints RétroMerch
  */
 
+import { fetchWithCSRF } from './csrfClient';
+
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api/retromerch`
   : 'http://localhost:8080/api/retromerch';
 
 /**
- * Helper pour les requêtes authentifiées
+ * Helper pour les requêtes authentifiées avec CSRF
  */
 const makeRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;
-  const token = localStorage.getItem('authToken');
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers
-  };
-
-  if (token && options.requireAuth !== false) {
-    headers.Authorization = `Bearer ${token}`;
+  
+  // Pour les requêtes GET publiques, pas besoin de CSRF
+  if (options.method === undefined || options.method === 'GET') {
+    if (options.requireAuth === false) {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(error.error || `API Error: ${response.status}`);
+      }
+      
+      return await response.json();
+    }
   }
 
+  // Pour toutes les autres requêtes (mutations), utiliser fetchWithCSRF
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers
+    const response = await fetchWithCSRF(url, {
+      method: options.method || 'GET',
+      ...(options.body && { 
+        body: typeof options.body === 'string' 
+          ? options.body 
+          : JSON.stringify(options.body) 
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `API Error: ${response.status}`);
-    }
-
-    return await response.json();
+    return response;
   } catch (error) {
     console.error('❌ API Error:', error.message);
     throw error;
@@ -67,7 +79,7 @@ export const retromerchService = {
   createProduct: async (productData) => {
     return makeRequest('/products', {
       method: 'POST',
-      body: JSON.stringify(productData)
+      body: productData
     });
   },
 
@@ -77,7 +89,7 @@ export const retromerchService = {
   updateProduct: async (id, productData) => {
     return makeRequest(`/products/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(productData)
+      body: productData
     });
   },
 
@@ -104,7 +116,7 @@ export const retromerchService = {
   createCategory: async (categoryData) => {
     return makeRequest('/categories', {
       method: 'POST',
-      body: JSON.stringify(categoryData)
+      body: categoryData
     });
   },
 
@@ -129,7 +141,7 @@ export const retromerchService = {
   createOrder: async (orderData) => {
     return makeRequest('/orders', {
       method: 'POST',
-      body: JSON.stringify(orderData),
+      body: orderData,
       requireAuth: false
     });
   },
@@ -140,7 +152,7 @@ export const retromerchService = {
   updateOrder: async (id, orderData) => {
     return makeRequest(`/orders/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(orderData)
+      body: orderData
     });
   },
 
@@ -150,7 +162,7 @@ export const retromerchService = {
   updateOrderStatus: async (id, status) => {
     return makeRequest(`/orders/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status })
+      body: { status }
     });
   },
 
@@ -169,6 +181,40 @@ export const retromerchService = {
    */
   getStats: async () => {
     return makeRequest('/stats', { requireAuth: false });
+  },
+
+  // ========== CONFIGURATION DU SITE ==========
+  /**
+   * Récupérer toute la configuration du site
+   */
+  getSiteConfig: async () => {
+    return makeRequest('/site-config', { requireAuth: false });
+  },
+
+  /**
+   * Récupérer une config spécifique par clé
+   */
+  getSiteConfigByKey: async (key) => {
+    return makeRequest(`/site-config/${key}`, { requireAuth: false });
+  },
+
+  /**
+   * Créer ou mettre à jour une config
+   */
+  updateSiteConfig: async (key, value, isActive = true) => {
+    return makeRequest(`/site-config/${key}`, {
+      method: 'PUT',
+      body: { value, isActive }
+    });
+  },
+
+  /**
+   * Supprimer une config
+   */
+  deleteSiteConfig: async (key) => {
+    return makeRequest(`/site-config/${key}`, {
+      method: 'DELETE'
+    });
   }
 };
 
