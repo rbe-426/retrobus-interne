@@ -94,8 +94,10 @@ export const updateCSRFTokenFromResponse = (response) => {
     const newToken = response.headers.get('X-CSRF-Token');
     if (newToken) {
       storeCSRFToken(newToken);
-      console.log('✅ CSRF token updated from response');
+      console.log('✅ CSRF token updated from response:', newToken.substring(0, 20) + '...');
       return newToken;
+    } else {
+      console.log('ℹ️  No new CSRF token in response headers');
     }
   } catch (error) {
     console.warn('⚠️  Could not update CSRF token from response:', error);
@@ -190,8 +192,11 @@ export const fetchWithCSRF = async (url, options = {}) => {
       headers,
     });
 
-    // Mettre à jour le token si nouveau reçu
-    updateCSRFTokenFromResponse(response);
+    // IMPORTANT: Mettre à jour le token si nouveau reçu (backend envoie un nouveau après chaque mutation)
+    const newToken = updateCSRFTokenFromResponse(response);
+    if (newToken && isMutation) {
+      console.log('✅ CSRF token refreshed from response for next mutation');
+    }
 
     return response;
   } catch (error) {
