@@ -120,14 +120,29 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
       }
 
       setProgress(100);
+      
+      // Déduplication finale côté frontend pour sécurité
+      const deduplicatedTransactions = [];
+      const seenKeys = new Set();
+      
+      for (const tx of allTransactions) {
+        const key = `${tx.date}|${tx.amount.toFixed(2)}|${tx.type}|${tx.description.substring(0, 40).toUpperCase()}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          deduplicatedTransactions.push(tx);
+        }
+      }
+      
+      const duplicatesRemoved = allTransactions.length - deduplicatedTransactions.length;
+      
       setParsedFiles(fileResults);
-      setRows(allTransactions);
+      setRows(deduplicatedTransactions);
       setStep('review');
       
       toast({
         status: 'success',
         title: `${files.length} relevé(s) analysé(s)`,
-        description: `${allTransactions.length} transaction(s) totale(s) détectée(s)`,
+        description: `${deduplicatedTransactions.length} transaction(s) détectée(s)${duplicatesRemoved > 0 ? ` (${duplicatesRemoved} doublon(s) éliminé(s))` : ''}`,
         duration: 4000
       });
     } catch (err) {
