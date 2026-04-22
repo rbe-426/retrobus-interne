@@ -12,6 +12,7 @@ import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload, FiLink,
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBusinessRules";
 import BankStatementImport from "./BankStatementImport";
+import { fetchWithCSRF } from "../../lib/csrfClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
