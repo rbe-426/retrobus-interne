@@ -192,6 +192,40 @@ export const fetchWithCSRF = async (url, options = {}) => {
       headers,
     });
 
+    // Si on reçoit une 403 avec erreur CSRF, le backend a probablement redémarré
+    // Fetch un nouveau token et retry UNE fois
+    if (response.status === 403 && isMutation) {
+      const errorData = await response.clone().json().catch(() => ({}));
+      if (errorData.code === 'CSRF_INVALID' || errorData.code === 'CSRF_MISSING') {
+        console.warn('⚠️  CSRF token rejected by server. Fetching fresh token and retrying...');
+        
+        // Fetch un nouveau token
+        try {
+          const newToken = await fetchCSRFToken(baseURL);
+          headers['X-CSRF-Token'] = newToken;
+          console.log('🔄 Retrying request with fresh CSRF token');
+          
+          // Retry la requête avec le nouveau token
+          const retryResponse = await fetch(url, {
+            ...options,
+            credentials: 'include',
+            headers,
+          });
+          
+          // Mettre à jour le token si nouveau reçu
+          const newTokenFromRetry = updateCSRFTokenFromResponse(retryResponse);
+          if (newTokenFromRetry) {
+            console.log('✅ CSRF token refreshed from retry response for next mutation');
+          }
+          
+          return retryResponse;
+        } catch (retryError) {
+          console.error('❌ Failed to retry with fresh CSRF token:', retryError);
+          return response; // Retourner la réponse originale 403
+        }
+      }
+    }
+
     // IMPORTANT: Mettre à jour le token si nouveau reçu (backend envoie un nouveau après chaque mutation)
     const newToken = updateCSRFTokenFromResponse(response);
     if (newToken && isMutation) {
