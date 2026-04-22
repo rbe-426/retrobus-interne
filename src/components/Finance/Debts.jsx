@@ -6,7 +6,7 @@ import {
   ModalBody, ModalFooter, FormControl, FormLabel, Input, Select,
   NumberInput, NumberInputField, Textarea, useToast, Icon, Flex,
   Progress, Stat, StatLabel, StatNumber, StatGroup, Spinner,
-  Tooltip, IconButton, Collapse
+  Tooltip, IconButton, Collapse, Alert, AlertIcon
 } from "@chakra-ui/react";
 import {
   FiPlus, FiEdit2, FiTrash2, FiAlertCircle, FiChevronDown,
@@ -26,6 +26,7 @@ const STATUS_CONFIG = {
 
 const EMPTY_FORM = {
   type: "DETTE",
+  debtNature: "DETTE_NORMALE",
   description: "",
   amount: "",
   debtorType: "OTHER",
@@ -92,6 +93,7 @@ const FinanceDebts = () => {
     setEditingDebt(debt);
     setFormData({
       type: debt.type,
+      debtNature: debt.debtNature || "DETTE_NORMALE",
       description: debt.description,
       amount: String(debt.amount),
       debtorType: debt.debtorType,
@@ -473,6 +475,27 @@ const FinanceDebts = () => {
                     <option value="CRÉANCE">Créance (on nous doit)</option>
                   </Select>
                 </FormControl>
+                <FormControl isRequired flex={1}>
+                  <FormLabel>Nature</FormLabel>
+                  <Select value={formData.debtNature || "DETTE_NORMALE"} onChange={(e) => setFormData({ ...formData, debtNature: e.target.value })}>
+                    <option value="DETTE_NORMALE">Normale</option>
+                    <option value="TROP_PERCU">Trop-perçu</option>
+                  </Select>
+                </FormControl>
+              </HStack>
+              
+              {formData.debtNature === 'TROP_PERCU' && (
+                <Alert status="info" borderRadius="md">
+                  <AlertIcon />
+                  <Text fontSize="sm">
+                    <b>Trop-perçu :</b> argent {formData.type === 'DETTE' ? 'reçu' : 'versé'} en trop. 
+                    Les transactions {formData.type === 'DETTE' ? 'CREDIT (+)' : 'DEBIT (-)'} créent la dette, 
+                    les {formData.type === 'DETTE' ? 'DEBIT (-)' : 'CREDIT (+)'} la remboursent.
+                  </Text>
+                </Alert>
+              )}
+
+              <HStack w="full" spacing={4}>
                 <FormControl isRequired flex={1}>
                   <FormLabel>Montant (€)</FormLabel>
                   <NumberInput
