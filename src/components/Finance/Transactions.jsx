@@ -124,14 +124,10 @@ const FinanceTransactions = () => {
 
   const handleLinkDocument = async (transactionId, documentId, documentType, documentNumber) => {
     try {
-      const response = await fetch(
+      const response = await fetchWithCSRF(
         `${API_BASE}/api/finance/transactions/${transactionId}/link`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json"
-          },
           body: JSON.stringify({
             linkedDocumentId: documentId,
             linkedDocumentType: documentType,
@@ -163,13 +159,10 @@ const FinanceTransactions = () => {
 
   const handleUnlinkDocument = async (transactionId) => {
     try {
-      const response = await fetch(
+      const response = await fetchWithCSRF(
         `${API_BASE}/api/finance/transactions/${transactionId}/link`,
         {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
+          method: "DELETE"
         }
       );
 
