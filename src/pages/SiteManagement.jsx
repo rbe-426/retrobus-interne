@@ -28,6 +28,8 @@ import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
 import MarkdownEditor from '../components/MarkdownEditor';
+import MediaUploader from '../components/MediaUploader';
+import PollCreator from '../components/PollCreator';
 import NotificationsManagement from '../components/NotificationsManagement';
 import HomeAnnouncementsManagement from '../components/HomeAnnouncementsManagement';
 
@@ -740,6 +742,8 @@ const NewsManagement = () => {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
+    media: [],
+    polls: [],
     featured: false,
     published: false,
     showOnExternal: false,
@@ -763,15 +767,46 @@ const NewsManagement = () => {
 
   const handleCreate = () => {
     setEditingId(null);
-    setFormData({ title: '', content: '', featured: false, published: false, showOnExternal: false });
+    setFormData({ 
+      title: '', 
+      content: '', 
+      media: [], 
+      polls: [], 
+      featured: false, 
+      published: false, 
+      showOnExternal: false 
+    });
     onCreateOpen();
   };
 
   const handleEdit = (item) => {
     setEditingId(item.id);
+    
+    // Parse JSON fields if they exist
+    let media = [];
+    let polls = [];
+    
+    try {
+      if (item.media) {
+        media = typeof item.media === 'string' ? JSON.parse(item.media) : item.media;
+      }
+    } catch (e) {
+      console.error('Error parsing media:', e);
+    }
+    
+    try {
+      if (item.polls) {
+        polls = typeof item.polls === 'string' ? JSON.parse(item.polls) : item.polls;
+      }
+    } catch (e) {
+      console.error('Error parsing polls:', e);
+    }
+    
     setFormData({
       title: item.title,
-      content: item.content || item.body || '',  // Support content OU body
+      content: item.content || item.body || '',
+      media: media || [],
+      polls: polls || [],
       featured: item.featured || false,
       published: item.published || false,
       showOnExternal: item.showOnExternal || false,
@@ -791,24 +826,29 @@ const NewsManagement = () => {
     }
 
     try {
+      const payload = { 
+        title: formData.title,
+        body: formData.content,
+        content: formData.content, // Keep both for compatibility
+        media: JSON.stringify(formData.media),
+        polls: JSON.stringify(formData.polls),
+        featured: formData.featured,
+        published: formData.published,
+        showOnExternal: formData.showOnExternal,
+        status: formData.published ? 'published' : 'draft'
+      };
+      
       if (editingId) {
-        await apiClient.put(`/api/retro-news/${editingId}`, { 
-          title: formData.title,
-          body: formData.content,  // ← Envoyer 'body' au lieu de 'content'
-          status: formData.published ? 'published' : 'draft'
-        });
+        await apiClient.put(`/api/retro-news/${editingId}`, payload);
         toast({ title: 'Succès', description: 'Actualité mise à jour', status: 'success' });
       } else {
-        await apiClient.post('/api/retro-news', { 
-          title: formData.title,
-          body: formData.content,  // ← Envoyer 'body' au lieu de 'content'
-          status: formData.published ? 'published' : 'draft'
-        });
+        await apiClient.post('/api/retro-news', payload);
         toast({ title: 'Succès', description: 'Actualité créée', status: 'success' });
       }
       loadNews();
       onCreateClose();
     } catch (error) {
+      console.error('Save error:', error);
       toast({ title: 'Erreur', description: 'Impossible de sauvegarder', status: 'error' });
     }
   };
@@ -914,8 +954,8 @@ const NewsManagement = () => {
             {editingId ? '✏️ Modifier une actualité' : '✨ Nouvelle actualité'}
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
+          <ModalBody pb={6}>
+            <VStack spacing={6} align="stretch">
               <FormControl isRequired>
                 <FormLabel>Titre</FormLabel>
                 <Input
@@ -933,6 +973,24 @@ const NewsManagement = () => {
                   placeholder="**Gras** *italique* `code` [lien](url) # Titre..."
                 />
               </FormControl>
+
+              <Divider />
+
+              {/* Media Uploader */}
+              <MediaUploader
+                media={formData.media}
+                onChange={(newMedia) => setFormData({ ...formData, media: newMedia })}
+              />
+
+              <Divider />
+
+              {/* Poll Creator */}
+              <PollCreator
+                polls={formData.polls}
+                onChange={(newPolls) => setFormData({ ...formData, polls: newPolls })}
+              />
+
+              <Divider />
 
               <FormControl display="flex" alignItems="center">
                 <FormLabel mb={0}>Vedette (affichage prioritaire)</FormLabel>

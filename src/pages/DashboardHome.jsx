@@ -25,6 +25,7 @@ import { apiClient } from '../api/config';
 
 // Import annonces d'accueil
 import HomeAnnouncements, { useHomeAnnouncements } from '../components/HomeAnnouncement';
+import PollDisplay from '../components/PollDisplay';
 
 const ANN_KEY = "rbe:announcements";
 
@@ -246,8 +247,14 @@ export default function DashboardHome() {
       const published = data
         .filter(news => news.published || news.status === 'published')
         .sort((a, b) => {
-          if (a.featured !== b.featured) return b.featured - a.featured;
-          return new Date(b.publishedAt) - new Date(a.publishedAt);
+          // 1. Vedettes en premier (featured = true en tête)
+          if (a.featured && !b.featured) return -1;
+          if (!a.featured && b.featured) return 1;
+          
+          // 2. Puis par date de publication décroissante
+          const dateA = a.publishedAt ? new Date(a.publishedAt) : new Date(a.createdAt);
+          const dateB = b.publishedAt ? new Date(b.publishedAt) : new Date(b.createdAt);
+          return dateB - dateA;
         });
       
       console.log('✅ RétroActus chargés:', published.length);
@@ -632,6 +639,79 @@ export default function DashboardHome() {
                         {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
                       </ReactMarkdown>
                     </Box>
+
+                    {/* Media Gallery */}
+                    {(() => {
+                      try {
+                        const mediaStr = retroActus[currentActuIndex]?.media;
+                        if (!mediaStr) return null;
+                        const mediaArray = typeof mediaStr === 'string' ? JSON.parse(mediaStr) : mediaStr;
+                        if (!Array.isArray(mediaArray) || mediaArray.length === 0) return null;
+                        
+                        return (
+                          <VStack align="stretch" spacing={3} w="100%">
+                            {mediaArray.map((media, idx) => (
+                              <Box key={idx}>
+                                {media.type === 'image' ? (
+                                  <Image
+                                    src={media.url}
+                                    alt={media.caption || `Media ${idx + 1}`}
+                                    maxH="300px"
+                                    w="100%"
+                                    objectFit="cover"
+                                    borderRadius="md"
+                                  />
+                                ) : media.type === 'video' ? (
+                                  <Box
+                                    as="video"
+                                    controls
+                                    src={media.url}
+                                    maxH="300px"
+                                    w="100%"
+                                    borderRadius="md"
+                                    bg="black"
+                                  />
+                                ) : null}
+                                {media.caption && (
+                                  <Text fontSize="xs" color="gray.500" mt={1} textAlign="center">
+                                    {media.caption}
+                                  </Text>
+                                )}
+                              </Box>
+                            ))}
+                          </VStack>
+                        );
+                      } catch (e) {
+                        console.error('Error parsing media:', e);
+                        return null;
+                      }
+                    })()}
+
+                    {/* Polls Display */}
+                    {(() => {
+                      try {
+                        const pollsStr = retroActus[currentActuIndex]?.polls;
+                        if (!pollsStr) return null;
+                        const pollsArray = typeof pollsStr === 'string' ? JSON.parse(pollsStr) : pollsStr;
+                        if (!Array.isArray(pollsArray) || pollsArray.length === 0) return null;
+                        
+                        return (
+                          <VStack align="stretch" spacing={3} w="100%">
+                            {pollsArray.map((poll) => (
+                              <PollDisplay
+                                key={poll.id}
+                                newsId={retroActus[currentActuIndex]?.id}
+                                poll={poll}
+                              />
+                            ))}
+                          </VStack>
+                        );
+                      } catch (e) {
+                        console.error('Error parsing polls:', e);
+                        return null;
+                      }
+                    })()}
+
                     {retroActus[currentActuIndex]?.imageUrl && (
                       <Image
                         src={retroActus[currentActuIndex].imageUrl}
