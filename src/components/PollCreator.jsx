@@ -3,7 +3,7 @@
  * Composant de création de sondages pour RétroActus
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -30,6 +30,13 @@ export default function PollCreator({ polls = [], onChange }) {
     options: ['', '']
   });
   const toast = useToast();
+
+  // Ensure polls is always an array
+  const pollsArray = Array.isArray(polls) ? polls : [];
+
+  useEffect(() => {
+    console.log('🔄 PollCreator received polls:', pollsArray);
+  }, [polls]);
 
   const handleAddOption = () => {
     if (currentPoll.options.length >= 10) {
@@ -92,7 +99,7 @@ export default function PollCreator({ polls = [], onChange }) {
 
     // Create poll object with unique IDs
     const newPoll = {
-      id: editingIndex !== null ? polls[editingIndex].id : `poll-${Date.now()}`,
+      id: editingIndex !== null ? pollsArray[editingIndex].id : `poll-${Date.now()}`,
       question: currentPoll.question.trim(),
       options: validOptions.map((text, idx) => ({
         id: `opt-${Date.now()}-${idx}`,
@@ -104,12 +111,14 @@ export default function PollCreator({ polls = [], onChange }) {
     // Update or add poll
     let newPolls;
     if (editingIndex !== null) {
-      newPolls = [...polls];
+      newPolls = [...pollsArray];
       newPolls[editingIndex] = newPoll;
     } else {
-      newPolls = [...polls, newPoll];
+      newPolls = [...pollsArray, newPoll];
     }
 
+    console.log('✅ Saving poll:', newPoll);
+    console.log('✅ New polls array:', newPolls);
     onChange(newPolls);
     
     toast({
@@ -125,7 +134,7 @@ export default function PollCreator({ polls = [], onChange }) {
   };
 
   const handleEditPoll = (index) => {
-    const poll = polls[index];
+    const poll = pollsArray[index];
     setCurrentPoll({
       question: poll.question,
       options: poll.options.map(opt => opt.text)
@@ -135,7 +144,7 @@ export default function PollCreator({ polls = [], onChange }) {
   };
 
   const handleDeletePoll = (index) => {
-    const newPolls = polls.filter((_, i) => i !== index);
+    const newPolls = pollsArray.filter((_, i) => i !== index);
     onChange(newPolls);
     toast({
       title: 'Sondage supprimé',
@@ -155,7 +164,7 @@ export default function PollCreator({ polls = [], onChange }) {
       <VStack align="stretch" spacing={4}>
         <HStack justify="space-between">
           <Text fontWeight="bold" fontSize="sm">
-            Sondages ({polls.length})
+            Sondages ({pollsArray.length})
           </Text>
           {!isCreating && (
             <Button
@@ -170,9 +179,9 @@ export default function PollCreator({ polls = [], onChange }) {
         </HStack>
 
         {/* Existing Polls */}
-        {!isCreating && polls.length > 0 && (
+        {!isCreating && pollsArray.length > 0 && (
           <VStack align="stretch" spacing={3}>
-            {polls.map((poll, index) => (
+            {pollsArray.map((poll, index) => (
               <Card key={poll.id} variant="outline">
                 <CardBody>
                   <VStack align="stretch" spacing={2}>

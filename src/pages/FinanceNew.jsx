@@ -16,7 +16,7 @@ import {
 } from "@chakra-ui/react";
 
 import FinanceDashboard from "../components/Finance/Dashboard";
-import FinanceTransactions from "../components/Finance/Transactions";
+import FinanceTransactions from "../components/Finance/TransactionsImproved";
 import FinanceScheduledOps from "../components/Finance/ScheduledOperations";
 import FinanceQuotes from "../components/Finance/Quotes";
 import FinanceInvoicing from "../components/Finance/Invoicing";

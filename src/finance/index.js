@@ -6,7 +6,7 @@
 
 // Composants
 export { default as FinanceDashboard } from '../components/Finance/Dashboard';
-export { default as FinanceTransactions } from '../components/Finance/Transactions';
+export { default as FinanceTransactions } from '../components/Finance/TransactionsImproved';
 export { default as FinanceScheduledOps } from '../components/Finance/ScheduledOperations';
 export { default as FinanceQuotes } from '../components/Finance/Quotes';
 export { default as FinanceInvoicing } from '../components/Finance/Invoicing';

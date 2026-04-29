@@ -30,6 +30,7 @@ import MemberProfilesManager from '../components/MemberProfilesManager';
 import MarkdownEditor from '../components/MarkdownEditor';
 import MediaUploader from '../components/MediaUploader';
 import PollCreator from '../components/PollCreator';
+import PollStats from '../components/PollStats';
 import NotificationsManagement from '../components/NotificationsManagement';
 import HomeAnnouncementsManagement from '../components/HomeAnnouncementsManagement';
 
@@ -753,6 +754,10 @@ const NewsManagement = () => {
     loadNews();
   }, []);
 
+  useEffect(() => {
+    console.log('📊 FormData.polls changed:', formData.polls);
+  }, [formData.polls]);
+
   const loadNews = async () => {
     try {
       setLoading(true);
@@ -767,7 +772,7 @@ const NewsManagement = () => {
 
   const handleCreate = () => {
     setEditingId(null);
-    setFormData({ 
+    const initialFormData = { 
       title: '', 
       content: '', 
       media: [], 
@@ -775,7 +780,9 @@ const NewsManagement = () => {
       featured: false, 
       published: false, 
       showOnExternal: false 
-    });
+    };
+    console.log('📝 Creating new news, initial formData:', initialFormData);
+    setFormData(initialFormData);
     onCreateOpen();
   };
 
@@ -837,6 +844,9 @@ const NewsManagement = () => {
         showOnExternal: formData.showOnExternal,
         status: formData.published ? 'published' : 'draft'
       };
+      
+      console.log('💾 Saving news with payload:', payload);
+      console.log('📊 Polls being saved:', formData.polls);
       
       if (editingId) {
         await apiClient.put(`/api/retro-news/${editingId}`, payload);
@@ -904,45 +914,87 @@ const NewsManagement = () => {
         </Card>
       ) : (
         <SimpleGrid spacing={4} columns={{ base: 1, md: 2, lg: 3 }}>
-          {news.map((item) => (
-            <Card key={item.id} variant="outline" _hover={{ boxShadow: 'md' }} transition="all 0.2s">
-              <CardHeader pb={3}>
-                <VStack align="start" spacing={2}>
-                  <Heading size="sm" noOfLines={2}>{item.title}</Heading>
-                  <HStack spacing={2} flexWrap="wrap">
-                    {item.published && <Badge colorScheme="green">Publié</Badge>}
-                    {item.featured && <Badge colorScheme="purple">Vedette</Badge>}
-                    {item.showOnExternal && <Badge colorScheme="blue">Externe</Badge>}
+          {news.map((item) => {
+            // Parse media and polls counts
+            let mediaCount = 0;
+            let pollsCount = 0;
+            
+            try {
+              if (item.media) {
+                const mediaArray = typeof item.media === 'string' ? JSON.parse(item.media) : item.media;
+                mediaCount = Array.isArray(mediaArray) ? mediaArray.length : 0;
+              }
+            } catch (e) {
+              console.error('Error parsing media:', e);
+            }
+            
+            try {
+              if (item.polls) {
+                const pollsArray = typeof item.polls === 'string' ? JSON.parse(item.polls) : item.polls;
+                pollsCount = Array.isArray(pollsArray) ? pollsArray.length : 0;
+              }
+            } catch (e) {
+              console.error('Error parsing polls:', e);
+            }
+
+            return (
+              <Card key={item.id} variant="outline" _hover={{ boxShadow: 'md' }} transition="all 0.2s">
+                <CardHeader pb={3}>
+                  <VStack align="start" spacing={2}>
+                    <Heading size="sm" noOfLines={2}>{item.title}</Heading>
+                    <HStack spacing={2} flexWrap="wrap">
+                      {item.published && <Badge colorScheme="green">Publié</Badge>}
+                      {item.showOnExternal && <Badge colorScheme="blue">Externe</Badge>}
+                      {mediaCount > 0 && (
+                        <Badge colorScheme="cyan" fontSize="xs">
+                          📸 {mediaCount} média{mediaCount > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                      {pollsCount > 0 && (
+                        <Badge colorScheme="orange" fontSize="xs">
+                          📊 {pollsCount} sondage{pollsCount > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </HStack>
+                  </VStack>
+                </CardHeader>
+                <CardBody pt={2} pb={2}>
+                  <VStack align="stretch" spacing={3}>
+                    <Text fontSize="sm" noOfLines={3} color="gray.600">
+                      {item.body || item.content || '(vide)'}
+                    </Text>
+                    
+                    {/* Poll Stats */}
+                    {pollsCount > 0 && (
+                      <Box>
+                        <PollStats newsId={item.id} polls={item.polls} />
+                      </Box>
+                    )}
+                  </VStack>
+                </CardBody>
+                <Divider />
+                <CardBody pt={2} pb={2}>
+                  <HStack spacing={2} justify="flex-end">
+                    <IconButton
+                      icon={<FiEdit />}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(item)}
+                      aria-label="Éditer"
+                    />
+                    <IconButton
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => handleDelete(item.id)}
+                      aria-label="Supprimer"
+                    />
                   </HStack>
-                </VStack>
-              </CardHeader>
-              <CardBody>
-                <Text fontSize="sm" noOfLines={3} color="gray.600">
-                  {item.body || item.content || '(vide)'}
-                </Text>
-              </CardBody>
-              <Divider />
-              <CardBody>
-                <HStack spacing={2} justify="flex-end">
-                  <IconButton
-                    icon={<FiEdit />}
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEdit(item)}
-                    aria-label="Éditer"
-                  />
-                  <IconButton
-                    icon={<FiTrash2 />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="red"
-                    onClick={() => handleDelete(item.id)}
-                    aria-label="Supprimer"
-                  />
-                </HStack>
-              </CardBody>
-            </Card>
-          ))}
+                </CardBody>
+              </Card>
+            );
+          })}
         </SimpleGrid>
       )}
 
@@ -979,7 +1031,7 @@ const NewsManagement = () => {
               {/* Media Uploader */}
               <MediaUploader
                 media={formData.media}
-                onChange={(newMedia) => setFormData({ ...formData, media: newMedia })}
+                onChange={(newMedia) => setFormData(prevData => ({ ...prevData, media: newMedia }))}
               />
 
               <Divider />
@@ -987,7 +1039,14 @@ const NewsManagement = () => {
               {/* Poll Creator */}
               <PollCreator
                 polls={formData.polls}
-                onChange={(newPolls) => setFormData({ ...formData, polls: newPolls })}
+                onChange={(newPolls) => {
+                  console.log('📊 Polls updated in parent:', newPolls);
+                  setFormData(prevData => {
+                    const updated = { ...prevData, polls: newPolls };
+                    console.log('📊 Updated formData:', updated);
+                    return updated;
+                  });
+                }}
               />
 
               <Divider />

@@ -258,6 +258,10 @@ export default function DashboardHome() {
         });
       
       console.log('✅ RétroActus chargés:', published.length);
+      if (published.length > 0) {
+        console.log('📊 Premier RétroActu COMPLET:', published[0]);
+        console.log('📊 Clés disponibles:', Object.keys(published[0]));
+      }
       setRetroActus(published);
       
       setStats(prev => ({
@@ -582,14 +586,9 @@ export default function DashboardHome() {
                 </CardHeader>
                 <CardBody>
                   <VStack align="start" spacing={3}>
-                    <HStack spacing={2} align="center">
-                      <Heading size="sm" color="blue.600">
-                        {retroActus[currentActuIndex]?.title || 'Sans titre'}
-                      </Heading>
-                      {retroActus[currentActuIndex]?.featured && (
-                        <Badge colorScheme="purple" fontSize="xs">Vedette</Badge>
-                      )}
-                    </HStack>
+                    <Heading size="sm" color="blue.600">
+                      {retroActus[currentActuIndex]?.title || 'Sans titre'}
+                    </Heading>
                     {retroActus[currentActuIndex]?.publishedAt && (
                       <HStack spacing={2} color="gray.500" fontSize="sm">
                         <Icon as={FiCalendar} />
@@ -691,12 +690,25 @@ export default function DashboardHome() {
                     {(() => {
                       try {
                         const pollsStr = retroActus[currentActuIndex]?.polls;
-                        if (!pollsStr) return null;
+                        console.log('📊 Dashboard - pollsStr:', pollsStr);
+                        
+                        if (!pollsStr) {
+                          console.log('📊 No polls data found');
+                          return null;
+                        }
+                        
                         const pollsArray = typeof pollsStr === 'string' ? JSON.parse(pollsStr) : pollsStr;
-                        if (!Array.isArray(pollsArray) || pollsArray.length === 0) return null;
+                        console.log('📊 Dashboard - pollsArray:', pollsArray);
+                        
+                        if (!Array.isArray(pollsArray) || pollsArray.length === 0) {
+                          console.log('📊 Polls array is empty or invalid');
+                          return null;
+                        }
+                        
+                        console.log('📊 Rendering', pollsArray.length, 'polls');
                         
                         return (
-                          <VStack align="stretch" spacing={3} w="100%">
+                          <VStack align="stretch" spacing={3} w="100%" mt={4}>
                             {pollsArray.map((poll) => (
                               <PollDisplay
                                 key={poll.id}
@@ -707,7 +719,7 @@ export default function DashboardHome() {
                           </VStack>
                         );
                       } catch (e) {
-                        console.error('Error parsing polls:', e);
+                        console.error('❌ Error parsing polls:', e);
                         return null;
                       }
                     })()}
