@@ -56,6 +56,7 @@ import AdhesionManagement from "./pages/AdhesionManagement";
 import EventCreationWizardPage from "./pages/EventCreationWizardPage";
 import EventWizardDemoPage from "./pages/EventWizardDemoPage";
 import AccountsManagement from "./pages/AccountsManagement";
+import EventModeManager from "./pages/EventModeManager";
 
 export default function App() {
   const { isAuthenticated } = useUser();
@@ -150,6 +151,9 @@ export default function App() {
         {/* 📧 Communication */}
         <Route path="/dashboard/newsletter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Newsletter /></RoleProtectedRoute>} />
         <Route path="/dashboard/newsletter-campaigns" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><NewsletterCampaigns /></RoleProtectedRoute>} />
+        
+        {/* 🎪 Mode Événement (site externe) */}
+        <Route path="/dashboard/event-mode" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><EventModeManager /></RoleProtectedRoute>} />
         <Route path="/dashboard/retroplanning" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING}><RetroPlanning /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/planning/attendance/:eventId/:memberId" element={<AttendancePage />} />
         <Route path="/planning/my-invitations" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING_RESPOND}><AttendanceManager /></PermissionProtectedRoute></RoleProtectedRoute>} />
