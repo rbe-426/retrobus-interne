@@ -10,6 +10,7 @@ import GalleryManager from '../components/vehicle/GalleryManager.jsx';
 import CaracteristiquesForm from '../components/vehicle/CaracteristiquesForm.jsx';
 import VehicleTechnicalInfoEditor from '../components/vehicle/VehicleTechnicalInfoEditor.jsx';
 import { vehicleSchema, showValidationErrors } from '../lib/validation.js';
+import { apiClient } from '../api/config.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -274,23 +275,10 @@ export default function VehiculeEdit() {
       console.log(`🔍 [SAVE DEBUG] backgroundImage type:`, typeof payload.backgroundImage);
       console.log(`🔍 [SAVE DEBUG] backgroundImage preview:`, payload.backgroundImage ? payload.backgroundImage.substring(0, 50) : 'null');
       
-      const response = await fetch(`${API_BASE}/vehicles/${parc}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      console.log(`✅ [SAVE DEBUG] Response status: ${response.status}`);
-      console.log(`✅ [SAVE DEBUG] Response headers:`, Object.fromEntries(response.headers));
-
-      if (!response.ok) {
-        const err = await response.json();
-        console.error(`❌ [SAVE DEBUG] API error:`, err);
-        throw new Error(err.error || 'Erreur modification');
-      }
+      // Utiliser apiClient.put() au lieu de fetch() brut pour inclure automatiquement le token CSRF
+      const result = await apiClient.put(`/vehicles/${parc}`, payload);
+      
+      console.log(`✅ [SAVE DEBUG] Response:`, result);
 
       toast({ 
         status: 'success', 

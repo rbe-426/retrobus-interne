@@ -8,6 +8,7 @@ import {
 } from '@chakra-ui/react';
 import { FiMapPin, FiActivity, FiPlus, FiTrash2, FiMap } from 'react-icons/fi';
 import RouteMap from './RouteMap';
+import { apiClient } from '../api/config.js';
 import '../leaflet-custom.css';
 
 /**
@@ -110,8 +111,7 @@ export default function RetroGPS() {
   const handleDeleteRoute = async (routeId) => {
     if (!window.confirm('Confirmer suppression?')) return;
     
-    try {
-      const res = await fetch(`${API_BASE}/routes/${routeId}`, { method: 'DELETE' });
+    trawait apiClient.delete(`/routes/${routeId}`routes/${routeId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erreur');
       toast({ title: 'Supprimée', status: 'success' });
       fetchRoutes();

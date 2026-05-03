@@ -25,6 +25,7 @@ import {
 import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 import DevisLinesManager from '../components/DevisLinesManager';
 import BankStatementImport from '../components/Finance/BankStatementImport';
+import { getStoredCSRFToken } from '../lib/csrfClient.js';
 
 
 const AdminFinance = () => {
@@ -252,17 +253,34 @@ const AdminFinance = () => {
   const deleteFirst = async (paths, headers = {}) => {
     const list = Array.isArray(paths) ? paths : [paths];
     let lastErr = null;
+    
+    // Ajouter le token CSRF automatiquement pour les mutations
+    const csrfToken = getStoredCSRFToken();
+    const finalHeaders = {
+      ...headers,
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+    };
+    
     for (const p of list) {
       try {
-        const res = await fetch(apiUrl(p), { method: 'DELETE', headers });
+        const res = await fetch(apiUrl(p), { method: 'DELETE', headers: finalHeaders });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return true;
       } catch (e) { lastErr = e; }
-    }
-    if (lastErr) throw lastErr;
-    return false;
-  };
-
+    
+    // Ajouter le token CSRF automatiquement pour les mutations
+    const csrfToken = getStoredCSRFToken();
+    const finalHeaders = {
+      'Content-Type': 'application/json',
+      ...headers,
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+    };
+    
+    for (const p of list) {
+      try {
+        const res = await fetch(apiUrl(p), {
+          method: 'PATCH',
+          headers: finalHeaders
   const patchFirst = async (paths, body = {}, headers = {}) => {
     const list = Array.isArray(paths) ? paths : [paths];
     let lastErr = null;
