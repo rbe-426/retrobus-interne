@@ -191,6 +191,25 @@ const EVENT_TEMPLATES = {
       registrationType: 'parade_vehicles'
     },
     description: "Défilé de véhicules anciens - Inscription avec nom, véhicule et club"
+  },
+  jep_statiques: {
+    name: "🏛️ JEP / Événements Statiques",
+    icon: FiCalendar,
+    color: "purple",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: true,
+      requiresRegistration: true,
+      isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: 300,
+      registrationDeadline: '',
+      registrationMethod: 'internal',
+      registrationType: 'jep_heritage',
+      status: 'PUBLISHED'
+    },
+    description: "Template premium pour JEP et événements patrimoniaux avec créneaux horaires"
   }
 };
 
@@ -301,6 +320,11 @@ export default function EventsCreation() {
       advancedSettings: {}
     });
     setEditingEvent(null);
+  };
+
+  const handleCloseModal = () => {
+    resetForm();
+    onClose();
   };
 
   const applyTemplate = (templateKey) => {
@@ -461,8 +485,7 @@ export default function EventsCreation() {
       }
 
       fetchEvents();
-      onClose();
-      resetForm();
+      handleCloseModal();
       setSelectedTemplate('');
     } catch (e) {
       console.error('❌ handleSave error:', e);
@@ -504,6 +527,7 @@ export default function EventsCreation() {
           maxParticipants: maxParticipantsNum,
           registrationDeadline: wizardData.registrationDeadline || null,
           registrationMethod: wizardData.registrationMethod,
+          registrationType: wizardData.registrationType,
           template: wizardData.template,
           customQuestions: wizardData.customQuestions || [],
           eventType: wizardData.eventType || 'OUTING',
@@ -512,18 +536,30 @@ export default function EventsCreation() {
       };
 
       console.log('🚀 Saving wizard event:', eventData);
-      eventData.id = generateEventSlug(wizardData.title, wizardData.date);
       
-      await eventsAPI.create(eventData);
-      toast({
-        status: "success",
-        title: "Événement créé",
-        description: "Le nouvel événement a été créé avec succès"
-      });
+      if (editingEvent) {
+        // Mode édition : mettre à jour l'événement existant
+        console.log('✏️ Updating existing event:', editingEvent.id);
+        await eventsAPI.update(editingEvent.id, eventData);
+        toast({
+          status: "success",
+          title: "Événement modifié",
+          description: "Les modifications ont été sauvegardées"
+        });
+      } else {
+        // Mode création : créer un nouvel événement
+        console.log('➕ Creating new event');
+        eventData.id = generateEventSlug(wizardData.title, wizardData.date);
+        await eventsAPI.create(eventData);
+        toast({
+          status: "success",
+          title: "Événement créé",
+          description: "Le nouvel événement a été créé avec succès"
+        });
+      }
 
       fetchEvents();
-      onClose();
-      resetForm();
+      handleCloseModal();
       setSelectedTemplate('');
     } catch (e) {
       console.error('❌ handleWizardSave error:', e);
@@ -730,7 +766,7 @@ export default function EventsCreation() {
       )}
 
       {/* Modal de création/modification */}
-      <Modal isOpen={isOpen} onClose={onClose} size="6xl">
+      <Modal isOpen={isOpen} onClose={handleCloseModal} size="6xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
@@ -741,6 +777,7 @@ export default function EventsCreation() {
             <EventCreationWizard
               vehicles={vehicles}
               events={events}
+              initialEvent={editingEvent}
               onSave={handleWizardSave}
             />
           </ModalBody>

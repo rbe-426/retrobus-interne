@@ -267,6 +267,14 @@ const AdminFinance = () => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return true;
       } catch (e) { lastErr = e; }
+    }
+    if (lastErr) throw lastErr;
+    return false;
+  };
+
+  const patchFirst = async (paths, body = {}, headers = {}) => {
+    const list = Array.isArray(paths) ? paths : [paths];
+    let lastErr = null;
     
     // Ajouter le token CSRF automatiquement pour les mutations
     const csrfToken = getStoredCSRFToken();
@@ -280,15 +288,7 @@ const AdminFinance = () => {
       try {
         const res = await fetch(apiUrl(p), {
           method: 'PATCH',
-          headers: finalHeaders
-  const patchFirst = async (paths, body = {}, headers = {}) => {
-    const list = Array.isArray(paths) ? paths : [paths];
-    let lastErr = null;
-    for (const p of list) {
-      try {
-        const res = await fetch(apiUrl(p), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...headers },
+          headers: finalHeaders,
           body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);

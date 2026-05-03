@@ -128,6 +128,24 @@ const EVENT_TEMPLATES = {
       status: 'PUBLISHED'
     },
     description: "Réservé aux adhérents"
+  },
+  jep_statiques: {
+    name: "🏛️ JEP / Événements Statiques",
+    color: "purple",
+    defaults: {
+      isVisible: true,
+      allowPublicRegistration: true,
+      requiresRegistration: true,
+      isFree: true,
+      adultPrice: null,
+      childPrice: null,
+      maxParticipants: 300,
+      registrationDeadline: '',
+      registrationMethod: 'internal',
+      registrationType: 'jep_heritage',
+      status: 'PUBLISHED'
+    },
+    description: "Template premium pour JEP et événements patrimoniaux avec créneaux horaires"
   }
 };
 
@@ -171,43 +189,46 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
 
   const stepsComplete = [isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete, isStep5Complete];
 
-  // ===== AUTO-AVANCE =====
+  // ===== LOAD INITIAL EVENT DATA =====
   useEffect(() => {
-    if (currentStep === 0 && isStep1Complete) {
-      // Auto-move to step 2 after 500ms if step 1 is complete
-      const timer = setTimeout(() => {
-        if (currentStep === 0) {
-          setCurrentStep(1);
-          toast({
-            status: 'info',
-            title: 'Étape 1 complétée',
-            duration: 1500,
-            isClosable: true
-          });
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isStep1Complete, currentStep, toast]);
+    if (initialEvent) {
+      console.log('📝 Loading initial event for edit:', initialEvent);
+      
+      // Parser les extras
+      let extras = {};
+      try {
+        extras = initialEvent.extras ? JSON.parse(initialEvent.extras) : {};
+      } catch (e) {
+        console.error('Error parsing extras:', e);
+      }
 
-  useEffect(() => {
-    if (currentStep === 1 && isStep2Complete) {
-      const timer = setTimeout(() => {
-        if (currentStep === 1) {
-          setCurrentStep(2);
-          // Apply template defaults
-          applyTemplate(selectedTemplate);
-          toast({
-            status: 'info',
-            title: 'Étape 2 complétée',
-            duration: 1500,
-            isClosable: true
-          });
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+      // Charger les données dans formData
+      setFormData({
+        title: initialEvent.title || '',
+        date: initialEvent.date ? initialEvent.date.split('T')[0] : '',
+        time: initialEvent.time || '',
+        location: initialEvent.location || '',
+        description: initialEvent.description || '',
+        vehicleId: initialEvent.vehicleId || '',
+        adultPrice: initialEvent.adultPrice?.toString() || '',
+        childPrice: initialEvent.childPrice?.toString() || '',
+        maxParticipants: extras.maxParticipants?.toString() || '',
+        registrationDeadline: extras.registrationDeadline || '',
+        status: initialEvent.status || 'DRAFT',
+        isVisible: extras.isVisible !== undefined ? extras.isVisible : true,
+        allowPublicRegistration: extras.allowPublicRegistration || false,
+        requiresRegistration: extras.requiresRegistration || false,
+        isFree: extras.isFree !== undefined ? extras.isFree : true,
+        registrationMethod: extras.registrationMethod || 'none'
+      });
+
+      // Charger le template
+      setSelectedTemplate(extras.template || extras.eventType || '');
+
+      // Charger les questions personnalisées
+      setCustomQuestions(extras.customQuestions || []);
     }
-  }, [isStep2Complete, currentStep, selectedTemplate, toast]);
+  }, [initialEvent]);
 
   // ===== HANDLERS =====
   const applyTemplate = useCallback((templateKey) => {
@@ -259,7 +280,20 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
 
   const handleNext = () => {
     if (currentStep < WIZARD_STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      
+      // Appliquer le template quand on passe de l'étape 2 (template) vers l'étape 3
+      if (currentStep === 1 && selectedTemplate) {
+        applyTemplate(selectedTemplate);
+        toast({
+          status: 'success',
+          title: 'Template appliqué',
+          description: `Paramètres configurés pour: ${EVENT_TEMPLATES[selectedTemplate]?.name}`,
+          duration: 2000,
+          isClosable: true
+        });
+      }
     }
   };
 
