@@ -94,17 +94,24 @@ export default function EventsManagement() {
 
   const loadInitialData = useCallback(async () => {
     try {
-      console.log('📋 Chargement planifications et GPS...');
+      // Ces fonctionnalités sont optionnelles, on ignore les erreurs
+      try {
+        const plans = await eventsAPI.getPlanifications();
+        setPlanifications(Array.isArray(plans) ? plans : []);
+      } catch (err) {
+        // Planifications non disponibles, ignorer
+        setPlanifications([]);
+      }
       
-      const plans = await eventsAPI.getPlanifications();
-      setPlanifications(Array.isArray(plans) ? plans : []);
-      
-      const gps = await eventsAPI.getGPSTracking();
-      setGpsTracking(Array.isArray(gps) ? gps : []);
-      
-      console.log('✅ Données initiales chargées');
+      try {
+        const gps = await eventsAPI.getGPSTracking();
+        setGpsTracking(Array.isArray(gps) ? gps : []);
+      } catch (err) {
+        // GPS tracking non disponible, ignorer
+        setGpsTracking([]);
+      }
     } catch (err) {
-      console.warn('⚠️ Erreur chargement données initiales:', err);
+      // Erreur générale ignorée
     }
   }, []);
 
@@ -773,7 +780,9 @@ export default function EventsManagement() {
                                   console.log('🔍 Debug participant:', {
                                     id: p.id,
                                     name: p.participantName,
-                                    notesData,
+                                    notesRaw: p.notes,
+                                    notesData: notesData,
+                                    notesVehicles: notesData?.vehicles,
                                     vehicleModel: p.vehicleModel,
                                     vehicleName: p.vehicleName,
                                     vehicleYear: p.vehicleYear
@@ -843,10 +852,36 @@ export default function EventsManagement() {
                                                   </Text>
                                                 ))}
                                               </VStack>
+                                            ) : hasVehicleData ? (
+                                              <Text fontSize="sm" color="orange.500" fontStyle="italic">
+                                                Non renseignée (inscription ancienne)
+                                              </Text>
                                             ) : (
-                                              <Text fontSize="md" color="gray.400">Aucune plaque</Text>
+                                              <Text fontSize="md" color="gray.400">Aucune</Text>
                                             )}
                                           </Box>
+                                          
+                                          {/* Afficher les infos du véhicule si disponibles */}
+                                          {hasVehicleData && vehicles.length > 0 && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Véhicule(s) inscrit(s)</Text>
+                                              <VStack align="stretch" spacing={2}>
+                                                {vehicles.map((vehicle, idx) => (
+                                                  <Box key={idx} bg="purple.50" p={2} borderRadius="md" borderLeft="3px solid" borderLeftColor="purple.400">
+                                                    {vehicle.vehicleName && (
+                                                      <Text fontSize="sm" fontWeight="600">{vehicle.vehicleName}</Text>
+                                                    )}
+                                                    {vehicle.vehicleModel && (
+                                                      <Text fontSize="xs" color="gray.600">Modèle: {vehicle.vehicleModel}</Text>
+                                                    )}
+                                                    {vehicle.vehicleYear && (
+                                                      <Text fontSize="xs" color="gray.600">Année: {vehicle.vehicleYear}</Text>
+                                                    )}
+                                                  </Box>
+                                                ))}
+                                              </VStack>
+                                            </Box>
+                                          )}
                                         </VStack>
                                       </Box>
 
