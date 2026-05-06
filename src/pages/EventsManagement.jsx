@@ -6,11 +6,13 @@ import {
   SimpleGrid, Stat, StatLabel, StatNumber, Input, InputGroup, InputLeftElement,
   Select, FormControl, FormLabel, useToast, Progress, NumberInput, NumberInputField,
   NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper, Divider, Icon, Flex,
-  Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure,
+  Collapse, Tooltip
 } from "@chakra-ui/react";
 import {
   FiEdit, FiPlus, FiRefreshCw, FiSearch, FiMapPin,
-  FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink
+  FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink,
+  FiChevronDown, FiChevronUp
 } from "react-icons/fi";
 import { eventsAPI } from "../api/events";
 import { formatDateFrLong } from "../utils/dateFormat.js";
@@ -63,6 +65,10 @@ export default function EventsManagement() {
   const [routes, setRoutes] = useState([]);
   const [ha, setHa] = useState({ url: "", org: "", event: "" });
   const [relatedTransactions, setRelatedTransactions] = useState([]);
+
+  // État pour expansion des détails participants
+  const [expandedParticipantId, setExpandedParticipantId] = useState(null);
+  const [selectedEventForParticipants, setSelectedEventForParticipants] = useState(null);
 
   // Planification
   const [planifications, setPlanifications] = useState([]);
@@ -125,7 +131,7 @@ export default function EventsManagement() {
   }, [loadInitialData]);
 
   // Filtrer les événements
-  const filtered = useMemo(() => {
+  const filteredEvents = useMemo(() => {
     const t = searchTerm.trim().toLowerCase();
     return (events || []).filter((e) => {
       // Si pas de recherche, tout passe
@@ -451,7 +457,7 @@ export default function EventsManagement() {
 
         {loading ? (
           <Center py={20}><Spinner size="xl" /></Center>
-        ) : filtered.length === 0 ? (
+        ) : filteredEvents.length === 0 ? (
           <Center py={16}>
             <VStack spacing={4}>
               <Text color="gray.500">Aucun événement</Text>
@@ -462,7 +468,7 @@ export default function EventsManagement() {
           <Table variant="simple" size="sm">
             <Thead><Tr><Th>Événement</Th><Th>Date</Th><Th>Statut</Th><Th>Actions</Th></Tr></Thead>
             <Tbody>
-              {filtered.map((e) => (
+              {filteredEvents.map((e) => (
                 <Tr key={e.id}>
                   <Td>
                     <VStack align="start" spacing={1}>
@@ -488,13 +494,168 @@ export default function EventsManagement() {
     );
 
   const renderParticipantsTab = () => {
-    const maxParticipants = selectedEvent?.maxParticipants;
-    const currentParticipants = selectedEvent?.currentParticipants || 0;
+    // Si aucun événement sélectionné, afficher les cartes d'événements
+    if (!selectedEventForParticipants) {
+      // Créer une liste d'événements filtrée spécifiquement pour cet onglet
+      // On affiche tous les événements (pas de filtre par statut), juste par recherche
+      const t = searchTerm.trim().toLowerCase();
+      const eventsForParticipantsTab = (events || []).filter((e) => {
+        if (!t) return true; // Pas de recherche = tous les événements
+        return e.title?.toLowerCase().includes(t) || e.location?.toLowerCase().includes(t);
+      });
+
+      return (
+        <VStack align="stretch" spacing={4}>
+          <Box>
+            <Heading size="md" mb={2}>Sélectionnez un événement</Heading>
+            <Text fontSize="sm" color="gray.600" mb={4}>
+              Choisissez un événement pour consulter ses participants
+            </Text>
+          </Box>
+
+          <InputGroup maxW="400px">
+            <InputLeftElement pointerEvents="none">
+              <Icon as={FiSearch} color="gray.400" />
+            </InputLeftElement>
+            <Input 
+              placeholder="Rechercher un événement..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </InputGroup>
+
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {eventsForParticipantsTab.map((event) => {
+              const extras = event.extras ? JSON.parse(event.extras) : {};
+              const registrationType = extras.registrationType || 'standard';
+              const currentParts = event.currentParticipants || 0;
+              const maxParts = event.maxParticipants || extras.maxParticipants || null;
+              
+              return (
+                <Card 
+                  key={event.id}
+                  cursor="pointer"
+                  transition="all 0.2s"
+                  _hover={{ 
+                    transform: "translateY(-4px)", 
+                    boxShadow: "lg",
+                    borderColor: "blue.400" 
+                  }}
+                  borderWidth="2px"
+                  borderColor="gray.200"
+                  onClick={async () => {
+                    setSelectedEventForParticipants(event);
+                    setSelectedEvent(event);
+                    // Charger les participants
+                    try {
+                      const partsData = await eventsAPI.getParticipants(event.id);
+                      setParticipants(Array.isArray(partsData) ? partsData : []);
+                    } catch (err) {
+                      console.warn('Erreur chargement participants:', err);
+                      setParticipants([]);
+                    }
+                  }}
+                >
+                  <CardHeader pb={2}>
+                    <HStack justify="space-between" align="start">
+                      <Box flex={1}>
+                        <Heading size="sm" mb={1} noOfLines={2}>{event.title}</Heading>
+                        <HStack spacing={2} fontSize="xs" color="gray.600">
+                          <Icon as={FiCalendar} />
+                          <Text>{formatDate(event.date)}</Text>
+                        </HStack>
+                      </Box>
+                      {getStatusBadge(event.status)}
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <VStack align="stretch" spacing={2}>
+                      {event.location && (
+                        <HStack fontSize="sm" color="gray.600">
+                          <Icon as={FiMapPin} />
+                          <Text noOfLines={1}>{event.location}</Text>
+                        </HStack>
+                      )}
+                      <Divider />
+                      <HStack justify="space-between">
+                        <VStack align="start" spacing={0}>
+                          <Text fontSize="xs" color="gray.500">Participants</Text>
+                          <Text fontWeight="600" color="blue.600">
+                            {currentParts}{maxParts ? ` / ${maxParts}` : ''}
+                          </Text>
+                        </VStack>
+                        {registrationType === 'parade_vehicles' && (
+                          <Badge colorScheme="purple" fontSize="xs">
+                            <Icon as={FiTruck} mr={1} />
+                            Défilé véhicules
+                          </Badge>
+                        )}
+                      </HStack>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+
+          {eventsForParticipantsTab.length === 0 && (
+            <Center py={12}>
+              <VStack spacing={2}>
+                <Icon as={FiCalendar} boxSize={12} color="gray.400" />
+                <Text color="gray.500">Aucun événement trouvé</Text>
+              </VStack>
+            </Center>
+          )}
+        </VStack>
+      );
+    }
+
+    // Événement sélectionné : afficher les participants
+    const maxParticipants = selectedEventForParticipants?.maxParticipants;
+    // Utiliser participants.length au lieu de currentParticipants pour refléter les vrais participants chargés
+    const currentParticipants = participants.length;
+    const eventCurrentParticipants = selectedEventForParticipants?.currentParticipants || 0;
     const spotsAvailable = maxParticipants ? Math.max(0, maxParticipants - currentParticipants) : null;
     const isFull = maxParticipants && spotsAvailable === 0;
 
     return (
       <VStack align="stretch" spacing={4}>
+        {/* Retour à la sélection */}
+        <HStack justify="space-between" p={4} bg="blue.50" borderRadius="md">
+          <HStack spacing={3}>
+            <IconButton
+              icon={<FiChevronDown />}
+              size="sm"
+              onClick={() => {
+                setSelectedEventForParticipants(null);
+                setExpandedParticipantId(null);
+              }}
+              aria-label="Retour"
+            />
+            <Box>
+              <Heading size="sm">{selectedEventForParticipants.title}</Heading>
+              <Text fontSize="xs" color="gray.600">
+                {formatDate(selectedEventForParticipants.date)} • {selectedEventForParticipants.location}
+              </Text>
+            </Box>
+          </HStack>
+          <Button 
+            size="sm" 
+            leftIcon={<FiRefreshCw />} 
+            onClick={async () => {
+              try {
+                const partsData = await eventsAPI.getParticipants(selectedEventForParticipants.id);
+                setParticipants(Array.isArray(partsData) ? partsData : []);
+                toast({ status: "success", title: "Participants actualisés" });
+              } catch (err) {
+                toast({ status: "error", title: "Erreur", description: "Impossible de charger les participants" });
+              }
+            }}
+          >
+            Actualiser
+          </Button>
+        </HStack>
+
         {/* Affichage des places disponibles */}
         {maxParticipants && (
           <Card borderLeft="4px solid" borderLeftColor={isFull ? "red.400" : "blue.400"}>
@@ -532,31 +693,173 @@ export default function EventsManagement() {
             Ajouter
           </Button>
         </HStack>
+
         {participants.length === 0 ? (
           <Center py={8}><Text color="gray.500">Aucun participant</Text></Center>
         ) : (
-          <Table size="sm" variant="simple">
-            <Thead><Tr><Th>Nom</Th><Th>Email</Th><Th>Type</Th><Th>Statut</Th><Th></Th></Tr></Thead>
-            <Tbody>
-              {participants.map((p) => (
-                <Tr key={p.id}>
-                  <Td fontWeight="bold">{p.name}</Td>
-                  <Td>{p.email}</Td>
-                  <Td><Select size="sm" value={p.type} onChange={(e) => updateParticipant(p.id, { type: e.target.value })}>
-                    <option value="adult">Adulte</option>
-                    <option value="child">Enfant</option>
-                  </Select></Td>
-                  <Td><Select size="sm" value={p.status} onChange={(e) => updateParticipant(p.id, { status: e.target.value })}>
-                    <option value="pending">En attente</option>
-                    <option value="confirmed">Confirmé</option>
-                    <option value="cancelled">Annulé</option>
-                  </Select></Td>
-                  <Td isNumeric><IconButton aria-label="Supprimer" icon={<FiTrash2 />} size="sm" variant="ghost" colorScheme="red" 
-                    onClick={() => deleteParticipant(p.id)} /></Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+          <Card>
+            <CardBody p={0}>
+              <Table size="sm" variant="simple">
+                <Thead bg="gray.50">
+                  <Tr>
+                    <Th w="40px"></Th>
+                    <Th>Nom</Th>
+                    <Th>Email</Th>
+                    <Th>Type</Th>
+                    <Th>Statut</Th>
+                    <Th>Date inscription</Th>
+                    <Th></Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {participants.map((p) => {
+                    const isExpanded = expandedParticipantId === p.id;
+                    return (
+                      <React.Fragment key={p.id}>
+                        <Tr 
+                          _hover={{ bg: "gray.50" }}
+                          bg={isExpanded ? "blue.50" : "transparent"}
+                        >
+                          <Td>
+                            <Tooltip label={isExpanded ? "Masquer détails" : "Voir détails"}>
+                              <IconButton
+                                size="xs"
+                                icon={isExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                variant="ghost"
+                                colorScheme="blue"
+                                onClick={() => setExpandedParticipantId(isExpanded ? null : p.id)}
+                                aria-label="Détails"
+                              />
+                            </Tooltip>
+                          </Td>
+                          <Td fontWeight="bold">{p.participantName || p.name || '—'}</Td>
+                          <Td>{p.participantEmail || p.email || '—'}</Td>
+                          <Td>
+                            <Badge colorScheme={p.type === 'adult' ? 'blue' : 'green'}>
+                              {p.adultTickets || 0} adulte{(p.adultTickets || 0) > 1 ? 's' : ''} • {p.childTickets || 0} enfant{(p.childTickets || 0) > 1 ? 's' : ''}
+                            </Badge>
+                          </Td>
+                          <Td>
+                            <Badge 
+                              colorScheme={
+                                p.registrationStatus === 'confirmed' || p.status === 'confirmed' ? 'green' : 
+                                p.registrationStatus === 'cancelled' || p.status === 'cancelled' ? 'red' : 
+                                'yellow'
+                              }
+                            >
+                              {p.registrationStatus || p.status || 'pending'}
+                            </Badge>
+                          </Td>
+                          <Td fontSize="xs" color="gray.600">
+                            {p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '—'}
+                          </Td>
+                          <Td isNumeric>
+                            <IconButton 
+                              aria-label="Supprimer" 
+                              icon={<FiTrash2 />} 
+                              size="sm" 
+                              variant="ghost" 
+                              colorScheme="red" 
+                              onClick={() => deleteParticipant(p.id)} 
+                            />
+                          </Td>
+                        </Tr>
+                        {/* Ligne de détails expandable */}
+                        <Tr>
+                          <Td colSpan={7} p={0}>
+                            <Collapse in={isExpanded} animateOpacity>
+                              <Box bg="gray.50" p={6} borderTop="1px" borderColor="gray.200">
+                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                                  {/* Informations générales */}
+                                  <Box>
+                                    <Heading size="xs" mb={3} color="blue.600">Informations générales</Heading>
+                                    <VStack align="stretch" spacing={2}>
+                                      <HStack justify="space-between">
+                                        <Text fontSize="sm" color="gray.600">Code de validation:</Text>
+                                        <Text fontSize="sm" fontWeight="600" fontFamily="mono">
+                                          {p.validationCode || '—'}
+                                        </Text>
+                                      </HStack>
+                                      <HStack justify="space-between">
+                                        <Text fontSize="sm" color="gray.600">Méthode de paiement:</Text>
+                                        <Badge>{p.paymentMethod || 'internal'}</Badge>
+                                      </HStack>
+                                      {p.vehicleModel && (
+                                        <>
+                                          <Divider />
+                                          <Heading size="xs" color="purple.600">Véhicule</Heading>
+                                          <HStack justify="space-between">
+                                            <Text fontSize="sm" color="gray.600">Nom:</Text>
+                                            <Text fontSize="sm" fontWeight="600">{p.vehicleName || '—'}</Text>
+                                          </HStack>
+                                          <HStack justify="space-between">
+                                            <Text fontSize="sm" color="gray.600">Modèle:</Text>
+                                            <Text fontSize="sm" fontWeight="600">{p.vehicleModel || '—'}</Text>
+                                          </HStack>
+                                          <HStack justify="space-between">
+                                            <Text fontSize="sm" color="gray.600">Année:</Text>
+                                            <Text fontSize="sm" fontWeight="600">{p.vehicleYear || '—'}</Text>
+                                          </HStack>
+                                        </>
+                                      )}
+                                      {p.isClubMember && (
+                                        <HStack justify="space-between">
+                                          <Text fontSize="sm" color="gray.600">Club:</Text>
+                                          <Text fontSize="sm" fontWeight="600">{p.clubName || '—'}</Text>
+                                        </HStack>
+                                      )}
+                                    </VStack>
+                                  </Box>
+
+                                  {/* Actions */}
+                                  <Box>
+                                    <Heading size="xs" mb={3} color="blue.600">Actions</Heading>
+                                    <VStack align="stretch" spacing={2}>
+                                      <Select 
+                                        size="sm" 
+                                        value={p.status || p.registrationStatus} 
+                                        onChange={(e) => updateParticipant(p.id, { status: e.target.value })}
+                                      >
+                                        <option value="pending">En attente</option>
+                                        <option value="confirmed">Confirmé</option>
+                                        <option value="cancelled">Annulé</option>
+                                      </Select>
+                                      <Button 
+                                        size="sm" 
+                                        colorScheme="blue" 
+                                        leftIcon={<FiExternalLink />}
+                                        onClick={() => {
+                                          toast({ 
+                                            status: "info", 
+                                            title: "Envoyer email", 
+                                            description: `Email: ${p.participantEmail || p.email}` 
+                                          });
+                                        }}
+                                      >
+                                        Envoyer un email
+                                      </Button>
+                                    </VStack>
+                                  </Box>
+                                </SimpleGrid>
+
+                                {/* Données brutes (debug) */}
+                                {p.notes && (
+                                  <Box mt={4} p={3} bg="white" borderRadius="md" fontSize="xs">
+                                    <Text fontWeight="600" mb={1}>Notes:</Text>
+                                    <Text color="gray.600" whiteSpace="pre-wrap">{p.notes}</Text>
+                                  </Box>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </Td>
+                        </Tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </Tbody>
+              </Table>
+            </CardBody>
+          </Card>
         )}
       </VStack>
     );
