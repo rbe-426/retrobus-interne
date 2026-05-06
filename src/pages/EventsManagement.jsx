@@ -12,9 +12,10 @@ import {
 import {
   FiEdit, FiPlus, FiRefreshCw, FiSearch, FiMapPin,
   FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink,
-  FiChevronDown, FiChevronUp
+  FiChevronDown, FiChevronUp, FiCheck, FiX
 } from "react-icons/fi";
 import { eventsAPI } from "../api/events";
+import { membersAPI } from "../api/members";
 import { formatDateFrLong } from "../utils/dateFormat.js";
 
 const getStatusBadge = (status) => {
@@ -242,23 +243,11 @@ export default function EventsManagement() {
         maxParticipants: managingEventData.maxParticipants,
         adultPrice: managingEventData.adultPrice,
         childPrice: managingEventData.childPrice,
-        extras: JSON.stringify(updatedExtras)
+        extras: updatedExtras  // Passer l'objet directement, eventsAPI.update() le stringifiera
       };
 
-      // Utiliser l'API client au lieu de fetch directement
-      const response = await fetch(`/api/events/${managingEvent.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (response.status === 401) {
-        throw new Error('Authentification requise');
-      }
-      if (!response.ok) throw new Error(`Erreur ${response.status}`);
+      // Utiliser eventsAPI au lieu de fetch directement
+      await eventsAPI.update(managingEvent.id, updateData);
 
       toast({ status: "success", title: "Paramètres enregistrés" });
       onManageClose();
@@ -278,10 +267,8 @@ export default function EventsManagement() {
     setSelectedMemberIds([]);
     setLoadingMembers(true);
     try {
-      // Charger la liste des membres
-      const response = await fetch('/api/members');
-      if (!response.ok) throw new Error('Erreur chargement membres');
-      const data = await response.json();
+      // Charger la liste des membres via l'API
+      const data = await membersAPI.getAll();
       const membersList = Array.isArray(data) ? data : data?.members || [];
       setAvailableMembers(membersList);
     } catch (err) {
@@ -334,13 +321,14 @@ export default function EventsManagement() {
       toast({ status: "warning", title: "Nom et email requis" });
       return;
     }
-    if (!selectedEvent?.id) {
+    const eventId = selectedEventForParticipants?.id || selectedEvent?.id;
+    if (!eventId) {
       toast({ status: "warning", title: "Aucun événement sélectionné" });
       return;
     }
     try {
-      await eventsAPI.addParticipant(selectedEvent.id, p);
-      const updated = await eventsAPI.getParticipants(selectedEvent.id);
+      await eventsAPI.addParticipant(eventId, p);
+      const updated = await eventsAPI.getParticipants(eventId);
       setParticipants(Array.isArray(updated) ? updated : []);
       toast({ status: "success", title: "Participant ajouté" });
     } catch (err) {
@@ -349,21 +337,24 @@ export default function EventsManagement() {
   };
 
   const updateParticipant = async (id, updates) => {
-    if (!selectedEvent?.id) return;
+    const eventId = selectedEventForParticipants?.id || selectedEvent?.id;
+    if (!eventId) return;
     try {
-      await eventsAPI.updateParticipant(selectedEvent.id, id, updates);
-      const updated = await eventsAPI.getParticipants(selectedEvent.id);
+      await eventsAPI.updateParticipant(eventId, id, updates);
+      const updated = await eventsAPI.getParticipants(eventId);
       setParticipants(Array.isArray(updated) ? updated : []);
+      toast({ status: "success", title: "Participant mis à jour" });
     } catch (err) {
       toast({ status: "error", title: "Erreur", description: err.message });
     }
   };
 
   const deleteParticipant = async (id) => {
-    if (!selectedEvent?.id) return;
+    const eventId = selectedEventForParticipants?.id || selectedEvent?.id;
+    if (!eventId) return;
     try {
-      await eventsAPI.deleteParticipant(selectedEvent.id, id);
-      const updated = await eventsAPI.getParticipants(selectedEvent.id);
+      await eventsAPI.deleteParticipant(eventId, id);
+      const updated = await eventsAPI.getParticipants(eventId);
       setParticipants(Array.isArray(updated) ? updated : []);
       toast({ status: "success", title: "Participant supprimé" });
     } catch (err) {
@@ -742,7 +733,7 @@ export default function EventsManagement() {
                           <Td>
                             <Badge 
                               colorScheme={
-                                p.registrationStatus === 'confirmed' || p.status === 'confirmed' ? 'green' : 
+                                p.registrationStatus === 'validated' || p.registrationStatus === 'confirmed' || p.status === 'confirmed' ? 'green' : 
                                 p.registrationStatus === 'cancelled' || p.status === 'cancelled' ? 'red' : 
                                 'yellow'
                               }
@@ -769,86 +760,123 @@ export default function EventsManagement() {
                           <Td colSpan={7} p={0}>
                             <Collapse in={isExpanded} animateOpacity>
                               <Box bg="gray.50" p={6} borderTop="1px" borderColor="gray.200">
-                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                                  {/* Informations générales */}
-                                  <Box>
-                                    <Heading size="xs" mb={3} color="blue.600">Informations générales</Heading>
-                                    <VStack align="stretch" spacing={2}>
-                                      <HStack justify="space-between">
-                                        <Text fontSize="sm" color="gray.600">Code de validation:</Text>
-                                        <Text fontSize="sm" fontWeight="600" fontFamily="mono">
-                                          {p.validationCode || '—'}
-                                        </Text>
-                                      </HStack>
-                                      <HStack justify="space-between">
-                                        <Text fontSize="sm" color="gray.600">Méthode de paiement:</Text>
-                                        <Badge>{p.paymentMethod || 'internal'}</Badge>
-                                      </HStack>
-                                      {p.vehicleModel && (
-                                        <>
-                                          <Divider />
-                                          <Heading size="xs" color="purple.600">Véhicule</Heading>
-                                          <HStack justify="space-between">
-                                            <Text fontSize="sm" color="gray.600">Nom:</Text>
-                                            <Text fontSize="sm" fontWeight="600">{p.vehicleName || '—'}</Text>
-                                          </HStack>
-                                          <HStack justify="space-between">
-                                            <Text fontSize="sm" color="gray.600">Modèle:</Text>
-                                            <Text fontSize="sm" fontWeight="600">{p.vehicleModel || '—'}</Text>
-                                          </HStack>
-                                          <HStack justify="space-between">
-                                            <Text fontSize="sm" color="gray.600">Année:</Text>
-                                            <Text fontSize="sm" fontWeight="600">{p.vehicleYear || '—'}</Text>
-                                          </HStack>
-                                        </>
-                                      )}
-                                      {p.isClubMember && (
-                                        <HStack justify="space-between">
-                                          <Text fontSize="sm" color="gray.600">Club:</Text>
-                                          <Text fontSize="sm" fontWeight="600">{p.clubName || '—'}</Text>
-                                        </HStack>
-                                      )}
-                                    </VStack>
-                                  </Box>
+                                {(() => {
+                                  // Parser les notes pour récupérer les données complètes
+                                  let notesData = null;
+                                  try {
+                                    notesData = p.notes ? JSON.parse(p.notes) : null;
+                                  } catch (e) {
+                                    console.warn('Erreur parsing notes:', e);
+                                    console.log('Notes brutes:', p.notes);
+                                  }
+                                  
+                                  console.log('🔍 Debug participant:', {
+                                    id: p.id,
+                                    name: p.participantName,
+                                    notesData,
+                                    vehicleModel: p.vehicleModel,
+                                    vehicleName: p.vehicleName,
+                                    vehicleYear: p.vehicleYear
+                                  });
+                                  
+                                  // Récupérer les véhicules depuis le JSON notes ou depuis les champs directs (anciennes inscriptions)
+                                  let vehicles = notesData?.vehicles || [];
+                                  
+                                  // Si pas de véhicules dans notes mais qu'il y a des données dans les champs directs
+                                  if (vehicles.length === 0 && (p.vehicleModel || p.vehicleName)) {
+                                    vehicles = [{
+                                      licensePlate: null, // Les anciennes inscriptions n'ont pas de plaque stockée
+                                      vehicleName: p.vehicleName,
+                                      vehicleModel: p.vehicleModel,
+                                      vehicleYear: p.vehicleYear
+                                    }];
+                                  }
+                                  
+                                  const licensePlates = vehicles.map(v => v.licensePlate).filter(Boolean);
+                                  const hasVehicleData = vehicles.length > 0 && vehicles.some(v => v.vehicleModel || v.vehicleName);
+                                  
+                                  // Séparer nom et prénom
+                                  const fullName = p.participantName || p.name || '—';
+                                  const nameParts = fullName.split(' ');
+                                  const firstName = nameParts[0] || '—';
+                                  const lastName = nameParts.slice(1).join(' ') || '—';
 
-                                  {/* Actions */}
-                                  <Box>
-                                    <Heading size="xs" mb={3} color="blue.600">Actions</Heading>
-                                    <VStack align="stretch" spacing={2}>
-                                      <Select 
-                                        size="sm" 
-                                        value={p.status || p.registrationStatus} 
-                                        onChange={(e) => updateParticipant(p.id, { status: e.target.value })}
-                                      >
-                                        <option value="pending">En attente</option>
-                                        <option value="confirmed">Confirmé</option>
-                                        <option value="cancelled">Annulé</option>
-                                      </Select>
-                                      <Button 
-                                        size="sm" 
-                                        colorScheme="blue" 
-                                        leftIcon={<FiExternalLink />}
-                                        onClick={() => {
-                                          toast({ 
-                                            status: "info", 
-                                            title: "Envoyer email", 
-                                            description: `Email: ${p.participantEmail || p.email}` 
-                                          });
-                                        }}
-                                      >
-                                        Envoyer un email
-                                      </Button>
-                                    </VStack>
-                                  </Box>
-                                </SimpleGrid>
+                                  return (
+                                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                                      {/* Informations Générales */}
+                                      <Box>
+                                        <Heading size="sm" mb={4} color="blue.600">Informations Générales</Heading>
+                                        <VStack align="stretch" spacing={3}>
+                                          <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Nom</Text>
+                                            <Text fontSize="md" fontWeight="600">{lastName}</Text>
+                                          </Box>
+                                          <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Prénom</Text>
+                                            <Text fontSize="md" fontWeight="600">{firstName}</Text>
+                                          </Box>
+                                          <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Numéro de réservation</Text>
+                                            <Text fontSize="md" fontWeight="700" fontFamily="mono" color="blue.700">
+                                              {p.validationCode || '—'}
+                                            </Text>
+                                          </Box>
+                                          <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Date</Text>
+                                            <Text fontSize="md" fontWeight="600">
+                                              {p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '—'}
+                                            </Text>
+                                          </Box>
+                                          <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Plaque(s) recensée(s)</Text>
+                                            {licensePlates.length > 0 ? (
+                                              <VStack align="stretch" spacing={1}>
+                                                {licensePlates.map((plate, idx) => (
+                                                  <Text 
+                                                    key={idx} 
+                                                    fontSize="md" 
+                                                    fontWeight="700" 
+                                                    fontFamily="mono" 
+                                                    color="purple.700"
+                                                  >
+                                                    {plate}
+                                                  </Text>
+                                                ))}
+                                              </VStack>
+                                            ) : (
+                                              <Text fontSize="md" color="gray.400">Aucune plaque</Text>
+                                            )}
+                                          </Box>
+                                        </VStack>
+                                      </Box>
 
-                                {/* Données brutes (debug) */}
-                                {p.notes && (
-                                  <Box mt={4} p={3} bg="white" borderRadius="md" fontSize="xs">
-                                    <Text fontWeight="600" mb={1}>Notes:</Text>
-                                    <Text color="gray.600" whiteSpace="pre-wrap">{p.notes}</Text>
-                                  </Box>
-                                )}
+                                      {/* Actions */}
+                                      <Box>
+                                        <Heading size="sm" mb={4} color="blue.600">Actions</Heading>
+                                        <VStack align="stretch" spacing={3}>
+                                          <Button 
+                                            colorScheme="green" 
+                                            size="md"
+                                            leftIcon={<FiCheck />}
+                                            onClick={() => updateParticipant(p.id, { registrationStatus: 'validated' })}
+                                            isDisabled={p.registrationStatus === 'validated' || p.status === 'validated'}
+                                          >
+                                            Valider
+                                          </Button>
+                                          <Button 
+                                            colorScheme="red" 
+                                            size="md"
+                                            leftIcon={<FiX />}
+                                            onClick={() => updateParticipant(p.id, { registrationStatus: 'cancelled' })}
+                                            isDisabled={p.registrationStatus === 'cancelled' || p.status === 'cancelled'}
+                                          >
+                                            Annuler
+                                          </Button>
+                                        </VStack>
+                                      </Box>
+                                    </SimpleGrid>
+                                  );
+                                })()}
                               </Box>
                             </Collapse>
                           </Td>
