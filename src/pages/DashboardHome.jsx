@@ -63,8 +63,8 @@ export default function DashboardHome() {
   const toast = useToast();
   const cardBg = useColorModeValue("white", "gray.800");
   const gradientBg = useColorModeValue(
-    "linear(to-r, blue.500, purple.600)",
-    "linear(to-r, blue.600, purple.700)"
+    "linear(to-r, rbe.500, rbe.600)",
+    "linear(to-r, rbe.600, rbe.700)"
   );
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
@@ -460,11 +460,11 @@ export default function DashboardHome() {
           <VStack spacing={8} align="stretch">
             {/* Statistiques principales */}
             <HStack spacing={6} wrap="wrap">
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Véhicules</StatLabel>
-                    <StatNumber color="blue.500">
+                    <StatNumber color="rbe.600">
                       <HStack>
                         <Icon as={FiTruck} />
                         {stats.vehicles.loading ? (
@@ -480,7 +480,7 @@ export default function DashboardHome() {
                     </StatNumber>
                     <Progress 
                       value={stats.vehicles.total > 0 ? 100 : 0} 
-                      colorScheme="blue" 
+                      colorScheme="rbe" 
                       size="sm" 
                       mt={2} 
                       isIndeterminate={stats.vehicles.loading}
@@ -489,7 +489,7 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Événements</StatLabel>
@@ -508,7 +508,7 @@ export default function DashboardHome() {
                           )}
                         </HStack>
                         {!stats.events.loading && stats.events.published > 0 && (
-                          <Badge colorScheme="blue" fontSize="xs">
+                          <Badge colorScheme="green" variant="subtle" fontSize="xs">
                             dont {stats.events.published} public{stats.events.published !== 1 ? 's' : ''}
                           </Badge>
                         )}
@@ -525,11 +525,11 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Adhérents</StatLabel>
-                    <StatNumber color="purple.500">
+                    <StatNumber color="rbe.600">
                       <HStack>
                         <Icon as={FiUsers} />
                         {stats.members.loading ? (
@@ -541,7 +541,7 @@ export default function DashboardHome() {
                     </StatNumber>
                     <Progress 
                       value={stats.members.total > 0 ? (stats.members.active / stats.members.total) * 100 : 0} 
-                      colorScheme="purple" 
+                      colorScheme="rbe" 
                       size="sm" 
                       mt={2} 
                       isIndeterminate={stats.members.loading}
@@ -738,7 +738,7 @@ export default function DashboardHome() {
                       <Button
                         size="sm"
                         leftIcon={<FiShare2 />}
-                        colorScheme="blue"
+                        colorScheme="rbe"
                         variant="outline"
                         flex={1}
                         onClick={() => shareOnWeb(retroActus[currentActuIndex])}
@@ -748,7 +748,7 @@ export default function DashboardHome() {
                       <Button
                         size="sm"
                         leftIcon={<FiMail />}
-                        colorScheme="cyan"
+                        colorScheme="green"
                         variant="outline"
                         flex={1}
                         onClick={() => shareRetroActu(retroActus[currentActuIndex])}
@@ -773,7 +773,7 @@ export default function DashboardHome() {
               <CardHeader>
                 <HStack justify="space-between">
                   <Heading size="md" fontWeight="700">Notifications</Heading>
-                  <Badge colorScheme="blue" variant="subtle">
+                  <Badge colorScheme="rbe" variant="subtle">
                     {flashes.length}
                   </Badge>
                 </HStack>
@@ -796,7 +796,7 @@ export default function DashboardHome() {
                               {flash.createdAt ? new Date(flash.createdAt).toLocaleDateString('fr-FR') : ''}
                             </Text>
                           </VStack>
-                          <Badge colorScheme="blue" variant="subtle" fontSize="xs">
+                          <Badge colorScheme="rbe" variant="subtle" fontSize="xs">
                             {flash.category}
                           </Badge>
                         </HStack>

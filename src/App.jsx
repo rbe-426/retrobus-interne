@@ -49,6 +49,7 @@ import AttendanceManager from "./pages/AttendanceManager";
 import RetroDemandes from "./pages/RetroDemandes";
 import EchancierPage from "./pages/EchancierPage";
 import ThemeShowcase from "./pages/ThemeShowcase";
+import TrilogyRBE from "./pages/TrilogyRBE";
 import SubventionCampaign from "./pages/SubventionCampaign";
 import SubventionCampaignAdmin from "./pages/SubventionCampaignAdmin";
 import PermissionsManager from "./components/PermissionsManager";
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/dashboard/home" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
   <Route path="/dashboard/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
+  <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
         
         {/* 📋 RétroDemandes - Demandes unifiées avec contrôle d'accès */}
         <Route path="/dashboard/retro-demandes" element={<ProtectedRoute><RetroDemandes /></ProtectedRoute>} />

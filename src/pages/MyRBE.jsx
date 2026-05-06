@@ -23,6 +23,7 @@ import {
   FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool, FiShield,
   FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag
 } from "react-icons/fi";
+import { FaPaintBrush } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
 import { canAccess, RESOURCES } from "../lib/permissions";
 import { useUserPermissions } from "../hooks/useUserPermissions";
@@ -31,12 +32,12 @@ import ModernCard from '../components/Layout/ModernCard';
 
 const cards = [
   {
-    title: "RétroDemandes",
-    description: "Créez vos demandes et consultez le récapitulatif",
-    to: "/dashboard/retro-demandes",
-    icon: FiPlus,
-    color: "blue",
-    resource: "RETRO_DEMANDES",
+    title: "Trilogy RBE",
+    description: "Aperçu du thème complet et éléments graphiques",
+    to: "/dashboard/trilogy-rbe",
+    icon: FaPaintBrush,
+    color: "rbe",
+    resource: null,
     cardAccess: true
   },
   {

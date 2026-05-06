@@ -446,11 +446,46 @@ export default function EventsManagement() {
         </HStack>
 
         <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4} mb={6}>
-          <Card><CardBody><Stat><StatLabel>Total</StatLabel><StatNumber color="blue.500">{stats.total}</StatNumber></Stat></CardBody></Card>
-          <Card><CardBody><Stat><StatLabel>Publiés</StatLabel><StatNumber color="green.500">{stats.published}</StatNumber></Stat></CardBody></Card>
-          <Card><CardBody><Stat><StatLabel>À venir</StatLabel><StatNumber color="orange.500">{stats.upcoming}</StatNumber></Stat></CardBody></Card>
-          <Card><CardBody><Stat><StatLabel>Participants</StatLabel><StatNumber color="purple.500">{stats.totalParticipants}</StatNumber></Stat></CardBody></Card>
-          <Card><CardBody><Stat><StatLabel>Revenus</StatLabel><StatNumber color="green.600">{stats.totalRevenue}€</StatNumber></Stat></CardBody></Card>
+          <Card _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }} transition="all 0.2s">
+            <CardBody>
+              <Stat>
+                <StatLabel color="gray.600">Total</StatLabel>
+                <StatNumber color="rbe.600">{stats.total}</StatNumber>
+              </Stat>
+            </CardBody>
+          </Card>
+          <Card _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }} transition="all 0.2s">
+            <CardBody>
+              <Stat>
+                <StatLabel color="gray.600">Publiés</StatLabel>
+                <StatNumber color="green.500">{stats.published}</StatNumber>
+              </Stat>
+            </CardBody>
+          </Card>
+          <Card _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }} transition="all 0.2s">
+            <CardBody>
+              <Stat>
+                <StatLabel color="gray.600">À venir</StatLabel>
+                <StatNumber color="orange.500">{stats.upcoming}</StatNumber>
+              </Stat>
+            </CardBody>
+          </Card>
+          <Card _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }} transition="all 0.2s">
+            <CardBody>
+              <Stat>
+                <StatLabel color="gray.600">Participants</StatLabel>
+                <StatNumber color="rbe.600">{stats.totalParticipants}</StatNumber>
+              </Stat>
+            </CardBody>
+          </Card>
+          <Card _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }} transition="all 0.2s">
+            <CardBody>
+              <Stat>
+                <StatLabel color="gray.600">Revenus</StatLabel>
+                <StatNumber color="green.500">{stats.totalRevenue}€</StatNumber>
+              </Stat>
+            </CardBody>
+          </Card>
         </SimpleGrid>
 
         {loading ? (
@@ -463,7 +498,7 @@ export default function EventsManagement() {
             </VStack>
           </Center>
         ) : (
-          <Table variant="simple" size="sm">
+          <Table variant="striped" colorScheme="gray" size="sm">
             <Thead><Tr><Th>Événement</Th><Th>Date</Th><Th>Statut</Th><Th>Actions</Th></Tr></Thead>
             <Tbody>
               {filteredEvents.map((e) => (
@@ -536,11 +571,12 @@ export default function EventsManagement() {
                   transition="all 0.2s"
                   _hover={{ 
                     transform: "translateY(-4px)", 
-                    boxShadow: "lg",
-                    borderColor: "blue.400" 
+                    boxShadow: "xl",
+                    borderColor: "rbe.500" 
                   }}
-                  borderWidth="2px"
+                  borderWidth="1px"
                   borderColor="gray.200"
+                  bg="white"
                   onClick={async () => {
                     setSelectedEventForParticipants(event);
                     setSelectedEvent(event);
@@ -578,12 +614,12 @@ export default function EventsManagement() {
                       <HStack justify="space-between">
                         <VStack align="start" spacing={0}>
                           <Text fontSize="xs" color="gray.500">Participants</Text>
-                          <Text fontWeight="600" color="blue.600">
+                          <Text fontWeight="700" color="rbe.600">
                             {currentParts}{maxParts ? ` / ${maxParts}` : ''}
                           </Text>
                         </VStack>
                         {registrationType === 'parade_vehicles' && (
-                          <Badge colorScheme="purple" fontSize="xs">
+                          <Badge colorScheme="rbe" fontSize="xs" variant="subtle">
                             <Icon as={FiTruck} mr={1} />
                             Défilé véhicules
                           </Badge>
@@ -619,7 +655,7 @@ export default function EventsManagement() {
     return (
       <VStack align="stretch" spacing={4}>
         {/* Retour à la sélection */}
-        <HStack justify="space-between" p={4} bg="blue.50" borderRadius="md">
+        <HStack justify="space-between" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.200">
           <HStack spacing={3}>
             <IconButton
               icon={<FiChevronDown />}
@@ -697,7 +733,7 @@ export default function EventsManagement() {
         ) : (
           <Card>
             <CardBody p={0}>
-              <Table size="sm" variant="simple">
+              <Table size="sm" variant="striped" colorScheme="gray">
                 <Thead bg="gray.50">
                   <Tr>
                     <Th w="40px"></Th>
@@ -733,7 +769,7 @@ export default function EventsManagement() {
                           <Td fontWeight="bold">{p.participantName || p.name || '—'}</Td>
                           <Td>{p.participantEmail || p.email || '—'}</Td>
                           <Td>
-                            <Badge colorScheme={p.type === 'adult' ? 'blue' : 'green'}>
+                            <Badge colorScheme={p.type === 'adult' ? 'rbe' : 'green'} variant="subtle">
                               {p.adultTickets || 0} adulte{(p.adultTickets || 0) > 1 ? 's' : ''} • {p.childTickets || 0} enfant{(p.childTickets || 0) > 1 ? 's' : ''}
                             </Badge>
                           </Td>
@@ -742,8 +778,9 @@ export default function EventsManagement() {
                               colorScheme={
                                 p.registrationStatus === 'validated' || p.registrationStatus === 'confirmed' || p.status === 'confirmed' ? 'green' : 
                                 p.registrationStatus === 'cancelled' || p.status === 'cancelled' ? 'red' : 
-                                'yellow'
+                                'orange'
                               }
+                              variant="subtle"
                             >
                               {p.registrationStatus || p.status || 'pending'}
                             </Badge>
@@ -774,19 +811,7 @@ export default function EventsManagement() {
                                     notesData = p.notes ? JSON.parse(p.notes) : null;
                                   } catch (e) {
                                     console.warn('Erreur parsing notes:', e);
-                                    console.log('Notes brutes:', p.notes);
                                   }
-                                  
-                                  console.log('🔍 Debug participant:', {
-                                    id: p.id,
-                                    name: p.participantName,
-                                    notesRaw: p.notes,
-                                    notesData: notesData,
-                                    notesVehicles: notesData?.vehicles,
-                                    vehicleModel: p.vehicleModel,
-                                    vehicleName: p.vehicleName,
-                                    vehicleYear: p.vehicleYear
-                                  });
                                   
                                   // Récupérer les véhicules depuis le JSON notes ou depuis les champs directs (anciennes inscriptions)
                                   let vehicles = notesData?.vehicles || [];
@@ -803,6 +828,8 @@ export default function EventsManagement() {
                                   
                                   const licensePlates = vehicles.map(v => v.licensePlate).filter(Boolean);
                                   const hasVehicleData = vehicles.length > 0 && vehicles.some(v => v.vehicleModel || v.vehicleName);
+                                  const customAnswers = notesData?.customAnswers || {};
+                                  const staticGathering = customAnswers.staticGathering || {};
                                   
                                   // Séparer nom et prénom
                                   const fullName = p.participantName || p.name || '—';
@@ -811,10 +838,11 @@ export default function EventsManagement() {
                                   const lastName = nameParts.slice(1).join(' ') || '—';
 
                                   return (
-                                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
                                       {/* Informations Générales */}
-                                      <Box>
-                                        <Heading size="sm" mb={4} color="blue.600">Informations Générales</Heading>
+                                      <Card bg="white" borderRadius="lg" boxShadow="sm">
+                                        <CardBody>
+                                        <Heading size="sm" mb={4} color="rbe.600">Informations Générales</Heading>
                                         <VStack align="stretch" spacing={3}>
                                           <Box>
                                             <Text fontSize="xs" color="gray.500" mb={1}>Nom</Text>
@@ -826,7 +854,7 @@ export default function EventsManagement() {
                                           </Box>
                                           <Box>
                                             <Text fontSize="xs" color="gray.500" mb={1}>Numéro de réservation</Text>
-                                            <Text fontSize="md" fontWeight="700" fontFamily="mono" color="blue.700">
+                                            <Text fontSize="md" fontWeight="700" fontFamily="mono" color="rbe.600">
                                               {p.validationCode || '—'}
                                             </Text>
                                           </Box>
@@ -837,6 +865,22 @@ export default function EventsManagement() {
                                             </Text>
                                           </Box>
                                           <Box>
+                                            <Text fontSize="xs" color="gray.500" mb={1}>Email</Text>
+                                            <Text fontSize="md" fontWeight="600">{p.participantEmail || p.email || '—'}</Text>
+                                          </Box>
+                                          {(p.participantPhone || p.phone) && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Téléphone</Text>
+                                              <Text fontSize="md" fontWeight="600">{p.participantPhone || p.phone}</Text>
+                                            </Box>
+                                          )}
+                                          {p.isClubMember && p.clubName && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Club / Association</Text>
+                                              <Text fontSize="md" fontWeight="600">{p.clubName}</Text>
+                                            </Box>
+                                          )}
+                                          <Box>
                                             <Text fontSize="xs" color="gray.500" mb={1}>Plaque(s) recensée(s)</Text>
                                             {licensePlates.length > 0 ? (
                                               <VStack align="stretch" spacing={1}>
@@ -846,14 +890,14 @@ export default function EventsManagement() {
                                                     fontSize="md" 
                                                     fontWeight="700" 
                                                     fontFamily="mono" 
-                                                    color="purple.700"
+                                                    color="rbe.600"
                                                   >
                                                     {plate}
                                                   </Text>
                                                 ))}
                                               </VStack>
                                             ) : hasVehicleData ? (
-                                              <Text fontSize="sm" color="orange.500" fontStyle="italic">
+                                              <Text fontSize="sm" color="gray.500" fontStyle="italic">
                                                 Non renseignée (inscription ancienne)
                                               </Text>
                                             ) : (
@@ -867,7 +911,7 @@ export default function EventsManagement() {
                                               <Text fontSize="xs" color="gray.500" mb={1}>Véhicule(s) inscrit(s)</Text>
                                               <VStack align="stretch" spacing={2}>
                                                 {vehicles.map((vehicle, idx) => (
-                                                  <Box key={idx} bg="purple.50" p={2} borderRadius="md" borderLeft="3px solid" borderLeftColor="purple.400">
+                                                  <Box key={idx} bg="gray.50" p={2} borderRadius="md" borderLeft="3px solid" borderLeftColor="rbe.500">
                                                     {vehicle.vehicleName && (
                                                       <Text fontSize="sm" fontWeight="600">{vehicle.vehicleName}</Text>
                                                     )}
@@ -883,15 +927,83 @@ export default function EventsManagement() {
                                             </Box>
                                           )}
                                         </VStack>
-                                      </Box>
+                                        </CardBody>
+                                      </Card>
+
+                                      {/* Options saisies */}
+                                      <Card bg="white" borderRadius="lg" boxShadow="sm">
+                                        <CardBody>
+                                        <Heading size="sm" mb={4} color="green.500">Options saisies</Heading>
+                                        <VStack align="stretch" spacing={3}>
+                                          {staticGathering.wantsGroupedPlacement !== undefined && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Placement groupé</Text>
+                                              <Badge colorScheme={staticGathering.wantsGroupedPlacement ? 'green' : 'gray'}>
+                                                {staticGathering.wantsGroupedPlacement ? 'Oui' : 'Non'}
+                                              </Badge>
+                                            </Box>
+                                          )}
+                                          {staticGathering.placementGroupName && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Nom du groupe</Text>
+                                              <Text fontSize="sm" fontWeight="600">{staticGathering.placementGroupName}</Text>
+                                            </Box>
+                                          )}
+                                          {staticGathering.spaceRequirement && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Espace requis</Text>
+                                              <Text fontSize="sm">{staticGathering.spaceRequirement}</Text>
+                                            </Box>
+                                          )}
+                                          {staticGathering.arrivalWindow && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Créneau d'arrivée</Text>
+                                              <Text fontSize="sm">{staticGathering.arrivalWindow}</Text>
+                                            </Box>
+                                          )}
+                                          {staticGathering.wantsPublicDisplay !== undefined && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Exposition publique</Text>
+                                              <Badge colorScheme={staticGathering.wantsPublicDisplay ? 'blue' : 'gray'}>
+                                                {staticGathering.wantsPublicDisplay ? 'Oui' : 'Non'}
+                                              </Badge>
+                                            </Box>
+                                          )}
+                                          {staticGathering.vehicleStory && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Histoire du véhicule</Text>
+                                              <Text fontSize="sm" noOfLines={3}>{staticGathering.vehicleStory}</Text>
+                                            </Box>
+                                          )}
+                                          {staticGathering.photoPermission !== undefined && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Autorisation photos</Text>
+                                              <Badge colorScheme={staticGathering.photoPermission ? 'green' : 'red'}>
+                                                {staticGathering.photoPermission ? 'Autorisées' : 'Refusées'}
+                                              </Badge>
+                                            </Box>
+                                          )}
+                                          {staticGathering.organizerMessage && (
+                                            <Box>
+                                              <Text fontSize="xs" color="gray.500" mb={1}>Message aux organisateurs</Text>
+                                              <Text fontSize="sm" noOfLines={3}>{staticGathering.organizerMessage}</Text>
+                                            </Box>
+                                          )}
+                                          {Object.keys(staticGathering).length === 0 && (
+                                            <Text fontSize="sm" color="gray.400" fontStyle="italic">Aucune option saisie</Text>
+                                          )}
+                                        </VStack>
+                                        </CardBody>
+                                      </Card>
 
                                       {/* Actions */}
-                                      <Box>
-                                        <Heading size="sm" mb={4} color="blue.600">Actions</Heading>
-                                        <VStack align="stretch" spacing={3}>
+                                      <Card bg="white" borderRadius="lg" boxShadow="sm">
+                                        <CardBody>
+                                        <Heading size="sm" mb={4} color="rbe.600">Actions</Heading>
+                                        <VStack align="stretch" spacing={2}>
                                           <Button 
                                             colorScheme="green" 
-                                            size="md"
+                                            size="sm"
                                             leftIcon={<FiCheck />}
                                             onClick={() => updateParticipant(p.id, { registrationStatus: 'validated' })}
                                             isDisabled={p.registrationStatus === 'validated' || p.status === 'validated'}
@@ -900,7 +1012,7 @@ export default function EventsManagement() {
                                           </Button>
                                           <Button 
                                             colorScheme="red" 
-                                            size="md"
+                                            size="sm"
                                             leftIcon={<FiX />}
                                             onClick={() => updateParticipant(p.id, { registrationStatus: 'cancelled' })}
                                             isDisabled={p.registrationStatus === 'cancelled' || p.status === 'cancelled'}
@@ -908,7 +1020,8 @@ export default function EventsManagement() {
                                             Annuler
                                           </Button>
                                         </VStack>
-                                      </Box>
+                                        </CardBody>
+                                      </Card>
                                     </SimpleGrid>
                                   );
                                 })()}
