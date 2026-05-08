@@ -407,22 +407,15 @@ export default function DashboardHome() {
 
   if (loading) {
     return (
-      <Container maxW="container.xl" py={8}>
-        <VStack spacing={8}>
-          <Box
-            bgGradient={gradientBg}
-            color="white"
-            p={8}
-            borderRadius="xl"
-            textAlign="center"
-            w="full"
-          >
-            <Heading size="xl">Chargement des données...</Heading>
-            <Text mt={2} opacity={0.9}>
-              Récupération des véhicules, événements et membres
-            </Text>
-          </Box>
-          <Spinner size="xl" color="blue.500" />
+      <Container maxW="container.xl" h="60vh" display="flex" alignItems="center" justifyContent="center">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="rbe.500" thickness="4px" />
+          <Heading size="2xl" color="black" textAlign="center">
+            On met tout en ordre...
+          </Heading>
+          <Text fontSize="lg" fontStyle="italic" color="gray.600">
+            Promis, c'est pas long
+          </Text>
         </VStack>
       </Container>
     );
@@ -464,7 +457,7 @@ export default function DashboardHome() {
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Véhicules</StatLabel>
-                    <StatNumber color="rbe.600">
+                    <StatNumber color="blue.500">
                       <HStack>
                         <Icon as={FiTruck} />
                         {stats.vehicles.loading ? (
@@ -480,7 +473,7 @@ export default function DashboardHome() {
                     </StatNumber>
                     <Progress 
                       value={stats.vehicles.total > 0 ? 100 : 0} 
-                      colorScheme="rbe" 
+                      colorScheme="blue" 
                       size="sm" 
                       mt={2} 
                       isIndeterminate={stats.vehicles.loading}
@@ -492,27 +485,27 @@ export default function DashboardHome() {
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody>
                   <Stat>
-                    <StatLabel color="gray.600">Événements</StatLabel>
+                    <HStack spacing={2} mb={1}>
+                      <StatLabel color="gray.600">Événements</StatLabel>
+                      {!stats.events.loading && stats.events.published > 0 && (
+                        <Badge colorScheme="green" variant="subtle" fontSize="xs">
+                          {stats.events.published} en cours
+                        </Badge>
+                      )}
+                    </HStack>
                     <StatNumber color="green.500">
-                      <VStack align="flex-start" spacing={1}>
-                        <HStack>
-                          <Icon as={FiCalendar} />
-                          {stats.events.loading ? (
-                            <Spinner size="sm" />
-                          ) : (
-                            <Text>
-                              {stats.events.total === 0 
-                                ? 'Aucun événement' 
-                                : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
-                            </Text>
-                          )}
-                        </HStack>
-                        {!stats.events.loading && stats.events.published > 0 && (
-                          <Badge colorScheme="green" variant="subtle" fontSize="xs">
-                            dont {stats.events.published} public{stats.events.published !== 1 ? 's' : ''}
-                          </Badge>
+                      <HStack>
+                        <Icon as={FiCalendar} />
+                        {stats.events.loading ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <Text>
+                            {stats.events.total === 0 
+                              ? 'Aucun événement' 
+                              : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
+                          </Text>
                         )}
-                      </VStack>
+                      </HStack>
                     </StatNumber>
                     <Progress 
                       value={stats.events.total > 0 ? 100 : 0} 
@@ -529,7 +522,7 @@ export default function DashboardHome() {
                 <CardBody>
                   <Stat>
                     <StatLabel color="gray.600">Adhérents</StatLabel>
-                    <StatNumber color="rbe.600">
+                    <StatNumber color="gray.900">
                       <HStack>
                         <Icon as={FiUsers} />
                         {stats.members.loading ? (
@@ -541,7 +534,7 @@ export default function DashboardHome() {
                     </StatNumber>
                     <Progress 
                       value={stats.members.total > 0 ? (stats.members.active / stats.members.total) * 100 : 0} 
-                      colorScheme="rbe" 
+                      colorScheme="gray" 
                       size="sm" 
                       mt={2} 
                       isIndeterminate={stats.members.loading}

@@ -52,8 +52,11 @@ import {
   Select,
   Flex,
 } from '@chakra-ui/react';
-import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw, FiMail, FiUpload, FiTrash2, FiHome, FiBarChart2, FiInfo, FiHelpCircle, FiPlus, FiEdit } from 'react-icons/fi';
+import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw, FiMail, FiUpload, FiTrash2, FiHome, FiBarChart2, FiInfo, FiHelpCircle, FiPlus, FiEdit, FiArchive, FiCalendar, FiShoppingBag, FiBook, FiImage, FiPackage, FiTrendingUp, FiCreditCard, FiGift, FiLayers } from 'react-icons/fi';
 import { subventionAPI } from '../api/subventionClient.js';
+import { ticketingAPI } from '../api/ticketing.js';
+import { museumAPI } from '../api/museum.js';
+import { stocksAPI } from '../api/stocks.js';
 import { useUserRoles } from '../hooks/useUserRoles';
 import SubventionStats from '../components/Subventions/SubventionStats';
 import KpiCard from '../components/Subventions/KpiCard';
@@ -82,6 +85,22 @@ export default function SubventionCampaign() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
+
+  // États pour les données du musée
+  const [museumModules, setMuseumModules] = useState([]);
+  const [museumStats, setMuseumStats] = useState(null);
+  const [museumLoading, setMuseumLoading] = useState(true);
+
+  // États pour la billetterie
+  const [ticketTypes, setTicketTypes] = useState([]);
+  const [ticketingStats, setTicketingStats] = useState(null);
+  const [weeklyAttendance, setWeeklyAttendance] = useState([]);
+  const [ticketingLoading, setTicketingLoading] = useState(true);
+
+  // États pour le RétroMerch
+  const [stockCategories, setStockCategories] = useState([]);
+  const [stockStats, setStockStats] = useState(null);
+  const [stockLoading, setStockLoading] = useState(true);
 
   // États du formulaire
   const [expenseForm, setExpenseForm] = useState({
@@ -168,15 +187,74 @@ export default function SubventionCampaign() {
     };
     
     loadStats();
+    loadMuseumData();
+    loadTicketingData();
+    loadStockData();
     
     // Rafraîchir toutes les 5 minutes
     const interval = setInterval(() => {
       loadCampaigns();
       loadStats();
+      loadMuseumData();
+      loadTicketingData();
+      loadStockData();
     }, 300000);
     
     return () => clearInterval(interval);
   }, [loadCampaigns]);
+
+  // Charger les données du musée
+  const loadMuseumData = useCallback(async () => {
+    try {
+      setMuseumLoading(true);
+      const [modulesData, statsData] = await Promise.all([
+        museumAPI.getModules().catch(() => []),
+        museumAPI.getStats().catch(() => null)
+      ]);
+      setMuseumModules(Array.isArray(modulesData) ? modulesData : []);
+      setMuseumStats(statsData);
+    } catch (error) {
+      console.error('Erreur chargement données musée:', error);
+    } finally {
+      setMuseumLoading(false);
+    }
+  }, []);
+
+  // Charger les données de la billetterie
+  const loadTicketingData = useCallback(async () => {
+    try {
+      setTicketingLoading(true);
+      const [typesData, statsData, weeklyData] = await Promise.all([
+        ticketingAPI.getTicketTypes().catch(() => []),
+        ticketingAPI.getStats().catch(() => null),
+        ticketingAPI.getWeeklyStats().catch(() => [])
+      ]);
+      setTicketTypes(Array.isArray(typesData) ? typesData : []);
+      setTicketingStats(statsData);
+      setWeeklyAttendance(Array.isArray(weeklyData) ? weeklyData : []);
+    } catch (error) {
+      console.error('Erreur chargement données billetterie:', error);
+    } finally {
+      setTicketingLoading(false);
+    }
+  }, []);
+
+  // Charger les données du RétroMerch (stocks)
+  const loadStockData = useCallback(async () => {
+    try {
+      setStockLoading(true);
+      const [categoriesData, statsData] = await Promise.all([
+        stocksAPI.getCategories().catch(() => []),
+        stocksAPI.getStats().catch(() => null)
+      ]);
+      setStockCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setStockStats(statsData);
+    } catch (error) {
+      console.error('Erreur chargement données stock:', error);
+    } finally {
+      setStockLoading(false);
+    }
+  }, []);
 
   // Ouvrir le modal de détails
   const handleOpenDetail = async (campaign) => {
@@ -300,11 +378,9 @@ export default function SubventionCampaign() {
 
   // Sections principales
   const sections = [
-    { id: 'overview', label: 'Vue d\'ensemble', icon: FiHome, description: 'Campagnes disponibles' },
-    { id: 'details', label: 'Processus', icon: FiBarChart2, description: 'Étapes et critères' },
-    { id: 'documents', label: 'Documentation', icon: FiFileText, description: 'Pièces requises' },
-    { id: 'help', label: 'FAQ', icon: FiHelpCircle, description: 'Questions fréquentes' },
-    ...(isAdmin ? [{ id: 'manage', label: 'Gestion', icon: FiEdit, description: 'Créer & Modifier' }] : [])
+    { id: 'overview', label: 'Vue d\'ensemble', icon: FiHome, description: 'Modules du musée' },
+    { id: 'retromerch', label: 'Le RétroMerch', icon: FiShoppingBag, description: 'Boutique et produits' },
+    { id: 'billetterie', label: 'Billetterie', icon: FiCreditCard, description: 'Ventes et tarifs' }
   ];
 
   // Rendu du contenu principal
@@ -312,14 +388,10 @@ export default function SubventionCampaign() {
     switch (activeMainSection) {
       case 'overview':
         return renderOverview();
-      case 'details':
-        return renderProcessDetails();
-      case 'documents':
-        return renderDocumentation();
-      case 'help':
-        return renderFAQ();
-      case 'manage':
-        return isAdmin ? renderManageCampaigns() : renderOverview();
+      case 'retromerch':
+        return renderRetroMerch();
+      case 'billetterie':
+        return renderBilletterie();
       default:
         return renderOverview();
     }
@@ -327,433 +399,820 @@ export default function SubventionCampaign() {
 
   // Rendu Overview
   const renderOverview = () => {
-    // Calculer les statistiques des dépenses
-    const campaignDetailsMap = {};
-    campaigns.forEach(campaign => {
-      const expensesForCampaign = userExpenses.filter(e => e.campaignId === campaign.id);
-      const totalExpenses = expensesForCampaign.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const approvedExpenses = expensesForCampaign.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + (e.amount || 0), 0);
-      const pendingExpenses = expensesForCampaign.filter(e => e.status === 'SUBMITTED').reduce((sum, e) => sum + (e.amount || 0), 0);
-      
-      campaignDetailsMap[campaign.id] = {
-        total: totalExpenses,
-        approved: approvedExpenses,
-        pending: pendingExpenses,
-        count: expensesForCampaign.length,
-        approvedCount: expensesForCampaign.filter(e => e.status === 'APPROVED').length
-      };
-    });
+    // Modules par défaut si l'API ne retourne rien
+    const defaultMuseumModules = [
+      {
+        id: 'collections',
+        title: 'Gestion des Collections',
+        description: 'Inventaire, catalogage et suivi des pièces du musée',
+        icon: FiArchive,
+        color: 'rbe.500',
+        badge: 'Essentiel',
+        stats: { items: '2,450', categories: '12' }
+      },
+      {
+        id: 'expositions',
+        title: 'Expositions',
+        description: 'Planification et gestion des expositions temporaires et permanentes',
+        icon: FiImage,
+        color: 'blue.500',
+        badge: 'Actif',
+        stats: { current: '3', upcoming: '5' }
+      },
+      {
+        id: 'billetterie',
+        title: 'Billetterie',
+        description: 'Vente de billets, tarifs et gestion des visiteurs',
+        icon: FiCreditCard,
+        color: 'green.500',
+        badge: 'En ligne',
+        stats: { today: '127', month: '3,842' }
+      },
+      {
+        id: 'reservations',
+        title: 'Réservations Groupes',
+        description: 'Gestion des visites guidées et réservations de groupes',
+        icon: FiUsers,
+        color: 'purple.500',
+        badge: null,
+        stats: { pending: '8', confirmed: '24' }
+      },
+      {
+        id: 'mediation',
+        title: 'Médiation Culturelle',
+        description: 'Ateliers, animations et programmes éducatifs',
+        icon: FiBook,
+        color: 'orange.500',
+        badge: 'Nouveau',
+        stats: { workshops: '15', participants: '342' }
+      },
+      {
+        id: 'conservation',
+        title: 'Conservation',
+        description: 'Restauration, conservation préventive et suivi sanitaire',
+        icon: FiLayers,
+        color: 'teal.500',
+        badge: null,
+        stats: { inProgress: '12', scheduled: '28' }
+      },
+      {
+        id: 'prets',
+        title: 'Prêts & Emprunts',
+        description: 'Gestion des œuvres prêtées et empruntées',
+        icon: FiRefreshCw,
+        color: 'cyan.500',
+        badge: null,
+        stats: { loaned: '18', borrowed: '7' }
+      },
+      {
+        id: 'documentation',
+        title: 'Documentation',
+        description: 'Archives, documentation scientifique et base de données',
+        icon: FiFileText,
+        color: 'gray.600',
+        badge: null,
+        stats: { documents: '5,623', digitized: '78%' }
+      },
+      {
+        id: 'boutique',
+        title: 'Boutique',
+        description: 'Merchandising, catalogue produits et ventes',
+        icon: FiShoppingBag,
+        color: 'pink.500',
+        badge: null,
+        stats: { products: '156', sales: '€8,420' }
+      },
+      {
+        id: 'mecenat',
+        title: 'Mécénat',
+        description: 'Gestion des dons, mécénat et campagnes de financement',
+        icon: FiGift,
+        color: 'yellow.600',
+        badge: 'Prioritaire',
+        stats: { donors: '142', raised: '€45,000' }
+      },
+      {
+        id: 'evenements',
+        title: 'Événements',
+        description: 'Organisation de vernissages, conférences et soirées',
+        icon: FiCalendar,
+        color: 'red.500',
+        badge: null,
+        stats: { upcoming: '12', capacity: '450' }
+      },
+      {
+        id: 'analytics',
+        title: 'Statistiques',
+        description: 'Tableaux de bord, KPIs et analyses de fréquentation',
+        icon: FiTrendingUp,
+        color: 'indigo.500',
+        badge: null,
+        stats: { visitors: '+12%', revenue: '+8%' }
+      }
+    ];
+
+    // Utiliser les données de l'API si disponibles, sinon les données par défaut
+    const displayModules = museumModules.length > 0 ? museumModules : defaultMuseumModules;
+    const displayStats = museumStats || {
+      totalModules: 12,
+      customization: '100%',
+      support: '24/7'
+    };
+
+    if (museumLoading) {
+      return (
+        <Center h="400px">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" thickness="4px" />
+            <Heading size="lg" color="black">Chargement des modules...</Heading>
+            <Text fontSize="md" color="gray.600" fontStyle="italic">Préparation du musée</Text>
+          </VStack>
+        </Center>
+      );
+    }
 
     return (
       <VStack spacing={6} align="stretch">
-        {/* Stats globales depuis le backend */}
-        <SubventionStats stats={stats} loading={statsLoading} />
-
-        {/* Alerte d'information */}
-        <Alert
-          status="info"
-          variant="subtle"
-          flexDirection="column"
-          alignItems="flex-start"
-          borderRadius="md"
-          bg={alertBg}
+        {/* En-tête de présentation */}
+        <Card 
+          bg="linear-gradient(135deg, #d30c4c 0%, #c10744 100%)" 
+          color="white" 
+          borderRadius="xl"
+          overflow="hidden"
+          _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
+          transition="all 0.3s"
         >
-          <HStack mb={2}>
-            <AlertIcon />
-            <Heading size="md">Financements disponibles</Heading>
-          </HStack>
-          <Text fontSize="sm">
-            Découvrez les opportunités de subvention adaptées à RétroBus Essonne. Contactez l'administration pour plus de détails sur chaque campagne.
-          </Text>
-        </Alert>
-
-        {/* Campagnes actives avec détails */}
-        {activeCampaigns.length > 0 ? (
-          <Box>
-            <HStack justify="space-between" mb={4}>
-              <Heading size="lg">Campagnes actives</Heading>
-              <Badge colorScheme="green" px={3} py={1}>{activeCampaigns.length}</Badge>
-            </HStack>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-              {activeCampaigns.map((campaign) => {
-                const details = campaignDetailsMap[campaign.id] || { total: 0, approved: 0, pending: 0, count: 0, approvedCount: 0 };
-                const budgetUtilization = campaign.maxAmount 
-                  ? (details.total / campaign.maxAmount) * 100 
-                  : 0;
-                
-                return (
-                  <Card key={campaign.id} bg={cardBg} borderRadius="lg" boxShadow="md" _hover={{ boxShadow: 'lg' }} transition="all 0.3s">
-                    <CardHeader pb={2}>
-                      <HStack justify="space-between" mb={2}>
-                        <Heading size="md" color="orange.600" maxW="70%">{campaign.title}</Heading>
-                        <Badge colorScheme="green" px={2} py={1}>Actif</Badge>
-                      </HStack>
-                      <Text fontSize="sm" color="gray.600">{campaign.organization}</Text>
-                    </CardHeader>
-                    <Divider />
-                    <CardBody>
-                      <VStack align="start" spacing={3}>
-                        <Box>
-                          <Text fontWeight="600" color="orange.500">
-                            {campaign.minAmount && campaign.maxAmount 
-                              ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.minAmount)} - ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.maxAmount)}`
-                              : 'Montant à confirmer'}
-                          </Text>
-                          {campaign.description && <Text fontSize="sm" color="gray.600" noOfLines={2}>{campaign.description}</Text>}
-                        </Box>
-
-                        {/* Indicateur de budget */}
-                        {campaign.maxAmount && (
-                          <Box width="100%">
-                            <HStack justify="space-between" mb={1}>
-                              <Text fontSize="xs" fontWeight="600">Utilisation du budget</Text>
-                              <Text fontSize="xs" color="gray.600">{budgetUtilization.toFixed(1)}%</Text>
-                            </HStack>
-                            <Box height="6px" bg={useColorModeValue('gray.200', 'gray.700')} borderRadius="full" overflow="hidden">
-                              <Box
-                                height="100%"
-                                width={`${Math.min(budgetUtilization, 100)}%`}
-                                bg={budgetUtilization > 90 ? 'red.400' : budgetUtilization > 70 ? 'orange.400' : 'green.400'}
-                                transition="all 0.3s"
-                              />
-                            </Box>
-                          </Box>
-                        )}
-
-                        {/* Stats dépenses */}
-                        {details.count > 0 && (
-                          <SimpleGrid columns={3} spacing={2} width="100%">
-                            <Box p={2} bg={sectionBg} borderRadius="md" textAlign="center">
-                              <Text fontSize="xs" color="gray.600">Soumises</Text>
-                              <Heading size="sm">{details.count}</Heading>
-                            </Box>
-                            <Box p={2} bg={useColorModeValue('green.50', 'green.900')} borderRadius="md" textAlign="center">
-                              <Text fontSize="xs" color="green.600">Approuvées</Text>
-                              <Heading size="sm" color="green.600">{details.approvedCount}</Heading>
-                            </Box>
-                            <Box p={2} bg={useColorModeValue('yellow.50', 'yellow.900')} borderRadius="md" textAlign="center">
-                              <Text fontSize="xs" color="yellow.600">Attente</Text>
-                              <Heading size="sm" color="yellow.600">{details.count - details.approvedCount}</Heading>
-                            </Box>
-                          </SimpleGrid>
-                        )}
-
-                        <HStack color="gray.600" fontSize="sm" width="100%">
-                          <Icon as={FiClock} />
-                          <Text>Échéance : {new Date(campaign.deadline).toLocaleDateString('fr-FR')}</Text>
-                        </HStack>
-
-                        <HStack width="100%" spacing={2} mt={2}>
-                          <Button colorScheme="orange" size="sm" width="100%" leftIcon={<FiUpload />} onClick={() => handleOpenDetail(campaign)}>
-                            Soumettre dossier
-                          </Button>
-                          {campaign.websiteUrl && (
-                            <Button colorScheme="orange" variant="outline" size="sm" leftIcon={<FiFileText />} as="a" href={campaign.websiteUrl} target="_blank">
-                              Info
-                            </Button>
-                          )}
-                        </HStack>
-                      </VStack>
-                    </CardBody>
-                  </Card>
-                );
-              })}
-            </SimpleGrid>
-          </Box>
-        ) : (
-          <Alert status="warning" borderRadius="md">
-            <AlertIcon />
-            <Box>
-              <Heading size="md">Aucune campagne active</Heading>
-              <Text fontSize="sm" mt={2}>Les campagnes seront actualisées régulièrement.</Text>
-            </Box>
-          </Alert>
-        )}
-
-        {/* Campagnes expirées */}
-        {upcomingCampaigns.length > 0 && (
-          <Box>
-            <HStack justify="space-between" mb={4}>
-              <Heading size="lg">Campagnes expirées</Heading>
-              <Badge colorScheme="gray" px={3} py={1}>{upcomingCampaigns.length}</Badge>
-            </HStack>
-            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-              {upcomingCampaigns.map((campaign) => (
-                <Card key={campaign.id} bg={cardBg} borderRadius="lg" opacity={0.8}>
-                  <CardHeader pb={2}>
-                    <HStack justify="space-between" mb={2}>
-                      <Heading size="md" color="gray.600">{campaign.title}</Heading>
-                      <Badge colorScheme="gray" px={2} py={1}>Expirée</Badge>
-                    </HStack>
-                    <Text fontSize="sm" color="gray.600">{campaign.organization}</Text>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody>
-                    <VStack align="start" spacing={3}>
-                      <Box>
-                        <Text fontWeight="600" color="gray.500">
-                          {campaign.minAmount && campaign.maxAmount 
-                            ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.minAmount)} - ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.maxAmount)}`
-                            : 'Montant à confirmer'}
-                        </Text>
-                        {campaign.description && <Text fontSize="sm" color="gray.600">{campaign.description}</Text>}
-                      </Box>
-                      <HStack color="gray.600" fontSize="sm">
-                        <Icon as={FiClock} />
-                        <Text>Échéance était : {new Date(campaign.deadline).toLocaleDateString('fr-FR')}</Text>
-                      </HStack>
-                    </VStack>
-                  </CardBody>
-                </Card>
-              ))}
-            </SimpleGrid>
-          </Box>
-        )}
-      </VStack>
-    );
-  };
-
-  // Rendu Processus et Critères
-  const renderProcessDetails = () => (
-    <VStack spacing={6} align="stretch">
-      {/* Processus */}
-      <Box>
-        <Heading size="lg" mb={4}>Processus de candidature</Heading>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-          {[
-            { icon: FiFileText, title: "1. Préparation du dossier", description: "Rassemblez tous les documents nécessaires" },
-            { icon: FiUsers, title: "2. Validation interne", description: "Accord du bureau de l'association" },
-            { icon: FiCheckCircle, title: "3. Soumission", description: "Envoi du dossier auprès de l'organisme" },
-            { icon: FiClock, title: "4. Suivi", description: "Suivi du traitement de la demande" },
-          ].map((step, idx) => (
-            <Card key={idx} bg={cardBg} borderRadius="lg" boxShadow="sm">
-              <CardBody>
-                <VStack spacing={3} align="center" textAlign="center">
-                  <Icon as={step.icon} w={8} h={8} color="orange.500" />
-                  <Heading size="sm">{step.title}</Heading>
-                  <Text fontSize="sm" color="gray.600">{step.description}</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-          ))}
-        </SimpleGrid>
-      </Box>
-
-      {/* Critères de sélection */}
-      <Box>
-        <Heading size="lg" mb={4}>Critères de sélection</Heading>
-        <Card bg={cardBg} borderRadius="lg">
-          <CardBody>
-            <List spacing={3}>
-              {[
-                "Inscription de l'association depuis au moins 2 ans",
-                "Viabilité financière démontrée",
-                "Impact social ou environnemental du projet",
-                "Partenariats et collaborations",
-                "Budget réaliste et bien justifié"
-              ].map((criterion, idx) => (
-                <ListItem key={idx} display="flex" alignItems="start">
-                  <ListIcon as={FiCheckCircle} color="orange.500" mt={0.5} />
-                  <Text>{criterion}</Text>
-                </ListItem>
-              ))}
-            </List>
+          <CardBody p={8}>
+            <VStack align="start" spacing={4}>
+              <HStack spacing={3}>
+                <Icon as={FiArchive} boxSize={10} />
+                <Box>
+                  <Heading size="xl">Le Musée - Pannel de Gestion</Heading>
+                  <Text fontSize="lg" opacity={0.9} mt={1}>
+                    Tous les outils pour gérer votre musée de manière professionnelle
+                  </Text>
+                </Box>
+              </HStack>
+              <Divider borderColor="whiteAlpha.400" />
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} w="full">
+                <Box>
+                  <Text fontSize="3xl" fontWeight="bold">{displayModules.length}</Text>
+                  <Text fontSize="sm" opacity={0.9}>Modules disponibles</Text>
+                </Box>
+                <Box>
+                  <Text fontSize="3xl" fontWeight="bold">{displayStats.customization || '100%'}</Text>
+                  <Text fontSize="sm" opacity={0.9}>Personnalisable</Text>
+                </Box>
+                <Box>
+                  <Text fontSize="3xl" fontWeight="bold">{displayStats.support || '24/7'}</Text>
+                  <Text fontSize="sm" opacity={0.9}>Support actif</Text>
+                </Box>
+              </SimpleGrid>
+            </VStack>
           </CardBody>
         </Card>
-      </Box>
-    </VStack>
-  );
 
-  // Rendu Documentation
-  const renderDocumentation = () => (
-    <VStack spacing={6} align="stretch">
-      <Heading size="lg">Documents requis</Heading>
-      <Card bg={cardBg} borderRadius="lg">
-        <CardBody>
-          <VStack align="start" spacing={3}>
-            <Heading size="sm">Pièces à joindre</Heading>
-            <List spacing={2}>
-              {[
-                "Statuts de l'association",
-                "Procès-verbaux des assemblées récentes",
-                "Comptes de résultat et bilans (2 derniers exercices)",
-                "Dossier descriptif du projet",
-                "Budget prévisionnel détaillé",
-                "Justificatifs des quotes-parts pour l'apport personnel"
-              ].map((doc, idx) => (
-                <ListItem key={idx} display="flex" alignItems="start">
-                  <ListIcon as={FiCheckCircle} color="green.500" mt={0.5} />
-                  <Text>{doc}</Text>
-                </ListItem>
-              ))}
-            </List>
-          </VStack>
-        </CardBody>
-      </Card>
-    </VStack>
-  );
+        {/* Grille des modules */}
+        <Box>
+          <HStack justify="space-between" mb={4}>
+            <Heading size="lg" color="black">Modules de Gestion</Heading>
+            <Badge colorScheme="red" variant="subtle" px={3} py={1} fontSize="md">
+              {displayModules.length} modules
+            </Badge>
+          </HStack>
 
-  // Rendu FAQ
-  const renderFAQ = () => (
-    <VStack spacing={6} align="stretch">
-      <Heading size="lg">Questions fréquemment posées</Heading>
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        {[
-          { q: "Quel est le montant maximum demandable ?", a: "Le montant varie selon les dispositifs, généralement entre 3,000 et 30,000 €. Consultez les conditions de chaque campagne." },
-          { q: "Combien de temps avant d'avoir une réponse ?", a: "Entre 2 et 6 mois selon le dispositif. Nous vous tiendrons informés de l'avancement du dossier." },
-          { q: "Peut-on cumuler plusieurs subventions ?", a: "Oui, généralement possible mais avec des conditions de cofinancement. Contactez l'administration pour vérifier la compatibilité." },
-          { q: "Quel délai pour soumettre un dossier ?", a: "Vous pouvez soumettre votre candidature jusqu'à la date limite de chaque campagne indiquée ci-contre." }
-        ].map((item, idx) => (
-          <Card key={idx} bg={cardBg} borderRadius="lg">
-            <CardBody>
-              <VStack align="start" spacing={2}>
-                <Heading size="sm">{item.q}</Heading>
-                <Text fontSize="sm" color="gray.600">{item.a}</Text>
-              </VStack>
-            </CardBody>
-          </Card>
-        ))}
-      </SimpleGrid>
-    </VStack>
-  );
-
-  // Rendu Gestion des campagnes (Admin seulement)
-  const renderManageCampaigns = () => (
-    <VStack spacing={6} align="stretch">
-      {/* Bouton créer campagne */}
-      <HStack justify="flex-end">
-        <Button colorScheme="orange" leftIcon={<FiPlus />} onClick={onCreateOpen}>
-          Nouvelle campagne
-        </Button>
-      </HStack>
-
-      {/* Liste des campagnes existantes */}
-      <Box>
-        <Heading size="lg" mb={4}>Campagnes existantes</Heading>
-        {campaigns.length > 0 ? (
-          <VStack spacing={4} align="stretch">
-            {campaigns.map((campaign) => (
-              <Card key={campaign.id} bg={cardBg} borderRadius="lg">
-                <CardHeader pb={2}>
-                  <HStack justify="space-between" mb={2}>
-                    <VStack align="start" spacing={0}>
-                      <Heading size="md">{campaign.title}</Heading>
-                      <Text fontSize="sm" color="gray.600">{campaign.organization}</Text>
-                    </VStack>
-                    <Badge colorScheme={campaign.status === 'ACTIVE' ? 'green' : 'gray'}>
-                      {campaign.status}
-                    </Badge>
-                  </HStack>
-                </CardHeader>
-                <Divider />
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {displayModules.map((module) => (
+              <Card 
+                key={module.id}
+                bg={cardBg}
+                borderRadius="lg"
+                borderWidth="1px"
+                borderColor={borderColor}
+                _hover={{ 
+                  transform: 'translateY(-4px)', 
+                  shadow: 'xl',
+                  borderColor: 'rbe.500'
+                }}
+                transition="all 0.3s"
+                cursor="pointer"
+              >
                 <CardBody>
                   <VStack align="start" spacing={3}>
-                    <Text fontSize="sm">{campaign.description}</Text>
-                    <HStack color="gray.600" fontSize="sm" spacing={4}>
-                      <HStack>
-                        <Icon as={FiDollarSign} />
-                        <Text>
-                          {campaign.minAmount && campaign.maxAmount 
-                            ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.minAmount)} - ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.maxAmount)}`
-                            : 'Non défini'}
-                        </Text>
-                      </HStack>
-                      <HStack>
-                        <Icon as={FiClock} />
-                        <Text>{new Date(campaign.deadline).toLocaleDateString('fr-FR')}</Text>
-                      </HStack>
+                    {/* En-tête du module */}
+                    <HStack justify="space-between" w="full">
+                      <Icon as={module.icon} boxSize={8} color={module.color} />
+                      {module.badge && (
+                        <Badge colorScheme="red" variant="subtle" px={2} py={1}>
+                          {module.badge}
+                        </Badge>
+                      )}
                     </HStack>
-                    <HStack spacing={2} pt={2}>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        leftIcon={<FiEdit />}
-                        onClick={() => {
-                          setCampaignForm({
-                            title: campaign.title,
-                            organization: campaign.organization,
-                            description: campaign.description,
-                            minAmount: campaign.minAmount?.toString() || '',
-                            maxAmount: campaign.maxAmount?.toString() || '',
-                            deadline: campaign.deadline?.split('T')[0] || '',
-                            status: campaign.status,
-                            websiteUrl: campaign.websiteUrl || '',
-                            requiredDocuments: campaign.requiredDocuments || []
-                          });
-                          setEditingCampaignId(campaign.id);
-                          onCreateOpen();
-                        }}
-                      >
-                        Modifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        colorScheme="red"
-                        leftIcon={<FiTrash2 />}
-                        onClick={() => handleDeleteCampaign(campaign.id)}
-                      >
-                        Supprimer
-                      </Button>
-                    </HStack>
+
+                    {/* Titre et description */}
+                    <Box>
+                      <Heading size="md" color="black" mb={1}>
+                        {module.title}
+                      </Heading>
+                      <Text fontSize="sm" color="gray.600" minH="40px">
+                        {module.description}
+                      </Text>
+                    </Box>
+
+                    <Divider />
+
+                    {/* Statistiques */}
+                    <SimpleGrid columns={2} spacing={2} w="full">
+                      {Object.entries(module.stats).map(([key, value], idx) => (
+                        <Box 
+                          key={idx} 
+                          p={2} 
+                          bg={useColorModeValue('gray.50', 'gray.700')} 
+                          borderRadius="md"
+                          textAlign="center"
+                        >
+                          <Text fontSize="xs" color="gray.600" textTransform="capitalize">
+                            {key}
+                          </Text>
+                          <Text fontSize="md" fontWeight="bold" color={module.color}>
+                            {value}
+                          </Text>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+
+                    {/* Bouton d'action */}
+                    <Button 
+                      w="full" 
+                      colorScheme="red" 
+                      variant="outline"
+                      size="sm"
+                      _hover={{ bg: 'rbe.50' }}
+                    >
+                      Accéder au module
+                    </Button>
                   </VStack>
                 </CardBody>
               </Card>
             ))}
-          </VStack>
-        ) : (
-          <Alert status="info" borderRadius="md">
-            <AlertIcon />
-            <Box>
-              <Heading size="sm">Aucune campagne</Heading>
-              <Text fontSize="sm">Créez votre première campagne de subvention</Text>
-            </Box>
-          </Alert>
-        )}
-      </Box>
-    </VStack>
-  );
+          </SimpleGrid>
+        </Box>
 
-  // Rendu d'une carte campagne
-  const renderCampaignCard = (campaign) => {
-    const amountRange = campaign.minAmount && campaign.maxAmount 
-      ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.minAmount)} - ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.maxAmount)}`
-      : campaign.minAmount 
-      ? `À partir de ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.minAmount)}`
-      : 'Montant à confirmer';
+        {/* Section informative */}
+        <Alert
+          status="info"
+          variant="subtle"
+          borderRadius="lg"
+          bg={useColorModeValue('blue.50', 'blue.900')}
+        >
+          <AlertIcon />
+          <Box>
+            <Heading size="sm" mb={1}>Configuration personnalisée</Heading>
+            <Text fontSize="sm">
+              Chaque module peut être activé ou désactivé selon vos besoins. 
+              Contactez l'administration pour personnaliser votre installation.
+            </Text>
+          </Box>
+        </Alert>
+      </VStack>
+    );
+  };
+
+  // Rendu Le RétroMerch (Boutique)
+  const renderRetroMerch = () => {
+    // Catégories par défaut si l'API ne retourne rien
+    const defaultMerchCategories = [
+      {
+        id: 'vetements',
+        title: 'Vêtements & Accessoires',
+        icon: FiPackage,
+        color: 'rbe.500',
+        products: 45,
+        sales: '€12,340',
+        stock: 'Bon'
+      },
+      {
+        id: 'souvenirs',
+        title: 'Souvenirs & Collectibles',
+        icon: FiGift,
+        color: 'purple.500',
+        products: 28,
+        sales: '€8,920',
+        stock: 'Moyen'
+      },
+      {
+        id: 'livres',
+        title: 'Livres & Publications',
+        icon: FiBook,
+        color: 'blue.500',
+        products: 67,
+        sales: '€15,670',
+        stock: 'Excellent'
+      },
+      {
+        id: 'reproductions',
+        title: 'Reproductions d\'œuvres',
+        icon: FiImage,
+        color: 'orange.500',
+        products: 34,
+        sales: '€9,450',
+        stock: 'Faible'
+      }
+    ];
+
+    // Utiliser les données de l'API si disponibles
+    const displayCategories = stockCategories.length > 0 ? stockCategories : defaultMerchCategories;
+    const displayStats = stockStats || {
+      totalProducts: 174,
+      monthlySales: '€46,380',
+      transactions: 1247,
+      growth: '+18%'
+    };
+
+    if (stockLoading) {
+      return (
+        <Center h="400px">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" thickness="4px" />
+            <Heading size="lg" color="black">Chargement du RétroMerch...</Heading>
+            <Text fontSize="md" color="gray.600" fontStyle="italic">Organisation de la boutique</Text>
+          </VStack>
+        </Center>
+      );
+    }
 
     return (
-      <Card key={campaign.id} bg={cardBg} borderRadius="lg" boxShadow="md" _hover={{ boxShadow: 'lg' }} transition="all 0.3s">
-        <CardHeader pb={2}>
-          <HStack justify="space-between" mb={2}>
-            <Heading size="md" color="orange.600">{campaign.title}</Heading>
-            <Badge colorScheme="green" px={2} py={1}>Actif</Badge>
+      <VStack spacing={6} align="stretch">
+        {/* En-tête RétroMerch */}
+        <Card 
+          bg="linear-gradient(135deg, #d30c4c 0%, #c10744 100%)" 
+          color="white" 
+          borderRadius="xl"
+          _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
+          transition="all 0.3s"
+        >
+          <CardBody p={8}>
+            <HStack spacing={4} mb={4}>
+              <Icon as={FiShoppingBag} boxSize={12} />
+              <Box>
+                <Heading size="xl">Le RétroMerch</Heading>
+                <Text fontSize="lg" opacity={0.9} mt={1}>
+                  Gestion complète de la boutique du musée
+                </Text>
+              </Box>
+            </HStack>
+            <Divider borderColor="whiteAlpha.400" mb={4} />
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.totalProducts || 174}</Text>
+                <Text fontSize="sm" opacity={0.9}>Produits actifs</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.monthlySales || '€46,380'}</Text>
+                <Text fontSize="sm" opacity={0.9}>Ventes du mois</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.transactions || 1247}</Text>
+                <Text fontSize="sm" opacity={0.9}>Transactions</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.growth || '+18%'}</Text>
+                <Text fontSize="sm" opacity={0.9}>Progression</Text>
+              </Box>
+            </SimpleGrid>
+          </CardBody>
+        </Card>
+
+        {/* Catégories de produits */}
+        <Box>
+          <HStack justify="space-between" mb={4}>
+            <Heading size="lg" color="black">Catégories de Produits</Heading>
+            <Button colorScheme="red" leftIcon={<FiPlus />} size="sm">
+              Nouveau produit
+            </Button>
           </HStack>
-          <Text fontSize="sm" color="gray.600">{campaign.organization}</Text>
-        </CardHeader>
-        <Divider />
-        <CardBody>
-          <VStack align="start" spacing={3}>
-            <Box>
-              <Text fontWeight="600" color="orange.500">{amountRange}</Text>
-              {campaign.description && <Text fontSize="sm" color="gray.600">{campaign.description}</Text>}
-            </Box>
-            <HStack color="gray.600" fontSize="sm">
-              <Icon as={FiClock} />
-              <Text>Échéance : {new Date(campaign.deadline).toLocaleDateString('fr-FR')}</Text>
-            </HStack>
-            <HStack width="100%" spacing={2} mt={2}>
-              <Button colorScheme="orange" size="sm" width="100%" leftIcon={<FiUpload />} onClick={() => handleOpenDetail(campaign)}>
-                Soumettre dossier
-              </Button>
-              {campaign.websiteUrl && (
-                <Button colorScheme="orange" variant="outline" size="sm" leftIcon={<FiFileText />} as="a" href={campaign.websiteUrl} target="_blank">
-                  Info
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            {displayCategories.map((category) => (
+              <Card 
+                key={category.id}
+                bg={cardBg}
+                borderRadius="lg"
+                borderWidth="1px"
+                borderColor={borderColor}
+                _hover={{ 
+                  transform: 'translateY(-4px)', 
+                  shadow: 'xl',
+                  borderColor: 'rbe.500'
+                }}
+                transition="all 0.3s"
+                cursor="pointer"
+              >
+                <CardBody>
+                  <VStack align="start" spacing={4}>
+                    <HStack justify="space-between" w="full">
+                      <Icon as={category.icon} boxSize={10} color={category.color} />
+                      <Badge 
+                        colorScheme={
+                          category.stock === 'Excellent' ? 'green' :
+                          category.stock === 'Bon' ? 'blue' :
+                          category.stock === 'Moyen' ? 'orange' : 'red'
+                        }
+                        variant="subtle"
+                        px={3}
+                        py={1}
+                      >
+                        Stock: {category.stock}
+                      </Badge>
+                    </HStack>
+
+                    <Box>
+                      <Heading size="md" color="black" mb={2}>
+                        {category.title}
+                      </Heading>
+                    </Box>
+
+                    <Divider />
+
+                    <SimpleGrid columns={3} spacing={3} w="full">
+                      <Box textAlign="center">
+                        <Text fontSize="2xl" fontWeight="bold" color={category.color}>
+                          {category.products}
+                        </Text>
+                        <Text fontSize="xs" color="gray.600">Produits</Text>
+                      </Box>
+                      <Box textAlign="center">
+                        <Text fontSize="2xl" fontWeight="bold" color="green.500">
+                          {category.sales}
+                        </Text>
+                        <Text fontSize="xs" color="gray.600">Ventes</Text>
+                      </Box>
+                      <Box textAlign="center">
+                        <Icon as={FiTrendingUp} boxSize={6} color="green.500" />
+                        <Text fontSize="xs" color="gray.600">+12%</Text>
+                      </Box>
+                    </SimpleGrid>
+
+                    <Button w="full" colorScheme="red" variant="outline" size="sm">
+                      Gérer la catégorie
+                    </Button>
+                  </VStack>
+                </CardBody>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Box>
+
+        {/* Outils de gestion */}
+        <Box>
+          <Heading size="lg" color="black" mb={4}>Outils de Gestion</Heading>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiPackage} boxSize={8} color="blue.500" mb={3} />
+                <Heading size="sm" mb={2}>Gestion des Stocks</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Inventaire et réapprovisionnement
+                </Text>
+                <Button colorScheme="blue" size="sm" variant="outline" w="full">
+                  Accéder
                 </Button>
-              )}
-            </HStack>
+              </CardBody>
+            </Card>
+
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiTrendingUp} boxSize={8} color="green.500" mb={3} />
+                <Heading size="sm" mb={2}>Statistiques Ventes</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Analyses et rapports détaillés
+                </Text>
+                <Button colorScheme="green" size="sm" variant="outline" w="full">
+                  Accéder
+                </Button>
+              </CardBody>
+            </Card>
+
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiDollarSign} boxSize={8} color="orange.500" mb={3} />
+                <Heading size="sm" mb={2}>Tarification</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Gestion des prix et promotions
+                </Text>
+                <Button colorScheme="orange" size="sm" variant="outline" w="full">
+                  Accéder
+                </Button>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+        </Box>
+      </VStack>
+    );
+  };
+
+  // Rendu Billetterie
+  const renderBilletterie = () => {
+    // Tarifs par défaut si l'API ne retourne rien
+    const defaultTicketTypes = [
+      {
+        id: 'plein',
+        title: 'Tarif Plein',
+        price: '12€',
+        color: 'rbe.500',
+        sold: 3842,
+        revenue: '€46,104'
+      },
+      {
+        id: 'reduit',
+        title: 'Tarif Réduit',
+        price: '8€',
+        color: 'blue.500',
+        sold: 2156,
+        revenue: '€17,248'
+      },
+      {
+        id: 'enfant',
+        title: 'Tarif Enfant',
+        price: '5€',
+        color: 'green.500',
+        sold: 1893,
+        revenue: '€9,465'
+      },
+      {
+        id: 'groupe',
+        title: 'Tarif Groupe',
+        price: '10€',
+        color: 'purple.500',
+        sold: 567,
+        revenue: '€5,670'
+      }
+    ];
+
+    // Utiliser les données de l'API si disponibles
+    const displayTickets = ticketTypes.length > 0 ? ticketTypes : defaultTicketTypes;
+    const displayStats = ticketingStats || {
+      todayVisitors: 127,
+      monthVisitors: 8458,
+      monthRevenue: '€78,487',
+      growth: '+23%'
+    };
+    const displayWeekly = weeklyAttendance.length > 0 ? weeklyAttendance : [89, 102, 95, 118, 145, 312, 287];
+
+    if (ticketingLoading) {
+      return (
+        <Center h="400px">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" thickness="4px" />
+            <Heading size="lg" color="black">Chargement de la billetterie...</Heading>
+            <Text fontSize="md" color="gray.600" fontStyle="italic">Préparation des tarifs</Text>
           </VStack>
-        </CardBody>
-      </Card>
+        </Center>
+      );
+    }
+
+    return (
+      <VStack spacing={6} align="stretch">
+        {/* En-tête Billetterie */}
+        <Card 
+          bg="linear-gradient(135deg, #d30c4c 0%, #c10744 100%)" 
+          color="white" 
+          borderRadius="xl"
+          _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
+          transition="all 0.3s"
+        >
+          <CardBody p={8}>
+            <HStack spacing={4} mb={4}>
+              <Icon as={FiCreditCard} boxSize={12} />
+              <Box>
+                <Heading size="xl">Billetterie</Heading>
+                <Text fontSize="lg" opacity={0.9} mt={1}>
+                  Système de vente et gestion des entrées
+                </Text>
+              </Box>
+            </HStack>
+            <Divider borderColor="whiteAlpha.400" mb={4} />
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.todayVisitors || 127}</Text>
+                <Text fontSize="sm" opacity={0.9}>Visiteurs aujourd'hui</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.monthVisitors || 8458}</Text>
+                <Text fontSize="sm" opacity={0.9}>Ce mois</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.monthRevenue || '€78,487'}</Text>
+                <Text fontSize="sm" opacity={0.9}>Recettes du mois</Text>
+              </Box>
+              <Box>
+                <Text fontSize="2xl" fontWeight="bold">{displayStats.growth || '+23%'}</Text>
+                <Text fontSize="sm" opacity={0.9}>vs mois dernier</Text>
+              </Box>
+            </SimpleGrid>
+          </CardBody>
+        </Card>
+
+        {/* Tarifs disponibles */}
+        <Box>
+          <HStack justify="space-between" mb={4}>
+            <Heading size="lg" color="black">Tarifs Disponibles</Heading>
+            <Button colorScheme="red" leftIcon={<FiPlus />} size="sm">
+              Nouveau tarif
+            </Button>
+          </HStack>
+
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+            {displayTickets.map((ticket) => (
+              <Card 
+                key={ticket.id}
+                bg={cardBg}
+                borderRadius="lg"
+                borderWidth="2px"
+                borderColor={ticket.color}
+                _hover={{ 
+                  transform: 'translateY(-4px)', 
+                  shadow: 'xl'
+                }}
+                transition="all 0.3s"
+              >
+                <CardBody textAlign="center">
+                  <VStack spacing={3}>
+                    <Badge colorScheme="red" variant="subtle" px={3} py={1} fontSize="md">
+                      {ticket.title}
+                    </Badge>
+                    <Heading size="2xl" color={ticket.color}>
+                      {ticket.price}
+                    </Heading>
+                    <Divider />
+                    <Box w="full">
+                      <Text fontSize="sm" color="gray.600" mb={1}>Vendus</Text>
+                      <Text fontSize="xl" fontWeight="bold">{ticket.sold}</Text>
+                    </Box>
+                    <Box w="full">
+                      <Text fontSize="sm" color="gray.600" mb={1}>Recettes</Text>
+                      <Text fontSize="lg" fontWeight="bold" color="green.500">
+                        {ticket.revenue}
+                      </Text>
+                    </Box>
+                    <Button colorScheme="red" size="sm" w="full" variant="outline">
+                      Modifier
+                    </Button>
+                  </VStack>
+                </CardBody>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Box>
+
+        {/* Statistiques détaillées */}
+        <Box>
+          <Heading size="lg" color="black" mb={4}>Statistiques de Fréquentation</Heading>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <Card bg={cardBg} borderRadius="lg">
+              <CardBody>
+                <VStack align="start" spacing={3}>
+                  <HStack>
+                    <Icon as={FiCalendar} boxSize={6} color="blue.500" />
+                    <Heading size="md">Affluence Hebdomadaire</Heading>
+                  </HStack>
+                  <Divider />
+                  <SimpleGrid columns={7} spacing={2} w="full">
+                    {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, idx) => (
+                      <Box key={idx} textAlign="center">
+                        <Text fontSize="xs" color="gray.600" mb={1}>{day}</Text>
+                        <Text fontSize="lg" fontWeight="bold" color="rbe.500">
+                          {displayWeekly[idx]}
+                        </Text>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                </VStack>
+              </CardBody>
+            </Card>
+
+            <Card bg={cardBg} borderRadius="lg">
+              <CardBody>
+                <VStack align="start" spacing={3}>
+                  <HStack>
+                    <Icon as={FiTrendingUp} boxSize={6} color="green.500" />
+                    <Heading size="md">Performance du Mois</Heading>
+                  </HStack>
+                  <Divider />
+                  <VStack align="stretch" spacing={3} w="full">
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">Objectif mensuel</Text>
+                      <Text fontSize="md" fontWeight="bold">{displayStats.monthlyGoal || '10,000'} visiteurs</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">Réalisé</Text>
+                      <Text fontSize="md" fontWeight="bold" color="green.500">
+                        {displayStats.monthVisitors || '8,458'} ({displayStats.goalPercentage || '84.6'}%)
+                      </Text>
+                    </HStack>
+                    <Box>
+                      <Text fontSize="xs" color="gray.600" mb={1}>Progression</Text>
+                      <Box height="8px" bg={useColorModeValue('gray.200', 'gray.700')} borderRadius="full" overflow="hidden">
+                        <Box
+                          height="100%"
+                          width={`${displayStats.goalPercentage || 84.6}%`}
+                          bg="green.400"
+                          transition="all 0.3s"
+                        />
+                      </Box>
+                    </Box>
+                    <Alert status="success" variant="subtle" borderRadius="md">
+                      <AlertIcon />
+                      <Text fontSize="sm">{displayStats.growth || '+23%'} par rapport au mois dernier</Text>
+                    </Alert>
+                  </VStack>
+                </VStack>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+        </Box>
+
+        {/* Outils de gestion billetterie */}
+        <Box>
+          <Heading size="lg" color="black" mb={4}>Outils de Gestion</Heading>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiUsers} boxSize={8} color="purple.500" mb={3} />
+                <Heading size="sm" mb={2}>Réservations Groupes</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Gestion des visites de groupe
+                </Text>
+                <Button colorScheme="purple" size="sm" variant="outline" w="full">
+                  Accéder
+                </Button>
+              </CardBody>
+            </Card>
+
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiBarChart2} boxSize={8} color="blue.500" mb={3} />
+                <Heading size="sm" mb={2}>Rapports Détaillés</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Analyses et exports de données
+                </Text>
+                <Button colorScheme="blue" size="sm" variant="outline" w="full">
+                  Accéder
+                </Button>
+              </CardBody>
+            </Card>
+
+            <Card 
+              bg={cardBg} 
+              borderRadius="lg"
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+              transition="all 0.3s"
+              cursor="pointer"
+            >
+              <CardBody textAlign="center">
+                <Icon as={FiCalendar} boxSize={8} color="orange.500" mb={3} />
+                <Heading size="sm" mb={2}>Planning des Horaires</Heading>
+                <Text fontSize="sm" color="gray.600" mb={4}>
+                  Gestion des jours d'ouverture
+                </Text>
+                <Button colorScheme="orange" size="sm" variant="outline" w="full">
+                  Accéder
+                </Button>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+        </Box>
+      </VStack>
     );
   };
 
@@ -772,10 +1231,10 @@ export default function SubventionCampaign() {
         >
           <Box p={6} borderBottom="1px" borderColor={borderColor}>
             <HStack spacing={3} mb={3}>
-              <Icon as={FiAward} color="orange.500" boxSize={6} />
+              <Icon as={FiArchive} color="rbe.500" boxSize={6} />
               <Box>
-                <Heading size="md">Subventions</Heading>
-                <Text fontSize="xs" color="gray.500">Campagnes</Text>
+                <Heading size="md">Le Musée</Heading>
+                <Text fontSize="xs" color="gray.500">Pannel de gestion</Text>
               </Box>
             </HStack>
           </Box>
@@ -785,8 +1244,8 @@ export default function SubventionCampaign() {
         <Box flex={1} overflowY="auto">
           <Center h="100%">
             <VStack spacing={4}>
-              <Spinner size="lg" color="orange.500" />
-              <Text>Chargement des campagnes...</Text>
+              <Spinner size="lg" color="rbe.500" />
+              <Text>Chargement du musée...</Text>
             </VStack>
           </Center>
         </Box>
@@ -809,10 +1268,10 @@ export default function SubventionCampaign() {
         {/* Header du sidebar */}
         <Box p={6} borderBottom="1px" borderColor={borderColor}>
           <HStack spacing={3} mb={3}>
-            <Icon as={FiAward} color="orange.500" boxSize={6} />
+            <Icon as={FiArchive} color="rbe.500" boxSize={6} />
             <Box>
-              <Heading size="md">Subventions</Heading>
-              <Text fontSize="xs" color="gray.500">Campagnes</Text>
+              <Heading size="md">Le Musée</Heading>
+              <Text fontSize="xs" color="gray.500">Pannel de gestion des outils musée</Text>
             </Box>
           </HStack>
         </Box>
@@ -829,16 +1288,16 @@ export default function SubventionCampaign() {
                 variant="ghost"
                 justifyContent="flex-start"
                 w="full"
-                bg={isActive ? "orange.50" : "transparent"}
+                bg={isActive ? "red.50" : "transparent"}
                 borderLeft="3px"
-                borderColor={isActive ? "orange.500" : "transparent"}
+                borderColor={isActive ? "rbe.500" : "transparent"}
                 borderRadius={0}
                 px={4}
                 py={6}
                 fontSize="sm"
                 fontWeight={isActive ? "600" : "500"}
-                color={isActive ? "orange.500" : "inherit"}
-                _hover={{ bg: "gray.100", borderLeftColor: "orange.500" }}
+                color={isActive ? "rbe.500" : "inherit"}
+                _hover={{ bg: "gray.100", borderLeftColor: "rbe.500" }}
                 onClick={() => setActiveMainSection(section.id)}
               >
                 <VStack align="start" spacing={0} width="100%">

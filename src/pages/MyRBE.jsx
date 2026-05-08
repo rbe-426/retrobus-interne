@@ -15,7 +15,10 @@ import {
   TabPanel,
   Heading,
   Badge,
-  Spinner
+  Spinner,
+  Container,
+  Card,
+  CardBody
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -249,16 +252,17 @@ export default function MyRBE() {
 
   if (permissionsLoading) {
     return (
-      <PageLayout
-        title="Espace MyRBE"
-        subtitle="Les outils d'administration RétroBus Essonne"
-        bgGradient="linear(to-r, blue.500, purple.600)"
-      >
-        <VStack spacing={2} py={2}>
-          <Spinner size="lg" />
-          <Text>Chargement des permissions...</Text>
+      <Container maxW="container.xl" h="60vh" display="flex" alignItems="center" justifyContent="center">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="rbe.500" thickness="4px" />
+          <Heading size="2xl" color="black" textAlign="center">
+            Organisation des données
+          </Heading>
+          <Text fontSize="lg" fontStyle="italic" color="gray.600">
+            Encore un instant...
+          </Text>
         </VStack>
-      </PageLayout>
+      </Container>
     );
   }
 
@@ -276,16 +280,27 @@ export default function MyRBE() {
       ]}
     >
       <VStack spacing={2} align="stretch">
-        {/* Carte mise en évidence: Campagne de Subvention */}
-        <ModernCard
-          title="Campagne de Subvention"
-          description="Découvrez les opportunités de financement pour RétroBus Essonne"
-          icon={FiAward}
-          color="orange"
-          badge={{ label: "📢 Nouveau!", color: "red" }}
-          as={RouterLink}
-          to="/dashboard/subvention-campaign"
-        />
+        {/* Carte mise en évidence: Le Musée (uniquement en développement local) */}
+        {import.meta.env.DEV && (
+          <Card
+            as={RouterLink}
+            to="/dashboard/rbe-lemusee"
+            bg="black"
+            color="white"
+            textAlign="center"
+            py={8}
+            cursor="pointer"
+            _hover={{ transform: 'translateY(-4px)', boxShadow: '2xl' }}
+            transition="all 0.3s"
+            borderRadius="lg"
+          >
+            <CardBody>
+              <Heading size="2xl" fontWeight="bold">
+                Le Musée
+              </Heading>
+            </CardBody>
+          </Card>
+        )}
 
         {/* Grille des fonctionnalités */}
         {visibleCards.length > 0 ? (

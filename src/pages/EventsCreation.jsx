@@ -37,7 +37,8 @@ import {
   Divider,
   useToast,
   useDisclosure,
-  Icon
+  Icon,
+  Container
 } from '@chakra-ui/react';
 import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers, FiEye, FiTrash2, FiGlobe, FiEyeOff, FiLock, FiTruck, FiDownload } from 'react-icons/fi';
 import VehicleSelector from '../components/VehicleSelector';
@@ -639,7 +640,7 @@ export default function EventsCreation() {
     <Box p={6}>
       <Flex justify="space-between" align="center" mb={6}>
         <VStack align="start" spacing={1}>
-          <Heading>📝 Création des Événements</Heading>
+          <Heading size="lg" color="black">📝 Création des Événements</Heading>
           <Text fontSize="sm" color="gray.600">
             Créez et configurez de nouveaux événements pour l'association
           </Text>
@@ -664,9 +665,17 @@ export default function EventsCreation() {
       </Flex>
 
       {loading ? (
-        <Center py={20}>
-          <Spinner size="xl" />
-        </Center>
+        <Container maxW="container.xl" h="60vh" display="flex" alignItems="center" justifyContent="center">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" thickness="4px" />
+            <Heading size="2xl" color="black" textAlign="center">
+              Chargement des événements...
+            </Heading>
+            <Text fontSize="lg" fontStyle="italic" color="gray.600">
+              Il nous faut une wedding planer...
+            </Text>
+          </VStack>
+        </Container>
       ) : events.length === 0 ? (
         <Center py={20}>
           <VStack spacing={4}>

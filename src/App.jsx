@@ -104,8 +104,10 @@ export default function App() {
         {/* 👥 Gestion des Adhésions */}
         <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} />
         
-        {/* 🏆 Campagne de Subvention */}
-        <Route path="/dashboard/subvention-campaign" element={<ProtectedRoute><SubventionCampaign /></ProtectedRoute>} />
+        {/* 🏛️ Le Musée (uniquement en développement local) */}
+        {import.meta.env.DEV && (
+          <Route path="/dashboard/rbe-lemusee" element={<ProtectedRoute><SubventionCampaign /></ProtectedRoute>} />
+        )}
         <Route path="/dashboard/admin/subventions" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><SubventionCampaignAdmin /></RoleProtectedRoute>} />
         
         {/* 💰 Route gestion financière */}

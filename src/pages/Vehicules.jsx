@@ -4,7 +4,7 @@ import {
   Box, Heading, Input, SimpleGrid, Card, CardHeader, CardBody,
   Text, Badge, HStack, Spinner, Center, Button, Flex, useToast,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody,
-  Image, VStack
+  Image, VStack, Container
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
@@ -77,7 +77,12 @@ const Vehicules = () => {
   return (
     <Box p={{ base: 4, md: 6 }}>
       <Flex justify="space-between" align="center" mb={6}>
-        <Heading color="black" size="lg">Véhicules</Heading>
+        <VStack align="start" spacing={1}>
+          <Heading color="black" size="lg">🚘 Véhicules</Heading>
+          <Text fontSize="sm" color="gray.600">
+            Créez, consultez et configurez le parc de véhicules de l'association
+          </Text>
+        </VStack>
         <Button
           as={RouterLink}
           to="/dashboard/vehicules/ajouter"
@@ -99,9 +104,17 @@ const Vehicules = () => {
       </Box>
 
       {loading ? (
-        <Center py={20}>
-          <Spinner size="xl" color="rbe.500" />
-        </Center>
+        <Container maxW="container.xl" h="60vh" display="flex" alignItems="center" justifyContent="center">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" thickness="4px" />
+            <Heading size="2xl" color="black" textAlign="center">
+              Chargement des véhicules...
+            </Heading>
+            <Text fontSize="lg" fontStyle="italic" color="gray.600">
+              On essaie de les garer mais Nour ne sais pas faire de créneaux...
+            </Text>
+          </VStack>
+        </Container>
       ) : (
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
           {filtered.map((vehicle) => (

@@ -1350,7 +1350,7 @@ export default function EventsManagement() {
           <HStack spacing={3} mb={3}>
             <Icon as={FiCalendar} color="blue.500" boxSize={6} />
             <Box>
-              <Heading size="md" color="gray.800">Événements</Heading>
+              <Heading size="lg" color="black">Événements</Heading>
               <Text fontSize="sm" color="gray.500">Organisation & planning</Text>
             </Box>
           </HStack>
