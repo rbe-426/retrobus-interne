@@ -50,6 +50,13 @@ export const ticketingAPI = {
 
   // Statistiques mensuelles
   getMonthlyStats: () => apiClient.get('/api/ticketing/stats/monthly'),
+
+  // Réductions
+  getDiscounts: () => apiClient.get('/api/ticketing/discounts'),
+  getDiscount: (id) => apiClient.get(`/api/ticketing/discounts/${id}`),
+  createDiscount: (data) => apiClient.post('/api/ticketing/discounts', data),
+  updateDiscount: (id, data) => apiClient.put(`/api/ticketing/discounts/${id}`, data),
+  deleteDiscount: (id) => apiClient.delete(`/api/ticketing/discounts/${id}`),
 };
 
 export default ticketingAPI;
