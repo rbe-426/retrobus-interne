@@ -57,6 +57,19 @@ export const ticketingAPI = {
   createDiscount: (data) => apiClient.post('/api/ticketing/discounts', data),
   updateDiscount: (id, data) => apiClient.put(`/api/ticketing/discounts/${id}`, data),
   deleteDiscount: (id) => apiClient.delete(`/api/ticketing/discounts/${id}`),
+
+  // Codes promotionnels
+  validatePromoCode: (code, userName) => apiClient.post('/api/ticketing/promo-codes/validate', { code, userName }),
+  getPromoCodes: () => apiClient.get('/api/ticketing/promo-codes'),
+  createPromoCode: (data) => apiClient.post('/api/ticketing/promo-codes', data),
+  updatePromoCode: (id, data) => apiClient.put(`/api/ticketing/promo-codes/${id}`, data),
+  deletePromoCode: (id) => apiClient.delete(`/api/ticketing/promo-codes/${id}`),
+
+  // Codes internes
+  getInternalCodes: () => apiClient.get('/api/ticketing/internal-codes'),
+  createInternalCode: (data) => apiClient.post('/api/ticketing/internal-codes', data),
+  updateInternalCode: (id, data) => apiClient.put(`/api/ticketing/internal-codes/${id}`, data),
+  deleteInternalCode: (id) => apiClient.delete(`/api/ticketing/internal-codes/${id}`),
 };
 
 export default ticketingAPI;

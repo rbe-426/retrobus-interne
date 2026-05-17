@@ -26,6 +26,8 @@ import {
   UnorderedList,
   Alert,
   AlertIcon,
+  AlertTitle,
+  AlertDescription,
   Spinner,
   Center,
   useToast,
@@ -51,6 +53,12 @@ import {
   IconButton,
   Select,
   Flex,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  FormHelperText,
   Stepper,
   Step,
   StepIndicator,
@@ -63,18 +71,22 @@ import {
   Box as StepBox,
   Progress,
 } from '@chakra-ui/react';
-import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw, FiMail, FiUpload, FiTrash2, FiHome, FiBarChart2, FiInfo, FiHelpCircle, FiPlus, FiEdit, FiArchive, FiCalendar, FiShoppingBag, FiBook, FiImage, FiPackage, FiTrendingUp, FiCreditCard, FiGift, FiLayers, FiPercent, FiX, FiSearch, FiShield, FiCheck, FiLogIn, FiUserCheck } from 'react-icons/fi';
+import { FiAward, FiCheckCircle, FiFileText, FiClock, FiDollarSign, FiUsers, FiRefreshCw, FiMail, FiUpload, FiTrash2, FiHome, FiBarChart2, FiInfo, FiHelpCircle, FiPlus, FiEdit, FiArchive, FiCalendar, FiShoppingBag, FiBook, FiImage, FiPackage, FiTrendingUp, FiCreditCard, FiGift, FiLayers, FiPercent, FiX, FiSearch, FiShield, FiCheck, FiLogIn, FiUserCheck, FiGlobe, FiPhone, FiUser, FiLock } from 'react-icons/fi';
 import { subventionAPI } from '../api/subventionClient.js';
 import { ticketingAPI } from '../api/ticketing.js';
 import { museumAPI } from '../api/museum.js';
 import { stocksAPI } from '../api/stocks.js';
 import { useUserRoles } from '../hooks/useUserRoles';
+import { useUser } from '../context/UserContext';
 import SubventionStats from '../components/Subventions/SubventionStats';
 import KpiCard from '../components/Subventions/KpiCard';
 
 const EXPENSE_CATEGORIES = ['FUEL', 'MAINTENANCE', 'INSURANCE', 'MATERIAL', 'ADMINISTRATIVE', 'OTHER'];
 
 export default function SubventionCampaign() {
+  // Utilisateur connecté
+  const { user: currentUser } = useUser();
+  
   // État de navigation
   const [activeMainSection, setActiveMainSection] = useState('overview');
   const [activeSubTab, setActiveSubTab] = useState('active');
@@ -131,17 +143,19 @@ export default function SubventionCampaign() {
   const { isOpen: isCheckInOpen, onOpen: onCheckInOpen, onClose: onCheckInClose } = useDisclosure();
   const { isOpen: isAgendaOpen, onOpen: onAgendaOpen, onClose: onAgendaClose } = useDisclosure();
   const { isOpen: isSellTicketOpen, onOpen: onSellTicketOpen, onClose: onSellTicketClose } = useDisclosure();
+  const { isOpen: isReservationDetailOpen, onOpen: onReservationDetailOpen, onClose: onReservationDetailClose } = useDisclosure();
+  const [selectedReservation, setSelectedReservation] = useState(null);
   const { isOpen: isPriceEditOpen, onOpen: onPriceEditOpen, onClose: onPriceEditClose } = useDisclosure();
   const { isOpen: isDiscountEditOpen, onOpen: onDiscountEditOpen, onClose: onDiscountEditClose } = useDisclosure();
 
   // États pour la tarification des billets
   const [ticketPrices, setTicketPrices] = useState([
-    { id: 'plein', name: 'Tarif Plein', label: 'Tarif Plein', price: 12, description: 'Adulte sans réduction', active: true },
-    { id: 'reduit', name: 'Tarif Réduit', label: 'Tarif Réduit', price: 8, description: 'Étudiants, seniors, demandeurs d\'emploi', active: true },
-    { id: 'enfant', name: 'Tarif Enfant', label: 'Tarif Enfant', price: 5, description: 'Enfants de 6 à 12 ans', active: true },
-    { id: 'groupe', name: 'Tarif Groupe', label: 'Tarif Groupe', price: 10, description: 'À partir de 10 personnes', active: true },
+    { id: 'plein', name: 'Adulte', label: 'Adulte', price: 25, description: 'Adulte sans réduction', active: true },
+    { id: 'reduit', name: 'Jeunesse / Étudiant', label: 'Jeunesse / Étudiant', price: 15, description: 'Étudiants, demandeurs d\'emploi de moins de 26 ans (14-26)', active: true },
+    { id: 'enfant', name: 'Enfant -14 ans', label: 'Enfant -14 ans', price: 5, description: 'Enfants de 0 à 13 ans', active: true },
+    { id: 'groupe', name: 'Tarif Groupe', label: 'Tarif Groupe', price: 10, description: 'À partir de 10 personnes', active: false },
     { id: 'famille', name: 'Pass Famille', label: 'Pass Famille', price: 28, description: '2 adultes + 2 enfants', active: false },
-    { id: 'annuel', name: 'Abonnement Annuel', label: 'Abonnement Annuel', price: 80, description: 'Accès illimité pendant 1 an', active: true }
+    { id: 'annuel', name: 'Abonnement Annuel', label: 'Abonnement Annuel', price: 80, description: 'Accès illimité pendant 1 an', active: false }
   ]);
   const [editingPrice, setEditingPrice] = useState(null);
   const [priceForm, setPriceForm] = useState({
@@ -159,7 +173,7 @@ export default function SubventionCampaign() {
       type: 'percentage', 
       value: 33, 
       conditions: 'Carte étudiante valide', 
-      active: true,
+      active: false,
       onlineAvailable: false,
       appliedTo: ['plein']
     },
@@ -169,7 +183,7 @@ export default function SubventionCampaign() {
       type: 'percentage', 
       value: 25, 
       conditions: 'Âge 65 ans et plus', 
-      active: true,
+      active: false,
       onlineAvailable: false,
       appliedTo: ['plein']
     },
@@ -199,7 +213,7 @@ export default function SubventionCampaign() {
       type: 'fixed', 
       value: 5, 
       conditions: 'Carte famille nombreuse (3+ enfants)', 
-      active: true,
+      active: false,
       onlineAvailable: false,
       appliedTo: ['plein', 'enfant']
     }
@@ -225,40 +239,54 @@ export default function SubventionCampaign() {
       persons: 1, 
       status: 'Confirmé', 
       checkedIn: false,
+      bookingChannel: 'online',
+      ticketType: 'plein',
       notes: 'Le visiteur a indiqué être bénéficiaire ou ayant droit d\'un RSA - Vérification des documents requise',
-      discount: 'rsa'
+      discount: 'rsa',
+      visitors: [
+        { name: 'Sophie Dubois', ticketType: 'plein', discount: 'rsa', hasStudentCard: false, notes: 'Bénéficiaire RSA' }
+      ]
     },
     { 
       id: 2, 
       time: '09:30', 
       name: 'Lefebvre Karim', 
       type: 'Individuel', 
-      persons: 2, 
+      persons: 3, 
       status: 'Confirmé', 
       checkedIn: false,
-      notes: 'Le visiteur a indiqué être bénéficiaire ou ayant droit d\'une CSS - Vérification des documents requise',
-      discount: 'css'
-    },
-    { 
-      id: 3, 
-      time: '10:00', 
-      name: 'École Primaire Jean Jaurès', 
-      type: 'Groupe', 
-      persons: 28, 
-      status: 'Confirmé', 
-      checkedIn: false,
-      notes: 'Classe CE2 - Devis n°2026-045 réglé le 10/05/2026',
-      paymentMethod: 'Devis'
+      bookingChannel: 'online',
+      notes: 'Famille avec 2 enfants',
+      visitors: [
+        { name: 'Karim Lefebvre', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Fatima Lefebvre', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Yasmine Lefebvre', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '12 ans' }
+      ]
     },
     { 
       id: 4, 
       time: '10:45', 
-      name: 'Martinez Elena', 
+      name: 'Martinez Elena',
       type: 'Individuel', 
       persons: 1, 
       status: 'Confirmé', 
       checkedIn: false,
-      notes: 'Pièce d\'identité au nom de "Elena Rodriguez-Martinez" - Vérifier correspondance'
+      bookingChannel: 'phone',
+      ticketType: 'reduit',
+      hasStudentCard: true,
+      notes: 'Pièce d\'identité au nom de "Elena Rodriguez-Martinez" - Vérifier correspondance',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 15.00,
+        originalAmount: 15.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-14T10:50:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Elena Martinez', ticketType: 'reduit', discount: null, hasStudentCard: true, notes: 'Étudiante' }
+      ]
     },
     { 
       id: 5, 
@@ -268,7 +296,10 @@ export default function SubventionCampaign() {
       persons: 1, 
       status: 'En attente', 
       checkedIn: false,
-      notes: 'Le visiteur a indiqué être bénéficiaire ou ayant droit d\'un RSA - Vérification des documents requise'
+      bookingChannel: 'online',
+      ticketType: 'plein',
+      notes: 'Le visiteur a indiqué être bénéficiaire ou ayant droit d\'un RSA - Vérification des documents requise',
+      visitors: []
     },
     { 
       id: 6, 
@@ -278,8 +309,13 @@ export default function SubventionCampaign() {
       persons: 1, 
       status: 'Confirmé', 
       checkedIn: false,
+      bookingChannel: 'online',
+      ticketType: 'reduit',
+      hasStudentCard: true,
       notes: 'Étudiante à Paris-Saclay - Carte étudiante 2025-2026',
-      discount: 'etudiant'
+      visitors: [
+        { name: 'Linh Nguyen', ticketType: 'reduit', discount: null, hasStudentCard: true, notes: 'Paris-Saclay' }
+      ]
     },
     { 
       id: 7, 
@@ -289,8 +325,22 @@ export default function SubventionCampaign() {
       persons: 2, 
       status: 'Confirmé', 
       checkedIn: false,
-      notes: 'Senior 72 ans avec épouse - Tarif senior à appliquer',
-      discount: 'senior'
+      bookingChannel: 'phone',
+      ticketType: 'plein',
+      notes: 'Couple - 2 adultes',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 50.00,
+        originalAmount: 50.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-15T14:05:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Gérard Moreau', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '72 ans' },
+        { name: 'Michèle Moreau', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '68 ans' }
+      ]
     },
     { 
       id: 8, 
@@ -300,29 +350,76 @@ export default function SubventionCampaign() {
       persons: 5, 
       status: 'Confirmé', 
       checkedIn: false,
-      notes: 'Famille nombreuse (3 enfants) - Carte famille nombreuse valide',
-      discount: 'famille-nombreuse'
+      bookingChannel: 'walkin',
+      ticketType: 'plein',
+      notes: 'Famille avec 3 enfants - 2 adultes, 1 étudiant, 2 enfants',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 65.00,
+        originalAmount: 65.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-14T14:35:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Patrick Bernard', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Sophie Bernard', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Lucas Bernard', ticketType: 'reduit', discount: null, hasStudentCard: true, notes: '18 ans - étudiant' },
+        { name: 'Emma Bernard', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '12 ans' },
+        { name: 'Noah Bernard', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9 ans' }
+      ]
     },
     { 
       id: 9, 
       time: '15:00', 
-      name: 'Dupont Marie', 
+      name: 'Rousseau Thomas', 
+      type: 'Individuel', 
+      persons: 3, 
+      status: 'Confirmé', 
+      checkedIn: false,
+      bookingChannel: 'online',
+      ticketType: 'enfant',
+      notes: '3 enfants (7, 9 et 11 ans) - Sortie familiale',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 15.00,
+        originalAmount: 15.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-13T09:20:00.000Z',
+        validatedBy: 'Paiement en ligne'
+      },
+      visitors: [
+        { name: 'Léa Rousseau', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '7 ans' },
+        { name: 'Tom Rousseau', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9 ans' },
+        { name: 'Clara Rousseau', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '11 ans' }
+      ]
+    },
+    { 
+      id: 10,
+      time: '15:30', 
+      name: 'Durand Marie', 
       type: 'Individuel', 
       persons: 2, 
       status: 'Confirmé', 
       checkedIn: false,
-      notes: 'Réservation en ligne - Paiement non effectué'
-    },
-    { 
-      id: 10, 
-      time: '15:30', 
-      name: 'Association RétroBus Essonne', 
-      type: 'Groupe', 
-      persons: 15, 
-      status: 'Confirmé', 
-      checkedIn: false,
-      notes: 'Visite partenaire - Devis n°2026-052 payé',
-      paymentMethod: 'Devis'
+      bookingChannel: 'phone',
+      ticketType: 'plein',
+      notes: '2 adultes',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 50.00,
+        originalAmount: 50.00,
+        discountAmount: 0,
+        method: 'Espèces',
+        timestamp: '2026-05-15T15:35:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Marie Durand', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Paul Durand', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' }
+      ]
     },
     { 
       id: 11, 
@@ -332,12 +429,140 @@ export default function SubventionCampaign() {
       persons: 1, 
       status: 'Confirmé', 
       checkedIn: true,
+      bookingChannel: 'online',
+      ticketType: 'plein',
       notes: 'Check-in effectué à 16:02',
-      tickets: [{ type: 'plein', quantity: 1, price: 12 }],
-      paymentMethod: 'CB'
+      tickets: [{ type: 'plein', quantity: 1, price: 25 }],
+      paymentMethod: 'CB',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 25.00,
+        originalAmount: 25.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-16T16:01:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Julie Lambert', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' }
+      ]
+    },
+    { 
+      id: 12, 
+      time: '16:30', 
+      name: 'Fontaine Marc', 
+      type: 'Individuel', 
+      persons: 1, 
+      status: 'Confirmé', 
+      checkedIn: false,
+      bookingChannel: 'online',
+      ticketType: 'plein',
+      notes: 'Visiteur adulte',
+      visitors: [
+        { name: 'Marc Fontaine', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' }
+      ]
+    },
+    // Réservations supplémentaires pour atteindre les statistiques de vente
+    { 
+      id: 13, 
+      time: '09:15', 
+      name: 'Groupe Scolaire St-Michel', 
+      type: 'Individuel', 
+      persons: 12, 
+      status: 'Confirmé', 
+      checkedIn: false,
+      bookingChannel: 'phone',
+      ticketType: 'enfant',
+      notes: 'Sortie scolaire - 12 enfants',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 115.00,
+        originalAmount: 115.00,
+        discountAmount: 0,
+        method: 'Chèque',
+        timestamp: '2026-05-12T16:30:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Élève 1', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 2', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 3', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 4', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 5', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 6', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 7', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 8', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 9', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 10', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 11', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' },
+        { name: 'Élève 12', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8-12 ans' }
+      ],
+      email: 'ecole.stmichel@example.com',
+      phone: '01 69 12 34 56'
+    },
+    { 
+      id: 14, 
+      time: '11:00', 
+      name: 'Famille Chen', 
+      type: 'Individuel', 
+      persons: 4, 
+      status: 'Confirmé', 
+      checkedIn: false,
+      bookingChannel: 'online',
+      ticketType: 'plein',
+      notes: 'Famille - 2 adultes, 2 enfants',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 60.00,
+        originalAmount: 60.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-11T20:15:00.000Z',
+        validatedBy: 'Paiement en ligne'
+      },
+      visitors: [
+        { name: 'Wei Chen', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Li Chen', ticketType: 'plein', discount: null, hasStudentCard: false, notes: '' },
+        { name: 'Mei Chen', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '10 ans' },
+        { name: 'Jin Chen', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '8 ans' }
+      ],
+      email: 'chen.wei@example.com',
+      phone: '06 45 67 89 01'
+    },
+    { 
+      id: 15, 
+      time: '13:00', 
+      name: 'Groupe Jeunes Martin', 
+      type: 'Individuel', 
+      persons: 8, 
+      status: 'Confirmé', 
+      checkedIn: false,
+      bookingChannel: 'walkin',
+      ticketType: 'enfant',
+      notes: '8 enfants - anniversaire',
+      paymentValidated: true,
+      paymentDetails: {
+        amount: 32.00,
+        originalAmount: 32.00,
+        discountAmount: 0,
+        method: 'CB',
+        timestamp: '2026-05-16T13:05:00.000Z',
+        validatedBy: 'Personnel Accueil'
+      },
+      visitors: [
+        { name: 'Lucas Martin', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9 ans - anniversaire' },
+        { name: 'Ami 1', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 2', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 3', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 4', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 5', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 6', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' },
+        { name: 'Ami 7', ticketType: 'enfant', discount: null, hasStudentCard: false, notes: '9-11 ans' }
+      ],
+      email: 'martin.lucas@example.com',
+      phone: '06 23 45 67 89'
     }
   ]);
-  const [selectedReservation, setSelectedReservation] = useState(null);
   const [reservationForm, setReservationForm] = useState({
     name: '',
     email: '',
@@ -346,10 +571,27 @@ export default function SubventionCampaign() {
     time: '',
     type: 'Individuel',
     persons: 1,
+    ticketType: 'plein',
+    discount: null,
+    bookingChannel: 'walkin',
+    hasStudentCard: false,
     notes: '',
+    visitors: [], // Liste détaillée des visiteurs { name, ticketType, discount, hasStudentCard, notes }
     tickets: [] // { type: 'plein', quantity: 1, price: 12 }
   });
   const [checkInSearch, setCheckInSearch] = useState('');
+  
+  // États pour la gestion détaillée des visiteurs
+  const { isOpen: isVisitorsModalOpen, onOpen: onVisitorsModalOpen, onClose: onVisitorsModalClose } = useDisclosure();
+  const [visitorsStep, setVisitorsStep] = useState(1); // 1: Liste, 2: Ajout/Édition
+  const [editingVisitorIndex, setEditingVisitorIndex] = useState(null);
+  const [visitorForm, setVisitorForm] = useState({
+    name: '',
+    ticketType: 'plein',
+    discount: null,
+    hasStudentCard: false,
+    notes: ''
+  });
   
   // États pour le parcours de check-in (4 étapes)
   const [checkInStep, setCheckInStep] = useState(1); // 1: Identification, 2: Vérification, 3: Application, 4: Entrée
@@ -358,10 +600,14 @@ export default function SubventionCampaign() {
   const [visitorEditForm, setVisitorEditForm] = useState({
     persons: 1,
     type: 'Individuel',
+    ticketType: 'plein',
+    modificationReason: '',
+    tickets: [],
     notes: ''
   });
   const [checkInVerification, setCheckInVerification] = useState({
     identityVerified: false,
+    studentCardVerified: false,
     documentsVerified: false,
     paymentStatus: 'pending', // 'pending', 'paid', 'to_pay'
     discountEligible: false,
@@ -380,6 +626,33 @@ export default function SubventionCampaign() {
     quantity: 1,
     paymentMethod: 'CB'
   });
+
+  // États pour les codes promotionnels
+  const [promoCode, setPromoCode] = useState('');
+  const [promoCodeValidation, setPromoCodeValidation] = useState({
+    isValidating: false,
+    isValid: false,
+    code: null,
+    error: null
+  });
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [internalCodes, setInternalCodes] = useState([]);
+  const [codeForm, setCodeForm] = useState({
+    code: '',
+    name: '',
+    type: 'percentage',
+    value: 0,
+    description: '',
+    validFrom: new Date().toISOString().split('T')[0],
+    validUntil: '',
+    maxUses: null,
+    restrictedTo: [],
+    conditions: ''
+  });
+  const { isOpen: isCodeFormOpen, onOpen: onCodeFormOpen, onClose: onCodeFormClose } = useDisclosure();
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [editingCode, setEditingCode] = useState(null);
+  const [isInternalCode, setIsInternalCode] = useState(false);
 
   // Check admin access
   const userRolesHook = useUserRoles();
@@ -488,18 +761,36 @@ export default function SubventionCampaign() {
   const loadTicketingData = useCallback(async () => {
     try {
       setTicketingLoading(true);
-      const [typesData, statsData, weeklyData, discountsData] = await Promise.all([
+      const [typesData, statsData, weeklyData, discountsData, promoCodesData, internalCodesData] = await Promise.all([
         ticketingAPI.getTicketTypes().catch(() => []),
         ticketingAPI.getStats().catch(() => null),
         ticketingAPI.getWeeklyStats().catch(() => []),
-        ticketingAPI.getDiscounts().catch(() => [])
+        ticketingAPI.getDiscounts().catch(() => []),
+        ticketingAPI.getPromoCodes().catch(() => []),
+        ticketingAPI.getInternalCodes().catch(() => [])
       ]);
       setTicketTypes(Array.isArray(typesData) ? typesData : []);
       
-      // Charger aussi les ticketPrices depuis l'API
-      if (Array.isArray(typesData) && typesData.length > 0) {
-        // Mapper les données API vers le format ticketPrices
-        const pricesFromAPI = typesData.map(t => ({
+      // Charger les tarifs avec priorité localStorage > API
+      let finalPrices = [];
+      
+      // 1. Essayer de charger depuis localStorage
+      try {
+        const stored = localStorage.getItem('museum_ticket_prices');
+        if (stored) {
+          const storedPrices = JSON.parse(stored);
+          if (Array.isArray(storedPrices) && storedPrices.length > 0) {
+            finalPrices = storedPrices;
+            console.log('💾 Tarifs chargés depuis localStorage:', finalPrices.length);
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les tarifs depuis localStorage:', err);
+      }
+      
+      // 2. Si pas de localStorage, utiliser l'API
+      if (finalPrices.length === 0 && Array.isArray(typesData) && typesData.length > 0) {
+        finalPrices = typesData.map(t => ({
           id: t.id,
           name: t.name || t.label,
           label: t.label || t.name,
@@ -507,12 +798,68 @@ export default function SubventionCampaign() {
           description: t.description,
           active: t.active !== undefined ? t.active : true
         }));
-        setTicketPrices(pricesFromAPI);
+        console.log('🌐 Tarifs chargés depuis API:', finalPrices.length);
+        
+        // Sauvegarder en localStorage pour la prochaine fois
+        try {
+          localStorage.setItem('museum_ticket_prices', JSON.stringify(finalPrices));
+        } catch (err) {
+          console.warn('Impossible de sauvegarder en localStorage:', err);
+        }
+      }
+      
+      if (finalPrices.length > 0) {
+        setTicketPrices(finalPrices);
       }
 
-      // Charger les réductions depuis l'API
-      if (Array.isArray(discountsData) && discountsData.length > 0) {
-        setDiscounts(discountsData);
+      // Charger les réductions avec priorité localStorage > API
+      let finalDiscounts = [];
+      
+      // 1. Essayer de charger depuis localStorage
+      try {
+        const stored = localStorage.getItem('museum_discounts');
+        if (stored) {
+          const storedDiscounts = JSON.parse(stored);
+          if (Array.isArray(storedDiscounts) && storedDiscounts.length > 0) {
+            finalDiscounts = storedDiscounts;
+            console.log('💾 Réductions chargées depuis localStorage:', finalDiscounts.length);
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les réductions depuis localStorage:', err);
+      }
+      
+      // 2. Si pas de localStorage, utiliser l'API
+      if (finalDiscounts.length === 0 && Array.isArray(discountsData) && discountsData.length > 0) {
+        finalDiscounts = discountsData;
+        console.log('🌐 Réductions chargées depuis API:', finalDiscounts.length);
+        
+        // Sauvegarder en localStorage pour la prochaine fois
+        try {
+          localStorage.setItem('museum_discounts', JSON.stringify(finalDiscounts));
+        } catch (err) {
+          console.warn('Impossible de sauvegarder les réductions en localStorage:', err);
+        }
+      }
+      
+      if (finalDiscounts.length > 0) {
+        setDiscounts(finalDiscounts);
+      }
+
+      // Charger les codes promo et internes avec persistance localStorage
+      const promoCodesArray = Array.isArray(promoCodesData) ? promoCodesData : [];
+      const internalCodesArray = Array.isArray(internalCodesData) ? internalCodesData : [];
+      
+      setPromoCodes(promoCodesArray);
+      setInternalCodes(internalCodesArray);
+      
+      // Sauvegarder dans localStorage pour persistance entre rechargements
+      try {
+        localStorage.setItem('museum_promo_codes', JSON.stringify(promoCodesArray));
+        localStorage.setItem('museum_internal_codes', JSON.stringify(internalCodesArray));
+        console.log('💾 Codes sauvegardés en localStorage');
+      } catch (err) {
+        console.warn('Impossible de sauvegarder les codes en localStorage:', err);
       }
       
       setTicketingStats(statsData);
@@ -698,17 +1045,26 @@ export default function SubventionCampaign() {
         // Modification via API
         await ticketingAPI.updateTicketType(editingPrice.id, dataToSave);
         
-        setTicketPrices(ticketPrices.map(price => 
+        const updatedPrices = ticketPrices.map(price => 
           price.id === editingPrice.id 
             ? { ...price, ...priceForm, name: priceForm.label }
             : price
-        ));
+        );
+        setTicketPrices(updatedPrices);
+        
+        // Sauvegarder en localStorage pour persistance
+        try {
+          localStorage.setItem('museum_ticket_prices', JSON.stringify(updatedPrices));
+          console.log('💾 Tarifs sauvegardés en localStorage');
+        } catch (err) {
+          console.warn('Impossible de sauvegarder les tarifs:', err);
+        }
 
         toast({
           title: 'Tarif mis à jour',
-          description: `${priceForm.label} modifié avec succès`,
+          description: `${priceForm.label} modifié avec succès (persisté en localStorage)`,
           status: 'success',
-          duration: 2000,
+          duration: 3000,
           isClosable: true
         });
       } else {
@@ -720,13 +1076,22 @@ export default function SubventionCampaign() {
           name: priceForm.label,
           ...priceForm
         };
-        setTicketPrices([...ticketPrices, newPrice]);
+        const updatedPrices = [...ticketPrices, newPrice];
+        setTicketPrices(updatedPrices);
+        
+        // Sauvegarder en localStorage pour persistance
+        try {
+          localStorage.setItem('museum_ticket_prices', JSON.stringify(updatedPrices));
+          console.log('💾 Tarifs sauvegardés en localStorage');
+        } catch (err) {
+          console.warn('Impossible de sauvegarder les tarifs:', err);
+        }
 
         toast({
           title: 'Tarif créé',
-          description: `${priceForm.label} ajouté avec succès`,
+          description: `${priceForm.label} ajouté avec succès (persisté en localStorage)`,
           status: 'success',
-          duration: 2000,
+          duration: 3000,
           isClosable: true
         });
       }
@@ -757,17 +1122,26 @@ export default function SubventionCampaign() {
         active: !price.active
       });
 
-      setTicketPrices(ticketPrices.map(p => 
+      const updatedPrices = ticketPrices.map(p => 
         p.id === priceId 
           ? { ...p, active: !p.active }
           : p
-      ));
+      );
+      setTicketPrices(updatedPrices);
+      
+      // Sauvegarder en localStorage pour persistance
+      try {
+        localStorage.setItem('museum_ticket_prices', JSON.stringify(updatedPrices));
+        console.log('💾 Tarifs sauvegardés en localStorage (toggle active)');
+      } catch (err) {
+        console.warn('Impossible de sauvegarder les tarifs:', err);
+      }
 
       toast({
         title: price.active ? 'Tarif désactivé' : 'Tarif activé',
-        description: `${price.label} ${price.active ? 'n\'est plus' : 'est maintenant'} disponible`,
+        description: `${price.label} ${price.active ? 'n\'est plus' : 'est maintenant'} disponible (persisté)`,
         status: 'info',
-        duration: 2000,
+        duration: 3000,
         isClosable: true
       });
     } catch (error) {
@@ -814,16 +1188,26 @@ export default function SubventionCampaign() {
         // Modification via API
         await ticketingAPI.updateDiscount(editingDiscount.id, discountForm);
         
-        setDiscounts(discounts.map(discount => 
+        const updatedDiscounts = discounts.map(discount => 
           discount.id === editingDiscount.id 
             ? { ...discount, ...discountForm }
             : discount
-        ));
+        );
+        setDiscounts(updatedDiscounts);
+        
+        // Sauvegarder en localStorage
+        try {
+          localStorage.setItem('museum_discounts', JSON.stringify(updatedDiscounts));
+          console.log('💾 Réductions sauvegardées en localStorage');
+        } catch (err) {
+          console.warn('Impossible de sauvegarder les réductions:', err);
+        }
+        
         toast({
           title: 'Réduction mise à jour',
-          description: `${discountForm.name} modifiée avec succès`,
+          description: `${discountForm.name} modifiée avec succès (persistée)`,
           status: 'success',
-          duration: 2000,
+          duration: 3000,
           isClosable: true
         });
       } else {
@@ -834,12 +1218,22 @@ export default function SubventionCampaign() {
           id: createdDiscount.id || `discount_${Date.now()}`,
           ...discountForm
         };
-        setDiscounts([...discounts, newDiscount]);
+        const updatedDiscounts = [...discounts, newDiscount];
+        setDiscounts(updatedDiscounts);
+        
+        // Sauvegarder en localStorage
+        try {
+          localStorage.setItem('museum_discounts', JSON.stringify(updatedDiscounts));
+          console.log('💾 Réductions sauvegardées en localStorage');
+        } catch (err) {
+          console.warn('Impossible de sauvegarder les réductions:', err);
+        }
+        
         toast({
           title: 'Réduction créée',
-          description: `${discountForm.name} ajoutée avec succès`,
+          description: `${discountForm.name} ajoutée avec succès (persistée)`,
           status: 'success',
-          duration: 2000,
+          duration: 3000,
           isClosable: true
         });
       }
@@ -878,17 +1272,26 @@ export default function SubventionCampaign() {
         active: !discount.active
       });
 
-      setDiscounts(discounts.map(d => 
+      const updatedDiscounts = discounts.map(d => 
         d.id === discountId 
           ? { ...d, active: !d.active }
           : d
-      ));
+      );
+      setDiscounts(updatedDiscounts);
+      
+      // Sauvegarder en localStorage
+      try {
+        localStorage.setItem('museum_discounts', JSON.stringify(updatedDiscounts));
+        console.log('💾 Réductions sauvegardées en localStorage (toggle)');
+      } catch (err) {
+        console.warn('Impossible de sauvegarder les réductions:', err);
+      }
 
       toast({
         title: discount.active ? 'Réduction désactivée' : 'Réduction activée',
-        description: `${discount.name} ${discount.active ? 'n\'est plus' : 'est maintenant'} disponible`,
+        description: `${discount.name} ${discount.active ? 'n\'est plus' : 'est maintenant'} disponible (persistée)`,
         status: 'info',
-        duration: 2000,
+        duration: 3000,
         isClosable: true
       });
     } catch (error) {
@@ -911,12 +1314,22 @@ export default function SubventionCampaign() {
       // Supprimer via API
       await ticketingAPI.deleteDiscount(discountId);
       
-      setDiscounts(discounts.filter(d => d.id !== discountId));
+      const updatedDiscounts = discounts.filter(d => d.id !== discountId);
+      setDiscounts(updatedDiscounts);
+      
+      // Sauvegarder en localStorage
+      try {
+        localStorage.setItem('museum_discounts', JSON.stringify(updatedDiscounts));
+        console.log('💾 Réductions sauvegardées en localStorage (delete)');
+      } catch (err) {
+        console.warn('Impossible de sauvegarder les réductions:', err);
+      }
+      
       toast({
         title: 'Réduction supprimée',
-        description: `${discount.name} a été supprimée`,
+        description: `${discount.name} a été supprimée (persistée)`,
         status: 'warning',
-        duration: 2000,
+        duration: 3000,
         isClosable: true
       });
     } catch (error) {
@@ -932,6 +1345,27 @@ export default function SubventionCampaign() {
   };
 
   // Fonctions de gestion de la station d'accueil
+  const handleOpenNewReservation = () => {
+    setVisitorsStep(1);
+    setReservationForm({
+      name: '',
+      email: '',
+      phone: '',
+      date: new Date().toISOString().split('T')[0],
+      time: '',
+      type: 'Individuel',
+      persons: 1,
+      ticketType: 'plein',
+      discount: null,
+      bookingChannel: 'walkin',
+      hasStudentCard: false,
+      visitors: [],
+      notes: '',
+      tickets: []
+    });
+    onNewReservationOpen();
+  };
+
   const handleNewReservation = async () => {
     try {
       const newReservation = {
@@ -939,12 +1373,14 @@ export default function SubventionCampaign() {
         time: reservationForm.time,
         name: reservationForm.name,
         type: reservationForm.type,
-        persons: parseInt(reservationForm.persons),
+        persons: reservationForm.visitors.length,
         status: 'Confirmé',
         checkedIn: false,
         email: reservationForm.email,
         phone: reservationForm.phone,
         date: reservationForm.date,
+        bookingChannel: reservationForm.bookingChannel,
+        visitors: reservationForm.visitors,
         notes: reservationForm.notes
       };
 
@@ -952,7 +1388,7 @@ export default function SubventionCampaign() {
       
       toast({
         title: 'Réservation créée',
-        description: `Réservation pour ${reservationForm.name} confirmée`,
+        description: `Réservation pour ${reservationForm.name} avec ${reservationForm.visitors.length} visiteur(s)`,
         status: 'success',
         duration: 3000,
         isClosable: true
@@ -967,9 +1403,16 @@ export default function SubventionCampaign() {
         time: '',
         type: 'Individuel',
         persons: 1,
-        notes: ''
+        ticketType: 'plein',
+        discount: null,
+        bookingChannel: 'walkin',
+        hasStudentCard: false,
+        visitors: [],
+        notes: '',
+        tickets: []
       });
       
+      setVisitorsStep(1);
       onNewReservationClose();
     } catch (error) {
       toast({
@@ -1058,9 +1501,30 @@ export default function SubventionCampaign() {
       paymentStatus = visitor.paymentMethod ? 'paid' : 'to_pay';
     }
     
-    const totalAmount = visitor.tickets ? 
-      visitor.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0) : 
-      visitor.persons * 12; // Prix par défaut
+    // Calculer le montant basé sur les visiteurs détaillés ou le tarif global
+    let totalAmount;
+    
+    if (visitor.visitors && visitor.visitors.length > 0) {
+      // Nouveau système : calculer à partir des visiteurs détaillés
+      totalAmount = visitor.visitors.reduce((sum, v) => {
+        const tariff = ticketPrices.find(t => t.id === v.ticketType);
+        const basePrice = tariff?.price || 0;
+        return sum + basePrice;
+      }, 0);
+    } else if (visitor.tickets && visitor.tickets.length > 0) {
+      // Ancien système : calculer à partir des billets
+      totalAmount = visitor.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0);
+    } else {
+      // Fallback : calculer avec le tarif et le nombre de personnes
+      let unitPrice = 25; // Prix par défaut (Adulte)
+      if (visitor.ticketType) {
+        const selectedTicket = ticketPrices.find(t => t.id === visitor.ticketType);
+        if (selectedTicket) {
+          unitPrice = selectedTicket.price;
+        }
+      }
+      totalAmount = visitor.persons * unitPrice;
+    }
 
     // Si une réduction est pré-indiquée dans la réservation
     const hasPresetDiscount = visitor.discount && !isGroupBooking;
@@ -1076,6 +1540,7 @@ export default function SubventionCampaign() {
 
     setCheckInVerification({
       identityVerified: false,
+      studentCardVerified: false,
       documentsVerified: false,
       paymentStatus: paymentStatus,
       discountEligible: hasPresetDiscount,
@@ -1126,9 +1591,265 @@ export default function SubventionCampaign() {
     setVisitorEditForm({
       persons: selectedVisitor.persons,
       type: selectedVisitor.type,
+      ticketType: selectedVisitor.ticketType || 'plein',
+      modificationReason: '',
+      tickets: selectedVisitor.tickets || [],
       notes: selectedVisitor.notes || ''
     });
     setIsEditingVisitor(true);
+  };
+
+  // ============================================
+  // FONCTIONS CODES PROMOTIONNELS
+  // ============================================
+
+  const handleValidatePromoCode = async (code, userName = '') => {
+    if (!code || !code.trim()) {
+      setPromoCodeValidation({
+        isValidating: false,
+        isValid: false,
+        code: null,
+        error: 'Veuillez entrer un code'
+      });
+      return;
+    }
+
+    console.log('🔍 Validation code promo:', code, 'pour utilisateur:', userName);
+    setPromoCodeValidation(prev => ({ ...prev, isValidating: true, error: null }));
+
+    try {
+      const result = await ticketingAPI.validatePromoCode(code.trim(), userName);
+      
+      if (result.valid) {
+        setPromoCodeValidation({
+          isValidating: false,
+          isValid: true,
+          code: result.code,
+          error: null
+        });
+        
+        toast({
+          title: result.isInternal ? 'Code interne validé' : 'Code promo validé',
+          description: `${result.reduction.name}: -${result.reduction.value}${result.reduction.type === 'percentage' ? '%' : '€'}`,
+          status: 'success',
+          duration: 3000
+        });
+
+        return result;
+      }
+    } catch (error) {
+      console.error('Erreur validation code:', error);
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Code invalide';
+      
+      setPromoCodeValidation({
+        isValidating: false,
+        isValid: false,
+        code: null,
+        error: errorMsg
+      });
+
+      toast({
+        title: 'Code invalide',
+        description: errorMsg,
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleApplyPromoCode = async () => {
+    // Utiliser le nom de l'utilisateur connecté pour valider les codes internes
+    const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : '';
+    const result = await handleValidatePromoCode(promoCode, userName);
+    
+    if (result && result.valid) {
+      // Appliquer la réduction au formulaire
+      setReservationForm(prev => ({
+        ...prev,
+        discount: result.code.id,
+        notes: prev.notes + (prev.notes ? '\n' : '') + `Code ${result.isInternal ? 'interne' : 'promo'}: ${result.code.code}`
+      }));
+      
+      setPromoCode(''); // Réinitialiser le champ
+    }
+  };
+
+  const handleLoadPromoCodes = async () => {
+    try {
+      const [promos, internals] = await Promise.all([
+        ticketingAPI.getPromoCodes().catch(() => []),
+        ticketingAPI.getInternalCodes().catch(() => [])
+      ]);
+      
+      setPromoCodes(promos);
+      setInternalCodes(internals);
+      
+      // Sauvegarder en localStorage pour persistance
+      try {
+        localStorage.setItem('museum_promo_codes', JSON.stringify(promos));
+        localStorage.setItem('museum_internal_codes', JSON.stringify(internals));
+      } catch (err) {
+        console.warn('Impossible de sauvegarder en localStorage:', err);
+      }
+    } catch (error) {
+      console.error('Erreur chargement codes:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger les codes promotionnels',
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleOpenCodeForm = (code = null, isInternal = false) => {
+    if (code) {
+      setIsEditingCode(true);
+      setEditingCode(code);
+      setIsInternalCode(isInternal);
+      setCodeForm({
+        code: code.code,
+        name: code.name,
+        type: code.type,
+        value: code.value,
+        description: code.description,
+        validFrom: code.validFrom,
+        validUntil: code.validUntil,
+        maxUses: code.maxUses,
+        restrictedTo: code.restrictedTo || [],
+        conditions: code.conditions
+      });
+    } else {
+      setIsEditingCode(false);
+      setEditingCode(null);
+      setIsInternalCode(isInternal);
+      setCodeForm({
+        code: '',
+        name: '',
+        type: 'percentage',
+        value: 0,
+        description: '',
+        validFrom: new Date().toISOString().split('T')[0],
+        validUntil: '',
+        maxUses: null,
+        restrictedTo: [],
+        conditions: ''
+      });
+    }
+    onCodeFormOpen();
+  };
+
+  const handleSaveCode = async () => {
+    if (!codeForm.code || !codeForm.name) {
+      toast({
+        title: 'Erreur',
+        description: 'Code et nom sont requis',
+        status: 'error',
+        duration: 3000
+      });
+      return;
+    }
+
+    try {
+      const dataToSave = {
+        ...codeForm,
+        code: codeForm.code.toUpperCase()
+      };
+
+      let savedCode;
+      if (isEditingCode) {
+        if (isInternalCode) {
+          savedCode = await ticketingAPI.updateInternalCode(editingCode.id, dataToSave);
+        } else {
+          savedCode = await ticketingAPI.updatePromoCode(editingCode.id, dataToSave);
+        }
+        toast({
+          title: 'Code mis à jour',
+          description: 'Persistance: en mémoire serveur (réinitialise au redémarrage)',
+          status: 'success',
+          duration: 3000
+        });
+      } else {
+        if (isInternalCode) {
+          savedCode = await ticketingAPI.createInternalCode(dataToSave);
+        } else {
+          savedCode = await ticketingAPI.createPromoCode(dataToSave);
+        }
+        toast({
+          title: 'Code créé',
+          description: 'Persistance: en mémoire serveur (réinitialise au redémarrage)',
+          status: 'success',
+          duration: 3000
+        });
+      }
+
+      // Recharger depuis l'API et sauvegarder en localStorage
+      await handleLoadPromoCodes();
+      onCodeFormClose();
+    } catch (error) {
+      console.error('Erreur sauvegarde code:', error);
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.error || 'Erreur lors de la sauvegarde',
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleDeleteCode = async (codeId, isInternal) => {
+    if (!window.confirm('Confirmer la suppression de ce code ? (Changement persistera jusqu\'au redémarrage du serveur)')) return;
+
+    try {
+      if (isInternal) {
+        await ticketingAPI.deleteInternalCode(codeId);
+      } else {
+        await ticketingAPI.deletePromoCode(codeId);
+      }
+
+      toast({
+        title: 'Code supprimé',
+        description: 'Persistance: en mémoire serveur uniquement',
+        status: 'success',
+        duration: 3000
+      });
+
+      await handleLoadPromoCodes();
+    } catch (error) {
+      console.error('Erreur suppression code:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Erreur lors de la suppression',
+        status: 'error',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleToggleCodeActive = async (codeId, currentActive, isInternal) => {
+    try {
+      if (isInternal) {
+        await ticketingAPI.updateInternalCode(codeId, { active: !currentActive });
+      } else {
+        await ticketingAPI.updatePromoCode(codeId, { active: !currentActive });
+      }
+
+      toast({
+        title: !currentActive ? 'Code activé' : 'Code désactivé',
+        status: 'success',
+        duration: 2000
+      });
+
+      await handleLoadPromoCodes();
+    } catch (error) {
+      console.error('Erreur toggle code:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Erreur lors de la modification',
+        status: 'error',
+        duration: 3000
+      });
+    }
   };
 
   const handleCancelEditVisitor = () => {
@@ -1136,12 +1857,43 @@ export default function SubventionCampaign() {
     setVisitorEditForm({
       persons: 1,
       type: 'Individuel',
+      ticketType: 'plein',
+      modificationReason: '',
+      tickets: [],
       notes: ''
     });
   };
 
   const handleSaveEditVisitor = () => {
     if (!selectedVisitor) return;
+
+    // Construire la note de modification si nécessaire
+    let modificationNote = visitorEditForm.notes;
+    const personsChanged = parseInt(visitorEditForm.persons) !== selectedVisitor.persons;
+    const ticketTypeChanged = visitorEditForm.ticketType !== selectedVisitor.ticketType;
+    
+    // Gérer automatiquement la carte étudiante selon le motif
+    let hasStudentCard = selectedVisitor.hasStudentCard;
+    if (visitorEditForm.modificationReason === 'Carte étudiante non valide') {
+      hasStudentCard = false;
+    }
+    
+    if ((personsChanged || ticketTypeChanged) && visitorEditForm.modificationReason) {
+      const changes = [];
+      if (personsChanged) {
+        changes.push(`Personnes: ${selectedVisitor.persons} → ${visitorEditForm.persons}`);
+      }
+      if (ticketTypeChanged) {
+        const oldTicket = ticketPrices.find(t => t.id === selectedVisitor.ticketType)?.label || 'Non défini';
+        const newTicket = ticketPrices.find(t => t.id === visitorEditForm.ticketType)?.label || 'Non défini';
+        changes.push(`Tarif: ${oldTicket} → ${newTicket}`);
+      }
+      if (visitorEditForm.modificationReason === 'Carte étudiante non valide') {
+        changes.push('Carte étudiante retirée');
+      }
+      const modificationText = `\n\n[MODIFICATION CHECK-IN] ${changes.join(', ')} - Motif: ${visitorEditForm.modificationReason}`;
+      modificationNote = (modificationNote || '') + modificationText;
+    }
 
     // Mettre à jour la réservation dans la liste
     const updatedReservations = reservations.map(res => 
@@ -1150,7 +1902,10 @@ export default function SubventionCampaign() {
             ...res, 
             persons: parseInt(visitorEditForm.persons),
             type: visitorEditForm.type,
-            notes: visitorEditForm.notes
+            ticketType: visitorEditForm.ticketType,
+            hasStudentCard: hasStudentCard,
+            tickets: visitorEditForm.tickets,
+            notes: modificationNote
           }
         : res
     );
@@ -1161,15 +1916,32 @@ export default function SubventionCampaign() {
       ...selectedVisitor,
       persons: parseInt(visitorEditForm.persons),
       type: visitorEditForm.type,
-      notes: visitorEditForm.notes
+      ticketType: visitorEditForm.ticketType,
+      hasStudentCard: hasStudentCard,
+      tickets: visitorEditForm.tickets,
+      notes: modificationNote
     };
     setSelectedVisitor(updatedVisitor);
 
     // Recalculer le montant avec les nouvelles informations
     const isGroupBooking = visitorEditForm.type === 'Groupe';
-    const totalAmount = updatedVisitor.tickets ? 
-      updatedVisitor.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0) : 
-      parseInt(visitorEditForm.persons) * 12;
+    
+    // Calculer le montant basé sur les tickets ou le tarif sélectionné
+    let totalAmount;
+    if (visitorEditForm.tickets && visitorEditForm.tickets.length > 0) {
+      // Si des billets sont ajoutés, utiliser leur montant total
+      totalAmount = visitorEditForm.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0);
+    } else {
+      // Sinon, calculer avec le tarif et le nombre de personnes
+      let unitPrice = 25; // Prix par défaut (Adulte)
+      if (visitorEditForm.ticketType) {
+        const selectedTicket = ticketPrices.find(t => t.id === visitorEditForm.ticketType);
+        if (selectedTicket) {
+          unitPrice = selectedTicket.price;
+        }
+      }
+      totalAmount = parseInt(visitorEditForm.persons) * unitPrice;
+    }
 
     let paymentStatus;
     if (isGroupBooking) {
@@ -1208,9 +1980,11 @@ export default function SubventionCampaign() {
 
     toast({
       title: 'Réservation mise à jour',
-      description: 'Les informations ont été modifiées avec succès',
+      description: visitorEditForm.modificationReason 
+        ? `Modification: ${visitorEditForm.modificationReason}` 
+        : 'Les informations ont été modifiées avec succès',
       status: 'success',
-      duration: 2000,
+      duration: 3000,
       isClosable: true
     });
   };
@@ -1221,6 +1995,17 @@ export default function SubventionCampaign() {
       toast({
         title: 'Vérification incomplète',
         description: 'Veuillez vérifier l\'identité du visiteur',
+        status: 'warning',
+        duration: 2000,
+        isClosable: true
+      });
+      return;
+    }
+
+    if (selectedVisitor?.hasStudentCard && !checkInVerification.studentCardVerified) {
+      toast({
+        title: 'Carte étudiante requise',
+        description: 'Veuillez vérifier la validité de la carte étudiante',
         status: 'warning',
         duration: 2000,
         isClosable: true
@@ -1251,26 +2036,153 @@ export default function SubventionCampaign() {
     setCheckInStep(4);
   };
 
+  // Générer le contenu du ticket de caisse
+  const generateTicketReceipt = (reservation) => {
+    const visitDate = new Date();
+    const ticketNumber = `TICKET-${reservation.id}-${Date.now()}`;
+    
+    // Calculer le total et les détails
+    let totalAmount = 0;
+    let totalDiscount = 0;
+    const items = [];
+    
+    if (reservation.visitors && reservation.visitors.length > 0) {
+      reservation.visitors.forEach((visitor, index) => {
+        const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+        const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+        const basePrice = tariff?.price || 0;
+        let finalPrice = basePrice;
+        let discount = 0;
+        
+        if (reduction) {
+          if (reduction.type === 'percentage') {
+            discount = basePrice * (reduction.value / 100);
+            finalPrice = basePrice - discount;
+          } else {
+            discount = reduction.value;
+            finalPrice = Math.max(0, basePrice - discount);
+          }
+        }
+        
+        totalAmount += finalPrice;
+        totalDiscount += discount;
+        
+        items.push({
+          name: visitor.name || `Visiteur ${index + 1}`,
+          tariff: tariff?.label || 'Tarif',
+          reduction: reduction ? reduction.name : null,
+          basePrice,
+          discount,
+          finalPrice
+        });
+      });
+    } else {
+      // Fallback si pas de visiteurs détaillés
+      const tariff = ticketPrices.find(t => t.id === reservation.ticketType);
+      totalAmount = checkInPayment.amount || tariff?.price || 0;
+      items.push({
+        name: reservation.name,
+        tariff: tariff?.label || 'Tarif Plein',
+        reduction: null,
+        basePrice: totalAmount,
+        discount: 0,
+        finalPrice: totalAmount
+      });
+    }
+    
+    return {
+      ticketNumber,
+      date: visitDate.toLocaleDateString('fr-FR'),
+      time: visitDate.toLocaleTimeString('fr-FR'),
+      reservationId: reservation.id,
+      customerName: reservation.name,
+      customerEmail: reservation.email,
+      visitDate: reservation.date,
+      visitTime: reservation.time,
+      items,
+      totalDiscount,
+      totalAmount,
+      paymentMethod: checkInPayment.method || 'CB',
+      numberOfPersons: reservation.persons || items.length
+    };
+  };
+
+  // Envoyer le ticket par email
+  const sendTicketByEmail = async (ticketData) => {
+    // TODO: Implémenter l'envoi réel via une API email (Nodemailer, SendGrid, etc.)
+    // Pour l'instant, on simule l'envoi
+    
+    console.log('📧 Envoi du ticket de caisse par email...');
+    console.log('Destinataire:', ticketData.customerEmail);
+    console.log('Ticket:', ticketData);
+    
+    // Simuler un délai d'envoi
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('✅ Ticket envoyé avec succès!');
+        resolve({ success: true, ticketNumber: ticketData.ticketNumber });
+      }, 500);
+    });
+  };
+
   // ÉTAPE 4: Finalisation de l'entrée
-  const handleFinalizeCheckIn = () => {
+  const handleFinalizeCheckIn = async () => {
     if (!selectedVisitor) return;
 
-    setReservations(reservations.map(res => 
-      res.id === selectedVisitor.id ? { ...res, checkedIn: true, status: 'Check-in ✓' } : res
-    ));
-    
-    toast({
-      title: 'Entrée validée',
-      description: `${selectedVisitor.name} peut entrer au musée`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true
-    });
+    try {
+      // Marquer le check-in comme effectué
+      setReservations(reservations.map(res => 
+        res.id === selectedVisitor.id ? { ...res, checkedIn: true, status: 'Check-in ✓' } : res
+      ));
+      
+      // Générer et envoyer le ticket de caisse si un email est disponible
+      if (selectedVisitor.email) {
+        const ticketData = generateTicketReceipt(selectedVisitor);
+        
+        toast({
+          title: 'Envoi du ticket en cours...',
+          description: 'Génération du ticket de caisse',
+          status: 'info',
+          duration: 1500,
+          isClosable: true
+        });
+        
+        const emailResult = await sendTicketByEmail(ticketData);
+        
+        if (emailResult.success) {
+          toast({
+            title: 'Entrée validée ✓',
+            description: `${selectedVisitor.name} peut entrer au musée. Ticket envoyé par email.`,
+            status: 'success',
+            duration: 4000,
+            isClosable: true
+          });
+        }
+      } else {
+        // Pas d'email, juste valider l'entrée
+        toast({
+          title: 'Entrée validée',
+          description: `${selectedVisitor.name} peut entrer au musée (pas d'email renseigné)`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true
+        });
+      }
 
-    setTimeout(() => {
-      onCheckInClose();
-      resetCheckInProcess();
-    }, 2000);
+      setTimeout(() => {
+        onCheckInClose();
+        resetCheckInProcess();
+      }, 2000);
+    } catch (error) {
+      console.error('Erreur lors de la finalisation:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible d\'envoyer le ticket par email',
+        status: 'error',
+        duration: 3000,
+        isClosable: true
+      });
+    }
   };
 
   const handleCheckIn = (reservationId) => {
@@ -1285,6 +2197,30 @@ export default function SubventionCampaign() {
       duration: 2000,
       isClosable: true
     });
+  };
+
+  const handleUndoCheckIn = (reservationId) => {
+    const reservation = reservations.find(res => res.id === reservationId);
+    if (!reservation) return;
+
+    setReservations(reservations.map(res => 
+      res.id === reservationId ? { ...res, checkedIn: false, status: 'Confirmé' } : res
+    ));
+    
+    toast({
+      title: 'Check-in annulé',
+      description: `Check-in de ${reservation.name} annulé avec succès`,
+      status: 'warning',
+      duration: 3000,
+      isClosable: true
+    });
+    
+    onReservationDetailClose();
+  };
+
+  const handleViewReservationDetails = (reservation) => {
+    setSelectedReservation(reservation);
+    onReservationDetailOpen();
   };
 
   const handleCheckInSearch = () => {
@@ -1316,6 +2252,87 @@ export default function SubventionCampaign() {
     }
   };
 
+  // Calculer les statistiques de vente en temps réel
+  const calculateSalesStats = () => {
+    // Filtrer uniquement les réservations avec paiement validé (CB confirmé sur place)
+    const paidReservations = reservations.filter(res => res.paymentValidated);
+    
+    if (paidReservations.length === 0) {
+      return {
+        totalRevenue: 0,
+        totalTicketsSold: 0,
+        averagePrice: 0,
+        mostSoldTariff: { label: 'Aucun', percentage: 0 },
+        monthlyGrowth: 0
+      };
+    }
+
+    let totalRevenue = 0;
+    let totalTicketsSold = 0;
+    const tariffCounts = {};
+
+    paidReservations.forEach(reservation => {
+      // Utiliser le montant réel payé (avec réductions) si disponible
+      if (reservation.paymentDetails) {
+        totalRevenue += reservation.paymentDetails.amount;
+      }
+      // Compter les billets et tarifs
+      if (reservation.visitors && reservation.visitors.length > 0) {
+        totalTicketsSold += reservation.visitors.length;
+        reservation.visitors.forEach(visitor => {
+          const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+          
+          // Compter les tarifs
+          const tariffLabel = tariff?.label || 'Tarif Plein';
+          tariffCounts[tariffLabel] = (tariffCounts[tariffLabel] || 0) + 1;
+        });
+      } else {
+        // Fallback si pas de visiteurs détaillés
+        const tariff = ticketPrices.find(t => t.id === reservation.ticketType);
+        totalTicketsSold += reservation.persons || 1;
+
+        const tariffLabel = tariff?.label || 'Tarif Plein';
+        tariffCounts[tariffLabel] = (tariffCounts[tariffLabel] || 0) + (reservation.persons || 1);
+        
+        // Si pas de paymentDetails, calculer le prix
+        if (!reservation.paymentDetails) {
+          const price = tariff?.price || 0;
+          totalRevenue += price * (reservation.persons || 1);
+        }
+      }
+    });
+
+    // Trouver le tarif le plus vendu
+    let mostSoldTariff = { label: 'Tarif Plein', count: 0 };
+    Object.entries(tariffCounts).forEach(([label, count]) => {
+      if (count > mostSoldTariff.count) {
+        mostSoldTariff = { label, count };
+      }
+    });
+
+    const mostSoldPercentage = totalTicketsSold > 0 
+      ? ((mostSoldTariff.count / totalTicketsSold) * 100).toFixed(0)
+      : 0;
+
+    const averagePrice = totalTicketsSold > 0 
+      ? (totalRevenue / totalTicketsSold)
+      : 0;
+
+    // Simuler une croissance (à remplacer par une vraie comparaison mois précédent)
+    const monthlyGrowth = totalRevenue > 0 ? ((Math.random() * 30) - 5).toFixed(0) : 0;
+
+    return {
+      totalRevenue,
+      totalTicketsSold,
+      averagePrice,
+      mostSoldTariff: {
+        label: mostSoldTariff.label,
+        percentage: mostSoldPercentage
+      },
+      monthlyGrowth
+    };
+  };
+
   const handleEditReservation = (reservation) => {
     setSelectedReservation(reservation);
     setReservationForm({
@@ -1334,7 +2351,7 @@ export default function SubventionCampaign() {
   const handleSellTicket = async () => {
     try {
       const ticketType = ticketTypes.find(t => t.id === ticketSaleForm.ticketType) || 
-        { title: 'Tarif Plein', price: '12€' };
+        { title: 'Adulte', price: '25€' };
       
       toast({
         title: 'Vente effectuée',
@@ -1939,23 +2956,23 @@ export default function SubventionCampaign() {
     const defaultTicketTypes = [
       {
         id: 'plein',
-        title: 'Tarif Plein',
-        price: '12€',
+        title: 'Adulte',
+        price: '25€',
         color: 'rbe.500',
         sold: 3842,
-        revenue: '€46,104'
+        revenue: '€96,050'
       },
       {
         id: 'reduit',
-        title: 'Tarif Réduit',
-        price: '8€',
+        title: 'Jeunesse / Étudiant',
+        price: '15€',
         color: 'blue.500',
         sold: 2156,
-        revenue: '€17,248'
+        revenue: '€32,340'
       },
       {
         id: 'enfant',
-        title: 'Tarif Enfant',
+        title: 'Enfant -14 ans',
         price: '5€',
         color: 'green.500',
         sold: 1893,
@@ -2246,7 +3263,7 @@ export default function SubventionCampaign() {
                 <Text fontSize="sm" color="gray.700" mb={4}>
                   Créer une réservation sur place
                 </Text>
-                <Button colorScheme="blue" size="lg" w="full" onClick={onNewReservationOpen}>
+                <Button colorScheme="blue" size="lg" w="full" onClick={handleOpenNewReservation}>
                   Réserver maintenant
                 </Button>
               </CardBody>
@@ -2371,6 +3388,7 @@ export default function SubventionCampaign() {
                               colorScheme="gray"
                               variant="outline"
                               aria-label="Détails"
+                              onClick={() => handleViewReservationDetails(reservation)}
                             />
                           )}
                         </HStack>
@@ -2448,207 +3466,880 @@ export default function SubventionCampaign() {
 
         {/* Modales */}
         {/* Modal Nouvelle Réservation */}
-        <Modal isOpen={isNewReservationOpen} onClose={onNewReservationClose} size="xl">
+        <Modal isOpen={isNewReservationOpen} onClose={onNewReservationClose} size="full">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader bg="gray.50" borderBottomWidth="1px">
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between">
+                  <HStack>
+                    <Icon as={FiPlus} boxSize={6} color="blue.500" />
+                    <Heading size="lg">Nouvelle Réservation</Heading>
+                  </HStack>
+                  <ModalCloseButton position="relative" top={0} right={0} />
+                </HStack>
+
+                {/* Stepper / Fil d'Ariane */}
+                <Stepper index={visitorsStep - 1} colorScheme="blue" size="lg">
+                  <Step>
+                    <StepIndicator>
+                      <StepStatus
+                        complete={<StepIcon />}
+                        incomplete={<StepNumber />}
+                        active={<StepNumber />}
+                      />
+                    </StepIndicator>
+
+                    <Box flexShrink="0">
+                      <StepTitle>Informations générales</StepTitle>
+                      <StepDescription>Contact et date</StepDescription>
+                    </Box>
+
+                    <StepSeparator />
+                  </Step>
+
+                  <Step>
+                    <StepIndicator>
+                      <StepStatus
+                        complete={<StepIcon />}
+                        incomplete={<StepNumber />}
+                        active={<StepNumber />}
+                      />
+                    </StepIndicator>
+
+                    <Box flexShrink="0">
+                      <StepTitle>Visiteurs</StepTitle>
+                      <StepDescription>Détail par personne</StepDescription>
+                    </Box>
+
+                    <StepSeparator />
+                  </Step>
+
+                  <Step>
+                    <StepIndicator>
+                      <StepStatus
+                        complete={<StepIcon />}
+                        incomplete={<StepNumber />}
+                        active={<StepNumber />}
+                      />
+                    </StepIndicator>
+
+                    <Box flexShrink="0">
+                      <StepTitle>Confirmation</StepTitle>
+                      <StepDescription>Récapitulatif</StepDescription>
+                    </Box>
+                  </Step>
+                </Stepper>
+              </VStack>
+            </ModalHeader>
+            <ModalBody py={8} px={12} maxW="1200px" mx="auto" w="full">
+              {/* ÉTAPE 1: INFORMATIONS GÉNÉRALES */}
+              {visitorsStep === 1 && (
+                <VStack spacing={6} align="stretch">
+                  <Box>
+                    <Heading size="md" mb={4}>Informations de contact</Heading>
+                    <VStack spacing={4}>
+                      <FormControl isRequired>
+                        <FormLabel>Nom du responsable de la réservation</FormLabel>
+                        <Input
+                          placeholder="Jean Dupont"
+                          value={reservationForm.name}
+                          onChange={(e) => setReservationForm({ ...reservationForm, name: e.target.value })}
+                        />
+                      </FormControl>
+
+                      <SimpleGrid columns={2} spacing={4} w="full">
+                        <FormControl isRequired>
+                          <FormLabel>Email</FormLabel>
+                          <Input
+                            type="email"
+                            placeholder="jean@example.com"
+                            value={reservationForm.email}
+                            onChange={(e) => setReservationForm({ ...reservationForm, email: e.target.value })}
+                          />
+                        </FormControl>
+
+                        <FormControl>
+                          <FormLabel>Téléphone</FormLabel>
+                          <Input
+                            type="tel"
+                            placeholder="06 12 34 56 78"
+                            value={reservationForm.phone}
+                            onChange={(e) => setReservationForm({ ...reservationForm, phone: e.target.value })}
+                          />
+                        </FormControl>
+                      </SimpleGrid>
+                    </VStack>
+                  </Box>
+
+                  <Divider />
+
+                  <Box>
+                    <Heading size="md" mb={4}>Date et heure de visite</Heading>
+                    <SimpleGrid columns={2} spacing={4}>
+                      <FormControl isRequired>
+                        <FormLabel>Date</FormLabel>
+                        <Input
+                          type="date"
+                          value={reservationForm.date}
+                          onChange={(e) => setReservationForm({ ...reservationForm, date: e.target.value })}
+                        />
+                      </FormControl>
+
+                      <FormControl isRequired>
+                        <FormLabel>Heure</FormLabel>
+                        <Input
+                          type="time"
+                          value={reservationForm.time}
+                          onChange={(e) => setReservationForm({ ...reservationForm, time: e.target.value })}
+                        />
+                      </FormControl>
+                    </SimpleGrid>
+                  </Box>
+
+                  <Divider />
+
+                  <Box>
+                    <Heading size="md" mb={4}>Type de visite</Heading>
+                    <SimpleGrid columns={2} spacing={4}>
+                      <FormControl isRequired>
+                        <FormLabel>Type</FormLabel>
+                        <Select
+                          value={reservationForm.type}
+                          onChange={(e) => setReservationForm({ ...reservationForm, type: e.target.value })}
+                        >
+                          <option value="Individuel">Individuel</option>
+                          <option value="Groupe">Groupe</option>
+                        </Select>
+                      </FormControl>
+
+                      <FormControl>
+                        <FormLabel>Canal de réservation</FormLabel>
+                        <Select
+                          value={reservationForm.bookingChannel || 'walkin'}
+                          onChange={(e) => setReservationForm({ ...reservationForm, bookingChannel: e.target.value })}
+                        >
+                          <option value="walkin">Sur place</option>
+                          <option value="online">En ligne</option>
+                          <option value="phone">Téléphone</option>
+                          <option value="email">Email</option>
+                        </Select>
+                      </FormControl>
+                    </SimpleGrid>
+                  </Box>
+
+                  <FormControl>
+                    <FormLabel>Notes générales</FormLabel>
+                    <Textarea
+                      placeholder="Informations complémentaires sur la réservation..."
+                      value={reservationForm.notes}
+                      onChange={(e) => setReservationForm({ ...reservationForm, notes: e.target.value })}
+                      rows={3}
+                    />
+                  </FormControl>
+
+                  <Divider />
+
+                  {/* Code Promotionnel */}
+                  <Box>
+                    <Heading size="md" mb={4}>
+                      <HStack>
+                        <Icon as={FiPercent} color="purple.500" />
+                        <Text>Code promo ou code interne</Text>
+                      </HStack>
+                    </Heading>
+                    
+                    <VStack spacing={4} align="stretch">
+                      <HStack>
+                        <Input
+                          placeholder="Entrez un code (ex: SUMMER2026, MRBE26)"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                          textTransform="uppercase"
+                        />
+                        <Button
+                          colorScheme="purple"
+                          onClick={handleApplyPromoCode}
+                          isLoading={promoCodeValidation.isValidating}
+                          isDisabled={!promoCode.trim()}
+                        >
+                          Appliquer
+                        </Button>
+                      </HStack>
+
+                      {promoCodeValidation.error && (
+                        <Alert status="error" borderRadius="md">
+                          <AlertIcon />
+                          <AlertDescription>{promoCodeValidation.error}</AlertDescription>
+                        </Alert>
+                      )}
+
+                      {promoCodeValidation.isValid && promoCodeValidation.code && (
+                        <Alert status="success" borderRadius="md">
+                          <AlertIcon />
+                          <VStack align="start" spacing={1} flex={1}>
+                            <AlertDescription fontWeight="bold">
+                              {promoCodeValidation.code.name}
+                            </AlertDescription>
+                            <Text fontSize="sm">
+                              Réduction: {promoCodeValidation.code.type === 'percentage' ? `${promoCodeValidation.code.value}%` : `${promoCodeValidation.code.value}€`}
+                            </Text>
+                            {promoCodeValidation.code.description && (
+                              <Text fontSize="xs" color="gray.600">
+                                {promoCodeValidation.code.description}
+                              </Text>
+                            )}
+                          </VStack>
+                        </Alert>
+                      )}
+
+                      <Text fontSize="xs" color="gray.500">
+                        <Icon as={FiInfo} /> Les codes internes sont réservés à certains utilisateurs (ex: président, direction)
+                      </Text>
+                    </VStack>
+                  </Box>
+                </VStack>
+              )}
+
+              {/* ÉTAPE 2: GESTION DES VISITEURS */}
+              {visitorsStep === 2 && (
+                <VStack spacing={6} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md">
+                      Liste des visiteurs ({reservationForm.visitors.length} {reservationForm.visitors.length > 1 ? 'personnes' : 'personne'})
+                    </Heading>
+                    <Button
+                      leftIcon={<FiPlus />}
+                      colorScheme="blue"
+                      onClick={() => {
+                        setEditingVisitorIndex(null);
+                        setVisitorForm({
+                          name: '',
+                          ticketType: 'plein',
+                          discount: null,
+                          hasStudentCard: false,
+                          notes: ''
+                        });
+                        onVisitorsModalOpen();
+                      }}
+                    >
+                      Ajouter un visiteur
+                    </Button>
+                  </HStack>
+
+                  {reservationForm.visitors.length === 0 ? (
+                    <Box
+                      p={8}
+                      borderWidth="2px"
+                      borderStyle="dashed"
+                      borderRadius="lg"
+                      textAlign="center"
+                      color="gray.500"
+                    >
+                      <Icon as={FiUser} boxSize={12} mb={3} />
+                      <Text fontSize="lg">Aucun visiteur ajouté</Text>
+                      <Text fontSize="sm">Cliquez sur "Ajouter un visiteur" pour commencer</Text>
+                    </Box>
+                  ) : (
+                    <VStack spacing={3} align="stretch">
+                      {reservationForm.visitors.map((visitor, index) => {
+                        const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                        const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                        const price = tariff?.price || 0;
+                        let finalPrice = price;
+                        
+                        if (reduction) {
+                          if (reduction.type === 'percentage') {
+                            finalPrice = price - (price * reduction.value / 100);
+                          } else {
+                            finalPrice = Math.max(0, price - reduction.value);
+                          }
+                        }
+
+                        return (
+                          <Box
+                            key={index}
+                            p={4}
+                            borderWidth="1px"
+                            borderRadius="lg"
+                            bg={useColorModeValue('white', 'gray.700')}
+                          >
+                            <HStack justify="space-between" align="start">
+                              <VStack align="start" spacing={2} flex={1}>
+                                <HStack>
+                                  <Icon as={FiUser} color="blue.500" />
+                                  <Text fontWeight="bold" fontSize="lg">{visitor.name || `Visiteur ${index + 1}`}</Text>
+                                </HStack>
+                                
+                                <SimpleGrid columns={2} spacing={4} w="full">
+                                  <Box>
+                                    <Text fontSize="sm" color="gray.600">Tarif</Text>
+                                    <Text fontWeight="medium">{tariff?.label} - {price}€</Text>
+                                  </Box>
+                                  
+                                  {reduction && (
+                                    <Box>
+                                      <Text fontSize="sm" color="gray.600">Réduction</Text>
+                                      <Text fontWeight="medium" color="green.600">
+                                        {reduction.name} ({reduction.type === 'percentage' ? `-${reduction.value}%` : `-${reduction.value}€`})
+                                      </Text>
+                                    </Box>
+                                  )}
+                                  
+                                  {visitor.hasStudentCard && (
+                                    <Box>
+                                      <Text fontSize="sm" color="gray.600">Carte étudiante</Text>
+                                      <Badge colorScheme="blue">Oui</Badge>
+                                    </Box>
+                                  )}
+                                </SimpleGrid>
+
+                                {visitor.notes && (
+                                  <Box>
+                                    <Text fontSize="sm" color="gray.600">Notes</Text>
+                                    <Text fontSize="sm">{visitor.notes}</Text>
+                                  </Box>
+                                )}
+
+                                <Divider />
+                                
+                                <HStack>
+                                  <Text fontSize="sm" color="gray.600">Prix final:</Text>
+                                  <Text fontWeight="bold" fontSize="lg" color="rbe.500">
+                                    {finalPrice.toFixed(2)}€
+                                  </Text>
+                                </HStack>
+                              </VStack>
+
+                              <VStack spacing={2}>
+                                <IconButton
+                                  icon={<FiEdit />}
+                                  size="sm"
+                                  colorScheme="blue"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditingVisitorIndex(index);
+                                    setVisitorForm(visitor);
+                                    onVisitorsModalOpen();
+                                  }}
+                                  aria-label="Modifier"
+                                />
+                                <IconButton
+                                  icon={<FiX />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const newVisitors = reservationForm.visitors.filter((_, i) => i !== index);
+                                    setReservationForm({ ...reservationForm, visitors: newVisitors });
+                                  }}
+                                  aria-label="Supprimer"
+                                />
+                              </VStack>
+                            </HStack>
+                          </Box>
+                        );
+                      })}
+                    </VStack>
+                  )}
+                </VStack>
+              )}
+
+              {/* ÉTAPE 3: CONFIRMATION */}
+              {visitorsStep === 3 && (
+                <VStack spacing={6} align="stretch">
+                  <Heading size="md">Récapitulatif de la réservation</Heading>
+
+                  <Box p={6} borderWidth="1px" borderRadius="lg" bg={useColorModeValue('blue.50', 'blue.900')}>
+                    <VStack spacing={4} align="stretch">
+                      <SimpleGrid columns={2} spacing={4}>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Responsable</Text>
+                          <Text fontWeight="bold">{reservationForm.name}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Email</Text>
+                          <Text fontWeight="bold">{reservationForm.email}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Téléphone</Text>
+                          <Text fontWeight="bold">{reservationForm.phone || 'Non renseigné'}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Date et heure</Text>
+                          <Text fontWeight="bold">{reservationForm.date} à {reservationForm.time}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Type</Text>
+                          <Text fontWeight="bold">{reservationForm.type}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="sm" color="gray.600">Canal</Text>
+                          <Text fontWeight="bold">
+                            {reservationForm.bookingChannel === 'walkin' && 'Sur place'}
+                            {reservationForm.bookingChannel === 'online' && 'En ligne'}
+                            {reservationForm.bookingChannel === 'phone' && 'Téléphone'}
+                            {reservationForm.bookingChannel === 'email' && 'Email'}
+                          </Text>
+                        </Box>
+                      </SimpleGrid>
+                    </VStack>
+                  </Box>
+
+                  <Box p={6} borderWidth="1px" borderRadius="lg">
+                    <Heading size="sm" mb={4}>Visiteurs ({reservationForm.visitors.length})</Heading>
+                    <VStack spacing={3} align="stretch">
+                      {reservationForm.visitors.map((visitor, index) => {
+                        const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                        const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                        const price = tariff?.price || 0;
+                        let finalPrice = price;
+                        
+                        if (reduction) {
+                          if (reduction.type === 'percentage') {
+                            finalPrice = price - (price * reduction.value / 100);
+                          } else {
+                            finalPrice = Math.max(0, price - reduction.value);
+                          }
+                        }
+
+                        return (
+                          <HStack key={index} justify="space-between" p={3} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="md">
+                            <HStack spacing={3}>
+                              <Badge colorScheme="blue">{index + 1}</Badge>
+                              <VStack align="start" spacing={0}>
+                                <Text fontWeight="bold">{visitor.name || `Visiteur ${index + 1}`}</Text>
+                                <Text fontSize="sm" color="gray.600">
+                                  {tariff?.label}
+                                  {reduction && ` - ${reduction.name}`}
+                                </Text>
+                              </VStack>
+                            </HStack>
+                            <Text fontWeight="bold" color="rbe.500">{finalPrice.toFixed(2)}€</Text>
+                          </HStack>
+                        );
+                      })}
+                    </VStack>
+
+                    <Divider my={4} />
+
+                    <HStack justify="space-between">
+                      <Text fontSize="xl" fontWeight="bold">Total à payer</Text>
+                      <Text fontSize="2xl" fontWeight="bold" color="rbe.500">
+                        {reservationForm.visitors.reduce((sum, visitor) => {
+                          const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                          const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                          const price = tariff?.price || 0;
+                          let finalPrice = price;
+                          
+                          if (reduction) {
+                            if (reduction.type === 'percentage') {
+                              finalPrice = price - (price * reduction.value / 100);
+                            } else {
+                              finalPrice = Math.max(0, price - reduction.value);
+                            }
+                          }
+                          
+                          return sum + finalPrice;
+                        }, 0).toFixed(2)}€
+                      </Text>
+                    </HStack>
+                  </Box>
+
+                  {reservationForm.notes && (
+                    <Box p={4} borderWidth="1px" borderRadius="lg">
+                      <Text fontSize="sm" color="gray.600" mb={2}>Notes</Text>
+                      <Text>{reservationForm.notes}</Text>
+                    </Box>
+                  )}
+                </VStack>
+              )}
+            </ModalBody>
+            <ModalFooter borderTopWidth="1px" bg="gray.50">
+              <HStack spacing={3} w="full" justify="space-between">
+                <Button
+                  variant="ghost"
+                  onClick={visitorsStep === 1 ? onNewReservationClose : () => setVisitorsStep(visitorsStep - 1)}
+                >
+                  {visitorsStep === 1 ? 'Annuler' : 'Retour'}
+                </Button>
+                <HStack>
+                  {visitorsStep < 3 ? (
+                    <Button
+                      colorScheme="blue"
+                      onClick={() => setVisitorsStep(visitorsStep + 1)}
+                      isDisabled={
+                        (visitorsStep === 1 && (!reservationForm.name || !reservationForm.email || !reservationForm.date || !reservationForm.time)) ||
+                        (visitorsStep === 2 && reservationForm.visitors.length === 0)
+                      }
+                    >
+                      Suivant
+                    </Button>
+                  ) : (
+                    <Button colorScheme="green" onClick={handleNewReservation} leftIcon={<FiCheck />}>
+                      Confirmer la réservation
+                    </Button>
+                  )}
+                </HStack>
+              </HStack>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Modal Détails Réservation (Check-in effectué) */}
+        <Modal isOpen={isReservationDetailOpen} onClose={onReservationDetailClose} size="xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader bg="gray.50" borderBottomWidth="1px">
+              <HStack spacing={3}>
+                <Icon as={FiInfo} color="blue.500" boxSize={6} />
+                <VStack align="start" spacing={0}>
+                  <Text>Détails de la réservation</Text>
+                  {selectedReservation && (
+                    <Text fontSize="sm" fontWeight="normal" color="gray.600">
+                      Réservation #{selectedReservation.id} - {selectedReservation.name}
+                    </Text>
+                  )}
+                </VStack>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton />
+            
+            {selectedReservation && (
+              <ModalBody py={6}>
+                <VStack spacing={6} align="stretch">
+                  {/* Statut Check-in */}
+                  <Alert status="success" borderRadius="lg">
+                    <AlertIcon />
+                    <VStack align="start" spacing={0}>
+                      <Text fontWeight="bold">Check-in effectué ✓</Text>
+                      <Text fontSize="sm">Ce visiteur a été enregistré avec succès</Text>
+                    </VStack>
+                  </Alert>
+
+                  {/* Informations générales */}
+                  <Box>
+                    <Heading size="sm" mb={3} color="gray.700">
+                      <Icon as={FiUser} display="inline" mr={2} />
+                      Informations de contact
+                    </Heading>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between">
+                        <Text color="gray.600">Nom</Text>
+                        <Text fontWeight="bold">{selectedReservation.name}</Text>
+                      </HStack>
+                      {selectedReservation.email && (
+                        <HStack justify="space-between">
+                          <Text color="gray.600">Email</Text>
+                          <Text fontWeight="bold">{selectedReservation.email}</Text>
+                        </HStack>
+                      )}
+                      {selectedReservation.phone && (
+                        <HStack justify="space-between">
+                          <Text color="gray.600">Téléphone</Text>
+                          <Text fontWeight="bold">{selectedReservation.phone}</Text>
+                        </HStack>
+                      )}
+                      <Divider />
+                      <HStack justify="space-between">
+                        <Text color="gray.600">Date de visite</Text>
+                        <Text fontWeight="bold">{selectedReservation.date}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text color="gray.600">Heure</Text>
+                        <Text fontWeight="bold">{selectedReservation.time}</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text color="gray.600">Type</Text>
+                        <Badge colorScheme={selectedReservation.type === 'Individuel' ? 'blue' : 'purple'}>
+                          {selectedReservation.type}
+                        </Badge>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text color="gray.600">Nombre de personnes</Text>
+                        <Text fontWeight="bold">{selectedReservation.persons}</Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+
+                  {/* Liste des visiteurs */}
+                  {selectedReservation.visitors && selectedReservation.visitors.length > 0 && (
+                    <Box>
+                      <Heading size="sm" mb={3} color="gray.700">
+                        <Icon as={FiUsers} display="inline" mr={2} />
+                        Visiteurs ({selectedReservation.visitors.length})
+                      </Heading>
+                      <VStack spacing={2} align="stretch">
+                        {selectedReservation.visitors.map((visitor, index) => {
+                          const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                          const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                          const price = tariff?.price || 0;
+                          let finalPrice = price;
+                          
+                          if (reduction) {
+                            if (reduction.type === 'percentage') {
+                              finalPrice = price - (price * reduction.value / 100);
+                            } else {
+                              finalPrice = Math.max(0, price - reduction.value);
+                            }
+                          }
+
+                          return (
+                            <HStack 
+                              key={index} 
+                              justify="space-between" 
+                              p={3} 
+                              bg="gray.50" 
+                              borderRadius="md"
+                              borderWidth="1px"
+                              borderColor="gray.200"
+                            >
+                              <HStack spacing={3}>
+                                <Badge colorScheme="blue">{index + 1}</Badge>
+                                <VStack align="start" spacing={0}>
+                                  <Text fontWeight="bold">{visitor.name || `Visiteur ${index + 1}`}</Text>
+                                  <Text fontSize="sm" color="gray.600">
+                                    {tariff?.label}
+                                    {reduction && ` - ${reduction.name}`}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+                              <Text fontWeight="bold" color="rbe.500">{finalPrice.toFixed(2)}€</Text>
+                            </HStack>
+                          );
+                        })}
+                      </VStack>
+                    </Box>
+                  )}
+
+                  {/* Total payé */}
+                  {selectedReservation.visitors && selectedReservation.visitors.length > 0 && (
+                    <Box p={4} bg="blue.50" borderRadius="lg" borderWidth="2px" borderColor="blue.200">
+                      <HStack justify="space-between">
+                        <Text fontSize="lg" fontWeight="bold" color="gray.700">Total payé</Text>
+                        <Text fontSize="2xl" fontWeight="bold" color="rbe.500">
+                          {selectedReservation.visitors.reduce((sum, visitor) => {
+                            const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                            const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                            const price = tariff?.price || 0;
+                            let finalPrice = price;
+                            
+                            if (reduction) {
+                              if (reduction.type === 'percentage') {
+                                finalPrice = price - (price * reduction.value / 100);
+                              } else {
+                                finalPrice = Math.max(0, price - reduction.value);
+                              }
+                            }
+                            
+                            return sum + finalPrice;
+                          }, 0).toFixed(2)}€
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
+
+                  {/* Notes */}
+                  {selectedReservation.notes && (
+                    <Box>
+                      <Heading size="sm" mb={2} color="gray.700">Notes</Heading>
+                      <Text fontSize="sm" color="gray.600" p={3} bg="gray.50" borderRadius="md">
+                        {selectedReservation.notes}
+                      </Text>
+                    </Box>
+                  )}
+
+                  {/* Option d'annulation */}
+                  <Alert status="warning" borderRadius="lg">
+                    <AlertIcon />
+                    <VStack align="start" spacing={2} flex={1}>
+                      <Text fontWeight="bold" fontSize="sm">Annuler le check-in ?</Text>
+                      <Text fontSize="xs" color="gray.600">
+                        En cas d'erreur, vous pouvez annuler ce check-in. Le visiteur retrouvera son statut "Confirmé" et pourra être enregistré à nouveau.
+                      </Text>
+                      <Button
+                        size="sm"
+                        colorScheme="orange"
+                        variant="outline"
+                        leftIcon={<FiX />}
+                        onClick={() => {
+                          if (window.confirm(`⚠️ Confirmer l'annulation du check-in de ${selectedReservation.name} ?\n\nLe visiteur retrouvera son statut "Confirmé".`)) {
+                            handleUndoCheckIn(selectedReservation.id);
+                          }
+                        }}
+                      >
+                        Annuler le check-in
+                      </Button>
+                    </VStack>
+                  </Alert>
+                </VStack>
+              </ModalBody>
+            )}
+
+            <ModalFooter borderTopWidth="1px">
+              <Button variant="ghost" onClick={onReservationDetailClose}>
+                Fermer
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Modal Ajout/Édition Visiteur */}
+        <Modal isOpen={isVisitorsModalOpen} onClose={onVisitorsModalClose} size="xl">
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>
               <HStack>
-                <Icon as={FiPlus} color="blue.500" />
-                <Text>{selectedReservation ? 'Modifier la réservation' : 'Nouvelle Réservation'}</Text>
+                <Icon as={FiUser} color="blue.500" />
+                <Text>{editingVisitorIndex !== null ? 'Modifier le visiteur' : 'Ajouter un visiteur'}</Text>
               </HStack>
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody pb={6}>
               <VStack spacing={4}>
-                <FormControl isRequired>
-                  <FormLabel>Nom complet</FormLabel>
+                <FormControl>
+                  <FormLabel>Nom du visiteur (optionnel)</FormLabel>
                   <Input
-                    placeholder="Jean Dupont"
-                    value={reservationForm.name}
-                    onChange={(e) => setReservationForm({ ...reservationForm, name: e.target.value })}
+                    placeholder="Ex: Marie Dupont"
+                    value={visitorForm.name}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, name: e.target.value })}
                   />
+                  <FormHelperText>Laissez vide si anonyme</FormHelperText>
                 </FormControl>
 
-                <SimpleGrid columns={2} spacing={4} w="full">
-                  <FormControl isRequired>
-                    <FormLabel>Email</FormLabel>
-                    <Input
-                      type="email"
-                      placeholder="jean@example.com"
-                      value={reservationForm.email}
-                      onChange={(e) => setReservationForm({ ...reservationForm, email: e.target.value })}
-                    />
-                  </FormControl>
-
-                  <FormControl>
-                    <FormLabel>Téléphone</FormLabel>
-                    <Input
-                      type="tel"
-                      placeholder="06 12 34 56 78"
-                      value={reservationForm.phone}
-                      onChange={(e) => setReservationForm({ ...reservationForm, phone: e.target.value })}
-                    />
-                  </FormControl>
-                </SimpleGrid>
-
-                <SimpleGrid columns={2} spacing={4} w="full">
-                  <FormControl isRequired>
-                    <FormLabel>Date</FormLabel>
-                    <Input
-                      type="date"
-                      value={reservationForm.date}
-                      onChange={(e) => setReservationForm({ ...reservationForm, date: e.target.value })}
-                    />
-                  </FormControl>
-
-                  <FormControl isRequired>
-                    <FormLabel>Heure</FormLabel>
-                    <Input
-                      type="time"
-                      value={reservationForm.time}
-                      onChange={(e) => setReservationForm({ ...reservationForm, time: e.target.value })}
-                    />
-                  </FormControl>
-                </SimpleGrid>
-
-                <SimpleGrid columns={2} spacing={4} w="full">
-                  <FormControl isRequired>
-                    <FormLabel>Type de visite</FormLabel>
-                    <Select
-                      value={reservationForm.type}
-                      onChange={(e) => setReservationForm({ ...reservationForm, type: e.target.value })}
-                    >
-                      <option value="Individuel">Individuel</option>
-                      <option value="Groupe">Groupe</option>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl isRequired>
-                    <FormLabel>Nombre de personnes</FormLabel>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={reservationForm.persons}
-                      onChange={(e) => setReservationForm({ ...reservationForm, persons: parseInt(e.target.value) || 1 })}
-                    />
-                  </FormControl>
-                </SimpleGrid>
-
-                {/* Section Billets */}
-                <Box w="full" borderWidth="1px" borderRadius="lg" p={4} bg={useColorModeValue('blue.50', 'blue.900')}>
-                  <HStack mb={3}>
-                    <Icon as={FiCreditCard} color="blue.500" />
-                    <Heading size="sm">Billets à acheter sur place</Heading>
-                  </HStack>
-                  
-                  {/* Liste des billets sélectionnés */}
-                  {reservationForm.tickets.length > 0 && (
-                    <VStack spacing={2} mb={3}>
-                      {reservationForm.tickets.map((ticket, idx) => (
-                        <HStack key={idx} w="full" justify="space-between" p={2} bg="white" borderRadius="md">
-                          <HStack spacing={2}>
-                            <Badge colorScheme="blue">{ticket.quantity}x</Badge>
-                            <Text fontWeight="medium">{ticket.type}</Text>
-                            <Text fontSize="sm" color="gray.600">{ticket.price}€/billet</Text>
-                          </HStack>
-                          <HStack>
-                            <Text fontWeight="bold" color="green.500">{(ticket.quantity * ticket.price).toFixed(2)}€</Text>
-                            <IconButton
-                              icon={<FiX />}
-                              size="xs"
-                              colorScheme="red"
-                              variant="ghost"
-                              onClick={() => {
-                                const newTickets = reservationForm.tickets.filter((_, i) => i !== idx);
-                                setReservationForm({ ...reservationForm, tickets: newTickets });
-                              }}
-                            />
-                          </HStack>
-                        </HStack>
-                      ))}
-                      <Divider />
-                      <HStack w="full" justify="space-between">
-                        <Text fontWeight="bold">Total à payer :</Text>
-                        <Text fontSize="lg" fontWeight="bold" color="rbe.500">
-                          {reservationForm.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0).toFixed(2)}€
-                        </Text>
-                      </HStack>
-                    </VStack>
-                  )}
-
-                  {/* Sélection de nouveau billet */}
-                  <SimpleGrid columns={3} spacing={2}>
-                    <FormControl>
-                      <FormLabel fontSize="sm">Type</FormLabel>
-                      <Select
-                        size="sm"
-                        id="newTicketType"
-                        defaultValue="plein"
-                      >
-                        {ticketPrices.filter(t => t.active).map(t => (
-                          <option key={t.id} value={t.id}>{t.name} - {t.price}€</option>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel fontSize="sm">Quantité</FormLabel>
-                      <Input
-                        type="number"
-                        size="sm"
-                        min={1}
-                        id="newTicketQty"
-                        defaultValue={1}
-                      />
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel fontSize="sm">&nbsp;</FormLabel>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        leftIcon={<FiPlus />}
-                        w="full"
-                        onClick={() => {
-                          const typeSelect = document.getElementById('newTicketType');
-                          const qtyInput = document.getElementById('newTicketQty');
-                          const selectedTicket = ticketPrices.find(t => t.id === typeSelect.value);
-                          
-                          if (selectedTicket && qtyInput.value > 0) {
-                            const newTicket = {
-                              type: selectedTicket.name,
-                              quantity: parseInt(qtyInput.value),
-                              price: selectedTicket.price
-                            };
-                            setReservationForm({
-                              ...reservationForm,
-                              tickets: [...reservationForm.tickets, newTicket]
-                            });
-                            qtyInput.value = 1; // Reset
-                          }
-                        }}
-                      >
-                        Ajouter
-                      </Button>
-                    </FormControl>
-                  </SimpleGrid>
-                </Box>
+                <FormControl isRequired>
+                  <FormLabel>Tarif applicable</FormLabel>
+                  <Select
+                    value={visitorForm.ticketType}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, ticketType: e.target.value })}
+                  >
+                    {ticketPrices.filter(t => t.active).map(ticket => (
+                      <option key={ticket.id} value={ticket.id}>
+                        {ticket.label} - {ticket.price}€
+                      </option>
+                    ))}
+                  </Select>
+                  <FormHelperText>Sélectionnez le tarif de base (Adulte, Jeunesse/Étudiant, Enfant...)</FormHelperText>
+                </FormControl>
 
                 <FormControl>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>Réduction éligible</FormLabel>
+                  <Select
+                    value={visitorForm.discount || ''}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, discount: e.target.value || null })}
+                    placeholder="Aucune réduction"
+                  >
+                    {discounts.filter(d => d.active).map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} - {d.type === 'percentage' ? `-${d.value}%` : `-${d.value}€`}
+                      </option>
+                    ))}
+                  </Select>
+                  <FormHelperText>RSA, CSS, Senior, Famille nombreuse...</FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Carte étudiante</FormLabel>
+                  <Select
+                    value={visitorForm.hasStudentCard ? 'yes' : 'no'}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, hasStudentCard: e.target.value === 'yes' })}
+                  >
+                    <option value="no">Non</option>
+                    <option value="yes">Oui (à vérifier)</option>
+                  </Select>
+                  <FormHelperText>Pour les tarifs Jeunesse/Étudiant</FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Notes particulières</FormLabel>
                   <Textarea
-                    placeholder="Informations complémentaires..."
-                    value={reservationForm.notes}
-                    onChange={(e) => setReservationForm({ ...reservationForm, notes: e.target.value })}
+                    placeholder="Informations spécifiques à ce visiteur..."
+                    value={visitorForm.notes}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, notes: e.target.value })}
                     rows={3}
                   />
                 </FormControl>
+
+                {/* Aperçu du prix */}
+                <Box w="full" p={4} bg={useColorModeValue('green.50', 'green.900')} borderRadius="lg">
+                  <VStack spacing={2} align="stretch">
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Tarif de base:</Text>
+                      <Text fontWeight="medium">
+                        {ticketPrices.find(t => t.id === visitorForm.ticketType)?.price || 0}€
+                      </Text>
+                    </HStack>
+                    
+                    {visitorForm.discount && (() => {
+                      const reduction = discounts.find(d => d.id === visitorForm.discount);
+                      const basePrice = ticketPrices.find(t => t.id === visitorForm.ticketType)?.price || 0;
+                      let discount = 0;
+                      
+                      if (reduction) {
+                        if (reduction.type === 'percentage') {
+                          discount = basePrice * reduction.value / 100;
+                        } else {
+                          discount = reduction.value;
+                        }
+                      }
+                      
+                      return (
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="green.600">Réduction:</Text>
+                          <Text fontWeight="medium" color="green.600">-{discount.toFixed(2)}€</Text>
+                        </HStack>
+                      );
+                    })()}
+                    
+                    <Divider />
+                    
+                    <HStack justify="space-between">
+                      <Text fontWeight="bold">Prix final:</Text>
+                      <Text fontSize="xl" fontWeight="bold" color="rbe.500">
+                        {(() => {
+                          const basePrice = ticketPrices.find(t => t.id === visitorForm.ticketType)?.price || 0;
+                          const reduction = visitorForm.discount ? discounts.find(d => d.id === visitorForm.discount) : null;
+                          let finalPrice = basePrice;
+                          
+                          if (reduction) {
+                            if (reduction.type === 'percentage') {
+                              finalPrice = basePrice - (basePrice * reduction.value / 100);
+                            } else {
+                              finalPrice = Math.max(0, basePrice - reduction.value);
+                            }
+                          }
+                          
+                          return finalPrice.toFixed(2);
+                        })()}€
+                      </Text>
+                    </HStack>
+                  </VStack>
+                </Box>
               </VStack>
             </ModalBody>
             <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onNewReservationClose}>
+              <Button variant="ghost" mr={3} onClick={onVisitorsModalClose}>
                 Annuler
               </Button>
-              <Button colorScheme="blue" onClick={handleNewReservation}>
-                {selectedReservation ? 'Mettre à jour' : 'Créer la réservation'}
+              <Button
+                colorScheme="blue"
+                onClick={() => {
+                  if (editingVisitorIndex !== null) {
+                    // Modification
+                    const newVisitors = [...reservationForm.visitors];
+                    newVisitors[editingVisitorIndex] = visitorForm;
+                    setReservationForm({ ...reservationForm, visitors: newVisitors });
+                  } else {
+                    // Ajout
+                    setReservationForm({
+                      ...reservationForm,
+                      visitors: [...reservationForm.visitors, visitorForm]
+                    });
+                  }
+                  onVisitorsModalClose();
+                }}
+              >
+                {editingVisitorIndex !== null ? 'Modifier' : 'Ajouter'}
               </Button>
             </ModalFooter>
           </ModalContent>
@@ -2811,6 +4502,14 @@ export default function SubventionCampaign() {
                                           <Badge colorScheme={res.status === 'Confirmé' ? 'green' : 'orange'} w="fit-content">
                                             {res.status}
                                           </Badge>
+                                          {res.ticketType && !ticketPrices.find(t => t.id === res.ticketType)?.active && (
+                                            <Badge colorScheme="red" w="fit-content">
+                                              <HStack spacing={1}>
+                                                <Icon as={FiInfo} boxSize={3} />
+                                                <Text>Tarif désactivé</Text>
+                                              </HStack>
+                                            </Badge>
+                                          )}
                                           {res.discount && (
                                             <Badge colorScheme="purple" w="fit-content">
                                               <HStack spacing={1}>
@@ -2890,6 +4589,70 @@ export default function SubventionCampaign() {
                                 <Text fontSize="sm" color="gray.600">Nombre de personnes</Text>
                                 <Text fontWeight="medium">{selectedVisitor.persons}</Text>
                               </Box>
+                              <Box>
+                                <Text fontSize="sm" color="gray.600">Canal de réservation</Text>
+                                <HStack>
+                                  <Icon 
+                                    as={selectedVisitor.bookingChannel === 'online' ? FiGlobe : selectedVisitor.bookingChannel === 'phone' ? FiPhone : FiUser} 
+                                    color="gray.500" 
+                                  />
+                                  <Text fontWeight="medium">
+                                    {selectedVisitor.bookingChannel === 'online' ? 'En ligne' : 
+                                     selectedVisitor.bookingChannel === 'phone' ? 'Téléphone' : 
+                                     selectedVisitor.bookingChannel === 'email' ? 'Email' : 
+                                     'Sur place'}
+                                  </Text>
+                                </HStack>
+                              </Box>
+                              <Box>
+                                <Text fontSize="sm" color="gray.600">Tarif sélectionné</Text>
+                                {selectedVisitor.ticketType ? (
+                                  <VStack align="flex-start" spacing={1}>
+                                    <HStack>
+                                      <Icon as={FiCreditCard} color="blue.500" />
+                                      <Text fontWeight="bold" fontSize="md" color="blue.600">
+                                        {ticketPrices.find(t => t.id === selectedVisitor.ticketType)?.label || 'Tarif Plein'}
+                                      </Text>
+                                    </HStack>
+                                    <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                                      {ticketPrices.find(t => t.id === selectedVisitor.ticketType)?.price || 12}€
+                                    </Text>
+                                    {selectedVisitor.hasStudentCard && (
+                                      <HStack spacing={1}>
+                                        <Icon as={FiInfo} boxSize={3} color="blue.500" />
+                                        <Text fontSize="xs" color="blue.600" fontWeight="medium">
+                                          Carte étudiante à vérifier
+                                        </Text>
+                                      </HStack>
+                                    )}
+                                    {selectedVisitor.discount && checkInVerification.discountEligible && (
+                                      <HStack spacing={1}>
+                                        <Icon as={FiPercent} boxSize={3} color="purple.500" />
+                                        <Text fontSize="xs" color="purple.600" fontWeight="medium">
+                                          + {discounts.find(d => d.id === selectedVisitor.discount)?.name || 'Réduction'}
+                                          {' '}
+                                          {(() => {
+                                            const disc = discounts.find(d => d.id === selectedVisitor.discount);
+                                            return disc ? (disc.type === 'percentage' ? `(-${disc.value}%)` : `(-${disc.value}€)`) : '';
+                                          })()}
+                                        </Text>
+                                      </HStack>
+                                    )}
+                                    {!checkInVerification.discountEligible && checkInVerification.discountApplied === null && (
+                                      <HStack spacing={1}>
+                                        <Icon as={FiInfo} boxSize={3} color="orange.500" />
+                                        <Text fontSize="xs" color="orange.600" fontWeight="medium">
+                                          Réduction retirée
+                                        </Text>
+                                      </HStack>
+                                    )}
+                                  </VStack>
+                                ) : (
+                                  <Text fontWeight="medium">
+                                    Tarif plein ({ticketPrices.find(t => t.id === 'plein')?.price || 25}€)
+                                  </Text>
+                                )}
+                              </Box>
                             </SimpleGrid>
 
                             {selectedVisitor.notes && (
@@ -2929,6 +4692,28 @@ export default function SubventionCampaign() {
                                   </HStack>
                                 </CardBody>
                               </Card>
+
+                              {selectedVisitor?.hasStudentCard && (
+                                <Card bg={checkInVerification.studentCardVerified ? 'green.50' : 'white'} borderWidth="2px" borderColor={checkInVerification.studentCardVerified ? 'green.500' : 'gray.200'}>
+                                  <CardBody>
+                                    <HStack justify="space-between">
+                                      <HStack>
+                                        <Icon as={FiCreditCard} boxSize={6} color={checkInVerification.studentCardVerified ? 'green.500' : 'gray.400'} />
+                                        <VStack align="flex-start" spacing={0}>
+                                          <Text fontWeight="bold">Carte étudiante valide</Text>
+                                          <Text fontSize="sm" color="gray.600">Vérifier la validité de la carte</Text>
+                                        </VStack>
+                                      </HStack>
+                                      <Checkbox
+                                        size="lg"
+                                        colorScheme="green"
+                                        isChecked={checkInVerification.studentCardVerified}
+                                        onChange={(e) => setCheckInVerification({ ...checkInVerification, studentCardVerified: e.target.checked })}
+                                      />
+                                    </HStack>
+                                  </CardBody>
+                                </Card>
+                              )}
 
                               <Card bg={checkInVerification.paymentStatus === 'paid' ? 'green.50' : 'orange.50'} borderWidth="2px" borderColor={checkInVerification.paymentStatus === 'paid' ? 'green.500' : 'orange.300'}>
                                 <CardBody>
@@ -2981,7 +4766,43 @@ export default function SubventionCampaign() {
                                           size="lg"
                                           colorScheme="purple"
                                           isChecked={checkInVerification.discountEligible}
-                                          onChange={(e) => setCheckInVerification({ ...checkInVerification, discountEligible: e.target.checked })}
+                                          onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            
+                                            // Si on décoche, retirer la réduction et recalculer
+                                            if (!isChecked && checkInVerification.discountApplied) {
+                                              setCheckInVerification({ 
+                                                ...checkInVerification, 
+                                                discountEligible: false,
+                                                discountApplied: null 
+                                              });
+                                              
+                                              // Retirer aussi la réduction pré-appliquée du visiteur
+                                              if (selectedVisitor?.discount) {
+                                                setSelectedVisitor({ 
+                                                  ...selectedVisitor, 
+                                                  discount: null 
+                                                });
+                                              }
+                                              
+                                              // Recalculer sans réduction
+                                              setCheckInPayment({
+                                                ...checkInPayment,
+                                                amount: checkInPayment.originalAmount,
+                                                discountAmount: 0
+                                              });
+                                              
+                                              toast({
+                                                title: 'Réduction retirée',
+                                                description: 'Le montant a été recalculé sans réduction',
+                                                status: 'info',
+                                                duration: 2000,
+                                                isClosable: true
+                                              });
+                                            } else {
+                                              setCheckInVerification({ ...checkInVerification, discountEligible: isChecked });
+                                            }
+                                          }}
                                         />
                                       )}
                                     </HStack>
@@ -3082,6 +4903,151 @@ export default function SubventionCampaign() {
                                 </HStack>
                                 <Badge colorScheme="green">OK</Badge>
                               </HStack>
+
+                              {/* Alerte de modification si applicable */}
+                              {selectedVisitor?.notes?.includes('[MODIFICATION CHECK-IN]') && (() => {
+                                const modifMatch = selectedVisitor.notes.match(/\[MODIFICATION CHECK-IN\] (.*?) - Motif: (.*?)(\n|$)/);
+                                const changes = modifMatch ? modifMatch[1] : '';
+                                const motif = modifMatch ? modifMatch[2] : '';
+                                
+                                return (
+                                  <Alert status="info" variant="left-accent" borderRadius="md">
+                                    <AlertIcon />
+                                    <VStack align="flex-start" spacing={1}>
+                                      <Text fontSize="sm" fontWeight="bold">Réservation modifiée pendant le check-in</Text>
+                                      <Text fontSize="xs" color="gray.700">
+                                        <strong>Motif :</strong> {motif}
+                                      </Text>
+                                      {changes && (
+                                        <Text fontSize="xs" color="gray.600">
+                                          {changes}
+                                        </Text>
+                                      )}
+                                    </VStack>
+                                  </Alert>
+                                );
+                              })()}
+
+                              {/* Détail tarifaire */}
+                              {selectedVisitor?.visitors && selectedVisitor.visitors.length > 0 ? (
+                                <Box p={3} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                                  <VStack spacing={2} align="stretch">
+                                    <HStack mb={2}>
+                                      <Icon as={FiUsers} color="blue.500" />
+                                      <Text fontWeight="bold" color="blue.700">
+                                        Détail tarifaire ({selectedVisitor.visitors.length} {selectedVisitor.visitors.length > 1 ? 'visiteurs' : 'visiteur'})
+                                      </Text>
+                                    </HStack>
+                                    
+                                    {selectedVisitor.visitors.map((visitor, index) => {
+                                      const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                                      const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                                      const basePrice = tariff?.price || 0;
+                                      let finalPrice = basePrice;
+                                      
+                                      // Appliquer la réduction si elle existe (déjà dans les données de la réservation)
+                                      if (reduction) {
+                                        if (reduction.type === 'percentage') {
+                                          finalPrice = basePrice - (basePrice * reduction.value / 100);
+                                        } else {
+                                          finalPrice = Math.max(0, basePrice - reduction.value);
+                                        }
+                                      }
+
+                                      return (
+                                        <HStack key={index} justify="space-between" pl={2}>
+                                          <HStack spacing={2} flex={1}>
+                                            <Badge colorScheme="blue" size="sm">{index + 1}</Badge>
+                                            <VStack align="start" spacing={0} flex={1}>
+                                              <Text fontSize="sm" fontWeight="medium">
+                                                {visitor.name || `Visiteur ${index + 1}`}
+                                              </Text>
+                                              <HStack spacing={1} fontSize="xs" color="gray.600">
+                                                <Text>{tariff?.label}</Text>
+                                                {reduction && (
+                                                  <Text color="purple.600" fontWeight="medium">
+                                                    • {reduction.name} (-{reduction.type === 'percentage' ? `${reduction.value}%` : `${reduction.value}€`})
+                                                  </Text>
+                                                )}
+                                              </HStack>
+                                            </VStack>
+                                          </HStack>
+                                          <VStack align="end" spacing={0}>
+                                            {reduction && basePrice !== finalPrice ? (
+                                              <>
+                                                <Text fontSize="xs" textDecoration="line-through" color="gray.500">{basePrice.toFixed(2)}€</Text>
+                                                <Text fontSize="sm" fontWeight="bold" color="green.600">{finalPrice.toFixed(2)}€</Text>
+                                              </>
+                                            ) : (
+                                              <Text fontSize="sm" fontWeight="bold">{finalPrice.toFixed(2)}€</Text>
+                                            )}
+                                          </VStack>
+                                        </HStack>
+                                      );
+                                    })}
+                                    
+                                    <Divider borderColor="blue.300" />
+                                    
+                                    <HStack justify="space-between" pt={1}>
+                                      <Text fontWeight="bold" color="blue.700">
+                                        {checkInPayment.originalAmount > 0 && checkInPayment.originalAmount !== checkInPayment.amount ? 'Total actuel' : 'Total'}
+                                      </Text>
+                                      <VStack align="end" spacing={0}>
+                                        {checkInPayment.originalAmount > 0 && checkInPayment.originalAmount !== checkInPayment.amount && (
+                                          <Text fontSize="sm" textDecoration="line-through" color="gray.500">
+                                            {checkInPayment.originalAmount.toFixed(2)}€
+                                          </Text>
+                                        )}
+                                        <Text fontSize="lg" fontWeight="bold" color="rbe.500">
+                                          {selectedVisitor.visitors.reduce((sum, visitor) => {
+                                            const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                                            const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                                            const basePrice = tariff?.price || 0;
+                                            let finalPrice = basePrice;
+                                            
+                                            // Appliquer la réduction si elle existe
+                                            if (reduction) {
+                                              if (reduction.type === 'percentage') {
+                                                finalPrice = basePrice - (basePrice * reduction.value / 100);
+                                              } else {
+                                                finalPrice = Math.max(0, basePrice - reduction.value);
+                                              }
+                                            }
+                                            
+                                            return sum + finalPrice;
+                                          }, 0).toFixed(2)}€
+                                        </Text>
+                                      </VStack>
+                                    </HStack>
+                                  </VStack>
+                                </Box>
+                              ) : (
+                                <Box p={3} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                                  <HStack justify="space-between">
+                                    <HStack>
+                                      <Icon as={FiCreditCard} color="blue.500" />
+                                      <VStack align="start" spacing={0}>
+                                        <Text fontWeight="medium">
+                                          {ticketPrices.find(t => t.id === selectedVisitor?.ticketType)?.label || 'Tarif Plein'}
+                                        </Text>
+                                        <Text fontSize="xs" color="gray.600">
+                                          {selectedVisitor?.persons || 1} {selectedVisitor?.persons > 1 ? 'personnes' : 'personne'}
+                                        </Text>
+                                      </VStack>
+                                    </HStack>
+                                    <VStack align="end" spacing={0}>
+                                      {checkInPayment.originalAmount > 0 && checkInPayment.originalAmount !== checkInPayment.amount && (
+                                        <Text fontSize="sm" textDecoration="line-through" color="gray.500">
+                                          {checkInPayment.originalAmount.toFixed(2)}€
+                                        </Text>
+                                      )}
+                                      <Text fontSize="lg" fontWeight="bold" color="rbe.500">
+                                        {checkInPayment.amount.toFixed(2)}€
+                                      </Text>
+                                    </VStack>
+                                  </HStack>
+                                </Box>
+                              )}
                               
                               {selectedVisitor?.type === 'Groupe' && (
                                 <HStack justify="space-between" p={3} bg="blue.50" borderRadius="md">
@@ -3093,19 +5059,157 @@ export default function SubventionCampaign() {
                                 </HStack>
                               )}
                               
-                              {checkInVerification.discountEligible && (
-                                <HStack justify="space-between" p={3} bg="purple.50" borderRadius="md">
-                                  <HStack>
-                                    <Icon as={FiPercent} color="purple.500" />
-                                    <Text fontWeight="medium">Réduction appliquée</Text>
-                                  </HStack>
-                                  <Badge colorScheme="purple">
-                                    {checkInVerification.discountApplied ? discounts.find(d => d.id === checkInVerification.discountApplied)?.name : 'Aucune'}
-                                  </Badge>
-                                </HStack>
-                              )}
+                              {/* Afficher les réductions : soit depuis les données des visiteurs, soit depuis discountEligible */}
+                              {(() => {
+                                // Vérifier si au moins un visiteur a une réduction
+                                const hasVisitorDiscounts = selectedVisitor?.visitors?.some(v => v.discount);
+                                const hasCheckInDiscount = checkInVerification.discountEligible && checkInVerification.discountApplied;
+                                
+                                if (hasVisitorDiscounts || hasCheckInDiscount) {
+                                  const allDiscounts = new Set();
+                                  
+                                  // Récupérer les réductions des visiteurs
+                                  if (selectedVisitor?.visitors) {
+                                    selectedVisitor.visitors.forEach(v => {
+                                      if (v.discount) allDiscounts.add(v.discount);
+                                    });
+                                  }
+                                  
+                                  // Ajouter la réduction du check-in si présente
+                                  if (hasCheckInDiscount) {
+                                    allDiscounts.add(checkInVerification.discountApplied);
+                                  }
+                                  
+                                  return (
+                                    <VStack spacing={2} align="stretch">
+                                      {Array.from(allDiscounts).map(discountId => {
+                                        const discount = discounts.find(d => d.id === discountId);
+                                        if (!discount) return null;
+                                        
+                                        return (
+                                          <HStack key={discountId} justify="space-between" p={3} bg="purple.50" borderRadius="md">
+                                            <HStack>
+                                              <Icon as={FiPercent} color="purple.500" />
+                                              <Text fontWeight="medium">Réduction appliquée</Text>
+                                            </HStack>
+                                            <Badge colorScheme="purple">
+                                              {discount.name}
+                                            </Badge>
+                                          </HStack>
+                                        );
+                                      })}
+                                    </VStack>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
                             </VStack>
                           </Box>
+
+                          {/* Section Code Promo/Interne */}
+                          {checkInVerification.paymentStatus === 'to_pay' && !checkInPayment.processed && (
+                            <Box>
+                              <Heading size="md" mb={4}>
+                                <HStack>
+                                  <Icon as={FiPercent} color="purple.500" />
+                                  <Text>Appliquer un code promo</Text>
+                                </HStack>
+                              </Heading>
+                              
+                              <VStack spacing={3} align="stretch">
+                                <HStack>
+                                  <Input
+                                    placeholder="Entrez un code (ex: SUMMER2026, MRBE26)"
+                                    value={promoCode}
+                                    onChange={(e) => {
+                                      setPromoCode(e.target.value.toUpperCase());
+                                      setPromoCodeValidation({ isValidating: false, isValid: false, code: null, error: null });
+                                    }}
+                                    textTransform="uppercase"
+                                    size="lg"
+                                  />
+                                  <Button
+                                    colorScheme="purple"
+                                    size="lg"
+                                    onClick={async () => {
+                                      // Utiliser le nom de l'utilisateur connecté pour valider les codes internes
+                                      const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : '';
+                                      const result = await handleValidatePromoCode(promoCode, userName);
+                                      
+                                      if (result && result.valid) {
+                                        // Appliquer le code à la réservation
+                                        const codeReduction = result.code;
+                                        
+                                        // Calculer le nouveau montant avec la réduction du code
+                                        let newAmount = checkInPayment.originalAmount;
+                                        let discountAmount = 0;
+                                        
+                                        if (codeReduction.type === 'percentage') {
+                                          discountAmount = newAmount * (codeReduction.value / 100);
+                                          newAmount = newAmount - discountAmount;
+                                        } else {
+                                          discountAmount = codeReduction.value;
+                                          newAmount = Math.max(0, newAmount - discountAmount);
+                                        }
+                                        
+                                        setCheckInPayment({
+                                          ...checkInPayment,
+                                          amount: newAmount,
+                                          discountAmount: discountAmount
+                                        });
+                                        
+                                        setCheckInVerification({
+                                          ...checkInVerification,
+                                          discountEligible: true,
+                                          discountApplied: codeReduction.id
+                                        });
+                                        
+                                        // Ajouter une note sur la réservation
+                                        const updatedVisitor = {
+                                          ...selectedVisitor,
+                                          discount: codeReduction.id,
+                                          notes: (selectedVisitor.notes || '') + `\n[CODE ${result.isInternal ? 'INTERNE' : 'PROMO'}] ${codeReduction.code} appliqué - ${codeReduction.name}`
+                                        };
+                                        setSelectedVisitor(updatedVisitor);
+                                        
+                                        setPromoCode(''); // Réinitialiser le champ
+                                      }
+                                    }}
+                                    isLoading={promoCodeValidation.isValidating}
+                                    isDisabled={!promoCode.trim()}
+                                  >
+                                    Appliquer
+                                  </Button>
+                                </HStack>
+
+                                {promoCodeValidation.error && (
+                                  <Alert status="error" borderRadius="md" size="sm">
+                                    <AlertIcon />
+                                    <AlertDescription fontSize="sm">{promoCodeValidation.error}</AlertDescription>
+                                  </Alert>
+                                )}
+
+                                {promoCodeValidation.isValid && promoCodeValidation.code && (
+                                  <Alert status="success" borderRadius="md" size="sm">
+                                    <AlertIcon />
+                                    <VStack align="start" spacing={1} flex={1}>
+                                      <AlertDescription fontWeight="bold" fontSize="sm">
+                                        {promoCodeValidation.code.name}
+                                      </AlertDescription>
+                                      <Text fontSize="xs">
+                                        Réduction: {promoCodeValidation.code.type === 'percentage' ? `${promoCodeValidation.code.value}%` : `${promoCodeValidation.code.value}€`}
+                                      </Text>
+                                    </VStack>
+                                  </Alert>
+                                )}
+
+                                <Text fontSize="xs" color="gray.500">
+                                  <Icon as={FiInfo} /> Les codes internes nécessitent une autorisation spécifique
+                                </Text>
+                              </VStack>
+                            </Box>
+                          )}
 
                           <Divider />
 
@@ -3165,6 +5269,22 @@ export default function SubventionCampaign() {
                                       w="full"
                                       leftIcon={<FiCreditCard />}
                                       onClick={() => {
+                                        // Enregistrer les détails du paiement dans la réservation
+                                        setReservations(reservations.map(res => 
+                                          res.id === selectedVisitor.id ? {
+                                            ...res,
+                                            paymentValidated: true,
+                                            paymentDetails: {
+                                              amount: checkInPayment.amount,
+                                              originalAmount: checkInPayment.originalAmount,
+                                              discountAmount: checkInPayment.discountAmount,
+                                              method: checkInPayment.method,
+                                              timestamp: new Date().toISOString(),
+                                              validatedBy: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Personnel'
+                                            }
+                                          } : res
+                                        ));
+                                        
                                         setCheckInPayment({ ...checkInPayment, processed: true });
                                         setCheckInVerification({ ...checkInVerification, paymentStatus: 'paid' });
                                         toast({
@@ -3246,6 +5366,94 @@ export default function SubventionCampaign() {
                             </VStack>
                           </SimpleGrid>
 
+                          {/* Récapitulatif du ticket */}
+                          {selectedVisitor.email && (
+                            <>
+                              <Divider />
+                              <VStack spacing={3} w="full" align="stretch">
+                                <HStack>
+                                  <Icon as={FiMail} color="blue.500" />
+                                  <Text fontSize="sm" fontWeight="bold">Ticket de caisse envoyé à :</Text>
+                                </HStack>
+                                <Text fontSize="sm" color="gray.600" pl={6}>{selectedVisitor.email}</Text>
+                                
+                                {/* Aperçu du ticket */}
+                                <Box bg="white" p={4} borderRadius="md" borderWidth="1px" borderColor="gray.300">
+                                  <VStack spacing={2} align="stretch" fontSize="xs">
+                                    <Text fontWeight="bold" textAlign="center">🎫 TICKET DE CAISSE</Text>
+                                    <Text textAlign="center" color="gray.600">Musée Rétrobus Essonne</Text>
+                                    <Divider />
+                                    
+                                    {selectedVisitor.visitors && selectedVisitor.visitors.length > 0 ? (
+                                      selectedVisitor.visitors.map((visitor, index) => {
+                                        const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                                        const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                                        const basePrice = tariff?.price || 0;
+                                        let finalPrice = basePrice;
+                                        
+                                        if (reduction) {
+                                          if (reduction.type === 'percentage') {
+                                            finalPrice = basePrice - (basePrice * reduction.value / 100);
+                                          } else {
+                                            finalPrice = Math.max(0, basePrice - reduction.value);
+                                          }
+                                        }
+                                        
+                                        return (
+                                          <VStack key={index} spacing={1} align="stretch">
+                                            <HStack justify="space-between">
+                                              <Text fontWeight="medium">{visitor.name || `Visiteur ${index + 1}`}</Text>
+                                              <Text fontWeight="bold">{finalPrice.toFixed(2)}€</Text>
+                                            </HStack>
+                                            <HStack justify="space-between" color="gray.600" fontSize="10px" pl={2}>
+                                              <Text>{tariff?.label}</Text>
+                                              {reduction && <Text>(-{reduction.name})</Text>}
+                                            </HStack>
+                                          </VStack>
+                                        );
+                                      })
+                                    ) : (
+                                      <HStack justify="space-between">
+                                        <Text>{selectedVisitor.persons} personne(s)</Text>
+                                        <Text fontWeight="bold">{checkInPayment.amount.toFixed(2)}€</Text>
+                                      </HStack>
+                                    )}
+                                    
+                                    <Divider />
+                                    <HStack justify="space-between" fontWeight="bold">
+                                      <Text>TOTAL</Text>
+                                      <Text color="rbe.500">
+                                        {selectedVisitor.visitors && selectedVisitor.visitors.length > 0 ? (
+                                          selectedVisitor.visitors.reduce((sum, visitor) => {
+                                            const tariff = ticketPrices.find(t => t.id === visitor.ticketType);
+                                            const reduction = visitor.discount ? discounts.find(d => d.id === visitor.discount) : null;
+                                            const basePrice = tariff?.price || 0;
+                                            let finalPrice = basePrice;
+                                            
+                                            if (reduction) {
+                                              if (reduction.type === 'percentage') {
+                                                finalPrice = basePrice - (basePrice * reduction.value / 100);
+                                              } else {
+                                                finalPrice = Math.max(0, basePrice - reduction.value);
+                                              }
+                                            }
+                                            
+                                            return sum + finalPrice;
+                                          }, 0).toFixed(2)
+                                        ) : (
+                                          checkInPayment.amount.toFixed(2)
+                                        )}€
+                                      </Text>
+                                    </HStack>
+                                    <Text fontSize="10px" color="gray.500" textAlign="center">
+                                      Paiement: {checkInPayment.method || 'CB'}
+                                    </Text>
+                                  </VStack>
+                                </Box>
+                              </VStack>
+                            </>
+                          )}
+
                           <Button
                             colorScheme="green"
                             size="lg"
@@ -3261,7 +5469,16 @@ export default function SubventionCampaign() {
 
                     <Alert status="info" borderRadius="md">
                       <AlertIcon />
-                      <Text fontSize="sm">Le check-in sera enregistré et le visiteur sera marqué comme entré</Text>
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontSize="sm" fontWeight="bold">Le check-in sera finalisé</Text>
+                        <Text fontSize="xs" color="gray.600">
+                          {selectedVisitor.email ? (
+                            <>✉️ Un ticket de caisse sera envoyé par email à {selectedVisitor.email}</>
+                          ) : (
+                            <>⚠️ Pas d'email renseigné, le ticket ne sera pas envoyé</>
+                          )}
+                        </Text>
+                      </VStack>
                     </Alert>
                   </VStack>
                 )}
@@ -3333,9 +5550,9 @@ export default function SubventionCampaign() {
         </Modal>
 
         {/* Modal Édition Réservation pendant Check-in */}
-        <Modal isOpen={isEditingVisitor} onClose={handleCancelEditVisitor} size="lg">
+        <Modal isOpen={isEditingVisitor} onClose={handleCancelEditVisitor} size="2xl">
           <ModalOverlay />
-          <ModalContent>
+          <ModalContent maxH="90vh">
             <ModalHeader>
               <HStack>
                 <Icon as={FiEdit} color="blue.500" />
@@ -3343,7 +5560,7 @@ export default function SubventionCampaign() {
               </HStack>
             </ModalHeader>
             <ModalCloseButton />
-            <ModalBody pb={6}>
+            <ModalBody pb={6} overflowY="auto">
               <VStack spacing={5}>
                 <Alert status="info" borderRadius="md">
                   <AlertIcon />
@@ -3380,6 +5597,23 @@ export default function SubventionCampaign() {
                 </FormControl>
 
                 <FormControl isRequired>
+                  <FormLabel>Tarif applicable</FormLabel>
+                  <Select
+                    value={visitorEditForm.ticketType}
+                    onChange={(e) => setVisitorEditForm({ ...visitorEditForm, ticketType: e.target.value })}
+                  >
+                    {ticketPrices.filter(t => t.active).map(ticket => (
+                      <option key={ticket.id} value={ticket.id}>
+                        {ticket.label} - {ticket.price}€
+                      </option>
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Requalifiez le tarif si les droits RSA/CSS ne sont pas valides ou si le visiteur n'est pas éligible
+                  </FormHelperText>
+                </FormControl>
+
+                <FormControl isRequired>
                   <FormLabel>Nombre de personnes</FormLabel>
                   <NumberInput
                     min={1}
@@ -3394,10 +5628,136 @@ export default function SubventionCampaign() {
                     </NumberInputStepper>
                   </NumberInput>
                   <FormHelperText>
-                    Montant estimé: {(parseInt(visitorEditForm.persons) || 1) * 12}€ 
+                    Montant estimé: {(() => {
+                      const unitPrice = visitorEditForm.ticketType ? 
+                        (ticketPrices.find(t => t.id === visitorEditForm.ticketType)?.price || 25) : 25;
+                      return (parseInt(visitorEditForm.persons) || 1) * unitPrice;
+                    })()}€ 
                     {visitorEditForm.type === 'Groupe' && ' (déjà réglé par devis)'}
                   </FormHelperText>
                 </FormControl>
+
+                {/* Section Billets à acheter sur place */}
+                <Box w="full" borderWidth="1px" borderRadius="lg" p={4} bg={useColorModeValue('blue.50', 'blue.900')}>
+                  <HStack mb={3}>
+                    <Icon as={FiCreditCard} color="blue.500" />
+                    <Heading size="sm">Billets à acheter sur place</Heading>
+                  </HStack>
+                  
+                  {/* Liste des billets sélectionnés */}
+                  {visitorEditForm.tickets && visitorEditForm.tickets.length > 0 && (
+                    <VStack spacing={2} mb={3}>
+                      {visitorEditForm.tickets.map((ticket, idx) => (
+                        <HStack key={idx} w="full" justify="space-between" p={2} bg="white" borderRadius="md">
+                          <HStack spacing={2}>
+                            <Badge colorScheme="blue">{ticket.quantity}x</Badge>
+                            <Text fontWeight="medium">{ticket.type}</Text>
+                            <Text fontSize="sm" color="gray.600">{ticket.price}€/billet</Text>
+                          </HStack>
+                          <HStack>
+                            <Text fontWeight="bold" color="green.500">{(ticket.quantity * ticket.price).toFixed(2)}€</Text>
+                            <IconButton
+                              icon={<FiX />}
+                              size="xs"
+                              colorScheme="red"
+                              variant="ghost"
+                              onClick={() => {
+                                const newTickets = visitorEditForm.tickets.filter((_, i) => i !== idx);
+                                setVisitorEditForm({ ...visitorEditForm, tickets: newTickets });
+                              }}
+                            />
+                          </HStack>
+                        </HStack>
+                      ))}
+                      <Divider />
+                      <HStack w="full" justify="space-between">
+                        <Text fontWeight="bold">Total billets :</Text>
+                        <Text fontSize="lg" fontWeight="bold" color="rbe.500">
+                          {visitorEditForm.tickets.reduce((sum, t) => sum + (t.quantity * t.price), 0).toFixed(2)}€
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  )}
+
+                  {/* Sélection de nouveau billet */}
+                  <SimpleGrid columns={3} spacing={2}>
+                    <FormControl>
+                      <FormLabel fontSize="sm">Type</FormLabel>
+                      <Select
+                        size="sm"
+                        id="editTicketType"
+                        defaultValue="plein"
+                      >
+                        {ticketPrices.filter(t => t.active).map(t => (
+                          <option key={t.id} value={t.id}>{t.name} - {t.price}€</option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm">Quantité</FormLabel>
+                      <Input
+                        type="number"
+                        size="sm"
+                        min={1}
+                        id="editTicketQty"
+                        defaultValue={1}
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel fontSize="sm">&nbsp;</FormLabel>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={<FiPlus />}
+                        w="full"
+                        onClick={() => {
+                          const typeSelect = document.getElementById('editTicketType');
+                          const qtyInput = document.getElementById('editTicketQty');
+                          const selectedTicket = ticketPrices.find(t => t.id === typeSelect.value);
+                          
+                          if (selectedTicket && qtyInput.value > 0) {
+                            const newTicket = {
+                              type: selectedTicket.name,
+                              quantity: parseInt(qtyInput.value),
+                              price: selectedTicket.price
+                            };
+                            setVisitorEditForm({
+                              ...visitorEditForm,
+                              tickets: [...(visitorEditForm.tickets || []), newTicket]
+                            });
+                            qtyInput.value = 1; // Reset
+                          }
+                        }}
+                      >
+                        Ajouter
+                      </Button>
+                    </FormControl>
+                  </SimpleGrid>
+                </Box>
+
+                {(parseInt(visitorEditForm.persons) !== selectedVisitor?.persons || 
+                  visitorEditForm.ticketType !== selectedVisitor?.ticketType) && (
+                  <FormControl isRequired>
+                    <FormLabel>Motif de modification</FormLabel>
+                    <Select
+                      value={visitorEditForm.modificationReason}
+                      onChange={(e) => setVisitorEditForm({ ...visitorEditForm, modificationReason: e.target.value })}
+                      placeholder="Sélectionner un motif"
+                    >
+                      <option value="Absent(s) à la visite">Absent(s) à la visite</option>
+                      <option value="Erreur d'inscription">Erreur d'inscription</option>
+                      <option value="Droits RSA/CSS non valides">Droits RSA/CSS non valides</option>
+                      <option value="Carte étudiante non valide">Carte étudiante non valide</option>
+                      <option value="Non éligible à la réduction">Non éligible à la réduction</option>
+                      <option value="Requalification tarifaire">Requalification tarifaire</option>
+                      <option value="Personne(s) supplémentaire(s)">Personne(s) supplémentaire(s)</option>
+                      <option value="Autre motif (voir notes)">Autre motif (voir notes)</option>
+                    </Select>
+                    <FormHelperText color="orange.600">
+                      ⚠️ Obligatoire si vous modifiez le nombre de personnes ou le tarif
+                    </FormHelperText>
+                  </FormControl>
+                )}
 
                 <FormControl>
                   <FormLabel>Notes / Observations</FormLabel>
@@ -3414,7 +5774,16 @@ export default function SubventionCampaign() {
               <Button variant="ghost" mr={3} onClick={handleCancelEditVisitor}>
                 Annuler
               </Button>
-              <Button colorScheme="blue" onClick={handleSaveEditVisitor} leftIcon={<FiCheck />}>
+              <Button 
+                colorScheme="blue" 
+                onClick={handleSaveEditVisitor} 
+                leftIcon={<FiCheck />}
+                isDisabled={
+                  (parseInt(visitorEditForm.persons) !== selectedVisitor?.persons || 
+                   visitorEditForm.ticketType !== selectedVisitor?.ticketType) && 
+                  !visitorEditForm.modificationReason
+                }
+              >
                 Enregistrer les modifications
               </Button>
             </ModalFooter>
@@ -3453,6 +5822,7 @@ export default function SubventionCampaign() {
                       <Th>Nom</Th>
                       <Th>Type</Th>
                       <Th>Pers.</Th>
+                      <Th>Tarif</Th>
                       <Th>Statut</Th>
                     </Tr>
                   </Thead>
@@ -3467,6 +5837,20 @@ export default function SubventionCampaign() {
                           </Badge>
                         </Td>
                         <Td>{res.persons}</Td>
+                        <Td>
+                          {res.ticketType ? (
+                            <VStack align="flex-start" spacing={0}>
+                              <Text fontSize="xs" fontWeight="medium">
+                                {ticketPrices.find(t => t.id === res.ticketType)?.label || res.ticketType}
+                              </Text>
+                              {!ticketPrices.find(t => t.id === res.ticketType)?.active && (
+                                <Badge colorScheme="red" size="xs">Désactivé</Badge>
+                              )}
+                            </VStack>
+                          ) : (
+                            <Text fontSize="xs" color="gray.500">-</Text>
+                          )}
+                        </Td>
                         <Td>
                           <Badge 
                             colorScheme={
@@ -3511,10 +5895,11 @@ export default function SubventionCampaign() {
                     value={ticketSaleForm.ticketType}
                     onChange={(e) => setTicketSaleForm({ ...ticketSaleForm, ticketType: e.target.value })}
                   >
-                    <option value="plein">Tarif Plein - 12€</option>
-                    <option value="reduit">Tarif Réduit - 8€</option>
-                    <option value="enfant">Tarif Enfant - 5€</option>
-                    <option value="groupe">Tarif Groupe - 10€/pers</option>
+                    {ticketPrices.filter(t => t.active).map(ticket => (
+                      <option key={ticket.id} value={ticket.id}>
+                        {ticket.label} - {ticket.price}€{ticket.id === 'groupe' ? '/pers' : ''}
+                      </option>
+                    ))}
                   </Select>
                 </FormControl>
 
@@ -3619,6 +6004,55 @@ export default function SubventionCampaign() {
               Les visiteurs doivent payer leur entrée selon les tarifs configurés ci-dessous.
             </Text>
           </VStack>
+        </Alert>
+
+        {/* Info persistance */}
+        <Alert status="success" borderRadius="lg">
+          <AlertIcon />
+          <VStack align="flex-start" spacing={1} flex={1}>
+            <AlertTitle fontSize="sm">💾 Données persistantes activées</AlertTitle>
+            <AlertDescription fontSize="xs">
+              Vos modifications (tarifs, réductions, codes promo) sont sauvegardées en localStorage et survivent au rechargement de la page.
+            </AlertDescription>
+          </VStack>
+          <Button
+            size="xs"
+            colorScheme="orange"
+            variant="outline"
+            onClick={() => {
+              if (window.confirm('⚠️ Réinitialiser TOUTES les données de tarification ?\n\nCeci effacera :\n- Tarifs personnalisés\n- Réductions personnalisées\n- Codes promo/internes\n\nLes données seront rechargées depuis l\'API au prochain rafraîchissement.')) {
+                try {
+                  localStorage.removeItem('museum_ticket_prices');
+                  localStorage.removeItem('museum_discounts');
+                  localStorage.removeItem('museum_promo_codes');
+                  localStorage.removeItem('museum_internal_codes');
+                  
+                  toast({
+                    title: '🗑️ Données effacées',
+                    description: 'Rechargez la page pour restaurer les valeurs par défaut',
+                    status: 'warning',
+                    duration: 5000,
+                    isClosable: true
+                  });
+                  
+                  // Recharger les données
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 2000);
+                } catch (err) {
+                  console.error('Erreur effacement localStorage:', err);
+                  toast({
+                    title: 'Erreur',
+                    description: 'Impossible d\'effacer les données',
+                    status: 'error',
+                    duration: 3000
+                  });
+                }
+              }
+            }}
+          >
+            Réinitialiser
+          </Button>
         </Alert>
 
         {/* Liste des tarifs */}
@@ -3814,45 +6248,55 @@ export default function SubventionCampaign() {
         <Box>
           <Heading size="md" mb={4} color="gray.800">Statistiques de Vente</Heading>
           <SimpleGrid columns={{ base: 1, md: 4 }} spacing={6}>
-            <Card bg={cardBg} borderRadius="lg">
-              <CardBody>
-                <VStack align="flex-start" spacing={2}>
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">Tarif le plus vendu</Text>
-                  <Heading size="lg" color="black">Tarif Plein</Heading>
-                  <Badge colorScheme="rbe" variant="subtle">42% des ventes</Badge>
-                </VStack>
-              </CardBody>
-            </Card>
+            {(() => {
+              const stats = calculateSalesStats();
+              
+              return (
+                <>
+                  <Card bg={cardBg} borderRadius="lg">
+                    <CardBody>
+                      <VStack align="flex-start" spacing={2}>
+                        <Text fontSize="sm" color="gray.600" fontWeight="medium">Tarif le plus vendu</Text>
+                        <Heading size="lg" color="black">{stats.mostSoldTariff.label}</Heading>
+                        <Badge colorScheme="rbe" variant="subtle">{stats.mostSoldTariff.percentage}% des ventes</Badge>
+                      </VStack>
+                    </CardBody>
+                  </Card>
 
-            <Card bg={cardBg} borderRadius="lg">
-              <CardBody>
-                <VStack align="flex-start" spacing={2}>
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">Prix moyen</Text>
-                  <Heading size="lg" color="black">9.80€</Heading>
-                  <Badge colorScheme="blue" variant="subtle">Par visiteur</Badge>
-                </VStack>
-              </CardBody>
-            </Card>
+                  <Card bg={cardBg} borderRadius="lg">
+                    <CardBody>
+                      <VStack align="flex-start" spacing={2}>
+                        <Text fontSize="sm" color="gray.600" fontWeight="medium">Prix moyen</Text>
+                        <Heading size="lg" color="black">{stats.averagePrice.toFixed(2)}€</Heading>
+                        <Badge colorScheme="blue" variant="subtle">Par visiteur</Badge>
+                      </VStack>
+                    </CardBody>
+                  </Card>
 
-            <Card bg={cardBg} borderRadius="lg">
-              <CardBody>
-                <VStack align="flex-start" spacing={2}>
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">Recettes du mois</Text>
-                  <Heading size="lg" color="black">12,450€</Heading>
-                  <Badge colorScheme="green" variant="subtle">+18% vs mois dernier</Badge>
-                </VStack>
-              </CardBody>
-            </Card>
+                  <Card bg={cardBg} borderRadius="lg">
+                    <CardBody>
+                      <VStack align="flex-start" spacing={2}>
+                        <Text fontSize="sm" color="gray.600" fontWeight="medium">Recettes du mois</Text>
+                        <Heading size="lg" color="black">{stats.totalRevenue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</Heading>
+                        <Badge colorScheme={stats.monthlyGrowth >= 0 ? "green" : "red"} variant="subtle">
+                          {stats.monthlyGrowth >= 0 ? '+' : ''}{stats.monthlyGrowth}% vs mois dernier
+                        </Badge>
+                      </VStack>
+                    </CardBody>
+                  </Card>
 
-            <Card bg={cardBg} borderRadius="lg">
-              <CardBody>
-                <VStack align="flex-start" spacing={2}>
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">Billets vendus</Text>
-                  <Heading size="lg" color="black">1,247</Heading>
-                  <Badge colorScheme="purple" variant="subtle">Ce mois-ci</Badge>
-                </VStack>
-              </CardBody>
-            </Card>
+                  <Card bg={cardBg} borderRadius="lg">
+                    <CardBody>
+                      <VStack align="flex-start" spacing={2}>
+                        <Text fontSize="sm" color="gray.600" fontWeight="medium">Billets vendus</Text>
+                        <Heading size="lg" color="black">{stats.totalTicketsSold.toLocaleString('fr-FR')}</Heading>
+                        <Badge colorScheme="purple" variant="subtle">Ce mois-ci</Badge>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </>
+              );
+            })()}
           </SimpleGrid>
         </Box>
 
@@ -3928,6 +6372,483 @@ export default function SubventionCampaign() {
             </Card>
           </SimpleGrid>
         </Box>
+
+        <Divider />
+
+        {/* Section Codes Promotionnels */}
+        <Box>
+          <HStack justify="space-between" align="center" mb={4}>
+            <HStack>
+              <Icon as={FiPercent} color="purple.500" boxSize={6} />
+              <Heading size="md" color="gray.800">Codes Promotionnels</Heading>
+            </HStack>
+            <Button
+              leftIcon={<FiPlus />}
+              colorScheme="purple"
+              size="sm"
+              onClick={() => handleOpenCodeForm(null, false)}
+            >
+              Nouveau Code Promo
+            </Button>
+          </HStack>
+
+          {promoCodes.length === 0 ? (
+            <Card bg="gray.50" borderRadius="lg" borderWidth="2px" borderStyle="dashed" borderColor="gray.300">
+              <CardBody textAlign="center" py={8}>
+                <Icon as={FiPercent} boxSize={12} color="gray.400" mb={3} />
+                <Text color="gray.600" fontWeight="medium" mb={2}>Aucun code promotionnel</Text>
+                <Text fontSize="sm" color="gray.500" mb={4}>
+                  Créez des codes promo pour offrir des réductions temporaires
+                </Text>
+                <Button
+                  leftIcon={<FiPlus />}
+                  colorScheme="purple"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleOpenCodeForm(null, false)}
+                >
+                  Créer le premier code
+                </Button>
+              </CardBody>
+            </Card>
+          ) : (
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              {promoCodes.map((code) => (
+                <Card
+                  key={code.id}
+                  bg={code.active ? cardBg : 'gray.100'}
+                  borderRadius="lg"
+                  borderWidth="2px"
+                  borderColor={code.active ? 'purple.500' : 'gray.300'}
+                  opacity={code.active ? 1 : 0.6}
+                >
+                  <CardBody>
+                    <VStack align="stretch" spacing={3}>
+                      <HStack justify="space-between">
+                        <VStack align="flex-start" spacing={0}>
+                          <HStack>
+                            <Badge colorScheme="purple" fontSize="md" px={2}>
+                              {code.code}
+                            </Badge>
+                            {!code.active && <Badge colorScheme="gray">Inactif</Badge>}
+                          </HStack>
+                          <Text fontSize="sm" fontWeight="medium" mt={1}>{code.name}</Text>
+                        </VStack>
+                        <Heading size="lg" color="purple.500">
+                          {code.type === 'percentage' ? `-${code.value}%` : `-${code.value}€`}
+                        </Heading>
+                      </HStack>
+
+                      {code.description && (
+                        <Text fontSize="sm" color="gray.600">{code.description}</Text>
+                      )}
+
+                      <Divider />
+
+                      <SimpleGrid columns={2} spacing={2}>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Validité</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {new Date(code.validFrom).toLocaleDateString('fr-FR')} → {new Date(code.validUntil).toLocaleDateString('fr-FR')}
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Utilisations</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {code.usedCount} / {code.maxUses || '∞'}
+                          </Text>
+                        </Box>
+                      </SimpleGrid>
+
+                      {code.conditions && (
+                        <>
+                          <Divider />
+                          <Box>
+                            <Text fontSize="xs" color="gray.500" mb={1}>Conditions</Text>
+                            <Text fontSize="sm" color="gray.600">{code.conditions}</Text>
+                          </Box>
+                        </>
+                      )}
+
+                      <Divider />
+
+                      <HStack spacing={2}>
+                        <Button
+                          size="sm"
+                          colorScheme="purple"
+                          variant="outline"
+                          leftIcon={<FiEdit />}
+                          onClick={() => handleOpenCodeForm(code, false)}
+                          flex={1}
+                        >
+                          Modifier
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme={code.active ? 'orange' : 'green'}
+                          variant="outline"
+                          onClick={() => handleToggleCodeActive(code.id, code.active, false)}
+                          flex={1}
+                        >
+                          {code.active ? 'Désactiver' : 'Activer'}
+                        </Button>
+                        <IconButton
+                          size="sm"
+                          colorScheme="red"
+                          variant="outline"
+                          icon={<FiTrash2 />}
+                          onClick={() => handleDeleteCode(code.id, false)}
+                        />
+                      </HStack>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              ))}
+            </SimpleGrid>
+          )}
+        </Box>
+
+        <Divider />
+
+        {/* Section Codes Internes */}
+        <Box>
+          <HStack justify="space-between" align="center" mb={4}>
+            <HStack>
+              <Icon as={FiLock} color="red.500" boxSize={6} />
+              <Heading size="md" color="gray.800">Codes Internes</Heading>
+              <Badge colorScheme="red" fontSize="xs">Accès restreint</Badge>
+            </HStack>
+            <Button
+              leftIcon={<FiPlus />}
+              colorScheme="red"
+              size="sm"
+              onClick={() => handleOpenCodeForm(null, true)}
+            >
+              Nouveau Code Interne
+            </Button>
+          </HStack>
+
+          <Alert status="warning" borderRadius="lg" mb={4}>
+            <AlertIcon />
+            <VStack align="start" spacing={1}>
+              <AlertTitle fontSize="sm">Codes réservés</AlertTitle>
+              <AlertDescription fontSize="xs">
+                Les codes internes ne peuvent être utilisés que par les personnes autorisées (ex: président, direction)
+              </AlertDescription>
+            </VStack>
+          </Alert>
+
+          {internalCodes.length === 0 ? (
+            <Card bg="gray.50" borderRadius="lg" borderWidth="2px" borderStyle="dashed" borderColor="gray.300">
+              <CardBody textAlign="center" py={8}>
+                <Icon as={FiLock} boxSize={12} color="gray.400" mb={3} />
+                <Text color="gray.600" fontWeight="medium" mb={2}>Aucun code interne</Text>
+                <Text fontSize="sm" color="gray.500" mb={4}>
+                  Créez des codes internes pour des gestes commerciaux spécifiques
+                </Text>
+                <Button
+                  leftIcon={<FiPlus />}
+                  colorScheme="red"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleOpenCodeForm(null, true)}
+                >
+                  Créer le premier code
+                </Button>
+              </CardBody>
+            </Card>
+          ) : (
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              {internalCodes.map((code) => (
+                <Card
+                  key={code.id}
+                  bg={code.active ? cardBg : 'gray.100'}
+                  borderRadius="lg"
+                  borderWidth="2px"
+                  borderColor={code.active ? 'red.500' : 'gray.300'}
+                  opacity={code.active ? 1 : 0.6}
+                >
+                  <CardBody>
+                    <VStack align="stretch" spacing={3}>
+                      <HStack justify="space-between">
+                        <VStack align="flex-start" spacing={0}>
+                          <HStack>
+                            <Badge colorScheme="red" fontSize="md" px={2}>
+                              {code.code}
+                            </Badge>
+                            {!code.active && <Badge colorScheme="gray">Inactif</Badge>}
+                            <Icon as={FiLock} boxSize={3} color="red.500" />
+                          </HStack>
+                          <Text fontSize="sm" fontWeight="medium" mt={1}>{code.name}</Text>
+                        </VStack>
+                        <Heading size="lg" color="red.500">
+                          {code.type === 'percentage' ? `-${code.value}%` : `-${code.value}€`}
+                        </Heading>
+                      </HStack>
+
+                      {code.description && (
+                        <Text fontSize="sm" color="gray.600">{code.description}</Text>
+                      )}
+
+                      <Divider />
+
+                      {code.restrictedTo && code.restrictedTo.length > 0 && (
+                        <Box>
+                          <Text fontSize="xs" color="gray.500" mb={1}>Autorisé pour</Text>
+                          <HStack spacing={2} flexWrap="wrap">
+                            {code.restrictedTo.map((user, idx) => (
+                              <Badge key={idx} colorScheme="red" variant="subtle">
+                                {user}
+                              </Badge>
+                            ))}
+                          </HStack>
+                        </Box>
+                      )}
+
+                      <SimpleGrid columns={2} spacing={2}>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Validité</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {new Date(code.validFrom).toLocaleDateString('fr-FR')} → {new Date(code.validUntil).toLocaleDateString('fr-FR')}
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Utilisations</Text>
+                          <Text fontSize="sm" fontWeight="medium">
+                            {code.usedCount} / {code.maxUses || '∞'}
+                          </Text>
+                        </Box>
+                      </SimpleGrid>
+
+                      {code.conditions && (
+                        <>
+                          <Divider />
+                          <Box>
+                            <Text fontSize="xs" color="gray.500" mb={1}>Conditions</Text>
+                            <Text fontSize="sm" color="gray.600">{code.conditions}</Text>
+                          </Box>
+                        </>
+                      )}
+
+                      <Divider />
+
+                      <HStack spacing={2}>
+                        <Button
+                          size="sm"
+                          colorScheme="red"
+                          variant="outline"
+                          leftIcon={<FiEdit />}
+                          onClick={() => handleOpenCodeForm(code, true)}
+                          flex={1}
+                        >
+                          Modifier
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme={code.active ? 'orange' : 'green'}
+                          variant="outline"
+                          onClick={() => handleToggleCodeActive(code.id, code.active, true)}
+                          flex={1}
+                        >
+                          {code.active ? 'Désactiver' : 'Activer'}
+                        </Button>
+                        <IconButton
+                          size="sm"
+                          colorScheme="red"
+                          variant="outline"
+                          icon={<FiTrash2 />}
+                          onClick={() => handleDeleteCode(code.id, true)}
+                        />
+                      </HStack>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              ))}
+            </SimpleGrid>
+          )}
+        </Box>
+
+        {/* Modal Édition/Création Code Promo/Interne */}
+        <Modal isOpen={isCodeFormOpen} onClose={onCodeFormClose} size="xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
+              <HStack>
+                <Icon as={isInternalCode ? FiLock : FiPercent} color={isInternalCode ? 'red.500' : 'purple.500'} />
+                <Text>
+                  {isEditingCode 
+                    ? `Modifier ${isInternalCode ? 'Code Interne' : 'Code Promo'}` 
+                    : `Nouveau ${isInternalCode ? 'Code Interne' : 'Code Promo'}`}
+                </Text>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              <VStack spacing={4}>
+                <SimpleGrid columns={2} spacing={4} w="full">
+                  <FormControl isRequired>
+                    <FormLabel>Code</FormLabel>
+                    <Input
+                      placeholder="SUMMER2026"
+                      value={codeForm.code}
+                      onChange={(e) => setCodeForm({ ...codeForm, code: e.target.value.toUpperCase() })}
+                      textTransform="uppercase"
+                      isDisabled={isEditingCode}
+                    />
+                    <FormHelperText fontSize="xs">Lettres et chiffres uniquement</FormHelperText>
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Nom</FormLabel>
+                    <Input
+                      placeholder="Promo été 2026"
+                      value={codeForm.name}
+                      onChange={(e) => setCodeForm({ ...codeForm, name: e.target.value })}
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
+                <FormControl>
+                  <FormLabel>Description</FormLabel>
+                  <Textarea
+                    placeholder="Description du code..."
+                    value={codeForm.description}
+                    onChange={(e) => setCodeForm({ ...codeForm, description: e.target.value })}
+                    rows={2}
+                  />
+                </FormControl>
+
+                <SimpleGrid columns={2} spacing={4} w="full">
+                  <FormControl isRequired>
+                    <FormLabel>Type de réduction</FormLabel>
+                    <Select
+                      value={codeForm.type}
+                      onChange={(e) => setCodeForm({ ...codeForm, type: e.target.value })}
+                    >
+                      <option value="percentage">Pourcentage (%)</option>
+                      <option value="fixed">Montant fixe (€)</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Valeur</FormLabel>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={codeForm.type === 'percentage' ? 100 : undefined}
+                      placeholder={codeForm.type === 'percentage' ? '20' : '10'}
+                      value={codeForm.value}
+                      onChange={(e) => setCodeForm({ ...codeForm, value: parseFloat(e.target.value) || 0 })}
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
+                <SimpleGrid columns={2} spacing={4} w="full">
+                  <FormControl isRequired>
+                    <FormLabel>Date de début</FormLabel>
+                    <Input
+                      type="date"
+                      value={codeForm.validFrom}
+                      onChange={(e) => setCodeForm({ ...codeForm, validFrom: e.target.value })}
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Date de fin</FormLabel>
+                    <Input
+                      type="date"
+                      value={codeForm.validUntil}
+                      onChange={(e) => setCodeForm({ ...codeForm, validUntil: e.target.value })}
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
+                <FormControl>
+                  <FormLabel>Limite d'utilisations</FormLabel>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Illimité"
+                    value={codeForm.maxUses || ''}
+                    onChange={(e) => setCodeForm({ ...codeForm, maxUses: e.target.value ? parseInt(e.target.value) : null })}
+                  />
+                  <FormHelperText fontSize="xs">Laisser vide pour illimité</FormHelperText>
+                </FormControl>
+
+                {isInternalCode && (
+                  <FormControl>
+                    <FormLabel>
+                      <HStack>
+                        <Icon as={FiLock} color="red.500" />
+                        <Text>Utilisateurs autorisés</Text>
+                      </HStack>
+                    </FormLabel>
+                    <Textarea
+                      placeholder="Waiyl BELAIDI&#10;Nom Prénom..."
+                      value={codeForm.restrictedTo.join('\n')}
+                      onChange={(e) => setCodeForm({ 
+                        ...codeForm, 
+                        restrictedTo: e.target.value.split('\n').filter(line => line.trim())
+                      })}
+                      rows={3}
+                    />
+                    <FormHelperText fontSize="xs">Un nom par ligne</FormHelperText>
+                  </FormControl>
+                )}
+
+                <FormControl>
+                  <FormLabel>Conditions</FormLabel>
+                  <Textarea
+                    placeholder="Conditions d'utilisation..."
+                    value={codeForm.conditions}
+                    onChange={(e) => setCodeForm({ ...codeForm, conditions: e.target.value })}
+                    rows={2}
+                  />
+                </FormControl>
+
+                <Divider />
+
+                {/* Aperçu */}
+                <Card bg={isInternalCode ? 'red.50' : 'purple.50'} w="full">
+                  <CardBody>
+                    <VStack align="stretch" spacing={2}>
+                      <HStack justify="space-between">
+                        <VStack align="flex-start" spacing={0}>
+                          <HStack>
+                            <Badge colorScheme={isInternalCode ? 'red' : 'purple'} fontSize="md">
+                              {codeForm.code || 'CODE'}
+                            </Badge>
+                            {isInternalCode && <Icon as={FiLock} boxSize={3} color="red.500" />}
+                          </HStack>
+                          <Text fontSize="sm" fontWeight="medium" color="gray.700" mt={1}>
+                            {codeForm.name || 'Nom du code'}
+                          </Text>
+                        </VStack>
+                        <Heading size="lg" color={isInternalCode ? 'red.500' : 'purple.500'}>
+                          {codeForm.type === 'percentage' ? `-${codeForm.value}%` : `-${codeForm.value}€`}
+                        </Heading>
+                      </HStack>
+                      {codeForm.description && (
+                        <Text fontSize="sm" color="gray.600">{codeForm.description}</Text>
+                      )}
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onCodeFormClose}>
+                Annuler
+              </Button>
+              <Button 
+                colorScheme={isInternalCode ? 'red' : 'purple'} 
+                onClick={handleSaveCode}
+              >
+                {isEditingCode ? 'Mettre à jour' : 'Créer'}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         {/* Modal Édition/Création Tarif */}
         <Modal isOpen={isPriceEditOpen} onClose={onPriceEditClose} size="lg">
