@@ -27,11 +27,13 @@ export default function GalleryManager({
       return;
     }
     try {
+      const csrfToken = localStorage.getItem('X-CSRF-Token') || '';
       const res = await fetch(deleteEndpoint, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authHeader
+          'Authorization': authHeader,
+          'X-CSRF-Token': csrfToken
         },
         body: JSON.stringify({ image: img })
       });
@@ -87,11 +89,15 @@ export default function GalleryManager({
       
       console.log(`✅ [GALLERY] All files converted to BASE64, sending to ${uploadEndpoint}`);
       
+      // Get CSRF token from localStorage
+      const csrfToken = localStorage.getItem('X-CSRF-Token') || '';
+      
       const res = await fetch(uploadEndpoint, { 
         method: 'POST', 
         headers: { 
           'Authorization': authHeader,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
         }, 
         body: JSON.stringify({ images: base64Images })
       });
