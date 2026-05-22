@@ -1,6 +1,7 @@
 ﻿import React, { useState, useRef } from 'react';
 import { Box, SimpleGrid, Image, HStack, IconButton, Input, useToast, Text } from '@chakra-ui/react';
 import { FiTrash2, FiChevronUp, FiChevronDown } from 'react-icons/fi';
+import { fetchCSRFToken, updateCSRFTokenFromResponse } from '../../lib/csrfClient';
 
 export default function GalleryManager({
   value = [],
@@ -27,6 +28,15 @@ export default function GalleryManager({
       return;
     }
     try {
+      // Fetch fresh CSRF token before delete
+      const apiBaseMatch = deleteEndpoint.match(/^(https?:\/\/[^\/]+)/);
+      const apiBase = apiBaseMatch ? apiBaseMatch[1] : '';
+      try {
+        await fetchCSRFToken(apiBase);
+      } catch (csrfError) {
+        console.warn(`⚠️ [GALLERY] Could not fetch CSRF token for delete:`, csrfError);
+      }
+      
       const csrfToken = localStorage.getItem('X-CSRF-Token') || '';
       const res = await fetch(deleteEndpoint, {
         method: 'DELETE',
@@ -37,6 +47,7 @@ export default function GalleryManager({
         },
         body: JSON.stringify({ image: img })
       });
+      updateCSRFTokenFromResponse(res);
       if (!res.ok) throw new Error();
       const j = await res.json();
       onChange(j.gallery || []);
@@ -89,6 +100,19 @@ export default function GalleryManager({
       
       console.log(`✅ [GALLERY] All files converted to BASE64, sending to ${uploadEndpoint}`);
       
+      // Extract API base URL from uploadEndpoint
+      const apiBaseMatch = uploadEndpoint.match(/^(https?:\/\/[^\/]+)/);
+      const apiBase = apiBaseMatch ? apiBaseMatch[1] : '';
+      
+      // Fetch a fresh CSRF token before upload
+      try {
+        await fetchCSRFToken(apiBase);
+        console.log(`✅ [GALLERY] Fresh CSRF token obtained`);
+      } catch (csrfError) {
+        console.warn(`⚠️ [GALLERY] Could not fetch CSRF token:`, csrfError);
+        // Continue anyway - maybe token in localStorage is still valid
+      }
+      
       // Get CSRF token from localStorage
       const csrfToken = localStorage.getItem('X-CSRF-Token') || '';
       
@@ -101,6 +125,9 @@ export default function GalleryManager({
         }, 
         body: JSON.stringify({ images: base64Images })
       });
+      
+      // Update CSRF token from response if available
+      updateCSRFTokenFromResponse(res);
       
       console.log(`📡 [GALLERY] Response received:`, {
         status: res.status,
