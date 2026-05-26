@@ -6,9 +6,9 @@ import {
   useDisclosure, FormControl, FormLabel, Textarea, Flex,
   Icon, SimpleGrid, Alert, AlertIcon, Container, Stat, StatLabel, StatNumber,
   IconButton, Menu, MenuButton, MenuList, MenuItem, MenuDivider, useColorModeValue,
-  Spinner, Divider, Avatar, Tag, TagLabel
+  Spinner, Divider, Avatar, Tag, TagLabel, Tabs, TabList, Tab, TabPanels, TabPanel
 } from '@chakra-ui/react';
-import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus } from 'react-icons/fi';
+import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus, FiBook, FiLifeBuoy } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
 
@@ -395,49 +395,178 @@ export default function SupportSite() {
   return (
     <Container maxW="container.xl" py={8}>
       <Box bgGradient="linear(to-r, red.500, orange.500)" color="white" p={8} borderRadius="xl" mb={8} textAlign="center">
-        <Heading size="xl" mb={2}>🎫 Support du site</Heading>
-        <Text opacity={0.9}>Tickets: incidents, bugs et améliorations</Text>
+        <Heading size="xl" mb={2}>🎫 Support & Documentation</Heading>
+        <Text opacity={0.9}>Tickets, incidents, bugs et documentation des processus</Text>
       </Box>
 
-      <VStack spacing={6} align="stretch">
-        <HStack justify="space-between">
-          <VStack align="start" spacing={1}>
-            <Heading size="md">Système de tickets</Heading>
-            <Text fontSize="sm" color="gray.600">Signalez et suivez les incidents et demandes</Text>
-          </VStack>
-          <Button leftIcon={<FiPlus />} colorScheme="red" onClick={onReportOpen}>Nouveau ticket</Button>
-        </HStack>
+      <Tabs colorScheme="red" size="lg" variant="enclosed">
+        <TabList mb={6}>
+          <Tab _selected={{ bg: 'red.500', color: 'white' }}>
+            <Icon as={FiLifeBuoy} mr={2} />
+            Tickets Support
+          </Tab>
+          <Tab _selected={{ bg: 'red.500', color: 'white' }}>
+            <Icon as={FiBook} mr={2} />
+            Knowledge Base
+          </Tab>
+        </TabList>
 
-        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
-          <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{reports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
-          <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{reports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
-          <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{reports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
-          <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total</StatLabel><StatNumber color="blue.500" fontSize="lg">{reports.length}</StatNumber></Stat></CardBody></Card>
-        </SimpleGrid>
+        <TabPanels>
+          {/* ===== ONGLET 1: TICKETS SUPPORT ===== */}
+          <TabPanel px={0}>
+            <VStack spacing={6} align="stretch">
+              <HStack justify="space-between">
+                <VStack align="start" spacing={1}>
+                  <Heading size="md">Système de tickets</Heading>
+                  <Text fontSize="sm" color="gray.600">Signalez et suivez les incidents et demandes</Text>
+                </VStack>
+                <Button leftIcon={<FiPlus />} colorScheme="red" onClick={onReportOpen}>Nouveau ticket</Button>
+              </HStack>
 
-        <VStack spacing={4} align="stretch">
-          {reports.length === 0 ? (
-            <Alert status="info">
-              <AlertIcon />
-              <VStack align="start" spacing={1}>
-                <Text fontWeight="bold" fontSize="sm">Aucun ticket</Text>
-                <Text fontSize="xs">Créez votre premier ticket.</Text>
+              <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+                <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{reports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
+                <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{reports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
+                <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{reports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
+                <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total</StatLabel><StatNumber color="blue.500" fontSize="lg">{reports.length}</StatNumber></Stat></CardBody></Card>
+              </SimpleGrid>
+
+              <VStack spacing={4} align="stretch">
+                {reports.length === 0 ? (
+                  <Alert status="info">
+                    <AlertIcon />
+                    <VStack align="start" spacing={1}>
+                      <Text fontWeight="bold" fontSize="sm">Aucun ticket</Text>
+                      <Text fontSize="xs">Créez votre premier ticket.</Text>
+                    </VStack>
+                  </Alert>
+                ) : (
+                  reports.map((report) => (
+                    <TicketCard
+                      key={report.id}
+                      report={report}
+                      onUpdate={handleEditReport}
+                      onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDeleteReport}
+                    />
+                  ))
+                )}
               </VStack>
-            </Alert>
-          ) : (
-            reports.map((report) => (
-              <TicketCard
-                key={report.id}
-                report={report}
-                onUpdate={handleEditReport}
-                onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDeleteReport}
-              />
-            ))
-          )}
-        </VStack>
-      </VStack>
+            </VStack>
+          </TabPanel>
+
+          {/* ===== ONGLET 2: KNOWLEDGE BASE ===== */}
+          <TabPanel px={0}>
+            <VStack spacing={6} align="stretch">
+              <HStack justify="space-between">
+                <VStack align="start" spacing={1}>
+                  <Heading size="md">📚 Base de connaissances</Heading>
+                  <Text fontSize="sm" color="gray.600">Documentation des processus, guides et procédures</Text>
+                </VStack>
+                <Button leftIcon={<FiPlus />} colorScheme="red">Nouveau document</Button>
+              </HStack>
+
+              <Alert status="info" variant="left-accent">
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold">Bibliothèque de connaissances</Text>
+                  <Text fontSize="sm">Centralisation des processus, procédures et guides métiers de l'association.</Text>
+                </Box>
+              </Alert>
+
+              {/* Catégories de documentation */}
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                <Card borderTop="4px solid" borderColor="purple.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="purple.500" boxSize={5} />
+                      <Heading size="sm">Procédures</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Guides pas-à-pas pour les opérations courantes</Text>
+                    <Badge mt={2} colorScheme="purple">0 documents</Badge>
+                  </CardBody>
+                </Card>
+
+                <Card borderTop="4px solid" borderColor="blue.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="blue.500" boxSize={5} />
+                      <Heading size="sm">Processus métiers</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Workflows et processus organisationnels</Text>
+                    <Badge mt={2} colorScheme="blue">0 documents</Badge>
+                  </CardBody>
+                </Card>
+
+                <Card borderTop="4px solid" borderColor="green.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="green.500" boxSize={5} />
+                      <Heading size="sm">Guides techniques</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Documentation technique et configuration</Text>
+                    <Badge mt={2} colorScheme="green">0 documents</Badge>
+                  </CardBody>
+                </Card>
+
+                <Card borderTop="4px solid" borderColor="orange.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="orange.500" boxSize={5} />
+                      <Heading size="sm">FAQ</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Questions fréquemment posées</Text>
+                    <Badge mt={2} colorScheme="orange">0 documents</Badge>
+                  </CardBody>
+                </Card>
+
+                <Card borderTop="4px solid" borderColor="red.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="red.500" boxSize={5} />
+                      <Heading size="sm">Urgences</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Procédures d'urgence et contacts critiques</Text>
+                    <Badge mt={2} colorScheme="red">0 documents</Badge>
+                  </CardBody>
+                </Card>
+
+                <Card borderTop="4px solid" borderColor="teal.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                  <CardHeader pb={2}>
+                    <HStack>
+                      <Icon as={FiBook} color="teal.500" boxSize={5} />
+                      <Heading size="sm">Formations</Heading>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody pt={2}>
+                    <Text fontSize="sm" color="gray.600">Supports de formation et tutoriels</Text>
+                    <Badge mt={2} colorScheme="teal">0 documents</Badge>
+                  </CardBody>
+                </Card>
+              </SimpleGrid>
+
+              {/* Documents récents */}
+              <Box>
+                <Heading size="sm" mb={4}>📄 Documents récents</Heading>
+                <Alert status="info">
+                  <AlertIcon />
+                  Aucun document disponible. Créez votre premier document de connaissances.
+                </Alert>
+              </Box>
+            </VStack>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
       {/* Modal création */}
       <Modal isOpen={isReportOpen} onClose={onReportClose} size="lg">
