@@ -146,8 +146,6 @@ export default function SupportSite() {
   const [reportScreenshots, setReportScreenshots] = useState([]); // File[]
 
   const cardBg = useColorModeValue('white', 'gray.800');
-  const sidebarBg = useColorModeValue('gray.50', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   const fetchReports = async () => {
     try {
@@ -388,279 +386,204 @@ export default function SupportSite() {
 
   if (loading) {
     return (
-      <Box p={6}>
+      <Container maxW="container.xl" py={8}>
         <VStack spacing={8}>
           <Spinner size="xl" color="green.500" />
           <Text>Chargement du support…</Text>
         </VStack>
-      </Box>
+      </Container>
     );
   }
 
-  // Sections de navigation
-  const sections = [
-    { id: 'tickets', label: 'Tickets Support', icon: FiLifeBuoy, description: 'Gestion des tickets' },
-    { id: 'knowledge', label: 'Knowledge Base', icon: FiBook, description: 'Documentation & processus' }
-  ];
-
-  // Composants de contenu
-  const TicketsContent = () => (
-    <VStack spacing={6} align="stretch">
-      <HStack justify="space-between">
-        <VStack align="start" spacing={1}>
-          <Heading size="sm">Système de tickets</Heading>
-          <Text fontSize="sm" color="gray.600">Signalez et suivez les incidents et demandes</Text>
-        </VStack>
-        <Button leftIcon={<FiPlus />} colorScheme="red" onClick={onReportOpen}>Nouveau ticket</Button>
-      </HStack>
-
-      <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{reports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{reports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{reports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total</StatLabel><StatNumber color="blue.500" fontSize="lg">{reports.length}</StatNumber></Stat></CardBody></Card>
-      </SimpleGrid>
-
-      <VStack spacing={4} align="stretch">
-        {reports.length === 0 ? (
-          <Alert status="info">
-            <AlertIcon />
-            <VStack align="start" spacing={1}>
-              <Text fontWeight="bold" fontSize="sm">Aucun ticket</Text>
-              <Text fontSize="xs">Créez votre premier ticket.</Text>
-            </VStack>
-          </Alert>
-        ) : (
-          reports.map((report) => (
-            <TicketCard
-              key={report.id}
-              report={report}
-              onUpdate={handleEditReport}
-              onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
-              onStatusChange={handleStatusChange}
-              onDelete={handleDeleteReport}
-            />
-          ))
-        )}
-      </VStack>
-    </VStack>
-  );
-
-  const KnowledgeContent = () => (
-    <VStack spacing={6} align="stretch">
-      <HStack justify="space-between">
-        <VStack align="start" spacing={1}>
-          <Heading size="sm">Base de connaissances</Heading>
-          <Text fontSize="sm" color="gray.600">Documentation des processus, guides et procédures</Text>
-        </VStack>
-        <Button leftIcon={<FiPlus />} colorScheme="red">Nouveau document</Button>
-      </HStack>
-
-      <Alert status="info" variant="left-accent">
-        <AlertIcon />
-        <Box>
-          <Text fontWeight="bold">Bibliothèque de connaissances</Text>
-          <Text fontSize="sm">Centralisation des processus, procédures et guides métiers de l'association.</Text>
-        </Box>
-      </Alert>
-
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-        <Card borderTop="4px solid" borderColor="purple.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="purple.500" boxSize={5} />
-              <Heading size="sm">Procédures</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Guides pas-à-pas pour les opérations courantes</Text>
-            <Badge mt={2} colorScheme="purple">0 documents</Badge>
-          </CardBody>
-        </Card>
-
-        <Card borderTop="4px solid" borderColor="blue.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="blue.500" boxSize={5} />
-              <Heading size="sm">Processus métiers</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Workflows et processus organisationnels</Text>
-            <Badge mt={2} colorScheme="blue">0 documents</Badge>
-          </CardBody>
-        </Card>
-
-        <Card borderTop="4px solid" borderColor="green.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="green.500" boxSize={5} />
-              <Heading size="sm">Guides techniques</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Documentation technique et configuration</Text>
-            <Badge mt={2} colorScheme="green">0 documents</Badge>
-          </CardBody>
-        </Card>
-
-        <Card borderTop="4px solid" borderColor="orange.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="orange.500" boxSize={5} />
-              <Heading size="sm">FAQ</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Questions fréquemment posées</Text>
-            <Badge mt={2} colorScheme="orange">0 documents</Badge>
-          </CardBody>
-        </Card>
-
-        <Card borderTop="4px solid" borderColor="red.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="red.500" boxSize={5} />
-              <Heading size="sm">Urgences</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Procédures d'urgence et contacts critiques</Text>
-            <Badge mt={2} colorScheme="red">0 documents</Badge>
-          </CardBody>
-        </Card>
-
-        <Card borderTop="4px solid" borderColor="teal.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
-          <CardHeader pb={2}>
-            <HStack>
-              <Icon as={FiBook} color="teal.500" boxSize={5} />
-              <Heading size="sm">Formations</Heading>
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <Text fontSize="sm" color="gray.600">Supports de formation et tutoriels</Text>
-            <Badge mt={2} colorScheme="teal">0 documents</Badge>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
-
-      <Box>
-        <Heading size="sm" mb={4}>📄 Documents récents</Heading>
-        <Alert status="info">
-          <AlertIcon />
-          Aucun document disponible. Créez votre premier document de connaissances.
-        </Alert>
-      </Box>
-    </VStack>
-  );
-
-  // Rendu du contenu selon la section active
-  const renderMainContent = () => {
-    switch (activeSection) {
-      case 'tickets':
-        return <TicketsContent />;
-      case 'knowledge':
-        return <KnowledgeContent />;
-      default:
-        return <TicketsContent />;
-    }
-  };
-
   return (
-    <HStack align="stretch" spacing={0} h="100vh" w="100%">
-      {/* Sidebar */}
-      <VStack
-        align="stretch"
-        spacing={0}
-        w="280px"
-        bg="gray.50"
-        borderRight="1px"
-        borderColor="gray.200"
-        overflowY="auto"
-      >
-        {/* Header du sidebar */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200">
-          <HStack spacing={3} mb={3}>
-            <Icon as={FiLifeBuoy} color="red.500" boxSize={6} />
-            <Box>
-              <Heading size="md" color="gray.800">Support & Docs</Heading>
-              <Text fontSize="sm" color="gray.500">Centre d'aide</Text>
-            </Box>
-          </HStack>
-          <Text fontSize="xs" color="gray.500">Gestion RBE</Text>
-        </Box>
+    <Box p={6}>
+      <VStack spacing={6} align="stretch">
+        {/* En-tête */}
+        <HStack justify="space-between" align="center">
+          <VStack align="start" spacing={1}>
+            <Heading size="lg" color="red.600">
+              🎫 Support & Documentation
+            </Heading>
+            <Text fontSize="sm" color="gray.600">
+              Tickets, incidents, bugs et documentation des processus
+            </Text>
+          </VStack>
+        </HStack>
 
         {/* Navigation principale */}
-        <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
-          {sections.map((section) => {
-            const isActive = section.id === activeSection;
-            const SectionIcon = section.icon;
-            return (
-              <Button
-                key={section.id}
-                leftIcon={<Icon as={SectionIcon} />}
-                variant="ghost"
-                justifyContent="flex-start"
-                w="full"
-                bg={isActive ? "red.50" : "transparent"}
-                borderLeft="3px"
-                borderColor={isActive ? "red.500" : "transparent"}
-                borderRadius={0}
-                px={4}
-                py={6}
-                fontSize="sm"
-                fontWeight={isActive ? "600" : "500"}
-                color={isActive ? "red.500" : "inherit"}
-                _hover={{ bg: "gray.100", borderLeftColor: "red.500" }}
-                onClick={() => setActiveSection(section.id)}
-              >
-                <Flex direction="column" align="flex-start" w="full">
-                  <Text>{section.label}</Text>
-                  {section.description && (
-                    <Text fontSize="xs" color="gray.500">{section.description}</Text>
-                  )}
-                </Flex>
-              </Button>
-            );
-          })}
-        </VStack>
+        <HStack spacing={4} borderBottom="2px solid" borderColor="gray.200" pb={2}>
+          <Button
+            variant={activeSection === 'tickets' ? 'solid' : 'ghost'}
+            colorScheme={activeSection === 'tickets' ? 'red' : 'gray'}
+            leftIcon={<FiLifeBuoy />}
+            onClick={() => setActiveSection('tickets')}
+            size="md"
+          >
+            Tickets Support
+          </Button>
+          <Button
+            variant={activeSection === 'knowledge' ? 'solid' : 'ghost'}
+            colorScheme={activeSection === 'knowledge' ? 'red' : 'gray'}
+            leftIcon={<FiBook />}
+            onClick={() => setActiveSection('knowledge')}
+            size="md"
+          >
+            Knowledge Base
+          </Button>
+        </HStack>
 
-        {/* Footer du sidebar */}
-        <Box
-          p={4}
-          borderTop="1px"
-          borderColor="gray.200"
-          fontSize="xs"
-          color="gray.500"
-          textAlign="center"
-          w="full"
-        >
-          MyRBE Support
-        </Box>
-      </VStack>
+        {/* Contenu conditionnel */}
+        {activeSection === 'tickets' && (
+          <VStack spacing={6} align="stretch">
+            <HStack justify="space-between">
+              <VStack align="start" spacing={1}>
+                <Heading size="md">Système de tickets</Heading>
+                <Text fontSize="sm" color="gray.600">Signalez et suivez les incidents et demandes</Text>
+              </VStack>
+              <Button leftIcon={<FiPlus />} colorScheme="red" onClick={onReportOpen}>Nouveau ticket</Button>
+            </HStack>
 
-      {/* Contenu principal */}
-      <VStack align="stretch" spacing={0} flex={1} overflowY="auto">
-        {/* Header */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
-          <HStack justify="space-between">
+            <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+              <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{reports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
+              <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{reports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
+              <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{reports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
+              <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total</StatLabel><StatNumber color="blue.500" fontSize="lg">{reports.length}</StatNumber></Stat></CardBody></Card>
+            </SimpleGrid>
+
+            <VStack spacing={4} align="stretch">
+              {reports.length === 0 ? (
+                <Alert status="info">
+                  <AlertIcon />
+                  <VStack align="start" spacing={1}>
+                    <Text fontWeight="bold" fontSize="sm">Aucun ticket</Text>
+                    <Text fontSize="xs">Créez votre premier ticket.</Text>
+                  </VStack>
+                </Alert>
+              ) : (
+                reports.map((report) => (
+                  <TicketCard
+                    key={report.id}
+                    report={report}
+                    onUpdate={handleEditReport}
+                    onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDeleteReport}
+                  />
+                ))
+              )}
+            </VStack>
+          </VStack>
+        )}
+
+        {activeSection === 'knowledge' && (
+          <VStack spacing={6} align="stretch">
+            <HStack justify="space-between">
+              <VStack align="start" spacing={1}>
+                <Heading size="md">📚 Base de connaissances</Heading>
+                <Text fontSize="sm" color="gray.600">Documentation des processus, guides et procédures</Text>
+              </VStack>
+              <Button leftIcon={<FiPlus />} colorScheme="red">Nouveau document</Button>
+            </HStack>
+
+            <Alert status="info" variant="left-accent">
+              <AlertIcon />
+              <Box>
+                <Text fontWeight="bold">Bibliothèque de connaissances</Text>
+                <Text fontSize="sm">Centralisation des processus, procédures et guides métiers de l'association.</Text>
+              </Box>
+            </Alert>
+
+            {/* Catégories de documentation */}
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+              <Card borderTop="4px solid" borderColor="purple.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="purple.500" boxSize={5} />
+                    <Heading size="sm">Procédures</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Guides pas-à-pas pour les opérations courantes</Text>
+                  <Badge mt={2} colorScheme="purple">0 documents</Badge>
+                </CardBody>
+              </Card>
+
+              <Card borderTop="4px solid" borderColor="blue.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="blue.500" boxSize={5} />
+                    <Heading size="sm">Processus métiers</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Workflows et processus organisationnels</Text>
+                  <Badge mt={2} colorScheme="blue">0 documents</Badge>
+                </CardBody>
+              </Card>
+
+              <Card borderTop="4px solid" borderColor="green.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="green.500" boxSize={5} />
+                    <Heading size="sm">Guides techniques</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Documentation technique et configuration</Text>
+                  <Badge mt={2} colorScheme="green">0 documents</Badge>
+                </CardBody>
+              </Card>
+
+              <Card borderTop="4px solid" borderColor="orange.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="orange.500" boxSize={5} />
+                    <Heading size="sm">FAQ</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Questions fréquemment posées</Text>
+                  <Badge mt={2} colorScheme="orange">0 documents</Badge>
+                </CardBody>
+              </Card>
+
+              <Card borderTop="4px solid" borderColor="red.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="red.500" boxSize={5} />
+                    <Heading size="sm">Urgences</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Procédures d'urgence et contacts critiques</Text>
+                  <Badge mt={2} colorScheme="red">0 documents</Badge>
+                </CardBody>
+              </Card>
+
+              <Card borderTop="4px solid" borderColor="teal.500" cursor="pointer" _hover={{ shadow: 'md', transform: 'translateY(-2px)' }} transition="all 0.2s">
+                <CardHeader pb={2}>
+                  <HStack>
+                    <Icon as={FiBook} color="teal.500" boxSize={5} />
+                    <Heading size="sm">Formations</Heading>
+                  </HStack>
+                </CardHeader>
+                <CardBody pt={2}>
+                  <Text fontSize="sm" color="gray.600">Supports de formation et tutoriels</Text>
+                  <Badge mt={2} colorScheme="teal">0 documents</Badge>
+                </CardBody>
+              </Card>
+            </SimpleGrid>
+
+            {/* Documents récents */}
             <Box>
-              <Heading size="lg">
-                {activeSection === 'tickets' && '🎫 Tickets Support'}
-                {activeSection === 'knowledge' && '📚 Base de connaissances'}
-              </Heading>
-              <Text fontSize="sm" color="gray.500">
-                {activeSection === 'tickets' && 'Signalez et suivez les incidents, bugs et demandes'}
-                {activeSection === 'knowledge' && 'Documentation des processus, guides et procédures'}
-              </Text>
+              <Heading size="sm" mb={4}>📄 Documents récents</Heading>
+              <Alert status="info">
+                <AlertIcon />
+                Aucun document disponible. Créez votre premier document de connaissances.
+              </Alert>
             </Box>
-          </HStack>
-        </Box>
-
-        {/* Contenu */}
-        <Box flex={1} overflowY="auto" p={6} w="full">
-          {renderMainContent()}
-        </Box>
+          </VStack>
+        )}
       </VStack>
 
       {/* Modal création */}
@@ -797,6 +720,6 @@ export default function SupportSite() {
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </HStack>
+    </Box>
   );
 }

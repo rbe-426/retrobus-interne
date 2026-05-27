@@ -25,6 +25,7 @@ import {
 import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 import DevisLinesManager from '../components/DevisLinesManager';
 import BankStatementImport from '../components/Finance/BankStatementImport';
+import DevisWizard from '../components/Finance/DevisWizard';
 import { getStoredCSRFToken } from '../lib/csrfClient.js';
 
 
@@ -155,6 +156,8 @@ const AdminFinance = () => {
   
   // Devis & Factures
   const [documents, setDocuments] = useState([]); // {id,type:'QUOTE'|'INVOICE', number, title, date, amount, status, eventId?}
+  const [documentFilter, setDocumentFilter] = useState('ALL'); // 'ALL', 'QUOTE', 'INVOICE'
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState(null);
   const [docForm, setDocForm] = useState({ 
     type: 'QUOTE', 
@@ -1572,6 +1575,94 @@ const AdminFinance = () => {
     onDocOpen();
   };
 
+  // Fonction pour sauvegarder un document depuis le wizard
+  const handleSaveDocument = async (documentData) => {
+    try {
+      // Convertir les données du wizard au format API
+      const totalAmount = documentData.totals?.total || 0;
+      
+      const payload = {
+        type: documentData.type, // 'QUOTE' ou 'INVOICE'
+        number: documentData.number,
+        title: documentData.title,
+        description: documentData.description || null,
+        date: documentData.date,
+        dueDate: documentData.dueDate || null,
+        amountExcludingTax: documentData.totals?.subtotal || 0,
+        taxRate: documentData.totals?.taxRate || 0,
+        taxAmount: documentData.totals?.taxAmount || 0,
+        amount: totalAmount,
+        quoteStatus: documentData.type === 'QUOTE' ? 'DRAFT' : null,
+        invoiceStatus: documentData.type === 'INVOICE' ? 'DRAFT' : null,
+        eventId: documentData.eventId || null,
+        memberId: documentData.memberId || null,
+        destinataireName: documentData.clientName || null,
+        destinataireAdresse: documentData.clientAddress || null,
+        destinataireSociete: documentData.clientCompany || null,
+        destinataireContacts: `${documentData.clientEmail || ''} ${documentData.clientPhone || ''}`.trim() || null,
+        notes: documentData.notes || null,
+        paymentMethod: documentData.paymentMethod || null,
+        paymentDate: documentData.paymentDate || null,
+        amountPaid: 0,
+        lines: documentData.lines || [], // Lignes d'articles
+        mode: documentData.mode // 'generate' ou 'import'
+      };
+
+      const paths = buildPathCandidates('/api/finance/documents');
+      const saved = await fetchJsonFirst(paths, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`, 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(payload)
+      });
+
+      // Recharger la liste
+      await loadDocuments();
+      
+      toast({ 
+        status: 'success', 
+        title: `${documentData.type === 'QUOTE' ? 'Devis' : 'Facture'} créé(e)`,
+        description: `${saved.number} - ${saved.title}`
+      });
+    } catch (error) {
+      console.error('❌ Erreur création document:', error);
+      
+      // Fallback local
+      const genId = `local-${Date.now()}`;
+      const totalAmount = documentData.totals?.total || 0;
+      
+      const newDoc = {
+        id: genId,
+        type: documentData.type,
+        number: documentData.number,
+        title: documentData.title,
+        description: documentData.description || '',
+        date: documentData.date,
+        dueDate: documentData.dueDate || null,
+        amount: totalAmount,
+        amountExcludingTax: documentData.totals?.subtotal || 0,
+        taxRate: documentData.totals?.taxRate || 0,
+        taxAmount: documentData.totals?.taxAmount || 0,
+        quoteStatus: documentData.type === 'QUOTE' ? 'DRAFT' : null,
+        invoiceStatus: documentData.type === 'INVOICE' ? 'DRAFT' : null,
+        eventId: null,
+        destinataireName: documentData.clientName
+      };
+
+      const updated = [newDoc, ...documents];
+      writeDocsLocal(updated);
+      setDocuments(updated);
+      
+      toast({ 
+        status: 'info', 
+        title: 'Document enregistré en local',
+        description: 'Impossible de sauvegarder sur le serveur'
+      });
+    }
+  };
+
   const handleAddScheduledOperation = async () => {
     const isEcheancierMode = activeTab === 2;
     if (!newScheduled.amount || !newScheduled.description || !newScheduled.nextDate || (!isEcheancierMode && !newScheduled.type) || (!isEcheancierMode && !newScheduled.frequency)) {
@@ -2519,20 +2610,127 @@ const AdminFinance = () => {
 
             {/* Onglet Devis & Factures */}
             <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <HStack justify="space-between">
-                  <Heading size="md">Devis & Factures</Heading>
-                  <Button leftIcon={<FiPlus />} colorScheme="purple" size="sm" onClick={openCreateDocument}>Nouveau document</Button>
-                </HStack>
+              <VStack spacing={6} align="stretch">
+                {/* En-tête avec statistiques */}
+                <Card bg={cardBg}>
+                  <CardBody>
+                    <VStack spacing={4} align="stretch">
+                      <HStack justify="space-between">
+                        <Heading size="md">📄 Devis & Factures</Heading>
+                        <Button 
+                          leftIcon={<FiPlus />} 
+                          colorScheme="rbe" 
+                          size="sm" 
+                          onClick={() => setIsWizardOpen(true)}
+                        >
+                          Nouveau document
+                        </Button>
+                      </HStack>
 
+                      {/* Statistiques rapides */}
+                      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+                        <Card bg={bgSection}>
+                          <CardBody>
+                            <Stat size="sm">
+                              <StatLabel>Devis totaux</StatLabel>
+                              <StatNumber>{documents.filter(d => d.type === 'QUOTE').length}</StatNumber>
+                              <StatHelpText>
+                                {documents.filter(d => d.type === 'QUOTE' && (d.quoteStatus === 'ACCEPTED')).length} acceptés
+                              </StatHelpText>
+                            </Stat>
+                          </CardBody>
+                        </Card>
+
+                        <Card bg={bgSection}>
+                          <CardBody>
+                            <Stat size="sm">
+                              <StatLabel>Factures totales</StatLabel>
+                              <StatNumber>{documents.filter(d => d.type === 'INVOICE').length}</StatNumber>
+                              <StatHelpText>
+                                {documents.filter(d => d.type === 'INVOICE' && d.invoiceStatus === 'PAID').length} payées
+                              </StatHelpText>
+                            </Stat>
+                          </CardBody>
+                        </Card>
+
+                        <Card bg={bgSection}>
+                          <CardBody>
+                            <Stat size="sm">
+                              <StatLabel>CA Devis acceptés</StatLabel>
+                              <StatNumber>
+                                {formatCurrency(
+                                  documents
+                                    .filter(d => d.type === 'QUOTE' && d.quoteStatus === 'ACCEPTED')
+                                    .reduce((sum, d) => sum + Number(d.amount || 0), 0)
+                                )}
+                              </StatNumber>
+                              <StatHelpText>En cours</StatHelpText>
+                            </Stat>
+                          </CardBody>
+                        </Card>
+
+                        <Card bg={bgSection}>
+                          <CardBody>
+                            <Stat size="sm">
+                              <StatLabel>CA Factures</StatLabel>
+                              <StatNumber>
+                                {formatCurrency(
+                                  documents
+                                    .filter(d => d.type === 'INVOICE' && d.invoiceStatus === 'PAID')
+                                    .reduce((sum, d) => sum + Number(d.amount || 0), 0)
+                                )}
+                              </StatNumber>
+                              <StatHelpText color="green.500">
+                                <Icon as={FiTrendingUp} /> Encaissé
+                              </StatHelpText>
+                            </Stat>
+                          </CardBody>
+                        </Card>
+                      </SimpleGrid>
+
+                      {/* Filtres */}
+                      <HStack spacing={2}>
+                        <Button
+                          size="sm"
+                          variant={documentFilter === 'ALL' ? 'solid' : 'outline'}
+                          colorScheme={documentFilter === 'ALL' ? 'rbe' : 'gray'}
+                          onClick={() => setDocumentFilter('ALL')}
+                        >
+                          Tous ({documents.length})
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={documentFilter === 'QUOTE' ? 'solid' : 'outline'}
+                          colorScheme={documentFilter === 'QUOTE' ? 'blue' : 'gray'}
+                          onClick={() => setDocumentFilter('QUOTE')}
+                        >
+                          Devis ({documents.filter(d => d.type === 'QUOTE').length})
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={documentFilter === 'INVOICE' ? 'solid' : 'outline'}
+                          colorScheme={documentFilter === 'INVOICE' ? 'purple' : 'gray'}
+                          onClick={() => setDocumentFilter('INVOICE')}
+                        >
+                          Factures ({documents.filter(d => d.type === 'INVOICE').length})
+                        </Button>
+                      </HStack>
+                    </VStack>
+                  </CardBody>
+                </Card>
+
+                {/* Tableau des documents */}
                 {loading ? (
-                  <Box textAlign="center" p={8}><Spinner size="lg" /><Text mt={2}>Chargement…</Text></Box>
+                  <Box textAlign="center" p={8}>
+                    <Spinner size="lg" />
+                    <Text mt={2}>Chargement…</Text>
+                  </Box>
                 ) : (
                   <Card>
                     <CardBody p={0}>
                       <Table variant="simple">
                         <Thead>
-                          <Tr>
+                          <Tr bg={bgSection}>
                             <Th>Type</Th>
                             <Th>Numéro</Th>
                             <Th>Titre</Th>
@@ -2544,18 +2742,26 @@ const AdminFinance = () => {
                           </Tr>
                         </Thead>
                         <Tbody>
-                          {documents.map((doc) => (
-                            <Tr key={doc.id}>
+                          {documents
+                            .filter(doc => documentFilter === 'ALL' || doc.type === documentFilter)
+                            .map((doc) => (
+                            <Tr key={doc.id} _hover={{ bg: bgSection }}>
                               <Td>
-                                <Badge colorScheme={doc.type === 'INVOICE' ? 'purple' : 'gray'}>
-                                  {doc.type === 'INVOICE' ? 'Facture' : 'Devis'}
+                                <Badge colorScheme={doc.type === 'INVOICE' ? 'purple' : 'blue'}>
+                                  {doc.type === 'INVOICE' ? '📄 Facture' : '📝 Devis'}
                                 </Badge>
                               </Td>
-                              <Td>{doc.number || '—'}</Td>
+                              <Td fontWeight="medium">{doc.number || '—'}</Td>
                               <Td>{doc.title || '—'}</Td>
                               <Td>{formatDate(doc.date)}</Td>
-                              <Td isNumeric>{formatCurrency(Number(doc.amount || 0))}</Td>
-                              <Td>{doc.eventId ? <Badge>{doc.eventId}</Badge> : <Text fontSize="sm" color="gray.500">—</Text>}</Td>
+                              <Td isNumeric fontWeight="bold">{formatCurrency(Number(doc.amount || 0))}</Td>
+                              <Td>
+                                {doc.eventId ? (
+                                  <Badge colorScheme="cyan">{doc.eventId}</Badge>
+                                ) : (
+                                  <Text fontSize="sm" color="gray.500">—</Text>
+                                )}
+                              </Td>
                               <Td>
                                 <Badge
                                   colorScheme={
@@ -2566,8 +2772,8 @@ const AdminFinance = () => {
                                   variant="subtle"
                                 >
                                   {doc.type === 'INVOICE' ? 
-                                    {DRAFT:'Brouillon',SENT:'Envoyé',ACCEPTED:'Accepté',PENDING_PAYMENT:'En attente de paiement',PAID:'Payé',DEPOSIT_PAID:'Accompte payé'}[doc.invoiceStatus||'DRAFT'] :
-                                    {DRAFT:'Brouillon',SENT:'Envoyé',ACCEPTED:'Accepté',REFUSED:'Refusé',REEDITED:'Réédité'}[doc.quoteStatus||'DRAFT']
+                                    {DRAFT:'Brouillon',SENT:'Envoyé',ACCEPTED:'Accepté',PENDING_PAYMENT:'En attente',PAID:'✓ Payé',DEPOSIT_PAID:'Accompte'}[doc.invoiceStatus||'DRAFT'] :
+                                    {DRAFT:'Brouillon',SENT:'Envoyé',ACCEPTED:'✓ Accepté',REFUSED:'✗ Refusé',REEDITED:'Réédité'}[doc.quoteStatus||'DRAFT']
                                   }
                                 </Badge>
                               </Td>
@@ -2575,7 +2781,9 @@ const AdminFinance = () => {
                                 <Menu>
                                   <MenuButton as={IconButton} icon={<FiMoreHorizontal />} variant="ghost" size="sm" />
                                   <MenuList>
+                                    <MenuItem icon={<FiEye />}>Voir le détail</MenuItem>
                                     <MenuItem icon={<FiEdit3 />} onClick={() => openEditDocument(doc)}>Modifier</MenuItem>
+                                    <MenuItem icon={<FiDownload />}>Télécharger PDF</MenuItem>
                                     
                                     <MenuDivider />
                                     <MenuOptionGroup title="Changer le statut">
@@ -5000,6 +5208,13 @@ const AdminFinance = () => {
         isOpen={isBankImportOpen}
         onClose={onBankImportClose}
         onImported={() => { loadTransactions(); }}
+      />
+
+      {/* Wizard Devis & Factures */}
+      <DevisWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onSave={handleSaveDocument}
       />
     </Box>
   );
