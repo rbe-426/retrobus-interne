@@ -3,7 +3,7 @@
  * Design cohérent avec le thème RBE/Trilogy
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
   SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, 
@@ -39,20 +39,58 @@ export default function RetroMail() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
+  const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
 
   // Formulaire de connexion Infomaniak
   const [emailAccount, setEmailAccount] = useState("");
   const [password, setPassword] = useState("");
+  
+  // Détecter et construire l'email automatiquement
+  const deducedEmail = useMemo(() => {
+    // Si déjà un email complet, utiliser tel quel
+    if (emailAccount.includes('@')) return emailAccount;
+    
+    // Si user.email existe, l'utiliser
+    if (user?.email && user.email.includes('@')) return user.email;
+    
+    // Sinon, construire depuis le username/matricule
+    const username = user?.username || user?.email || matricule || '';
+    if (!username) return '';
+    
+    // Si le username contient déjà @, c'est un email
+    if (username.includes('@')) return username;
+    
+    // Sinon, ajouter le domaine par défaut
+    return `${username}@association-rbe.fr`;
+  }, [user, matricule, emailAccount]);
 
   // Formulaire de composition
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
 
+  // Auto-remplir l'email au montage
+  useEffect(() => {
+    if (deducedEmail && !emailAccount) {
+      setEmailAccount(deducedEmail);
+    }
+  }, [deducedEmail]);
+
   // Vérifier la connexion au montage
   useEffect(() => {
     checkConnection();
   }, []);
+  
+  // Suggérer la connexion auto si l'utilisateur a un email valide
+  useEffect(() => {
+    if (!isConnected && !connectionLoading && deducedEmail && deducedEmail.includes('@')) {
+      // Afficher la suggestion après 1 seconde
+      const timer = setTimeout(() => {
+        setShowAutoConnectSuggest(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, connectionLoading, deducedEmail]);
 
   const checkConnection = async () => {
     setConnectionLoading(true);
@@ -119,32 +157,37 @@ export default function RetroMail() {
 
   // Connexion à Infomaniak
   const handleConnect = async () => {
-    if (!emailAccount.trim() || !password.trim()) {
+    const finalEmail = emailAccount.includes('@') ? emailAccount : deducedEmail;
+    
+    if (!finalEmail.trim() || !password.trim()) {
       toast({
         title: "Champs requis",
-        description: "Veuillez renseigner votre email et mot de passe",
+        description: "Veuillez renseigner votre mot de passe",
         status: "warning",
         duration: 3000
       });
       return;
     }
+    
+    setShowAutoConnectSuggest(false);
 
     setLoading(true);
     try {
       const res = await fetchWithCSRF(`${API}/api/mail/connect`, {
         method: 'POST',
         body: JSON.stringify({
-          email: emailAccount,
+          email: finalEmail,
           password: password
         })
       });
 
       if (res.ok) {
         setIsConnected(true);
-        setPassword(""); // Nettoyer le mot de passe
+        setEmailAccount(finalEmail); // Mémoriser l'email utilisé
+        // Note: on garde le mot de passe pour permettre l'autocomplete navigateur
         toast({
           title: "Connecté ! 📧",
-          description: "Votre compte Infomaniak est maintenant connecté",
+          description: `Connecté à ${finalEmail}`,
           status: "success",
           duration: 3000
         });
@@ -337,36 +380,69 @@ export default function RetroMail() {
         <Center minH="50vh">
           <Card maxW="500px" w="100%" bg={cardBg}>
             <CardHeader>
-              <Heading size="md">Connecter votre compte Infomaniak</Heading>
+              <Heading size="md">📧 RétroMail</Heading>
               <Text fontSize="sm" color="gray.600" mt={2}>
-                Accédez à vos emails directement depuis RétroBus
+                Accédez à vos emails Infomaniak
               </Text>
             </CardHeader>
             <CardBody>
               <VStack spacing={4} align="stretch">
+                {/* Suggestion intelligente */}
+                {showAutoConnectSuggest && deducedEmail && (
+                  <Card bg="rbe.50" borderColor="rbe.500" borderWidth="1px">
+                    <CardBody>
+                      <VStack spacing={3} align="stretch">
+                        <HStack>
+                          <FiMail color="var(--chakra-colors-rbe-500)" />
+                          <Text fontWeight="600" fontSize="sm">Connexion rapide détectée</Text>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.700">
+                          Votre login correspond à l'adresse email :<br />
+                          <strong>{deducedEmail}</strong>
+                        </Text>
+                        <Text fontSize="xs" color="gray.600">
+                          Entrez simplement votre mot de passe Infomaniak pour vous connecter
+                        </Text>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                )}
+
                 <FormControl>
-                  <FormLabel>Adresse email Infomaniak</FormLabel>
+                  <FormLabel>Adresse email</FormLabel>
                   <Input 
                     type="email"
-                    placeholder="votre-email@infomaniak.com"
+                    name="email"
+                    autoComplete="email"
+                    placeholder="login ou email@association-rbe.fr"
                     value={emailAccount}
-                    onChange={(e) => setEmailAccount(e.target.value)}
+                    onChange={(e) => {
+                      setEmailAccount(e.target.value);
+                      setShowAutoConnectSuggest(false);
+                    }}
                   />
+                  {deducedEmail && deducedEmail !== emailAccount && !emailAccount.includes('@') && (
+                    <Text fontSize="xs" color="rbe.600" mt={1}>
+                      💡 Sera complété automatiquement en : {deducedEmail}
+                    </Text>
+                  )}
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Mot de passe</FormLabel>
+                  <FormLabel>Mot de passe Infomaniak</FormLabel>
                   <Input 
                     type="password"
+                    name="password"
                     placeholder="••••••••"
                     value={password}
+                    autoComplete="current-password"
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') handleConnect();
                     }}
                   />
                   <Text fontSize="xs" color="gray.500" mt={1}>
-                    Votre mot de passe est chiffré et jamais stocké en clair
+                    🔐 Votre mot de passe est chiffré et sécurisé
                   </Text>
                 </FormControl>
 
@@ -375,6 +451,7 @@ export default function RetroMail() {
                   onClick={handleConnect}
                   isLoading={loading}
                   leftIcon={<FiMail />}
+                  size="lg"
                 >
                   Se connecter
                 </Button>
@@ -382,7 +459,8 @@ export default function RetroMail() {
                 <Divider />
 
                 <Text fontSize="xs" color="gray.500" textAlign="center">
-                  ℹ️ RétroMail utilise une connexion sécurisée IMAP/SMTP avec Infomaniak
+                  ℹ️ Connexion sécurisée IMAP/SMTP avec Infomaniak<br />
+                  Votre navigateur peut enregistrer vos identifiants
                 </Text>
               </VStack>
             </CardBody>
