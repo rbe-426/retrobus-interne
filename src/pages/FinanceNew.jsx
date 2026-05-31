@@ -15,6 +15,8 @@ import {
   Box, VStack, HStack, Heading, Text, Button, Icon, Flex
 } from "@chakra-ui/react";
 
+import SidebarLayout from "../components/SidebarLayout";
+import { useSidebar } from "../context/SidebarContext";
 import FinanceDashboard from "../components/Finance/Dashboard";
 import FinanceTransactions from "../components/Finance/TransactionsImproved";
 import FinanceScheduledOps from "../components/Finance/ScheduledOperations";
@@ -39,6 +41,9 @@ const FinanceNew = () => {
   // États de navigation
   const [activeMainSection, setActiveMainSection] = useState("dashboard");
   const [activeSubTab, setActiveSubTab] = useState("my-notes");
+  
+  // Récupérer le contexte sidebar pour fermer automatiquement sur mobile après clic
+  const { closeOnMobile } = useSidebar();
 
   // Charger les données Finance une fois au mount
   const { loadFinanceData } = useFinanceData();
@@ -100,110 +105,108 @@ const FinanceNew = () => {
     }
   };
 
-  return (
-    <HStack align="stretch" spacing={0} h="100vh" w="100%">
-      {/* Sidebar */}
-      <VStack
-        align="stretch"
-        spacing={0}
-        w="280px"
-        bg="gray.50"
-        borderRight="1px"
-        borderColor="gray.200"
-        overflowY="auto"
-      >
-        {/* Header du sidebar */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200">
-          <HStack spacing={3} mb={3}>
-            <Icon as={FiDollarSign} color="blue.500" boxSize={6} />
-            <Box>
-              <Heading size="md" color="gray.800">Finances</Heading>
-              <Text fontSize="sm" color="gray.500">Pilotage budgétaire</Text>
+  // Sidebar content
+  const sidebarContent = (
+    <VStack align="stretch" spacing={0} w="full" h="full">
+      {/* Header du sidebar */}
+      <Box p={6} borderBottom="1px" borderColor="gray.200">
+        <HStack spacing={3} mb={3}>
+          <Icon as={FiDollarSign} color="blue.500" boxSize={6} />
+          <Box>
+            <Heading size="md" color="gray.800">Finances</Heading>
+            <Text fontSize="sm" color="gray.500">Pilotage budgétaire</Text>
+          </Box>
+        </HStack>
+        <Text fontSize="xs" color="gray.500">Finance v2</Text>
+      </Box>
+
+      {/* Navigation principale */}
+      <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
+        {sections.map((section) => {
+          const isActive = section.id === activeMainSection;
+          const SectionIcon = section.icon;
+          return (
+            <Box key={section.id}>
+              <Button
+                leftIcon={<Icon as={SectionIcon} />}
+                variant="ghost"
+                justifyContent="flex-start"
+                w="full"
+                bg={isActive ? "blue.50" : "transparent"}
+                borderLeft="3px"
+                borderColor={isActive ? "blue.500" : "transparent"}
+                borderRadius={0}
+                px={4}
+                py={6}
+                fontSize="sm"
+                fontWeight={isActive ? "600" : "500"}
+                color={isActive ? "blue.500" : "inherit"}
+                _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
+                onClick={() => {
+                  setActiveMainSection(section.id);
+                  // Réinitialiser le sous-onglet quand on change de section
+                  if (section.id !== "ndf") {
+                    setActiveSubTab("");
+                  }
+                  // Fermer la sidebar sur mobile après sélection
+                  closeOnMobile();
+                }}
+              >
+                <Flex direction="column" align="flex-start" w="full">
+                  <Text>{section.label}</Text>
+                  {section.description && (
+                    <Text fontSize="xs" color="gray.500">{section.description}</Text>
+                  )}
+                </Flex>
+              </Button>
+
+              {/* Sous-onglets pour Notes de Frais */}
+              {isActive && section.id === "ndf" && (
+                <VStack align="stretch" spacing={0} pl={8} bg="blue.50">
+                  {[
+                    { id: "my-notes", label: "Mes notes de frais" },
+                    ...(hasExpenseReportsManagementAccess ? [{ id: "management", label: "Gestion des notes" }] : [])
+                  ].map((subTab) => (
+                    <Button
+                      key={subTab.id}
+                      variant="ghost"
+                      justifyContent="flex-start"
+                      w="full"
+                      bg={activeSubTab === subTab.id ? "blue.100" : "transparent"}
+                      borderLeft="3px"
+                      borderColor={activeSubTab === subTab.id ? "blue.600" : "transparent"}
+                      borderRadius={0}
+                      px={4}
+                      py={4}
+                      fontSize="sm"
+                      fontWeight={activeSubTab === subTab.id ? "600" : "500"}
+                      color={activeSubTab === subTab.id ? "blue.600" : "gray.600"}
+                      _hover={{ bg: "blue.100" }}
+                      onClick={() => {
+                        setActiveSubTab(subTab.id);
+                        closeOnMobile();
+                      }}
+                    >
+                      {subTab.label}
+                    </Button>
+                  ))}
+                </VStack>
+              )}
             </Box>
-          </HStack>
-          <Text fontSize="xs" color="gray.500">Finance v2</Text>
-        </Box>
-
-        {/* Navigation principale */}
-        <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
-          {sections.map((section) => {
-            const isActive = section.id === activeMainSection;
-            const SectionIcon = section.icon;
-            return (
-              <Box key={section.id}>
-                <Button
-                  leftIcon={<Icon as={SectionIcon} />}
-                  variant="ghost"
-                  justifyContent="flex-start"
-                  w="full"
-                  bg={isActive ? "blue.50" : "transparent"}
-                  borderLeft="3px"
-                  borderColor={isActive ? "blue.500" : "transparent"}
-                  borderRadius={0}
-                  px={4}
-                  py={6}
-                  fontSize="sm"
-                  fontWeight={isActive ? "600" : "500"}
-                  color={isActive ? "blue.500" : "inherit"}
-                  _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
-                  onClick={() => {
-                    setActiveMainSection(section.id);
-                    // Réinitialiser le sous-onglet quand on change de section
-                    if (section.id !== "ndf") {
-                      setActiveSubTab("");
-                    }
-                  }}
-                >
-                  <Flex direction="column" align="flex-start" w="full">
-                    <Text>{section.label}</Text>
-                    {section.description && (
-                      <Text fontSize="xs" color="gray.500">{section.description}</Text>
-                    )}
-                  </Flex>
-                </Button>
-
-                {/* Sous-onglets pour Notes de Frais */}
-                {isActive && section.id === "ndf" && (
-                  <VStack align="stretch" spacing={0} pl={8} bg="blue.50">
-                    {[
-                      { id: "my-notes", label: "Mes notes de frais" },
-                      ...(hasExpenseReportsManagementAccess ? [{ id: "management", label: "Gestion des notes" }] : [])
-                    ].map((subTab) => (
-                      <Button
-                        key={subTab.id}
-                        variant="ghost"
-                        justifyContent="flex-start"
-                        w="full"
-                        bg={activeSubTab === subTab.id ? "blue.100" : "transparent"}
-                        borderLeft="3px"
-                        borderColor={activeSubTab === subTab.id ? "blue.600" : "transparent"}
-                        borderRadius={0}
-                        px={4}
-                        py={4}
-                        fontSize="sm"
-                        fontWeight={activeSubTab === subTab.id ? "600" : "500"}
-                        color={activeSubTab === subTab.id ? "blue.600" : "gray.600"}
-                        _hover={{ bg: "blue.100" }}
-                        onClick={() => setActiveSubTab(subTab.id)}
-                      >
-                        {subTab.label}
-                      </Button>
-                    ))}
-                  </VStack>
-                )}
-              </Box>
-            );
-          })}
-        </VStack>
-
-        {/* Footer du sidebar */}
-        <Box p={4} borderTop="1px" borderColor="gray.200" fontSize="xs" color="gray.500" textAlign="center" w="full">
-          MyRBE Finance
-        </Box>
+          );
+        })}
       </VStack>
 
-      {/* Contenu principal */}
-      <VStack align="stretch" spacing={0} flex={1} overflowY="auto">
+      {/* Footer du sidebar */}
+      <Box p={4} borderTop="1px" borderColor="gray.200" fontSize="xs" color="gray.500" textAlign="center" w="full">
+        MyRBE Finance
+      </Box>
+    </VStack>
+  );
+
+  return (
+    <SidebarLayout sidebar={sidebarContent}>
+      <VStack align="stretch" spacing={0} h="full" w="full">
         {/* Header */}
         <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
           <HStack justify="space-between">
@@ -212,7 +215,8 @@ const FinanceNew = () => {
                 {activeMainSection === "dashboard" && "Tableau de bord"}
                 {activeMainSection === "transactions" && "Transactions"}
                 {activeMainSection === "scheduled" && "Opérations programmées"}
-                {activeMainSection === "invoicing" && "Facturation"}
+                {activeMainSection === "invoicing" && "Devis & Factures"}
+                {activeMainSection === "debts" && "Dettes"}
                 {activeMainSection === "ndf" && "Notes de frais"}
                 {activeMainSection === "simulations" && "Simulations"}
                 {activeMainSection === "reports" && "Rapports & KPI"}
@@ -222,7 +226,8 @@ const FinanceNew = () => {
                 {activeMainSection === "dashboard" && "Vue d'ensemble de votre situation financière"}
                 {activeMainSection === "transactions" && "Gérez vos recettes et dépenses"}
                 {activeMainSection === "scheduled" && "Paiements et prélèvements récurrents"}
-                {activeMainSection === "invoicing" && "Devis et factures"}
+                {activeMainSection === "invoicing" && "Gestion des devis et factures"}
+                {activeMainSection === "debts" && "Suivi des créanciers et échéances"}
                 {activeMainSection === "ndf" && "Gestion des notes de frais"}
                 {activeMainSection === "simulations" && "Simulations financières"}
                 {activeMainSection === "reports" && "Rapports et indicateurs clés"}
@@ -237,7 +242,7 @@ const FinanceNew = () => {
           {renderMainContent()}
         </Box>
       </VStack>
-    </HStack>
+    </SidebarLayout>
   );
 };
 

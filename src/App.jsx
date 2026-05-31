@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { Box } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
+import { SidebarProvider } from "./context/SidebarContext";
 import { fetchCSRFToken } from "./lib/csrfClient";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -79,10 +80,11 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Box display="flex" flexDirection="column" minH="100vh">
-        {showHeader && <Header />}
-        <Box flex="1">
-          <Routes>
+      <SidebarProvider>
+        <Box display="flex" flexDirection="column" minH="100vh">
+          {showHeader && <Header />}
+          <Box flex="1">
+            <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
         
@@ -174,6 +176,7 @@ export default function App() {
       </Box>
       {showHeader && <Footer />}
     </Box>
+      </SidebarProvider>
     </ErrorBoundary>
   );
 }
