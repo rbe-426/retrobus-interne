@@ -82,7 +82,7 @@ import {
   FiAlertCircle,
   FiRefreshCw,
 } from 'react-icons/fi';
-import { fetchWithCSRF } from '../utils/csrfClient';
+import { fetchWithCSRF } from '../lib/csrfClient';
 
 /**
  * Catégories de templates d'emails
