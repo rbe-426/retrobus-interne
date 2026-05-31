@@ -68,6 +68,13 @@ export default function RetroMail() {
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  
+  // Paramètres mail
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem('mail_displayName') || user?.nom + ' ' + user?.prenom || '');
+  const [profilePhoto, setProfilePhoto] = useState(() => localStorage.getItem('mail_profilePhoto') || '');
+  const [signature, setSignature] = useState(() => localStorage.getItem('mail_signature') || '');
+  const [mailFont, setMailFont] = useState(() => localStorage.getItem('mail_font') || 'Arial');
+  const [signatureImage, setSignatureImage] = useState(() => localStorage.getItem('mail_signatureImage') || '');
 
   // Auto-remplir l'email au montage
   useEffect(() => {
@@ -592,9 +599,12 @@ export default function RetroMail() {
                 >
                   <CardBody>
                     <Flex justify="space-between" align="start" mb={1}>
-                      <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1}>
-                        {email.from || "Inconnu"}
-                      </Text>
+                      <HStack spacing={2} flex="1" minW="0">
+                        <Avatar size="xs" name={email.fromName || email.from} />
+                        <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1} flex="1">
+                          {email.fromName || email.from || "Inconnu"}
+                        </Text>
+                      </HStack>
                       {!email.read && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
                     </Flex>
                     <Text fontWeight="600" fontSize="sm" noOfLines={1} mb={1}>
