@@ -8,13 +8,14 @@ import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
   SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, 
   Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, 
-  ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea,
+  ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
   useColorModeValue
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
-  FiChevronLeft, FiPaperclip, FiEdit, FiInbox
+  FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
+  FiFolder, FiCornerUpRight
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -47,20 +48,34 @@ export default function RetroMail() {
   
   // Détecter et construire l'email automatiquement
   const deducedEmail = useMemo(() => {
-    // Si déjà un email complet, utiliser tel quel
+    // Si déjà un email complet dans le champ, utiliser tel quel
     if (emailAccount.includes('@')) return emailAccount;
     
-    // Si user.email existe, l'utiliser
-    if (user?.email && user.email.includes('@')) return user.email;
+    // Identifier l'identifiant de connexion (username)
+    let username = '';
     
-    // Sinon, construire depuis le username/matricule
-    const username = user?.username || user?.email || matricule || '';
+    // Priorité 1: user.username (ex: w.belaidi)
+    if (user?.username && !user.username.includes('@')) {
+      username = user.username;
+    }
+    // Priorité 2: Si user.email est un email externe, extraire la partie avant @
+    else if (user?.email && user.email.includes('@')) {
+      if (user.email.endsWith('@association-rbe.fr')) {
+        // Déjà le bon format
+        return user.email;
+      } else {
+        // Email externe : extraire la partie avant @
+        username = user.email.split('@')[0];
+      }
+    }
+    // Priorité 3: matricule
+    else if (matricule) {
+      username = matricule;
+    }
+    
     if (!username) return '';
     
-    // Si le username contient déjà @, c'est un email
-    if (username.includes('@')) return username;
-    
-    // Sinon, ajouter le domaine par défaut
+    // Construire l'email RBE : <identifiant>@association-rbe.fr
     return `${username}@association-rbe.fr`;
   }, [user, matricule, emailAccount]);
 
@@ -102,9 +117,8 @@ export default function RetroMail() {
   const checkConnection = async () => {
     setConnectionLoading(true);
     try {
-      const res = await fetch(`${API}/api/mail/status`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      const res = await fetchWithCSRF(`${API}/api/mail/status`, {
+        method: 'GET'
       });
       
       if (res.ok) {
@@ -127,9 +141,8 @@ export default function RetroMail() {
     
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/mail/list?folder=${activeFolder}`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${activeFolder}`, {
+        method: 'GET'
       });
       
       if (res.ok) {
@@ -253,12 +266,26 @@ export default function RetroMail() {
 
     setLoading(true);
     try {
+      // Construire le corps avec signature
+      let finalBody = composeBody;
+      
+      // Ajouter signature texte
+      if (signature) {
+        finalBody += '\n\n--\n' + signature;
+      }
+      
+      // Ajouter signature image (en HTML)
+      if (signatureImage) {
+        finalBody += `\n\n<img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+      }
+
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {
         method: 'POST',
         body: JSON.stringify({
           to: composeTo,
           subject: composeSubject,
-          body: composeBody
+          body: finalBody,
+          fromName: displayName || undefined
         })
       });
 
@@ -328,9 +355,8 @@ export default function RetroMail() {
     setSelectedEmail(email); // Afficher immédiatement pour UX
     
     try {
-      const res = await fetch(`${API}/api/mail/read/${email.id}?folder=${activeFolder}`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      const res = await fetchWithCSRF(`${API}/api/mail/read/${email.id}?folder=${activeFolder}`, {
+        method: 'GET'
       });
       
       if (res.ok) {
@@ -656,15 +682,6 @@ export default function RetroMail() {
                     </Box>
                   </HStack>
                 </Box>
-                <HStack>
-                  <IconButton
-                    icon={<FiTrash2 />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="red"
-                    onClick={() => handleDeleteEmail(selectedEmail.id)}
-                  />
-                </HStack>
               </Flex>
 
               <Divider />
@@ -703,11 +720,12 @@ export default function RetroMail() {
 
               <Divider />
 
-              <HStack>
+              <HStack spacing={2} wrap="wrap">
                 <Button
                   leftIcon={<FiChevronLeft />}
                   size="sm"
                   variant="outline"
+                  colorScheme="rbe"
                   onClick={() => {
                     setComposeTo(selectedEmail.from);
                     setComposeSubject(`Re: ${selectedEmail.subject}`);
@@ -716,6 +734,58 @@ export default function RetroMail() {
                   }}
                 >
                   Répondre
+                </Button>
+                <Button
+                  leftIcon={<FiArchive />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    toast({
+                      title: "Archivage",
+                      description: "Fonctionnalité en développement",
+                      status: "info",
+                      duration: 2000
+                    });
+                  }}
+                >
+                  Archiver
+                </Button>
+                <Button
+                  leftIcon={<FiFolder />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    toast({
+                      title: "Classement",
+                      description: "Fonctionnalité en développement",
+                      status: "info",
+                      duration: 2000
+                    });
+                  }}
+                >
+                  Classer
+                </Button>
+                <Button
+                  leftIcon={<FiCornerUpRight />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setComposeTo("");
+                    setComposeSubject(`Fwd: ${selectedEmail.subject}`);
+                    setComposeBody(`\n\n--- Message transféré ---\nDe: ${selectedEmail.fromName || selectedEmail.from}\nDate: ${new Date(selectedEmail.date).toLocaleString('fr-FR')}\nObjet: ${selectedEmail.subject}\n\n${selectedEmail.body}`);
+                    onComposeOpen();
+                  }}
+                >
+                  Transférer
+                </Button>
+                <Button
+                  leftIcon={<FiTrash2 />}
+                  size="sm"
+                  variant="outline"
+                  colorScheme="red"
+                  onClick={() => handleDeleteEmail(selectedEmail.id)}
+                >
+                  Supprimer
                 </Button>
               </HStack>
             </VStack>
@@ -757,7 +827,12 @@ export default function RetroMail() {
                   rows={10}
                   value={composeBody}
                   onChange={(e) => setComposeBody(e.target.value)}
+                  fontFamily={mailFont}
+                  fontSize="md"
                 />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Police : {mailFont} • {signature && '✅ Signature activée'} {signatureImage && '📸'}
+                </Text>
               </FormControl>
             </VStack>
           </ModalBody>
@@ -778,34 +853,168 @@ export default function RetroMail() {
       </Modal>
 
       {/* Modal - Paramètres */}
-      <Modal isOpen={isSettingsOpen} onClose={onSettingsClose}>
+      <Modal isOpen={isSettingsOpen} onClose={onSettingsClose} size="xl">
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Paramètres RétroMail</ModalHeader>
+        <ModalContent maxH="90vh" overflowY="auto">
+          <ModalHeader>⚙️ Paramètres RétroMail</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack spacing={4} align="stretch">
+            <VStack spacing={6} align="stretch">
+              {/* Compte connecté */}
               <Box>
-                <Text fontWeight="600" mb={2}>Compte connecté</Text>
+                <Heading size="sm" mb={3}>📧 Compte connecté</Heading>
                 <Badge colorScheme="green" fontSize="md">{emailAccount}</Badge>
+                <Button 
+                  size="xs" 
+                  variant="ghost" 
+                  colorScheme="red" 
+                  ml={3}
+                  onClick={handleDisconnect}
+                >
+                  Se déconnecter
+                </Button>
               </Box>
 
               <Divider />
 
+              {/* Identité */}
               <Box>
-                <Text fontWeight="600" mb={2}>Informations</Text>
+                <Heading size="sm" mb={3}>👤 Identité</Heading>
+                <VStack spacing={4} align="stretch">
+                  <FormControl>
+                    <FormLabel fontSize="sm">Nom d'affichage</FormLabel>
+                    <Input 
+                      placeholder="Votre nom complet"
+                      value={displayName}
+                      onChange={(e) => {
+                        setDisplayName(e.target.value);
+                        localStorage.setItem('mail_displayName', e.target.value);
+                      }}
+                    />
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Apparaîtra comme expéditeur de vos emails
+                    </Text>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel fontSize="sm">Photo de profil (URL)</FormLabel>
+                    <Input 
+                      placeholder="https://example.com/photo.jpg"
+                      value={profilePhoto}
+                      onChange={(e) => {
+                        setProfilePhoto(e.target.value);
+                        localStorage.setItem('mail_profilePhoto', e.target.value);
+                      }}
+                    />
+                    {profilePhoto && (
+                      <HStack mt={2}>
+                        <Avatar src={profilePhoto} size="sm" />
+                        <Text fontSize="xs" color="gray.600">Aperçu</Text>
+                      </HStack>
+                    )}
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      💡 Astuce : Uploadez votre photo sur imgur.com ou utilisez Gravatar
+                    </Text>
+                  </FormControl>
+                </VStack>
+              </Box>
+
+              <Divider />
+
+              {/* Signature */}
+              <Box>
+                <Heading size="sm" mb={3}>✍️ Signature</Heading>
+                <VStack spacing={4} align="stretch">
+                  <FormControl>
+                    <FormLabel fontSize="sm">Signature texte</FormLabel>
+                    <Textarea 
+                      placeholder="Cordialement,&#10;Votre nom&#10;Votre fonction"
+                      value={signature}
+                      rows={4}
+                      onChange={(e) => {
+                        setSignature(e.target.value);
+                        localStorage.setItem('mail_signature', e.target.value);
+                      }}
+                    />
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Ajoutée automatiquement à la fin de vos messages
+                    </Text>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel fontSize="sm">Image de signature (URL)</FormLabel>
+                    <Input 
+                      placeholder="https://example.com/signature.png"
+                      value={signatureImage}
+                      onChange={(e) => {
+                        setSignatureImage(e.target.value);
+                        localStorage.setItem('mail_signatureImage', e.target.value);
+                      }}
+                    />
+                    {signatureImage && (
+                      <Box mt={2} p={2} bg="gray.50" borderRadius="md">
+                        <img src={signatureImage} alt="Signature" style={{ maxWidth: '100%', maxHeight: '100px' }} />
+                      </Box>
+                    )}
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      📸 Comme Gmail : uploadez votre signature sur imgur.com puis collez le lien
+                    </Text>
+                  </FormControl>
+                </VStack>
+              </Box>
+
+              <Divider />
+
+              {/* Police d'écriture */}
+              <Box>
+                <Heading size="sm" mb={3}>🔤 Police d'écriture</Heading>
+                <FormControl>
+                  <FormLabel fontSize="sm">Police par défaut pour vos emails</FormLabel>
+                  <Select 
+                    value={mailFont}
+                    onChange={(e) => {
+                      setMailFont(e.target.value);
+                      localStorage.setItem('mail_font', e.target.value);
+                    }}
+                  >
+                    <option value="Arial">Arial</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Verdana">Verdana</option>
+                    <option value="Comic Sans MS">Comic Sans MS</option>
+                    <option value="Trebuchet MS">Trebuchet MS</option>
+                    <option value="Calibri">Calibri</option>
+                    <option value="Roboto">Roboto</option>
+                  </Select>
+                  <Text fontSize="sm" mt={2} fontFamily={mailFont}>
+                    Aperçu : Ceci est un exemple de texte
+                  </Text>
+                </FormControl>
+              </Box>
+
+              <Divider />
+
+              {/* Informations serveur */}
+              <Box>
+                <Heading size="sm" mb={3}>ℹ️ Informations</Heading>
                 <Text fontSize="sm" color="gray.600">
-                  • Serveur : Infomaniak IMAP/SMTP
+                  • <strong>Serveur :</strong> Infomaniak (mail.infomaniak.com)
                   <br />
-                  • Connexion sécurisée : SSL/TLS
+                  • <strong>Protocoles :</strong> IMAP 993 (SSL) + SMTP 587 (STARTTLS)
                   <br />
-                  • Synchronisation automatique
+                  • <strong>Sécurité :</strong> Mots de passe chiffrés en mémoire
+                  <br />
+                  • <strong>Synchronisation :</strong> Temps réel
                 </Text>
               </Box>
             </VStack>
           </ModalBody>
           <ModalFooter>
-            <Button onClick={onSettingsClose}>Fermer</Button>
+            <Button colorScheme="rbe" onClick={onSettingsClose}>
+              Enregistrer et fermer
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
