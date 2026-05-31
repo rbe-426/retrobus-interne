@@ -1,319 +1,726 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+/**
+ * RétroMail - Interface mail intégrée avec connexion Infomaniak
+ * Design cohérent avec le thème RBE/Trilogy
+ */
+
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
-  SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, Image, Divider
+  SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, 
+  Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, 
+  ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea,
+  useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
+  useColorModeValue
 } from "@chakra-ui/react";
+import { 
+  FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
+  FiChevronLeft, FiPaperclip, FiEdit, FiInbox
+} from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
+import { fetchWithCSRF } from "../lib/csrfClient";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-/**
- * RétroMail — simple internal mailbox UI reading files from /retromail
- *
- * - Requires server endpoints:
- *   GET /retromail/list -> [ "report-123.json", ... ]
- *   GET /retromail/<filename> -> JSON payload saved by server
- *   Static files served under /retromail and /retromail/uploads
- *
- * LocalStorage keys:
- * - `retromail:read:<matricule>` -> JSON map { "<filename>": timestampMs }
- * - `retromail:released:<uploadFilename>` -> "1" when admin released a video for download
- */
-
-function readMapKey(matricule) { return `retromail:read:${matricule || "anon"}`; }
-function releasedKey(filename) { return `retromail:released:${filename}`; }
-
 export default function RetroMail() {
-  const { matricule, prenom, isAdmin } = useUser();
+  const { user, matricule } = useUser();
   const toast = useToast();
+  const { isOpen: isComposeOpen, onOpen: onComposeOpen, onClose: onComposeClose } = useDisclosure();
+  const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose } = useDisclosure();
+  
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const selectedBg = useColorModeValue('rbe.50', 'rbe.900');
 
-  const [loading, setLoading] = useState(true);
-  const [files, setFiles] = useState([]); // array of filenames from server
-  const [messages, setMessages] = useState([]); // array of { filename, json }
-  const [selected, setSelected] = useState(null); // filename
-  const [query, setQuery] = useState("");
+  // États
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionLoading, setConnectionLoading] = useState(true);
+  const [emails, setEmails] = useState([]);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFolder, setActiveFolder] = useState("INBOX");
 
+  // Formulaire de connexion Infomaniak
+  const [emailAccount, setEmailAccount] = useState("");
+  const [password, setPassword] = useState("");
+
+  // Formulaire de composition
+  const [composeTo, setComposeTo] = useState("");
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+
+  // Vérifier la connexion au montage
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const r = await fetch(`${API.replace(/\/$/,'')}/retromail/list`);
-        if (!mounted) return;
-        if (!r.ok) throw new Error(`status ${r.status}`);
-        const list = await r.json();
-        setFiles(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.warn("retromail list failed", e);
-        setFiles(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
+    checkConnection();
   }, []);
 
-  // fetch all JSON contents for listing/preview
+  const checkConnection = async () => {
+    setConnectionLoading(true);
+    try {
+      const res = await fetch(`${API}/api/mail/status`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setIsConnected(data.connected);
+        if (data.connected && data.email) {
+          setEmailAccount(data.email);
+        }
+      }
+    } catch (e) {
+      console.warn("Vérification connexion mail échouée:", e);
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
+  // Charger les emails
+  const loadEmails = useCallback(async () => {
+    if (!isConnected) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/mail/list?folder=${activeFolder}`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setEmails(data.emails || []);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les emails",
+          status: "error",
+          duration: 3000
+        });
+      }
+    } catch (e) {
+      console.error("Erreur chargement emails:", e);
+      toast({
+        title: "Erreur",
+        description: e.message,
+        status: "error",
+        duration: 3000
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [isConnected, activeFolder, toast]);
+
   useEffect(() => {
-    let mounted = true;
-    if (!files || files.length === 0) {
-      setMessages([]);
+    if (isConnected) {
+      loadEmails();
+    }
+  }, [isConnected, activeFolder, loadEmails]);
+
+  // Connexion à Infomaniak
+  const handleConnect = async () => {
+    if (!emailAccount.trim() || !password.trim()) {
+      toast({
+        title: "Champs requis",
+        description: "Veuillez renseigner votre email et mot de passe",
+        status: "warning",
+        duration: 3000
+      });
       return;
     }
-    (async () => {
-      try {
-        const results = await Promise.allSettled(files.map(async (fn) => {
-          try {
-            const r = await fetch(`${API.replace(/\/$/,'')}/retromail/${encodeURIComponent(fn)}`);
-            if (!r.ok) {
-              console.warn(`⚠️ Failed to fetch ${fn}: ${r.status}`);
-              return null;
-            }
-            const json = await r.json();
-            return { filename: fn, json };
-          } catch (e) {
-            console.error(`❌ Error fetching ${fn}:`, e.message);
-            return null;
-          }
-        }));
-        
-        if (!mounted) return;
-        
-        const arr = results
-          .map((r) => r.status === 'fulfilled' ? r.value : null)
-          .filter(Boolean);
-        
-        const filtered = arr.sort((a,b) => {
-          const ta = new Date(a.json.createdAt || 0).getTime();
-          const tb = new Date(b.json.createdAt || 0).getTime();
-          return tb - ta;
+
+    setLoading(true);
+    try {
+      const res = await fetchWithCSRF(`${API}/api/mail/connect`, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: emailAccount,
+          password: password
+        })
+      });
+
+      if (res.ok) {
+        setIsConnected(true);
+        setPassword(""); // Nettoyer le mot de passe
+        toast({
+          title: "Connecté ! 📧",
+          description: "Votre compte Infomaniak est maintenant connecté",
+          status: "success",
+          duration: 3000
         });
-        setMessages(filtered);
-        if (!selected && filtered.length > 0) setSelected(filtered[0].filename);
-      } catch (e) {
-        console.error('❌ Error loading messages:', e.message);
+        await loadEmails();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Échec de connexion");
       }
-    })();
-    return () => { mounted = false; };
-  }, [files]);
-
-  // read/unread helpers
-  const markRead = useCallback((filename) => {
-    const key = readMapKey(matricule);
-    try {
-      const raw = localStorage.getItem(key);
-      const map = raw ? JSON.parse(raw) : {};
-      map[filename] = Date.now();
-      localStorage.setItem(key, JSON.stringify(map));
-      console.log(`✅ Marked read: ${filename}`);
-    } catch (e) { 
-      console.error('❌ Error marking as read:', e.message);
-    }
-  }, [matricule]);
-  
-  const isRead = useCallback((filename) => {
-    try {
-      const raw = localStorage.getItem(readMapKey(matricule));
-      if (!raw) return false;
-      const map = JSON.parse(raw);
-      return Boolean(map && map[filename]);
-    } catch (e) { 
-      console.error('❌ Error checking read status:', e.message);
-      return false; 
-    }
-  }, [matricule]);
-
-  // release video (admin only) — persisted locally for now
-  const releaseVideo = useCallback((uploadFilename) => {
-    try {
-      localStorage.setItem(releasedKey(uploadFilename), "1");
-      console.log(`✅ Video released: ${uploadFilename}`);
-      toast({ status: "success", title: "Vidéo libérée", description: "Le téléchargement est maintenant autorisé localement." });
-      // force rerender
-      setMessages(m => [...m]);
     } catch (e) {
-      console.error('❌ Error releasing video:', e.message);
-      toast({ status: "error", title: "Impossible", description: String(e.message) });
+      console.error("Erreur connexion:", e);
+      toast({
+        title: "Erreur de connexion",
+        description: e.message,
+        status: "error",
+        duration: 4000
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [toast]);
-  
-  const isReleased = useCallback((uploadFilename) => {
+  };
+
+  // Déconnexion
+  const handleDisconnect = async () => {
     try {
-      return localStorage.getItem(releasedKey(uploadFilename)) === "1";
+      await fetchWithCSRF(`${API}/api/mail/disconnect`, {
+        method: 'POST'
+      });
+      
+      setIsConnected(false);
+      setEmails([]);
+      setSelectedEmail(null);
+      setEmailAccount("");
+      
+      toast({
+        title: "Déconnecté",
+        description: "Votre compte mail a été déconnecté",
+        status: "info",
+        duration: 2000
+      });
     } catch (e) {
-      console.error('❌ Error checking release status:', e.message);
-      return false;
+      console.error("Erreur déconnexion:", e);
     }
-  }, []);
+  };
 
-  const listFiltered = useMemo(() => {
-    if (!messages) return [];
-    const q = (query || "").trim().toLowerCase();
-    if (!q) return messages;
-    return messages.filter(m => {
-      const j = m.json || {};
-      return (String(j.parc || "").toLowerCase().includes(q)
-        || String(j.id || "").toLowerCase().includes(q)
-        || String(j.description || "").toLowerCase().includes(q));
-    });
-  }, [messages, query]);
+  // Envoyer un email
+  const handleSendEmail = async () => {
+    if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) {
+      toast({
+        title: "Champs requis",
+        description: "Veuillez remplir tous les champs",
+        status: "warning",
+        duration: 3000
+      });
+      return;
+    }
 
-  const current = messages.find(m => m.filename === selected);
+    setLoading(true);
+    try {
+      const res = await fetchWithCSRF(`${API}/api/mail/send`, {
+        method: 'POST',
+        body: JSON.stringify({
+          to: composeTo,
+          subject: composeSubject,
+          body: composeBody
+        })
+      });
 
-  useEffect(() => {
-    if (!selected) return;
-    markRead(selected);
-    // update messages state to reflect read change (force re-render)
-    setMessages(prev => [...prev]);
-  }, [selected, markRead]);
+      if (res.ok) {
+        toast({
+          title: "Email envoyé ! 📨",
+          description: `Message envoyé à ${composeTo}`,
+          status: "success",
+          duration: 3000
+        });
+        
+        // Réinitialiser le formulaire
+        setComposeTo("");
+        setComposeSubject("");
+        setComposeBody("");
+        onComposeClose();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Échec d'envoi");
+      }
+    } catch (e) {
+      console.error("Erreur envoi:", e);
+      toast({
+        title: "Erreur d'envoi",
+        description: e.message,
+        status: "error",
+        duration: 4000
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Supprimer un email
+  const handleDeleteEmail = async (emailId) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet email ?")) return;
+
+    try {
+      const res = await fetchWithCSRF(`${API}/api/mail/delete/${emailId}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        setEmails(emails.filter(e => e.id !== emailId));
+        if (selectedEmail?.id === emailId) {
+          setSelectedEmail(null);
+        }
+        toast({
+          title: "Email supprimé",
+          status: "success",
+          duration: 2000
+        });
+      }
+    } catch (e) {
+      console.error("Erreur suppression:", e);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'email",
+        status: "error",
+        duration: 3000
+      });
+    }
+  };
+
+  // Lire un email complet
+  const handleReadEmail = async (email) => {
+    setSelectedEmail(email); // Afficher immédiatement pour UX
+    
+    try {
+      const res = await fetch(`${API}/api/mail/read/${email.id}?folder=${activeFolder}`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedEmail(data.email); // Mettre à jour avec contenu complet
+        
+        // Mettre à jour le statut "lu" dans la liste
+        setEmails(prev => prev.map(e => 
+          e.id === email.id ? { ...e, read: true } : e
+        ));
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger l'email",
+          status: "error",
+          duration: 3000
+        });
+      }
+    } catch (e) {
+      console.error("Erreur lecture email:", e);
+    }
+  };
+
+  // Filtrer les emails par recherche
+  const filteredEmails = emails.filter(email => {
+    const q = searchQuery.toLowerCase();
+    return (
+      email.subject?.toLowerCase().includes(q) ||
+      email.from?.toLowerCase().includes(q) ||
+      email.body?.toLowerCase().includes(q)
+    );
+  });
+
+  // Écran de chargement initial
+  if (connectionLoading) {
+    return (
+      <Box p={6}>
+        <Center minH="60vh">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="rbe.500" />
+            <Text color="gray.600">Vérification de la connexion...</Text>
+          </VStack>
+        </Center>
+      </Box>
+    );
+  }
+
+  // Écran de connexion
+  if (!isConnected) {
+    return (
+      <Box p={6}>
+        <Heading size="lg" mb={6}>📧 RétroMail</Heading>
+        
+        <Center minH="50vh">
+          <Card maxW="500px" w="100%" bg={cardBg}>
+            <CardHeader>
+              <Heading size="md">Connecter votre compte Infomaniak</Heading>
+              <Text fontSize="sm" color="gray.600" mt={2}>
+                Accédez à vos emails directement depuis RétroBus
+              </Text>
+            </CardHeader>
+            <CardBody>
+              <VStack spacing={4} align="stretch">
+                <FormControl>
+                  <FormLabel>Adresse email Infomaniak</FormLabel>
+                  <Input 
+                    type="email"
+                    placeholder="votre-email@infomaniak.com"
+                    value={emailAccount}
+                    onChange={(e) => setEmailAccount(e.target.value)}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Mot de passe</FormLabel>
+                  <Input 
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') handleConnect();
+                    }}
+                  />
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Votre mot de passe est chiffré et jamais stocké en clair
+                  </Text>
+                </FormControl>
+
+                <Button 
+                  colorScheme="rbe" 
+                  onClick={handleConnect}
+                  isLoading={loading}
+                  leftIcon={<FiMail />}
+                >
+                  Se connecter
+                </Button>
+
+                <Divider />
+
+                <Text fontSize="xs" color="gray.500" textAlign="center">
+                  ℹ️ RétroMail utilise une connexion sécurisée IMAP/SMTP avec Infomaniak
+                </Text>
+              </VStack>
+            </CardBody>
+          </Card>
+        </Center>
+      </Box>
+    );
+  }
+
+  // Interface mail principale
   return (
     <Box p={6}>
-      <Heading size="lg" mb={4}>RétroMail</Heading>
+      {/* Header */}
+      <Flex justify="space-between" align="center" mb={6}>
+        <Heading size="lg">📧 RétroMail</Heading>
+        <HStack spacing={3}>
+          <Text fontSize="sm" color="gray.600">
+            Connecté : <Badge colorScheme="green">{emailAccount}</Badge>
+          </Text>
+          <Button 
+            leftIcon={<FiRefreshCw />} 
+            size="sm" 
+            variant="outline"
+            onClick={loadEmails}
+            isLoading={loading}
+          >
+            Actualiser
+          </Button>
+          <Button 
+            leftIcon={<FiEdit />}
+            colorScheme="rbe"
+            size="sm"
+            onClick={onComposeOpen}
+          >
+            Nouveau message
+          </Button>
+          <Menu>
+            <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" />
+            <MenuList>
+              <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
+              <MenuItem onClick={handleDisconnect} color="red.500">
+                Déconnecter
+              </MenuItem>
+            </MenuList>
+          </Menu>
+        </HStack>
+      </Flex>
 
-      <Flex gap={6} align="stretch">
-        {/* Left: list */}
-        <Box w={{ base: "100%", md: "360px" }} borderWidth="1px" borderRadius="md" p={3} bg="white">
-          <HStack mb={3}>
-            <Input placeholder="Rechercher par parc / id / texte…" value={query} onChange={(e)=>setQuery(e.target.value)} />
-            <Button size="sm" onClick={() => { setQuery(""); }}>Effacer</Button>
-          </HStack>
-
-          {loading && <Center p={6}><Spinner /></Center>}
-          {!loading && files === null && (
-            <Box p={4} bg="orange.50" borderRadius="md">
-              <Text color="orange.800" fontWeight="600">API Retromail non disponible</Text>
-              <Text fontSize="sm" color="gray.600">Aucune liste trouvée. Vérifie que le serveur expose <code>/retromail/list</code>.</Text>
-            </Box>
-          )}
-
-          {!loading && listFiltered && listFiltered.length === 0 && (
-            <Text color="gray.600" mt={3}>Aucun message.</Text>
-          )}
-
-          <VStack align="stretch" spacing={2} mt={3}>
-            {listFiltered.map(item => {
-              const j = item.json || {};
-              const title = j.parc ? `Parc ${j.parc}` : `Fiche ${j.id || item.filename}`;
-              const snippet = (j.description || "").slice(0, 120);
-              const unread = !isRead(item.filename);
-              return (
-                <Card key={item.filename} size="sm" onClick={() => setSelected(item.filename)} cursor="pointer" bg={selected === item.filename ? "gray.50" : "white"}>
-                  <CardHeader>
-                    <Flex justify="space-between" align="center">
-                      <Box>
-                        <Text fontWeight="600">{title} {j.id ? <Badge ml={2}>{`#${j.id}`}</Badge> : null}</Text>
-                        <Text fontSize="sm" color="gray.600">{snippet || <i>(Pas de description)</i>}</Text>
-                      </Box>
-                      <Box textAlign="right">
-                        {!unread ? <Text fontSize="xs" color="gray.500">Lu</Text> : <Badge colorScheme="red">Nouveau</Badge>}
-                        <Text fontSize="xs" color="gray.400">{j.createdAt ? new Date(j.createdAt).toLocaleString() : ""}</Text>
-                      </Box>
-                    </Flex>
-                  </CardHeader>
-                </Card>
-              );
-            })}
+      {/* Layout principal */}
+      <Flex gap={4} align="stretch" minH="70vh">
+        {/* Sidebar - Dossiers */}
+        <Box 
+          w="200px" 
+          borderWidth="1px" 
+          borderColor={borderColor}
+          borderRadius="md" 
+          p={3} 
+          bg={cardBg}
+        >
+          <VStack align="stretch" spacing={2}>
+            <Button
+              variant={activeFolder === 'INBOX' ? 'solid' : 'ghost'}
+              colorScheme={activeFolder === 'INBOX' ? 'rbe' : 'gray'}
+              justifyContent="flex-start"
+              leftIcon={<FiInbox />}
+              onClick={() => setActiveFolder('INBOX')}
+            >
+              Boîte de réception
+            </Button>
+            <Button
+              variant={activeFolder === 'SENT' ? 'solid' : 'ghost'}
+              colorScheme={activeFolder === 'SENT' ? 'rbe' : 'gray'}
+              justifyContent="flex-start"
+              leftIcon={<FiSend />}
+              onClick={() => setActiveFolder('SENT')}
+            >
+              Envoyés
+            </Button>
+            <Button
+              variant={activeFolder === 'TRASH' ? 'solid' : 'ghost'}
+              colorScheme={activeFolder === 'TRASH' ? 'rbe' : 'gray'}
+              justifyContent="flex-start"
+              leftIcon={<FiTrash2 />}
+              onClick={() => setActiveFolder('TRASH')}
+            >
+              Corbeille
+            </Button>
           </VStack>
         </Box>
 
-        {/* Right: viewer */}
-        <Box flex="1" borderWidth="1px" borderRadius="md" p={4} bg="white">
-          {!current ? (
-            <Center p={6}><Text color="gray.600">Sélectionne un message à lire.</Text></Center>
+        {/* Liste des emails */}
+        <Box 
+          w="350px" 
+          borderWidth="1px" 
+          borderColor={borderColor}
+          borderRadius="md" 
+          p={3} 
+          bg={cardBg}
+          overflowY="auto"
+          maxH="70vh"
+        >
+          <Input 
+            placeholder="Rechercher..." 
+            mb={3}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          {loading ? (
+            <Center p={6}>
+              <Spinner color="rbe.500" />
+            </Center>
+          ) : filteredEmails.length === 0 ? (
+            <Center p={6}>
+              <Text color="gray.600">Aucun email</Text>
+            </Center>
           ) : (
-            <>
-              <Flex justify="space-between" align="center" mb={3}>
-                <Box>
-                  <Heading size="md">Fiche pointage — {current.json.parc ? `Parc ${current.json.parc}` : current.json.id}</Heading>
-                  <Text fontSize="sm" color="gray.600">ID: {current.json.id || current.filename} • {current.json.createdAt ? new Date(current.json.createdAt).toLocaleString() : ""}</Text>
-                </Box>
-                <Box>
-                  <HStack spacing={2}>
-                    <Button size="sm" as="a" href={`${API.replace(/\/$/,'')}/retromail/${encodeURIComponent(current.filename.replace(/\.json$/,'') + '.pdf')}`} target="_blank" rel="noreferrer">Télécharger PDF</Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      // mark unread toggle
-                      const key = readMapKey(matricule);
-                      const raw = localStorage.getItem(key);
-                      const map = raw ? JSON.parse(raw) : {};
-                      if (map[current.filename]) { delete map[current.filename]; } else { map[current.filename] = Date.now(); }
-                      localStorage.setItem(key, JSON.stringify(map));
-                      setMessages(m => [...m]);
-                    }}>{isRead(current.filename) ? "Marquer non lu" : "Marquer lu"}</Button>
+            <VStack align="stretch" spacing={2}>
+              {filteredEmails.map((email) => (
+                <Card
+                  key={email.id}
+                  size="sm"
+                  cursor="pointer"
+                  onClick={() => handleReadEmail(email)}
+                  bg={selectedEmail?.id === email.id ? selectedBg : cardBg}
+                  borderWidth="1px"
+                  borderColor={selectedEmail?.id === email.id ? 'rbe.500' : borderColor}
+                  _hover={{ borderColor: 'rbe.300' }}
+                >
+                  <CardBody>
+                    <Flex justify="space-between" align="start" mb={1}>
+                      <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1}>
+                        {email.from || "Inconnu"}
+                      </Text>
+                      {!email.read && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
+                    </Flex>
+                    <Text fontWeight="600" fontSize="sm" noOfLines={1} mb={1}>
+                      {email.subject || "(Sans objet)"}
+                    </Text>
+                    <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                      {email.preview || email.body?.substring(0, 80) || ""}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      {email.date ? new Date(email.date).toLocaleString('fr-FR') : ''}
+                    </Text>
+                  </CardBody>
+                </Card>
+              ))}
+            </VStack>
+          )}
+        </Box>
+
+        {/* Lecteur d'email */}
+        <Box 
+          flex="1" 
+          borderWidth="1px" 
+          borderColor={borderColor}
+          borderRadius="md" 
+          p={4} 
+          bg={cardBg}
+          overflowY="auto"
+          maxH="70vh"
+        >
+          {!selectedEmail ? (
+            <Center h="100%">
+              <VStack spacing={3}>
+                <FiMail size={48} color="gray" />
+                <Text color="gray.600">Sélectionnez un email pour le lire</Text>
+              </VStack>
+            </Center>
+          ) : (
+            <VStack align="stretch" spacing={4}>
+              <Flex justify="space-between" align="start">
+                <Box flex="1">
+                  <Heading size="md" mb={2}>{selectedEmail.subject || "(Sans objet)"}</Heading>
+                  <HStack spacing={2} mb={2}>
+                    <Avatar size="sm" name={selectedEmail.from} />
+                    <Box>
+                      <Text fontWeight="600" fontSize="sm">{selectedEmail.from}</Text>
+                      <Text fontSize="xs" color="gray.600">
+                        {selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR') : ''}
+                      </Text>
+                    </Box>
                   </HStack>
                 </Box>
+                <HStack>
+                  <IconButton
+                    icon={<FiTrash2 />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="red"
+                    onClick={() => handleDeleteEmail(selectedEmail.id)}
+                  />
+                </HStack>
               </Flex>
 
-              <Divider mb={3} />
+              <Divider />
 
-              <Box mb={4}>
-                <Text fontWeight="600">Initiateur :</Text>
-                <Text mb={2}>{current.json.conducteur || "—"}</Text>
-
-                <Text fontWeight="600">Participants :</Text>
-                <Text mb={2}>{(current.json.participants || []).join(", ") || "—"}</Text>
-
-                <Text fontWeight="600">Description :</Text>
-                <Text mb={3} whiteSpace="pre-wrap">{current.json.description || "—"}</Text>
-
-                <Text fontWeight="600" mb={2}>Images :</Text>
-                { (current.json.files || []).filter(f => (f.mime||"").startsWith('image/')).length === 0 ? (
-                  <Text color="gray.600" mb={2}>Aucune image.</Text>
-                ) : (
-                  <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
-                    { (current.json.files || []).filter(f => (f.mime||"").startsWith('image/')).map((f,i) => (
-                      <Box key={i} borderWidth="1px" p={2} borderRadius="md" bg="gray.50">
-                        <Image src={`${API.replace(/\/$/,'')}/retromail/uploads/${encodeURIComponent(f.filename)}`} alt={f.originalname || f.filename} objectFit="cover" maxH="160px" w="100%" />
-                        <HStack mt={2} justify="space-between">
-                          <Text fontSize="sm" noOfLines={1}>{f.originalname || f.filename}</Text>
-                          <Button size="sm" as="a" href={`${API.replace(/\/$/,'')}/retromail/uploads/${encodeURIComponent(f.filename)}`} target="_blank" rel="noreferrer">Ouvrir</Button>
-                        </HStack>
-                      </Box>
-                    )) }
-                  </SimpleGrid>
-                )}
-
-                <Text fontWeight="600" mb={2}>Vidéos (séparées)</Text>
-                { (current.json.files || []).filter(f => ((f.mime||'').startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(f.originalname || f.filename))).length === 0 ? (
-                  <Text color="gray.600">Aucune vidéo.</Text>
-                ) : (
-                  <VStack align="stretch" spacing={2} mb={3}>
-                    { (current.json.files || []).filter(f => ((f.mime||'').startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(f.originalname || f.filename))).map((v,i) => {
-                      const released = isReleased(v.filename);
-                      return (
-                        <Box key={i} p={3} borderWidth="1px" borderRadius="md">
-                          <Flex justify="space-between" align="center">
-                            <Box>
-                              <Text fontWeight="600" noOfLines={1}>{v.originalname || v.filename}</Text>
-                              <Text fontSize="sm" color="gray.500">{(v.size/1024|0)} KB</Text>
-                              {!released && <Text fontSize="xs" color="orange.600">Téléchargement restreint (à analyser)</Text>}
-                            </Box>
-                            <HStack>
-                              {isAdmin && !released && (
-                                <Button size="sm" colorScheme="green" onClick={() => releaseVideo(v.filename)}>Libérer le téléchargement</Button>
-                              )}
-                              <Button
-                                size="sm"
-                                as="a"
-                                href={released ? `${API.replace(/\/$/,'')}/retromail/uploads/${encodeURIComponent(v.filename)}` : "#"}
-                                target="_blank"
-                                rel="noreferrer"
-                                isDisabled={!released}
-                              >
-                                {released ? "Télécharger" : "Demandé"}
-                              </Button>
-                            </HStack>
-                          </Flex>
-                        </Box>
-                      );
-                    })}
-                  </VStack>
-                )}
+              <Box>
+                <Text whiteSpace="pre-wrap">
+                  {selectedEmail.body || "(Contenu vide)"}
+                </Text>
               </Box>
-            </>
+
+              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Text fontWeight="600" mb={2}>
+                      <FiPaperclip style={{ display: 'inline', marginRight: '8px' }} />
+                      Pièces jointes ({selectedEmail.attachments.length})
+                    </Text>
+                    <VStack align="stretch" spacing={2}>
+                      {selectedEmail.attachments.map((att, idx) => (
+                        <Card key={idx} size="sm">
+                          <CardBody>
+                            <Flex justify="space-between" align="center">
+                              <Text fontSize="sm">{att.filename}</Text>
+                              <Button size="xs" as="a" href={att.url} download>
+                                Télécharger
+                              </Button>
+                            </Flex>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </VStack>
+                  </Box>
+                </>
+              )}
+
+              <Divider />
+
+              <HStack>
+                <Button
+                  leftIcon={<FiChevronLeft />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setComposeTo(selectedEmail.from);
+                    setComposeSubject(`Re: ${selectedEmail.subject}`);
+                    setComposeBody(`\n\n--- Message original ---\n${selectedEmail.body}`);
+                    onComposeOpen();
+                  }}
+                >
+                  Répondre
+                </Button>
+              </HStack>
+            </VStack>
           )}
         </Box>
       </Flex>
+
+      {/* Modal - Composer un email */}
+      <Modal isOpen={isComposeOpen} onClose={onComposeClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Nouveau message</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel>Destinataire</FormLabel>
+                <Input 
+                  type="email"
+                  placeholder="email@example.com"
+                  value={composeTo}
+                  onChange={(e) => setComposeTo(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Objet</FormLabel>
+                <Input 
+                  placeholder="Objet du message"
+                  value={composeSubject}
+                  onChange={(e) => setComposeSubject(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Message</FormLabel>
+                <Textarea 
+                  placeholder="Votre message..."
+                  rows={10}
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onComposeClose}>
+              Annuler
+            </Button>
+            <Button 
+              colorScheme="rbe" 
+              leftIcon={<FiSend />}
+              onClick={handleSendEmail}
+              isLoading={loading}
+            >
+              Envoyer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal - Paramètres */}
+      <Modal isOpen={isSettingsOpen} onClose={onSettingsClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Paramètres RétroMail</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Box>
+                <Text fontWeight="600" mb={2}>Compte connecté</Text>
+                <Badge colorScheme="green" fontSize="md">{emailAccount}</Badge>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Text fontWeight="600" mb={2}>Informations</Text>
+                <Text fontSize="sm" color="gray.600">
+                  • Serveur : Infomaniak IMAP/SMTP
+                  <br />
+                  • Connexion sécurisée : SSL/TLS
+                  <br />
+                  • Synchronisation automatique
+                </Text>
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onSettingsClose}>Fermer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

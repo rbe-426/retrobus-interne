@@ -414,7 +414,7 @@ export const useFinanceData = (currentUser = null) => {
         
         if (document.id) {
           // Mode édition: PUT
-          res = await fetch(`${API_BASE}/api/finance/documents/${document.id}`, {
+          res = await fetchWithCSRF(`${API_BASE}/api/finance/documents/${document.id}`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -424,7 +424,7 @@ export const useFinanceData = (currentUser = null) => {
           });
         } else {
           // Mode création: POST
-          res = await fetch(`${API_BASE}/api/finance/documents`, {
+          res = await fetchWithCSRF(`${API_BASE}/api/finance/documents`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
