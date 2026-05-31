@@ -142,29 +142,25 @@ const EMAIL_CATEGORIES = {
  * API client for email templates
  */
 const templateAPI = {
-  async getAll(token) {
-    const res = await fetch('/api/email-templates', {
-      headers: { 'Authorization': `Bearer ${token}` }
+  async getAll() {
+    const res = await fetchWithCSRF('/api/email-templates', {
+      method: 'GET'
     });
     if (!res.ok) throw new Error(`Failed to fetch templates: ${res.statusText}`);
     return res.json();
   },
 
-  async getById(id, token) {
-    const res = await fetch(`/api/email-templates/${id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+  async getById(id) {
+    const res = await fetchWithCSRF(`/api/email-templates/${id}`, {
+      method: 'GET'
     });
     if (!res.ok) throw new Error(`Failed to fetch template: ${res.statusText}`);
     return res.json();
   },
 
-  async create(data, token) {
-    const res = await fetch('/api/email-templates', {
+  async create(data) {
+    const res = await fetchWithCSRF('/api/email-templates', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
       body: JSON.stringify(data)
     });
     if (!res.ok) {
@@ -174,13 +170,9 @@ const templateAPI = {
     return res.json();
   },
 
-  async update(id, data, token) {
-    const res = await fetch(`/api/email-templates/${id}`, {
+  async update(id, data) {
+    const res = await fetchWithCSRF(`/api/email-templates/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
       body: JSON.stringify(data)
     });
     if (!res.ok) {
@@ -190,10 +182,9 @@ const templateAPI = {
     return res.json();
   },
 
-  async delete(id, token) {
-    const res = await fetch(`/api/email-templates/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
+  async delete(id) {
+    const res = await fetchWithCSRF(`/api/email-templates/${id}`, {
+      method: 'DELETE'
     });
     if (!res.ok) {
       const error = await res.json();
@@ -202,13 +193,9 @@ const templateAPI = {
     return res.json();
   },
 
-  async preview(name, data, token) {
-    const res = await fetch(`/api/email-templates/preview/${name}`, {
+  async preview(name, data) {
+    const res = await fetchWithCSRF(`/api/email-templates/preview/${name}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
       body: JSON.stringify(data)
     });
     if (!res.ok) {
