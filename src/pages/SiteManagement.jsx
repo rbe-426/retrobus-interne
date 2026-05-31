@@ -1518,7 +1518,7 @@ const SiteManagement = () => {
       id: 'emails',
       label: '📧 Modèles d\'email',
       icon: FiMail,
-      render: () => <EmailTemplateManager token={localStorage.getItem('token')} />,
+      render: () => <EmailTemplateManager />,
     },
     {
       id: 'member-profiles',

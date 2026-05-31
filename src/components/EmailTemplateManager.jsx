@@ -388,7 +388,7 @@ function TemplateEditorModal({ isOpen, onClose, template, onSave, isLoading }) {
 /**
  * Template Preview Modal Component
  */
-function TemplatePreviewModal({ isOpen, onClose, template, token }) {
+function TemplatePreviewModal({ isOpen, onClose, template }) {
   const [testData, setTestData] = useState('{\n  "ticket": {\n    "id": "T-001",\n    "title": "Test ticket"\n  },\n  "creator": {\n    "name": "John Doe",\n    "email": "john@example.com"\n  }\n}');
   const [preview, setPreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -400,7 +400,7 @@ function TemplatePreviewModal({ isOpen, onClose, template, token }) {
       setIsLoading(true);
       setError(null);
       const data = JSON.parse(testData);
-      const result = await templateAPI.preview(template.name, data, token);
+      const result = await templateAPI.preview(template.name, data);
       setPreview(result.preview);
     } catch (err) {
       setError(err.message);
@@ -674,7 +674,7 @@ function SendTestEmailModal({ isOpen, onClose, template, noreplyEmail }) {
 /**
  * Main Component
  */
-export default function EmailTemplateManager({ token }) {
+export default function EmailTemplateManager() {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -720,7 +720,7 @@ export default function EmailTemplateManager({ token }) {
   // Load templates
   useEffect(() => {
     loadTemplates();
-  }, [token]);
+  }, []);
   
   // Check if noreply account is connected
   const checkConnection = async () => {
@@ -811,7 +811,7 @@ export default function EmailTemplateManager({ token }) {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await templateAPI.getAll(token);
+      const result = await templateAPI.getAll();
       setTemplates(result.templates || []);
     } catch (err) {
       setError(err.message);
@@ -847,7 +847,7 @@ export default function EmailTemplateManager({ token }) {
     }
 
     try {
-      await templateAPI.delete(template.id, token);
+      await templateAPI.delete(template.id);
       toast({
         title: 'Template deleted',
         status: 'success',
@@ -867,14 +867,14 @@ export default function EmailTemplateManager({ token }) {
   const handleSaveTemplate = async (formData) => {
     try {
       if (selectedTemplate?.id) {
-        await templateAPI.update(selectedTemplate.id, formData, token);
+        await templateAPI.update(selectedTemplate.id, formData);
         toast({
           title: 'Template mis à jour',
           status: 'success',
           duration: 2
         });
       } else {
-        await templateAPI.create(formData, token);
+        await templateAPI.create(formData);
         toast({
           title: 'Template créé',
           status: 'success',
@@ -1170,7 +1170,6 @@ export default function EmailTemplateManager({ token }) {
           isOpen={isPreviewOpen}
           onClose={onPreviewClose}
           template={previewTemplate}
-          token={token}
         />
       )}
     </Box>
