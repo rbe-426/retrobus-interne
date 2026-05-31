@@ -22,7 +22,7 @@ import { fetchWithCSRF } from "../lib/csrfClient";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-export default function RetroMail() {
+export default function Retromail() {
   const { user, matricule } = useUser();
   const toast = useToast();
   const { isOpen: isComposeOpen, onOpen: onComposeOpen, onClose: onComposeClose } = useDisclosure();
@@ -274,9 +274,66 @@ export default function RetroMail() {
         finalBody += '\n\n--\n' + signature;
       }
       
+      // Convertir le texte en HTML pour les citations
+      const convertToHtml = (text) => {
+        const lines = text.split('\n');
+        let html = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">';
+        let inQuote = false;
+        let quoteLines = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          if (line.startsWith('> ')) {
+            // Ligne citée
+            if (!inQuote) {
+              inQuote = true;
+              quoteLines = [];
+            }
+            quoteLines.push(line.substring(2));
+          } else {
+            // Ligne normale
+            if (inQuote) {
+              // Fermer la citation précédente
+              html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
+              html += quoteLines.join('<br>');
+              html += '</blockquote>';
+              inQuote = false;
+              quoteLines = [];
+            }
+            
+            // Ligne vide ou avec contenu
+            if (line.trim() === '') {
+              html += '<br>';
+            } else if (line.startsWith('---') || line.startsWith('Le ') && line.includes('a écrit :')) {
+              // Séparateur ou en-tête de citation
+              html += '<div style="color: #666; font-size: 12px; margin: 15px 0; font-style: italic;">' + line + '</div>';
+            } else if (line.startsWith('De :') || line.startsWith('Date :') || line.startsWith('Objet :') || line.startsWith('A :')) {
+              // Métadonnées d'email
+              html += '<div style="color: #666; font-size: 12px; margin: 2px 0;"><strong>' + line.split(':')[0] + ' :</strong>' + line.split(':').slice(1).join(':') + '</div>';
+            } else {
+              html += '<p style="margin: 5px 0;">' + line + '</p>';
+            }
+          }
+        }
+        
+        // Fermer la dernière citation si nécessaire
+        if (inQuote) {
+          html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
+          html += quoteLines.join('<br>');
+          html += '</blockquote>';
+        }
+        
+        html += '</div>';
+        return html;
+      };
+      
+      const htmlBody = convertToHtml(finalBody);
+      
       // Ajouter signature image (en HTML)
+      let finalHtml = htmlBody;
       if (signatureImage) {
-        finalBody += `\n\n<img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+        finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
       }
 
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {
@@ -284,7 +341,8 @@ export default function RetroMail() {
         body: JSON.stringify({
           to: composeTo,
           subject: composeSubject,
-          body: finalBody,
+          body: finalBody,  // Texte brut pour fallback
+          html: finalHtml,  // Version HTML
           fromName: displayName || undefined
         })
       });
@@ -627,9 +685,18 @@ export default function RetroMail() {
                     <Flex justify="space-between" align="start" mb={1}>
                       <HStack spacing={2} flex="1" minW="0">
                         <Avatar size="xs" name={email.fromName || email.from} />
-                        <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1} flex="1">
-                          {email.fromName || email.from || "Inconnu"}
-                        </Text>
+                        <VStack align="start" spacing={0} flex="1" minW="0">
+                          <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1}>
+                            {email.fromName && email.fromName !== email.from 
+                              ? email.fromName 
+                              : email.from || "Inconnu"}
+                          </Text>
+                          {email.fromName && email.fromName !== email.from && (
+                            <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                              {email.from}
+                            </Text>
+                          )}
+                        </VStack>
                       </HStack>
                       {!email.read && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
                     </Flex>
@@ -669,58 +736,39 @@ export default function RetroMail() {
             </Center>
           ) : (
             <VStack align="stretch" spacing={4}>
-              <Flex justify="space-between" align="start">
-                <Box flex="1">
-                  <Heading size="md" mb={2}>{selectedEmail.subject || "(Sans objet)"}</Heading>
-                  <HStack spacing={2} mb={2}>
-                    <Avatar size="sm" name={selectedEmail.from} />
-                    <Box>
-                      <Text fontWeight="600" fontSize="sm">{selectedEmail.from}</Text>
-                      <Text fontSize="xs" color="gray.600">
-                        {selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR') : ''}
-                      </Text>
-                    </Box>
-                  </HStack>
-                </Box>
-              </Flex>
-
-              <Divider />
-
+              {/* En-tête de l'email */}
               <Box>
-                <Text whiteSpace="pre-wrap">
-                  {selectedEmail.body || "(Contenu vide)"}
-                </Text>
+                <Flex justify="space-between" align="start" mb={3}>
+                  <Heading size="md" flex="1">{selectedEmail.subject || "(Sans objet)"}</Heading>
+                </Flex>
+                <HStack spacing={2}>
+                  <Avatar size="sm" name={selectedEmail.fromName || selectedEmail.from} />
+                  <Box flex="1">
+                    <Text fontWeight="600" fontSize="sm">
+                      {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from 
+                        ? selectedEmail.fromName 
+                        : selectedEmail.from}
+                    </Text>
+                    {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from && (
+                      <Text fontSize="xs" color="gray.500">
+                        {selectedEmail.from}
+                      </Text>
+                    )}
+                    <Text fontSize="xs" color="gray.600">
+                      {selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR') : ''}
+                    </Text>
+                  </Box>
+                </HStack>
               </Box>
 
-              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                <>
-                  <Divider />
-                  <Box>
-                    <Text fontWeight="600" mb={2}>
-                      <FiPaperclip style={{ display: 'inline', marginRight: '8px' }} />
-                      Pièces jointes ({selectedEmail.attachments.length})
-                    </Text>
-                    <VStack align="stretch" spacing={2}>
-                      {selectedEmail.attachments.map((att, idx) => (
-                        <Card key={idx} size="sm">
-                          <CardBody>
-                            <Flex justify="space-between" align="center">
-                              <Text fontSize="sm">{att.filename}</Text>
-                              <Button size="xs" as="a" href={att.url} download>
-                                Télécharger
-                              </Button>
-                            </Flex>
-                          </CardBody>
-                        </Card>
-                      ))}
-                    </VStack>
-                  </Box>
-                </>
-              )}
-
-              <Divider />
-
-              <HStack spacing={2} wrap="wrap">
+              {/* Barre d'actions */}
+              <Flex 
+                gap={2} 
+                p={2} 
+                bg={useColorModeValue('gray.50', 'gray.700')} 
+                borderRadius="md"
+                wrap="wrap"
+              >
                 <Button
                   leftIcon={<FiChevronLeft />}
                   size="sm"
@@ -729,7 +777,19 @@ export default function RetroMail() {
                   onClick={() => {
                     setComposeTo(selectedEmail.from);
                     setComposeSubject(`Re: ${selectedEmail.subject}`);
-                    setComposeBody(`\n\n--- Message original ---\n${selectedEmail.body}`);
+                    // Format standard de réponse compatible Gmail/Outlook
+                    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', { 
+                      dateStyle: 'long', 
+                      timeStyle: 'short' 
+                    }) : '';
+                    const fromName = selectedEmail.fromName || selectedEmail.from;
+                    
+                    const quotedBody = selectedEmail.body
+                      .split('\n')
+                      .map(line => '> ' + line)
+                      .join('\n');
+                    
+                    setComposeBody(`\n\nLe ${dateStr}, ${fromName} a écrit :\n\n${quotedBody}`);
                     onComposeOpen();
                   }}
                 >
@@ -772,7 +832,19 @@ export default function RetroMail() {
                   onClick={() => {
                     setComposeTo("");
                     setComposeSubject(`Fwd: ${selectedEmail.subject}`);
-                    setComposeBody(`\n\n--- Message transféré ---\nDe: ${selectedEmail.fromName || selectedEmail.from}\nDate: ${new Date(selectedEmail.date).toLocaleString('fr-FR')}\nObjet: ${selectedEmail.subject}\n\n${selectedEmail.body}`);
+                    // Format standard de transfert compatible Gmail/Outlook
+                    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', { 
+                      dateStyle: 'long', 
+                      timeStyle: 'short' 
+                    }) : '';
+                    const fromName = selectedEmail.fromName || selectedEmail.from;
+                    
+                    const quotedBody = selectedEmail.body
+                      .split('\n')
+                      .map(line => '> ' + line)
+                      .join('\n');
+                    
+                    setComposeBody(`\n\n---------- Message transféré ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${selectedEmail.subject}\nA : ${selectedEmail.to || ''}\n\n${quotedBody}`);
                     onComposeOpen();
                   }}
                 >
@@ -787,7 +859,63 @@ export default function RetroMail() {
                 >
                   Supprimer
                 </Button>
-              </HStack>
+              </Flex>
+
+              <Divider />
+
+              <Box>
+                {selectedEmail.html ? (
+                  <iframe
+                    sandbox="allow-same-origin"
+                    srcDoc={selectedEmail.html}
+                    style={{
+                      width: '100%',
+                      minHeight: '400px',
+                      border: 'none',
+                      backgroundColor: 'white'
+                    }}
+                    onLoad={(e) => {
+                      // Ajuster la hauteur de l'iframe au contenu
+                      try {
+                        const iframe = e.target;
+                        iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
+                      } catch (err) {
+                        console.warn('Impossible d\'ajuster la hauteur de l\'iframe:', err);
+                      }
+                    }}
+                  />
+                ) : (
+                  <Text whiteSpace="pre-wrap">
+                    {selectedEmail.body || "(Contenu vide)"}
+                  </Text>
+                )}
+              </Box>
+
+              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Text fontWeight="600" mb={2}>
+                      <FiPaperclip style={{ display: 'inline', marginRight: '8px' }} />
+                      Pièces jointes ({selectedEmail.attachments.length})
+                    </Text>
+                    <VStack align="stretch" spacing={2}>
+                      {selectedEmail.attachments.map((att, idx) => (
+                        <Card key={idx} size="sm">
+                          <CardBody>
+                            <Flex justify="space-between" align="center">
+                              <Text fontSize="sm">{att.filename}</Text>
+                              <Button size="xs" as="a" href={att.url} download>
+                                Télécharger
+                              </Button>
+                            </Flex>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </VStack>
+                  </Box>
+                </>
+              )}
             </VStack>
           )}
         </Box>
