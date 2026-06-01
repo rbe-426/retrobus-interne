@@ -61,13 +61,16 @@ import AccountsManagement from "./pages/AccountsManagement";
 import EventModeManager from "./pages/EventModeManager";
 
 export default function App() {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, matricule } = useUser();
   const location = useLocation();
   
   // Debug: afficher la route actuelle
   console.log('🛣️ Current route:', location.pathname);
   
   const showHeader = isAuthenticated && location.pathname !== '/login';
+  
+  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi
+  const canAccessMuseum = import.meta.env.DEV || matricule === 'w.belaidi';
 
   // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
   useEffect(() => {
@@ -106,8 +109,8 @@ export default function App() {
         {/* 👥 Gestion des Adhésions */}
         <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} />
         
-        {/* 🏛️ Le Musée (uniquement en développement local) */}
-        {import.meta.env.DEV && (
+        {/* 🏛️ Le Musée (dev ou w.belaidi uniquement) */}
+        {canAccessMuseum && (
           <Route path="/dashboard/rbe-lemusee" element={<ProtectedRoute><SubventionCampaign /></ProtectedRoute>} />
         )}
         <Route path="/dashboard/admin/subventions" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><SubventionCampaignAdmin /></RoleProtectedRoute>} />

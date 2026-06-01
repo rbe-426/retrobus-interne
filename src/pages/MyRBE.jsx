@@ -147,9 +147,12 @@ const cards = [
 export default function MyRBE() {
   const alertBg = useColorModeValue("blue.50", "blue.900");
   const alertBorder = useColorModeValue("blue.500", "blue.300");
-  const { user, roles, customPermissions, isAdmin } = useUser();
+  const { user, roles, customPermissions, isAdmin, matricule } = useUser();
   const userRole = roles?.[0] || 'MEMBER';
   const { permissions: userPermissions, loading: permissionsLoading } = useUserPermissions(user?.id);
+  
+  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi
+  const canAccessMuseum = import.meta.env.DEV || matricule === 'w.belaidi';
 
   /**
    * Vérifier si une carte doit être affichée
@@ -280,8 +283,8 @@ export default function MyRBE() {
       ]}
     >
       <VStack spacing={2} align="stretch">
-        {/* Carte mise en évidence: Le Musée (uniquement en développement local) */}
-        {import.meta.env.DEV && (
+        {/* Carte mise en évidence: Le Musée (dev ou w.belaidi uniquement) */}
+        {canAccessMuseum && (
           <Card
             as={RouterLink}
             to="/dashboard/rbe-lemusee"
