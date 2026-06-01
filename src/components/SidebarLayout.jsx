@@ -49,16 +49,26 @@ export default function SidebarLayout({
             position="fixed"
             bottom={4}
             right={4}
-            size="lg"
-            colorScheme="blue"
-            bg="blue.500"
-            color="white"
+            size="md"
+            bg="white"
+            color="blue.500"
             borderRadius="full"
-            boxShadow="lg"
+            border="2px solid"
+            borderColor="blue.500"
+            boxShadow="md"
             zIndex={999}
             aria-label="Ouvrir le menu"
-            _hover={{ bg: "blue.600" }}
-            _active={{ bg: "blue.700" }}
+            _hover={{ 
+              bg: "blue.50", 
+              borderColor: "blue.600",
+              color: "blue.600",
+              boxShadow: "lg" 
+            }}
+            _active={{ 
+              bg: "blue.100",
+              borderColor: "blue.700",
+              color: "blue.700"
+            }}
           />
         )}
         
@@ -101,7 +111,7 @@ export default function SidebarLayout({
           icon={isOpen ? <FiChevronLeft /> : <FiChevronRight />}
           onClick={toggle}
           position="fixed"
-          top="100px"
+          top="120px"
           left={isOpen ? sidebarWidth : "0px"}
           transform="translateX(-50%)"
           size="sm"
