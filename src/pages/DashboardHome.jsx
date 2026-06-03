@@ -4,7 +4,7 @@ import {
   Stack, Stat, StatLabel, StatNumber, HStack, VStack, Badge, useColorModeValue,
   Container, Flex, Card, CardBody, CardHeader, Icon, Progress, Avatar,
   Divider, Center, Spinner, Alert, AlertIcon, Tag, TagLabel, TagLeftIcon,
-  useToast, IconButton, Image
+  useToast, IconButton, Image, useMediaQuery
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import ReactMarkdown from 'react-markdown';
@@ -59,6 +59,9 @@ export default function DashboardHome() {
   
   // Hook pour les annonces d'accueil
   const { announcements, removeAnnouncement } = useHomeAnnouncements();
+  
+  // Détection mobile
+  const [isMobile] = useMediaQuery("(max-width: 768px)");
   
   const toast = useToast();
   const cardBg = useColorModeValue("white", "gray.800");
@@ -422,7 +425,7 @@ export default function DashboardHome() {
   }
 
   return (
-    <Container maxW="container.xl" py={4} fontFamily="Montserrat, sans-serif">
+    <Container maxW="container.xl" py={isMobile ? 2 : 4} px={isMobile ? 2 : 4} fontFamily="Montserrat, sans-serif">
       {/* Annonces d'accueil - affichées en priorité en haut */}
       <HomeAnnouncements 
         announcements={announcements} 
@@ -433,40 +436,38 @@ export default function DashboardHome() {
       <Box
         bg={footerBg}
         color="white"
-        p={6}
+        p={isMobile ? 4 : 6}
         borderRadius="lg"
-        mb={6}
+        mb={isMobile ? 4 : 6}
         textAlign="center"
       >
-        <Heading size="lg" mb={2}>
+        <Heading size={isMobile ? "md" : "lg"} mb={2}>
           {getGreeting()}, {user?.prenom || user?.email || 'Utilisateur'} ! 👋
         </Heading>
-        <Text fontSize="base" opacity={0.9}>
+        <Text fontSize={isMobile ? "sm" : "base"} opacity={0.9}>
           Voici un aperçu de votre activité RétroBus Essonne
         </Text>
       </Box>
 
       {/* Grille principale */}
-      <SimpleGrid columns={{ base: 1, lg: 4 }} spacing={6}>
+      <SimpleGrid columns={{ base: 1, lg: 4 }} spacing={isMobile ? 4 : 6}>
         {/* Contenu principal */}
-        <GridItem colSpan={{ base: 1, lg: 3 }}>
-          <VStack spacing={8} align="stretch">
-            {/* Statistiques principales */}
-            <HStack spacing={6} wrap="wrap">
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
-                <CardBody>
+        <GridItem colSpan={{ base: 1, lg: 3 }} order={{ base: 2, lg: 1 }}>
+          <VStack spacing={isMobile ? 4 : 8} align="stretch">
+            {/* Statistiques principales - Optimisées mobile */}
+            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={isMobile ? 3 : 6} w="full">
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
+                <CardBody p={isMobile ? 4 : 5}>
                   <Stat>
-                    <StatLabel color="gray.600">Véhicules</StatLabel>
-                    <StatNumber color="blue.500">
+                    <StatLabel color="gray.600" fontSize={isMobile ? "xs" : "sm"}>Véhicules</StatLabel>
+                    <StatNumber color="blue.500" fontSize={isMobile ? "xl" : "2xl"}>
                       <HStack>
                         <Icon as={FiTruck} />
                         {stats.vehicles.loading ? (
                           <Spinner size="sm" />
                         ) : (
                           <Text>
-                            {stats.vehicles.total === 0 
-                              ? 'Aucun véhicule' 
-                              : `${stats.vehicles.total} véhicule${stats.vehicles.total !== 1 ? 's' : ''}`}
+                            {stats.vehicles.total}
                           </Text>
                         )}
                       </HStack>
@@ -482,27 +483,25 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
-                <CardBody>
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
+                <CardBody p={isMobile ? 4 : 5}>
                   <Stat>
                     <HStack spacing={2} mb={1}>
-                      <StatLabel color="gray.600">Événements</StatLabel>
+                      <StatLabel color="gray.600" fontSize={isMobile ? "xs" : "sm"}>Événements</StatLabel>
                       {!stats.events.loading && stats.events.published > 0 && (
-                        <Badge colorScheme="green" variant="subtle" fontSize="xs">
-                          {stats.events.published} en cours
+                        <Badge colorScheme="green" variant="subtle" fontSize="2xs">
+                          {stats.events.published}
                         </Badge>
                       )}
                     </HStack>
-                    <StatNumber color="green.500">
+                    <StatNumber color="green.500" fontSize={isMobile ? "xl" : "2xl"}>
                       <HStack>
                         <Icon as={FiCalendar} />
                         {stats.events.loading ? (
                           <Spinner size="sm" />
                         ) : (
                           <Text>
-                            {stats.events.total === 0 
-                              ? 'Aucun événement' 
-                              : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
+                            {stats.events.total}
                           </Text>
                         )}
                       </HStack>
@@ -518,17 +517,17 @@ export default function DashboardHome() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto" w="fit-content" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
-                <CardBody>
+              <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
+                <CardBody p={isMobile ? 4 : 5}>
                   <Stat>
-                    <StatLabel color="gray.600">Adhérents</StatLabel>
-                    <StatNumber color="gray.900">
+                    <StatLabel color="gray.600" fontSize={isMobile ? "xs" : "sm"}>Adhérents</StatLabel>
+                    <StatNumber color="gray.900" fontSize={isMobile ? "xl" : "2xl"}>
                       <HStack>
                         <Icon as={FiUsers} />
                         {stats.members.loading ? (
                           <Spinner size="sm" />
                         ) : (
-                          <Text>{stats.members.total === 0 ? 'Aucun adhérent' : `${stats.members.total} adhérent${stats.members.total !== 1 ? 's' : ''}`}</Text>
+                          <Text>{stats.members.total}</Text>
                         )}
                       </HStack>
                     </StatNumber>
@@ -542,48 +541,52 @@ export default function DashboardHome() {
                   </Stat>
                 </CardBody>
               </Card>
-            </HStack>
+            </SimpleGrid>
 
             {/* Les RétroActus */}
             {retroActus.length > 0 && (
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" h="auto">
-                <CardHeader>
-                  <HStack justify="space-between">
-                    <Heading size="md" fontWeight="700">📰 Les RétroActus</Heading>
+                <CardHeader p={isMobile ? 4 : 6}>
+                  <HStack justify="space-between" flexWrap="wrap" gap={2}>
+                    <Heading size={isMobile ? "sm" : "md"} fontWeight="700">📰 Les RétroActus</Heading>
                     <HStack spacing={2}>
                       <IconButton
                         icon={<FiChevronLeft />}
-                        size="sm"
+                        size={isMobile ? "md" : "sm"}
                         variant="ghost"
                         onClick={() => setCurrentActuIndex((prev) => 
                           prev === 0 ? retroActus.length - 1 : prev - 1
                         )}
                         aria-label="Actu précédente"
                         isDisabled={retroActus.length <= 1}
+                        minW={isMobile ? "44px" : "auto"}
+                        minH={isMobile ? "44px" : "auto"}
                       />
-                      <Text fontSize="xs" color="gray.500">
+                      <Text fontSize={isMobile ? "xs" : "xs"} color="gray.500">
                         {currentActuIndex + 1} / {retroActus.length}
                       </Text>
                       <IconButton
                         icon={<FiChevronRight />}
-                        size="sm"
+                        size={isMobile ? "md" : "sm"}
                         variant="ghost"
                         onClick={() => setCurrentActuIndex((prev) => 
                           (prev + 1) % retroActus.length
                         )}
                         aria-label="Actu suivante"
                         isDisabled={retroActus.length <= 1}
+                        minW={isMobile ? "44px" : "auto"}
+                        minH={isMobile ? "44px" : "auto"}
                       />
                     </HStack>
                   </HStack>
                 </CardHeader>
-                <CardBody>
-                  <VStack align="start" spacing={3}>
-                    <Heading size="sm" color="blue.600">
+                <CardBody p={isMobile ? 4 : 6}>
+                  <VStack align="start" spacing={isMobile ? 2 : 3}>
+                    <Heading size={isMobile ? "xs" : "sm"} color="blue.600">
                       {retroActus[currentActuIndex]?.title || 'Sans titre'}
                     </Heading>
                     {retroActus[currentActuIndex]?.publishedAt && (
-                      <HStack spacing={2} color="gray.500" fontSize="sm">
+                      <HStack spacing={2} color="gray.500" fontSize={isMobile ? "xs" : "sm"}>
                         <Icon as={FiCalendar} />
                         <Text>
                           {new Date(retroActus[currentActuIndex].publishedAt).toLocaleDateString('fr-FR', {
@@ -594,7 +597,7 @@ export default function DashboardHome() {
                         </Text>
                       </HStack>
                     )}
-                    <Box fontSize="sm" color="gray.700" sx={{
+                    <Box fontSize={isMobile ? "xs" : "sm"} color="gray.700" sx={{
                       '& p': { mb: 2 },
                       '& strong': { fontWeight: 'bold' },
                       '& em': { fontStyle: 'italic' },
@@ -721,30 +724,34 @@ export default function DashboardHome() {
                       <Image
                         src={retroActus[currentActuIndex].imageUrl}
                         alt={retroActus[currentActuIndex]?.title}
-                        maxH="150px"
+                        maxH={isMobile ? "200px" : "150px"}
                         w="100%"
                         objectFit="cover"
                         borderRadius="md"
                       />
                     )}
-                    <HStack spacing={2} pt={4} w="100%">
+                    <HStack spacing={2} pt={isMobile ? 2 : 4} w="100%" flexWrap="wrap">
                       <Button
-                        size="sm"
+                        size={isMobile ? "md" : "sm"}
                         leftIcon={<FiShare2 />}
                         colorScheme="rbe"
                         variant="outline"
                         flex={1}
                         onClick={() => shareOnWeb(retroActus[currentActuIndex])}
+                        minH={isMobile ? "44px" : "auto"}
+                        fontSize={isMobile ? "sm" : "md"}
                       >
                         Partager
                       </Button>
                       <Button
-                        size="sm"
+                        size={isMobile ? "md" : "sm"}
                         leftIcon={<FiMail />}
                         colorScheme="green"
                         variant="outline"
                         flex={1}
                         onClick={() => shareRetroActu(retroActus[currentActuIndex])}
+                        minH={isMobile ? "44px" : "auto"}
+                        fontSize={isMobile ? "sm" : "md"}
                       >
                         Email
                       </Button>
@@ -759,37 +766,37 @@ export default function DashboardHome() {
         </GridItem>
 
         {/* Sidebar */}
-        <GridItem>
-          <VStack spacing={6} align="stretch">
+        <GridItem order={{ base: 1, lg: 2 }}>
+          <VStack spacing={isMobile ? 4 : 6} align="stretch">
             {/* Notifications */}
             <Card bg={cardBg} borderColor={borderColor} shadow="lg">
-              <CardHeader>
+              <CardHeader p={isMobile ? 4 : 6}>
                 <HStack justify="space-between">
-                  <Heading size="md" fontWeight="700">Notifications</Heading>
-                  <Badge colorScheme="rbe" variant="subtle">
+                  <Heading size={isMobile ? "sm" : "md"} fontWeight="700">Notifications</Heading>
+                  <Badge colorScheme="rbe" variant="subtle" fontSize={isMobile ? "xs" : "sm"}>
                     {flashes.length}
                   </Badge>
                 </HStack>
               </CardHeader>
-              <CardBody>
-                <VStack spacing={3} align="stretch">
+              <CardBody p={isMobile ? 4 : 6}>
+                <VStack spacing={isMobile ? 2 : 3} align="stretch">
                   {info.length === 0 ? (
-                    <Text color="gray.500" fontSize="sm" textAlign="center" py={4}>
+                    <Text color="gray.500" fontSize={isMobile ? "xs" : "sm"} textAlign="center" py={isMobile ? 2 : 4}>
                       Aucune notification
                     </Text>
                   ) : (
                     info.slice(0, 5).map((flash) => (
-                      <Box key={flash.id} p={3} borderRadius="lg" bg="gray.50">
+                      <Box key={flash.id} p={isMobile ? 2 : 3} borderRadius="lg" bg="gray.50">
                         <HStack justify="space-between" align="start">
                           <VStack align="start" spacing={1} flex={1}>
-                            <Text fontSize="sm" fontWeight="600">
+                            <Text fontSize={isMobile ? "xs" : "sm"} fontWeight="600">
                               {flash.message}
                             </Text>
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize={isMobile ? "2xs" : "xs"} color="gray.500">
                               {flash.createdAt ? new Date(flash.createdAt).toLocaleDateString('fr-FR') : ''}
                             </Text>
                           </VStack>
-                          <Badge colorScheme="rbe" variant="subtle" fontSize="xs">
+                          <Badge colorScheme="rbe" variant="subtle" fontSize={isMobile ? "2xs" : "xs"}>
                             {flash.category}
                           </Badge>
                         </HStack>
@@ -802,18 +809,20 @@ export default function DashboardHome() {
 
             {/* Liens utiles */}
             <Card bg={cardBg} borderColor={borderColor} shadow="lg">
-              <CardHeader>
-                <Heading size="md" fontWeight="700">Liens utiles</Heading>
+              <CardHeader p={isMobile ? 4 : 6}>
+                <Heading size={isMobile ? "sm" : "md"} fontWeight="700">Liens utiles</Heading>
               </CardHeader>
-              <CardBody>
-                <VStack spacing={3} align="stretch">
+              <CardBody p={isMobile ? 4 : 6}>
+                <VStack spacing={isMobile ? 2 : 3} align="stretch">
                   <Button
                     as={RouterLink}
                     to="/dashboard/vehicules"
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiTruck />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     Véhicules ({stats.vehicles.total})
                   </Button>
@@ -823,7 +832,9 @@ export default function DashboardHome() {
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiCalendar />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     Événements ({stats.events.total})
                   </Button>
@@ -833,7 +844,9 @@ export default function DashboardHome() {
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiUsers />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     Membres ({stats.members.total})
                   </Button>
@@ -843,7 +856,9 @@ export default function DashboardHome() {
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiBarChart />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     MyRBE
                   </Button>
@@ -853,7 +868,9 @@ export default function DashboardHome() {
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiDollarSign />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     Finance
                   </Button>
@@ -864,8 +881,10 @@ export default function DashboardHome() {
                     variant="ghost"
                     justifyContent="flex-start"
                     leftIcon={<FiCpu />}
-                    size="sm"
+                    size={isMobile ? "md" : "sm"}
                     colorScheme="orange"
+                    minH={isMobile ? "44px" : "auto"}
+                    fontSize={isMobile ? "sm" : "md"}
                   >
                     🔧 Diagnostiques API
                   </Button>
