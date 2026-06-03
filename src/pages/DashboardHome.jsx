@@ -458,66 +458,174 @@ export default function DashboardHome() {
             <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={isMobile ? 3 : 6} w="full">
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody p={isMobile ? 4 : 5}>
-                  <VStack align="start" spacing={3}>
-                    <HStack spacing={3}>
-                      <Icon as={FiTruck} boxSize={isMobile ? 6 : 7} color="blue.500" />
-                      {stats.vehicles.loading ? (
-                        <Spinner size="md" color="blue.500" />
-                      ) : (
-                        <Text fontSize={isMobile ? "xl" : "2xl"} fontWeight="bold" color="blue.500">
-                          {stats.vehicles.total} véhicule{stats.vehicles.total !== 1 ? 's' : ''}
-                        </Text>
-                      )}
-                    </HStack>
-                    <Progress 
-                      value={stats.vehicles.total > 0 ? 100 : 0} 
-                      colorScheme="blue" 
-                      size="sm" 
-                      w="full"
-                      isIndeterminate={stats.vehicles.loading}
-                    />
-                  </VStack>
+                  {isMobile ? (
+                    // Layout Mobile: Icône + Nombre en haut, Progress en bas
+                    <VStack align="start" spacing={3}>
+                      <HStack spacing={3}>
+                        <Icon as={FiTruck} boxSize={6} color="blue.500" />
+                        {stats.vehicles.loading ? (
+                          <Spinner size="md" color="blue.500" />
+                        ) : (
+                          <Text fontSize="xl" fontWeight="bold" color="blue.500">
+                            {stats.vehicles.total} véhicule{stats.vehicles.total !== 1 ? 's' : ''}
+                          </Text>
+                        )}
+                      </HStack>
+                      <Progress 
+                        value={stats.vehicles.total > 0 ? 100 : 0} 
+                        colorScheme="blue" 
+                        size="sm" 
+                        w="full"
+                        isIndeterminate={stats.vehicles.loading}
+                      />
+                    </VStack>
+                  ) : (
+                    // Layout PC: Label en haut, Icône + Nombre, Progress en bas
+                    <Stat>
+                      <StatLabel color="gray.600" fontSize="sm">Véhicules</StatLabel>
+                      <StatNumber color="blue.500" fontSize="2xl">
+                        <HStack>
+                          <Icon as={FiTruck} />
+                          {stats.vehicles.loading ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <Text>
+                              {stats.vehicles.total === 0 
+                                ? 'Aucun véhicule' 
+                                : `${stats.vehicles.total} véhicule${stats.vehicles.total !== 1 ? 's' : ''}`}
+                            </Text>
+                          )}
+                        </HStack>
+                      </StatNumber>
+                      <Progress 
+                        value={stats.vehicles.total > 0 ? 100 : 0} 
+                        colorScheme="blue" 
+                        size="sm" 
+                        mt={2} 
+                        isIndeterminate={stats.vehicles.loading}
+                      />
+                    </Stat>
+                  )}
                 </CardBody>
               </Card>
 
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody p={isMobile ? 4 : 5}>
-                  <VStack align="start" spacing={3}>
-                    <HStack spacing={3} flexWrap="wrap">
-                      <Icon as={FiCalendar} boxSize={isMobile ? 6 : 7} color="green.500" />
-                      {stats.events.loading ? (
-                        <Spinner size="md" color="green.500" />
-                      ) : (
-                        <Text fontSize={isMobile ? "xl" : "2xl"} fontWeight="bold" color="green.500">
-                          {stats.events.total} événement{stats.events.total !== 1 ? 's' : ''}
-                        </Text>
-                      )}
-                      {!stats.events.loading && stats.events.published > 0 && (
-                        <Badge colorScheme="green" variant="subtle" fontSize="xs" ml={-1}>
-                          {stats.events.published} en cours
-                        </Badge>
-                      )}
-                    </HStack>
-                    <Progress 
-                      value={stats.events.total > 0 ? 100 : 0} 
-                      colorScheme="green" 
-                      size="sm" 
-                      w="full"
-                      isIndeterminate={stats.events.loading}
-                    />
-                  </VStack>
+                  {isMobile ? (
+                    // Layout Mobile: Icône + Nombre en haut, Progress en bas
+                    <VStack align="start" spacing={3}>
+                      <HStack spacing={3} flexWrap="wrap">
+                        <Icon as={FiCalendar} boxSize={6} color="green.500" />
+                        {stats.events.loading ? (
+                          <Spinner size="md" color="green.500" />
+                        ) : (
+                          <Text fontSize="xl" fontWeight="bold" color="green.500">
+                            {stats.events.total} événement{stats.events.total !== 1 ? 's' : ''}
+                          </Text>
+                        )}
+                        {!stats.events.loading && stats.events.published > 0 && (
+                          <Badge colorScheme="green" variant="subtle" fontSize="xs" ml={-1}>
+                            {stats.events.published} en cours
+                          </Badge>
+                        )}
+                      </HStack>
+                      <Progress 
+                        value={stats.events.total > 0 ? 100 : 0} 
+                        colorScheme="green" 
+                        size="sm" 
+                        w="full"
+                        isIndeterminate={stats.events.loading}
+                      />
+                    </VStack>
+                  ) : (
+                    // Layout PC: Label en haut, Icône + Nombre, Progress en bas
+                    <Stat>
+                      <HStack spacing={2} mb={1}>
+                        <StatLabel color="gray.600" fontSize="sm">Événements</StatLabel>
+                        {!stats.events.loading && stats.events.published > 0 && (
+                          <Badge colorScheme="green" variant="subtle" fontSize="xs">
+                            {stats.events.published} en cours
+                          </Badge>
+                        )}
+                      </HStack>
+                      <StatNumber color="green.500" fontSize="2xl">
+                        <HStack>
+                          <Icon as={FiCalendar} />
+                          {stats.events.loading ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <Text>
+                              {stats.events.total === 0 
+                                ? 'Aucun événement' 
+                                : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
+                            </Text>
+                          )}
+                        </HStack>
+                      </StatNumber>
+                      <Progress 
+                        value={stats.events.total > 0 ? 100 : 0} 
+                        colorScheme="green" 
+                        size="sm" 
+                        mt={2} 
+                        isIndeterminate={stats.events.loading}
+                      />
+                    </Stat>
+                  )}
                 </CardBody>
               </Card>
 
               <Card bg={cardBg} borderColor={borderColor} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }} transition="all 0.2s">
                 <CardBody p={isMobile ? 4 : 5}>
-                  <VStack align="start" spacing={3}>
-                    <HStack spacing={3}>
-                      <Icon as={FiUsers} boxSize={isMobile ? 6 : 7} color="gray.700" />
-                      {stats.members.loading ? (
-                        <Spinner size="md" color="gray.700" />
-                      ) : (
-                        <Text fontSize={isMobile ? "xl" : "2xl"} fontWeight="bold" color="gray.900">
+                  {isMobile ? (
+                    // Layout Mobile: Icône + Nombre en haut, Progress en bas
+                    <VStack align="start" spacing={3}>
+                      <HStack spacing={3}>
+                        <Icon as={FiUsers} boxSize={6} color="gray.700" />
+                        {stats.members.loading ? (
+                          <Spinner size="md" color="gray.700" />
+                        ) : (
+                          <Text fontSize="xl" fontWeight="bold" color="gray.900">
+                            {stats.members.total} adhérent{stats.members.total !== 1 ? 's' : ''}
+                          </Text>
+                        )}
+                      </HStack>
+                      <Progress 
+                        value={stats.members.total > 0 ? (stats.members.active / stats.members.total) * 100 : 0} 
+                        colorScheme="gray" 
+                        size="sm" 
+                        w="full"
+                        isIndeterminate={stats.members.loading}
+                      />
+                    </VStack>
+                  ) : (
+                    // Layout PC: Label en haut, Icône + Nombre, Progress en bas
+                    <Stat>
+                      <StatLabel color="gray.600" fontSize="sm">Adhérents</StatLabel>
+                      <StatNumber color="gray.900" fontSize="2xl">
+                        <HStack>
+                          <Icon as={FiUsers} />
+                          {stats.members.loading ? (
+                            <Spinner size="sm" />
+                          ) : (
+                            <Text>
+                              {stats.members.total === 0 
+                                ? 'Aucun adhérent' 
+                                : `${stats.members.total} adhérent${stats.members.total !== 1 ? 's' : ''}`}
+                            </Text>
+                          )}
+                        </HStack>
+                      </StatNumber>
+                      <Progress 
+                        value={stats.members.total > 0 ? (stats.members.active / stats.members.total) * 100 : 0} 
+                        colorScheme="gray" 
+                        size="sm" 
+                        mt={2} 
+                        isIndeterminate={stats.members.loading}
+                      />
+                    </Stat>
+                  )}
+                </CardBody>
+              </Card>
                           {stats.members.total} adhérent{stats.members.total !== 1 ? 's' : ''}
                         </Text>
                       )}
