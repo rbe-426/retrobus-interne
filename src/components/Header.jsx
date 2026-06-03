@@ -291,7 +291,7 @@ export default function Header() {
   };
 
   return (
-    <Box as="header" w="100%" bg="gray.900" position="sticky" top="0" zIndex="1000" borderBottom="1px solid" borderColor="gray.700">
+    <Box as="header" w="100%" bg="gray.900" position="sticky" top="0" zIndex="1000" borderBottom="1px solid" borderColor="gray.700" _active={{ bg: "gray.900" }} _focus={{ bg: "gray.900" }} userSelect="none">
       <Box 
         display="flex"
         alignItems="center"

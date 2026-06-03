@@ -53,6 +53,9 @@ export default function Footer() {
       py={isMobile ? 6 : 4}
       mt={isMobile ? 2 : 4}
       px={isMobile ? 3 : undefined}
+      _active={{ bg: bgColor }}
+      _focus={{ bg: bgColor }}
+      userSelect="none"
     >
       <Container maxW="6xl" px={isMobile ? 2 : undefined}>
         {/* Section principale */}
