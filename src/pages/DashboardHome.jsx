@@ -378,8 +378,8 @@ export default function DashboardHome() {
     setFlashes(loadFlashes());
     loadDashboardData();
     
-    // Actualiser les données toutes les 5 minutes
-    const interval = setInterval(loadDashboardData, 5 * 60 * 1000);
+    // Actualiser les données toutes les 10 minutes (réduit de 5 pour optimiser)
+    const interval = setInterval(loadDashboardData, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadDashboardData]);
 
