@@ -11,7 +11,7 @@ import {
   useColorModeValue,
   Portal
 } from '@chakra-ui/react';
-import { FiChevronRight, FiChevronLeft } from 'react-icons/fi';
+import { FiChevronRight, FiChevronLeft, FiMenu } from 'react-icons/fi';
 import { useSidebar } from '../context/SidebarContext';
 
 /**
@@ -41,33 +41,33 @@ export default function SidebarLayout({
   if (isMobile) {
     return (
       <Box position="relative" w="100%" h="calc(100vh - 60px)">
-        {/* Bouton chevron flottant */}
+        {/* Bouton hamburger flottant en haut à gauche */}
         {showToggleButton && (
           <IconButton
-            icon={<FiChevronRight />}
+            icon={<FiMenu />}
             onClick={toggle}
             position="fixed"
-            bottom={4}
-            right={4}
-            size="md"
+            top={4}
+            left={4}
+            size="lg"
             bg="white"
-            color="blue.500"
-            borderRadius="full"
+            color="rbe.500"
+            borderRadius="md"
             border="2px solid"
-            borderColor="blue.500"
-            boxShadow="md"
+            borderColor="rbe.500"
+            boxShadow="lg"
             zIndex={999}
             aria-label="Ouvrir le menu"
             _hover={{ 
-              bg: "blue.50", 
-              borderColor: "blue.600",
-              color: "blue.600",
-              boxShadow: "lg" 
+              bg: "rbe.50", 
+              borderColor: "rbe.600",
+              color: "rbe.600",
+              boxShadow: "xl" 
             }}
             _active={{ 
-              bg: "blue.100",
-              borderColor: "blue.700",
-              color: "blue.700"
+              bg: "rbe.100",
+              borderColor: "rbe.700",
+              color: "rbe.700"
             }}
           />
         )}
@@ -79,6 +79,7 @@ export default function SidebarLayout({
           overflowY="auto"
           bg={contentBg}
           p={4}
+          pt={16}
         >
           {children}
         </Box>

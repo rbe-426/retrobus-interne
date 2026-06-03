@@ -7,12 +7,12 @@ import {
   Select, FormControl, FormLabel, useToast, Progress, NumberInput, NumberInputField,
   NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper, Divider, Icon, Flex,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure,
-  Collapse, Tooltip
+  Collapse, Tooltip, Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, useMediaQuery
 } from "@chakra-ui/react";
 import {
   FiEdit, FiPlus, FiRefreshCw, FiSearch, FiMapPin,
   FiTruck, FiUsers, FiTrash2, FiSave, FiDollarSign, FiNavigation, FiGift, FiCalendar, FiClock, FiExternalLink,
-  FiChevronDown, FiChevronUp, FiCheck, FiX
+  FiChevronDown, FiChevronUp, FiCheck, FiX, FiMenu
 } from "react-icons/fi";
 import { eventsAPI } from "../api/events";
 import { membersAPI } from "../api/members";
@@ -37,6 +37,10 @@ export default function EventsManagement() {
   const toast = useToast();
   const { isOpen: isManageOpen, onOpen: onManageOpen, onClose: onManageClose } = useDisclosure();
   const { isOpen: isInviteOpen, onOpen: onInviteOpen, onClose: onInviteClose } = useDisclosure();
+
+  // Mobile detection et sidebar state
+  const [isMobile] = useMediaQuery("(max-width: 768px)");
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   // État pour gestion événement
   const [events, setEvents] = useState([]);
@@ -1334,46 +1338,74 @@ export default function EventsManagement() {
   };
 
   return (
-    <HStack align="stretch" spacing={0} h="100vh" w="100%">
-      {/* Sidebar avec navigation principale et sous-onglets */}
-      <VStack
-        align="stretch"
-        spacing={0}
-        w="280px"
-        bg="gray.50"
-        borderRight="1px"
-        borderColor="gray.200"
-        overflowY="auto"
-      >
-        {/* Header du sidebar */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200">
-          <HStack spacing={3} mb={3}>
-            <Icon as={FiCalendar} color="blue.500" boxSize={6} />
-            <Box>
-              <Heading size="lg" color="black">Événements</Heading>
-              <Text fontSize="sm" color="gray.500">Organisation & planning</Text>
-            </Box>
-          </HStack>
-          <Text fontSize="xs" color="gray.500">Events v2</Text>
-        </Box>
+    <Box position="relative" h="100vh" w="100%">
+      {/* Bouton hamburger mobile */}
+      {isMobile && (
+        <IconButton
+          icon={<FiMenu />}
+          onClick={() => setSidebarOpen(true)}
+          position="fixed"
+          top={4}
+          left={4}
+          size="lg"
+          bg="white"
+          color="blue.500"
+          borderRadius="md"
+          border="2px solid"
+          borderColor="blue.500"
+          boxShadow="lg"
+          zIndex={999}
+          aria-label="Ouvrir le menu"
+          _hover={{ 
+            bg: "blue.50", 
+            borderColor: "blue.600",
+            color: "blue.600",
+            boxShadow: "xl" 
+          }}
+        />
+      )}
 
-        {/* Navigation principale */}
-        <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
-          {sections.map((section) => {
-            const isActive = section.id === activeMainSection;
-            const SectionIcon = section.icon;
-            return (
-              <Box key={section.id}>
-                <Button
-                  leftIcon={<Icon as={SectionIcon} />}
-                  variant="ghost"
-                  justifyContent="flex-start"
-                  w="full"
-                  bg={isActive ? "blue.50" : "transparent"}
-                  borderLeft="3px"
-                  borderColor={isActive ? "blue.500" : "transparent"}
-                  borderRadius={0}
-                  px={4}
+      <HStack align="stretch" spacing={0} h="100%">
+        {/* Sidebar Desktop */}
+        {!isMobile && (
+          <VStack
+            align="stretch"
+            spacing={0}
+            w="280px"
+            bg="gray.50"
+            borderRight="1px"
+            borderColor="gray.200"
+            overflowY="auto"
+          >
+            {/* Header du sidebar */}
+            <Box p={6} borderBottom="1px" borderColor="gray.200">
+              <HStack spacing={3} mb={3}>
+                <Icon as={FiCalendar} color="blue.500" boxSize={6} />
+                <Box>
+                  <Heading size="lg" color="black">Événements</Heading>
+                  <Text fontSize="sm" color="gray.500">Organisation & planning</Text>
+                </Box>
+              </HStack>
+              <Text fontSize="xs" color="gray.500">Events v2</Text>
+            </Box>
+
+            {/* Navigation principale */}
+            <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
+              {sections.map((section) => {
+                const isActive = section.id === activeMainSection;
+                const SectionIcon = section.icon;
+                return (
+                  <Box key={section.id}>
+                    <Button
+                      leftIcon={<Icon as={SectionIcon} />}
+                      variant="ghost"
+                      justifyContent="flex-start"
+                      w="full"
+                      bg={isActive ? "blue.50" : "transparent"}
+                      borderLeft="3px"
+                      borderColor={isActive ? "blue.500" : "transparent"}
+                      borderRadius={0}
+                      px={4}
                   py={6}
                   fontSize="sm"
                   fontWeight={isActive ? "600" : "500"}
@@ -1431,11 +1463,126 @@ export default function EventsManagement() {
           MyRBE
         </Box>
       </VStack>
+        )}
+
+        {/* Sidebar Mobile (Drawer) */}
+        {isMobile && (
+          <Drawer
+            isOpen={sidebarOpen}
+            placement="left"
+            onClose={() => setSidebarOpen(false)}
+            size="full"
+          >
+            <DrawerOverlay />
+            <DrawerContent>
+              <DrawerCloseButton />
+              <VStack
+                align="stretch"
+                spacing={0}
+                h="100%"
+                bg="gray.50"
+                overflowY="auto"
+              >
+                {/* Header du sidebar */}
+                <Box p={6} borderBottom="1px" borderColor="gray.200" pt={12}>
+                  <HStack spacing={3} mb={3}>
+                    <Icon as={FiCalendar} color="blue.500" boxSize={6} />
+                    <Box>
+                      <Heading size="lg" color="black">Événements</Heading>
+                      <Text fontSize="sm" color="gray.500">Organisation & planning</Text>
+                    </Box>
+                  </HStack>
+                  <Text fontSize="xs" color="gray.500">Events v2</Text>
+                </Box>
+
+                {/* Navigation principale */}
+                <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
+                  {sections.map((section) => {
+                    const isActive = section.id === activeMainSection;
+                    const SectionIcon = section.icon;
+                    return (
+                      <Box key={section.id}>
+                        <Button
+                          leftIcon={<Icon as={SectionIcon} />}
+                          variant="ghost"
+                          justifyContent="flex-start"
+                          w="full"
+                          bg={isActive ? "blue.50" : "transparent"}
+                          borderLeft="3px"
+                          borderColor={isActive ? "blue.500" : "transparent"}
+                          borderRadius={0}
+                          px={4}
+                          py={6}
+                          fontSize="sm"
+                          fontWeight={isActive ? "600" : "500"}
+                          color={isActive ? "blue.500" : "inherit"}
+                          _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
+                          onClick={() => {
+                            setActiveMainSection(section.id);
+                            setSidebarOpen(false);
+                          }}
+                        >
+                          <Flex direction="column" align="flex-start" w="full">
+                            <Text>{section.label}</Text>
+                            {section.description && (
+                              <Text fontSize="xs" color="gray.500">{section.description}</Text>
+                            )}
+                          </Flex>
+                        </Button>
+                        {/* Sous-onglets pour Gestion des événements */}
+                        {isActive && section.id === "events" && (
+                          <VStack align="stretch" spacing={0} pl={8} bg="blue.50">
+                            {[
+                              { id: "list", label: "Liste des événements", icon: FiCalendar },
+                              { id: "participants", label: "Participants", icon: FiUsers },
+                              { id: "routes", label: "Trajets", icon: FiNavigation },
+                              { id: "finances", label: "Finances", icon: FiDollarSign },
+                              { id: "helloasso", label: "HelloAsso", icon: FiGift }
+                            ].map((subTab) => (
+                              <Button
+                                key={subTab.id}
+                                leftIcon={<Icon as={subTab.icon} boxSize={4} />}
+                                variant="ghost"
+                                justifyContent="flex-start"
+                                w="full"
+                                bg={activeSubTab === subTab.id ? "blue.100" : "transparent"}
+                                borderLeft="3px"
+                                borderColor={activeSubTab === subTab.id ? "blue.600" : "transparent"}
+                                borderRadius={0}
+                                px={4}
+                                py={4}
+                                fontSize="sm"
+                                fontWeight={activeSubTab === subTab.id ? "600" : "500"}
+                                color={activeSubTab === subTab.id ? "blue.600" : "gray.600"}
+                                _hover={{ bg: "blue.100" }}
+                                onClick={() => {
+                                  setActiveSubTab(subTab.id);
+                                  setSidebarOpen(false);
+                                }}
+                              >
+                                {subTab.label}
+                              </Button>
+                            ))}
+                          </VStack>
+                        )}
+                      </Box>
+                    );
+                  })}
+                </VStack>
+
+                {/* Footer du sidebar */}
+                <Box p={4} borderTop="1px" borderColor="gray.200" fontSize="xs" color="gray.500" textAlign="center" w="full">
+                  MyRBE
+                </Box>
+              </VStack>
+            </DrawerContent>
+          </Drawer>
+        )}
 
       {/* Contenu principal */}
-      <VStack align="stretch" spacing={0} flex={1} overflowY="auto">
+      <VStack align="stretch" spacing={0} flex={1} overflowY="auto" pt={{ base: 16, md: 0 }}>
         {/* Header */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
+        <Box p={{ base: 4, md: 6 }} borderBottom="1px" borderColor="gray.200" bg="white">
           <HStack justify="space-between">
             <Box>
               <Heading size="lg">
@@ -1648,5 +1795,6 @@ export default function EventsManagement() {
         </ModalContent>
       </Modal>
     </HStack>
+    </Box>
   );
 }
