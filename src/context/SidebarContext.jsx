@@ -16,10 +16,12 @@ export const useSidebar = () => {
 };
 
 export const SidebarProvider = ({ children }) => {
-  const [isLessThan768] = useMediaQuery('(max-width: 768px)');
-  const isMobile = isLessThan768 === true;
+  // Breakpoint ajusté pour tablettes : < 900px = mobile, >= 900px = desktop
+  // Surface Pro (1368px logical) sera en mode desktop avec sidebar fixe
+  const [isLessThan900] = useMediaQuery('(max-width: 899px)');
+  const isMobile = isLessThan900 === true;
   
-  // Sur desktop, la sidebar est toujours ouverte par défaut
+  // Sur desktop/tablette, la sidebar est toujours ouverte par défaut
   // Sur mobile, elle est fermée par défaut
   const [isOpen, setIsOpen] = useState(!isMobile);
   

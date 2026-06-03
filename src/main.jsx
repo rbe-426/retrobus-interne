@@ -6,6 +6,7 @@ import theme from './theme'
 import App from './App'
 import './index.css'
 import './styles/mobile.css'
+import './styles/tablet.css'
 import { UserProvider } from './context/UserContext'
 
 // Enregistrement du Service Worker pour PWA
