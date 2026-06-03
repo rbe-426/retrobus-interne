@@ -298,7 +298,7 @@ export default function Header() {
         justifyContent="space-between"
         position="relative"
         h={isMobile ? "50px" : "120px"}
-        px={isMobile ? 2 : 5}
+        px={isMobile ? 1 : 5}
         gap={2}
       >
         {/* Logo à gauche - fixe */}
@@ -307,6 +307,7 @@ export default function Header() {
           alt={isMobile ? "URBEX Mobile" : "RétroBus Essonne Intranet"}
           height={isMobile ? "25px" : "175px"}
           maxW={isMobile ? "60px" : undefined}
+          ml={isMobile ? -2 : 0}
           w="auto"
           objectFit="contain"
           flexShrink={0}
@@ -362,6 +363,7 @@ export default function Header() {
         {/* Actions à droite */}
         {isMobile ? (
           <IconButton
+            data-no-full-width
             aria-label="Menu"
             icon={
               <Box 
@@ -394,14 +396,17 @@ export default function Header() {
             size="xl"
             bg="var(--rbe-red)"
             _hover={{ bg: "rgba(187, 31, 17, 0.8)" }}
-            _active={{ bg: "rgba(187, 31, 17, 0.9)" }}
+            _active={{ bg: "var(--rbe-red)" }}
+            _focus={{ bg: "var(--rbe-red)", boxShadow: "none" }}
+            _focusVisible={{ bg: "var(--rbe-red)", boxShadow: "none" }}
             onClick={navDrawer.onOpen}
             title="Ouvrir le menu"
             position="absolute"
-            right={isMobile ? -155 : 20}
+            right={2}
             top="50%"
             transform="translateY(-50%)"
             p={1}
+            w="47px"
             minW="47px"
             h="47px"
           />

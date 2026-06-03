@@ -464,38 +464,37 @@ const RetroMerch = () => {
   );
 
   return (
-    <SidebarLayout sidebar={renderSidebar()}>
-      <VStack align="stretch" spacing={0} flex={1} h="100%">
-        {/* Header */}
-        <Box p={{ base: 4, md: 6 }} borderBottom="1px" borderColor="gray.200" bg="white">
-          <HStack justify="space-between">
-            <Box>
-              <Heading size={{ base: "md", md: "lg" }}>
-                {activeMainSection === "catalogue" && "Catalogue"}
-                {activeMainSection === "commandes" && "Commandes"}
-                {activeMainSection === "layout" && "Mise-en-page"}
-                {activeMainSection === "stats" && "Statistiques"}
-                {activeMainSection === "settings" && "Paramètres"}
-              </Heading>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">
-                {activeMainSection === "catalogue" && "Gérez votre catalogue de produits"}
-                {activeMainSection === "commandes" && "Suivi des commandes clients"}
-                {activeMainSection === "layout" && "Organisez votre boutique"}
-                {activeMainSection === "stats" && "Analyses des ventes"}
-                {activeMainSection === "settings" && "Configuration de RetroMerch"}
-              </Text>
-            </Box>
-          </HStack>
-        </Box>
+    <>
+      <SidebarLayout sidebar={renderSidebar()}>
+        <VStack align="stretch" spacing={0} flex={1} h="100%">
+          {/* Header */}
+          <Box p={{ base: 4, md: 6 }} borderBottom="1px" borderColor="gray.200" bg="white">
+            <HStack justify="space-between">
+              <Box>
+                <Heading size={{ base: "md", md: "lg" }}>
+                  {activeMainSection === "catalogue" && "Catalogue"}
+                  {activeMainSection === "commandes" && "Commandes"}
+                  {activeMainSection === "layout" && "Mise-en-page"}
+                  {activeMainSection === "stats" && "Statistiques"}
+                  {activeMainSection === "settings" && "Paramètres"}
+                </Heading>
+                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">
+                  {activeMainSection === "catalogue" && "Gérez votre catalogue de produits"}
+                  {activeMainSection === "commandes" && "Suivi des commandes clients"}
+                  {activeMainSection === "layout" && "Organisez votre boutique"}
+                  {activeMainSection === "stats" && "Analyses des ventes"}
+                  {activeMainSection === "settings" && "Configuration de RetroMerch"}
+                </Text>
+              </Box>
+            </HStack>
+          </Box>
 
-        {/* Contenu */}
-        <Box flex={1} overflowY="auto" p={{ base: 3, md: 4, lg: 6 }} w="full">
-          {renderMainContent()}
-        </Box>
-      </VStack>
-    </SidebarLayout>
-  );
-      </VStack>
+          {/* Contenu */}
+          <Box flex={1} overflowY="auto" p={{ base: 3, md: 4, lg: 6 }} w="full">
+            {renderMainContent()}
+          </Box>
+        </VStack>
+      </SidebarLayout>
 
       {/* Modal Produit */}
       <Modal isOpen={isModalOpen} onClose={closeModal} size="lg">
@@ -598,7 +597,7 @@ const RetroMerch = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </HStack>
+    </>
   );
 };
 

@@ -74,7 +74,7 @@ export default function Login() {
           maxW="xs"
           w="full"
           mx="auto"
-          mt={{ base: -12, md: -20 }}
+          mt={{ base: 8, md: -20 }}
           position="relative"
         >
           <VStack
@@ -89,7 +89,7 @@ export default function Login() {
             borderTopColor="rbe.500"
           >
             <Text fontSize="xl" fontWeight="bold" textAlign="center">
-              Connexion Intranet
+              Connexion URBEX
             </Text>
             <Text fontSize="xs" color="gray.500" textAlign="center">
               Accès réservé aux membres et bénévoles

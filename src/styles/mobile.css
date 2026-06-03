@@ -253,12 +253,10 @@
     min-height: 44px !important;
     min-width: 44px !important;
   }
-  
-  /* Disable hover states on touch devices */
-  @media (hover: none) {
-    *:hover {
-      background-color: inherit !important;
-    }
+
+  /* Prevent iOS/Android tap highlight flashes */
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
   
   /* Active states for touch feedback */

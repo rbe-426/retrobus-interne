@@ -54,21 +54,23 @@ export default function SidebarLayout({
             color="rbe.500"
             borderRadius="md"
             border="2px solid"
-            borderColor="rbe.500"
+            borderColor="transparent"
             boxShadow="lg"
             zIndex={999}
             aria-label="Ouvrir le menu"
             _hover={{ 
               bg: "rbe.50", 
-              borderColor: "rbe.600",
+              borderColor: "transparent",
               color: "rbe.600",
               boxShadow: "xl" 
             }}
             _active={{ 
               bg: "rbe.100",
-              borderColor: "rbe.700",
+              borderColor: "transparent",
               color: "rbe.700"
             }}
+            _focus={{ boxShadow: "lg", borderColor: "transparent" }}
+            _focusVisible={{ boxShadow: "lg", borderColor: "transparent" }}
           />
         )}
         
