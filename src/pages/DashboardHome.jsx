@@ -626,20 +626,6 @@ export default function DashboardHome() {
                   )}
                 </CardBody>
               </Card>
-                          {stats.members.total} adhérent{stats.members.total !== 1 ? 's' : ''}
-                        </Text>
-                      )}
-                    </HStack>
-                    <Progress 
-                      value={stats.members.total > 0 ? (stats.members.active / stats.members.total) * 100 : 0} 
-                      colorScheme="gray" 
-                      size="sm" 
-                      w="full"
-                      isIndeterminate={stats.members.loading}
-                    />
-                  </VStack>
-                </CardBody>
-              </Card>
             </SimpleGrid>
 
             {/* Les RétroActus */}
