@@ -308,12 +308,13 @@ const theme = extendTheme({
   
   // === LAYOUT ===
   breakpoints: {
-    base: '0em',
-    sm: '30em',
-    md: '48em',
-    lg: '62em',
-    xl: '80em',
-    '2xl': '96em',
+    base: '0em',      // 0px - Mobile portrait
+    sm: '30em',       // 480px - Mobile landscape
+    md: '48em',       // 768px - Tablette portrait
+    tablet: '64em',   // 1024px - Tablette landscape (iPad Pro)
+    lg: '85.5em',     // 1368px - Surface Pro (2736x1824 @ 200% scaling)
+    xl: '90em',       // 1440px - Laptop standard
+    '2xl': '120em',   // 1920px - Desktop large
   },
   
   // === SHADOWS ===
