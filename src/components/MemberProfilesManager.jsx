@@ -10,6 +10,7 @@ import {
 } from '@chakra-ui/react';
 import { FiDownload, FiRefreshCw, FiSave, FiTrash2, FiUpload, FiX } from 'react-icons/fi';
 import { membersAPI } from '../api/members';
+import { fetchWithCSRF, fetchCSRFToken, getStoredCSRFToken, updateCSRFTokenFromResponse } from '../lib/csrfClient';
 
 const MEMBERSHIP_TYPES = {
   STANDARD: 'Adhésion Standard',
@@ -147,16 +148,27 @@ export default function MemberProfilesManager() {
       const token = localStorage.getItem('token');
       
       try {
-        const response = await fetch(`/api/settings/member-profiles/${memberId}`, {
+        const response = await fetch(`/api/members/${memberId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
         
         if (response.ok) {
-          const data = await response.json();
-          setFormData(prev => ({ ...prev, ...data.memberProfile }));
-          setDocuments(data.documents || []);
+          const memberData = await response.json();
+          setFormData(prev => ({ ...prev, ...memberData }));
+
+          const docsResponse = await fetch(`/api/members/${memberId}/documents`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (docsResponse.ok) {
+            const docsData = await docsResponse.json();
+            setDocuments(Array.isArray(docsData?.documents) ? docsData.documents : []);
+          } else {
+            setDocuments([]);
+          }
           return;
         }
       } catch (apiError) {
@@ -245,12 +257,8 @@ export default function MemberProfilesManager() {
 
       for (const url of candidates) {
         try {
-          const response = await fetch(url, {
+          const response = await fetchWithCSRF(url, {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify(payload)
           });
           
@@ -262,6 +270,10 @@ export default function MemberProfilesManager() {
             });
             success = true;
             break;
+          }
+          if (response.status === 403) {
+            const errBody = await response.clone().json().catch(() => ({}));
+            throw new Error(errBody?.error || errBody?.code || 'Acces refuse (403)');
           }
         } catch (e) {
           console.warn(`Tentative échouée: ${url}`, e.message);
@@ -297,18 +309,26 @@ export default function MemberProfilesManager() {
       formDataUpload.append('documentType', newDocument.documentType);
       formDataUpload.append('expiryDate', newDocument.expiryDate || '');
 
+      let csrfToken = getStoredCSRFToken();
+      if (!csrfToken) {
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        csrfToken = await fetchCSRFToken(apiBase);
+      }
+
       try {
-        const response = await fetch(`/api/settings/member-profiles/${selectedMemberId}/documents`, {
+        const response = await fetch(`/api/members/${selectedMemberId}/documents`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
           },
           body: formDataUpload
         });
 
         if (response.ok) {
+          updateCSRFTokenFromResponse(response);
           const result = await response.json();
-          setDocuments(prev => [...prev, result.document]);
+          setDocuments(prev => [...prev, result.document || result]);
           onUploadClose();
           setNewDocument({ file: null, documentType: 'Pièce d\'identité', expiryDate: '' });
           toast({ status: 'success', title: 'Document ajouté' });
@@ -349,11 +369,8 @@ export default function MemberProfilesManager() {
       const token = localStorage.getItem('token');
 
       try {
-        const response = await fetch(`/api/settings/member-profiles/${selectedMemberId}/documents/${selectedDocument.id}`, {
+        const response = await fetchWithCSRF(`/api/members/${selectedMemberId}/documents/${selectedDocument.id}`, {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
         });
 
         if (response.ok) {

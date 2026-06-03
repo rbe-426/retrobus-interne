@@ -8,7 +8,7 @@ import {
   IconButton, Menu, MenuButton, MenuList, MenuItem, MenuDivider, useColorModeValue,
   Spinner, Divider, Avatar, Tag, TagLabel
 } from '@chakra-ui/react';
-import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus, FiBook, FiLifeBuoy } from 'react-icons/fi';
+import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus, FiBook, FiLifeBuoy, FiEye } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
 
@@ -136,11 +136,13 @@ export default function SupportSite() {
   } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isKnowledgeOpen, onOpen: onKnowledgeOpen, onClose: onKnowledgeClose } = useDisclosure();
+  const { isOpen: isKnowledgeViewOpen, onOpen: onKnowledgeViewOpen, onClose: onKnowledgeViewClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedKnowledgeDoc, setSelectedKnowledgeDoc] = useState(null);
+  const [viewKnowledgeDoc, setViewKnowledgeDoc] = useState(null);
 
   const [reportFormData, setReportFormData] = useState({ title: '', description: '', category: '', priority: 'medium', type: 'bug' });
   const [editFormData, setEditFormData] = useState({ title: '', description: '', category: '', priority: 'medium', type: 'bug' });
@@ -148,10 +150,19 @@ export default function SupportSite() {
   const [knowledgeDocs, setKnowledgeDocs] = useState([]);
   const [knowledgeFormData, setKnowledgeFormData] = useState({
     title: '',
+    docType: 'process',
     category: 'process',
     summary: '',
     content: '',
-    tags: ''
+    tags: '',
+    processObjective: '',
+    processTrigger: '',
+    processActors: '',
+    processSteps: '',
+    jobMission: '',
+    jobResponsibilities: '',
+    jobSkills: '',
+    jobTools: ''
   });
   const [reportScreenshots, setReportScreenshots] = useState([]); // File[]
 
@@ -175,20 +186,150 @@ export default function SupportSite() {
 
   const KB_STORAGE_KEY = 'rbe_knowledge_base_docs_v1';
 
+  const buildProcessDocument = useCallback((data) => {
+    const steps = data.processSteps
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, index) => `${index + 1}. ${line.replace(/^\d+[.)-]?\s*/, '')}`)
+      .join('\n');
+
+    return [
+      `Objectif: ${data.processObjective || 'Non renseigné'}`,
+      `Declencheur: ${data.processTrigger || 'Non renseigné'}`,
+      `Acteurs: ${data.processActors || 'Non renseigné'}`,
+      '',
+      'Etapes:',
+      steps || '1. A definir',
+      '',
+      'Details complementaires:',
+      data.content || 'Aucun detail complementaire.'
+    ].join('\n');
+  }, []);
+
+  const buildJobSheetDocument = useCallback((data) => {
+    return [
+      `Mission principale: ${data.jobMission || 'Non renseignée'}`,
+      '',
+      'Responsabilites:',
+      data.jobResponsibilities || 'A definir',
+      '',
+      'Competences requises:',
+      data.jobSkills || 'A definir',
+      '',
+      'Outils / logiciels:',
+      data.jobTools || 'A definir',
+      '',
+      'Consignes / notes operationnelles:',
+      data.content || 'Aucune consigne supplementaire.'
+    ].join('\n');
+  }, []);
+
+  const knowledgeTemplates = useMemo(() => ({
+    process_support_ticket: {
+      title: 'Processus de traitement des tickets support',
+      docType: 'process',
+      category: 'process',
+      summary: 'Workflow de prise en charge des incidents support.',
+      tags: 'support, ticket, process',
+      processObjective: 'Traiter tout ticket en moins de 48h avec suivi transparent.',
+      processTrigger: 'Creation d un nouveau ticket utilisateur.',
+      processActors: 'Support N1, Support N2, Referent metier',
+      processSteps: 'Qualifier le ticket\nAffecter le ticket\nAnalyser et corriger\nValider avec le demandeur\nCloturer et documenter',
+      content: 'Escalade en priorite haute si blocage metier critique.'
+    },
+    process_checkin: {
+      title: 'Processus de check-in evenement',
+      docType: 'process',
+      category: 'procedure',
+      summary: 'Procedure standard de verification et validation check-in.',
+      tags: 'check-in, evenement, accueil',
+      processObjective: 'Fluidifier l accueil et fiabiliser les controles d acces.',
+      processTrigger: 'Arrivee d un participant au point accueil.',
+      processActors: 'Accueil, Securite, Coordinateur evenement',
+      processSteps: 'Verifier identite\nVerifier inscription\nValider check-in\nOrienter participant\nSignaler anomalies',
+      content: 'En cas d anomalie, transferer au coordinateur sous 2 minutes.'
+    },
+    job_sheet_support_agent: {
+      title: 'Fiche metier - Agent Support Interne',
+      docType: 'job_sheet',
+      category: 'training',
+      summary: 'Role, responsabilites et competences de l agent support.',
+      tags: 'fiche metier, support, formation',
+      jobMission: 'Assurer la continuite des services numeriques internes.',
+      jobResponsibilities: '- Reception et qualification des demandes\n- Resolution incidents niveau 1\n- Escalade vers niveau 2',
+      jobSkills: '- Communication claire\n- Analyse d incident\n- Maitrise outils internes',
+      jobTools: 'SupportSite, tableaux de bord, messagerie interne',
+      content: 'Respecter les SLA et tenir les utilisateurs informes.'
+    },
+    job_sheet_reception: {
+      title: 'Fiche metier - Charge Accueil Evenements',
+      docType: 'job_sheet',
+      category: 'training',
+      summary: 'Cadre de mission pour l accueil lors des operations terrain.',
+      tags: 'fiche metier, accueil, evenement',
+      jobMission: 'Garantir un accueil fluide et securise des participants.',
+      jobResponsibilities: '- Accueillir les visiteurs\n- Verifier les pre-requis\n- Coordonner avec securite et logistique',
+      jobSkills: '- Sens du contact\n- Rigueur operationnelle\n- Gestion des priorites',
+      jobTools: 'Liste participants, check-in mobile, radio interne',
+      content: 'Remonter immediatement tout incident organisationnel.'
+    }
+  }), []);
+
+  const getSeedKnowledgeDocs = useCallback((author) => {
+    const now = new Date().toISOString();
+    const authorName = author || 'Systeme';
+    return Object.values(knowledgeTemplates).map((template, index) => {
+      const generatedContent = template.docType === 'job_sheet'
+        ? buildJobSheetDocument(template)
+        : buildProcessDocument(template);
+
+      return {
+        id: `kb_seed_${index + 1}`,
+        title: template.title,
+        docType: template.docType,
+        category: template.category,
+        summary: template.summary,
+        content: generatedContent,
+        tags: template.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        processObjective: template.processObjective || '',
+        processTrigger: template.processTrigger || '',
+        processActors: template.processActors || '',
+        processSteps: template.processSteps || '',
+        jobMission: template.jobMission || '',
+        jobResponsibilities: template.jobResponsibilities || '',
+        jobSkills: template.jobSkills || '',
+        jobTools: template.jobTools || '',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: authorName,
+        updatedBy: authorName
+      };
+    });
+  }, [buildJobSheetDocument, buildProcessDocument, knowledgeTemplates]);
+
   const loadKnowledgeDocs = useCallback(() => {
     try {
       const raw = localStorage.getItem(KB_STORAGE_KEY);
       if (!raw) {
-        setKnowledgeDocs([]);
+        const seeded = getSeedKnowledgeDocs(user?.prenom || user?.name);
+        localStorage.setItem(KB_STORAGE_KEY, JSON.stringify(seeded));
+        setKnowledgeDocs(seeded);
         return;
       }
       const parsed = JSON.parse(raw);
-      setKnowledgeDocs(Array.isArray(parsed) ? parsed : []);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        const seeded = getSeedKnowledgeDocs(user?.prenom || user?.name);
+        localStorage.setItem(KB_STORAGE_KEY, JSON.stringify(seeded));
+        setKnowledgeDocs(seeded);
+        return;
+      }
+      setKnowledgeDocs(parsed);
     } catch (e) {
       console.error('Erreur chargement KB:', e);
       setKnowledgeDocs([]);
     }
-  }, []);
+  }, [getSeedKnowledgeDocs, user?.name, user?.prenom]);
 
   const persistKnowledgeDocs = useCallback((docs) => {
     localStorage.setItem(KB_STORAGE_KEY, JSON.stringify(docs));
@@ -198,19 +339,39 @@ export default function SupportSite() {
   const resetKnowledgeForm = useCallback(() => {
     setKnowledgeFormData({
       title: '',
+      docType: 'process',
       category: 'process',
       summary: '',
       content: '',
-      tags: ''
+      tags: '',
+      processObjective: '',
+      processTrigger: '',
+      processActors: '',
+      processSteps: '',
+      jobMission: '',
+      jobResponsibilities: '',
+      jobSkills: '',
+      jobTools: ''
     });
     setSelectedKnowledgeDoc(null);
   }, []);
 
+  const applyKnowledgeTemplate = useCallback((templateKey) => {
+    const template = knowledgeTemplates[templateKey];
+    if (!template) return;
+    setSelectedKnowledgeDoc(null);
+    setKnowledgeFormData((prev) => ({
+      ...prev,
+      ...template
+    }));
+    onKnowledgeOpen();
+  }, [knowledgeTemplates, onKnowledgeOpen]);
+
   const handleKnowledgeSubmit = useCallback(() => {
-    if (!knowledgeFormData.title.trim() || !knowledgeFormData.content.trim()) {
+    if (!knowledgeFormData.title.trim()) {
       toast({
         title: 'Erreur',
-        description: 'Titre et contenu requis',
+        description: 'Titre requis',
         status: 'error',
         duration: 2500,
         isClosable: true
@@ -224,42 +385,65 @@ export default function SupportSite() {
       .map((t) => t.trim())
       .filter(Boolean);
 
+    const generatedContent = knowledgeFormData.docType === 'job_sheet'
+      ? buildJobSheetDocument(knowledgeFormData)
+      : buildProcessDocument(knowledgeFormData);
+
     if (selectedKnowledgeDoc) {
       const updated = knowledgeDocs.map((doc) => (
         doc.id === selectedKnowledgeDoc.id
           ? {
               ...doc,
               title: knowledgeFormData.title.trim(),
+              docType: knowledgeFormData.docType,
               category: knowledgeFormData.category,
               summary: knowledgeFormData.summary.trim(),
-              content: knowledgeFormData.content.trim(),
+              content: generatedContent,
               tags,
+              processObjective: knowledgeFormData.processObjective,
+              processTrigger: knowledgeFormData.processTrigger,
+              processActors: knowledgeFormData.processActors,
+              processSteps: knowledgeFormData.processSteps,
+              jobMission: knowledgeFormData.jobMission,
+              jobResponsibilities: knowledgeFormData.jobResponsibilities,
+              jobSkills: knowledgeFormData.jobSkills,
+              jobTools: knowledgeFormData.jobTools,
               updatedAt: now,
               updatedBy: user?.prenom || user?.name || 'Utilisateur'
             }
           : doc
       ));
       persistKnowledgeDocs(updated);
-      toast({ title: 'Succès', description: 'Processus mis à jour', status: 'success', duration: 2500, isClosable: true });
+      toast({ title: 'Succès', description: 'Document mis à jour', status: 'success', duration: 2500, isClosable: true });
     } else {
       const doc = {
         id: `kb_${Date.now()}`,
         title: knowledgeFormData.title.trim(),
+        docType: knowledgeFormData.docType,
         category: knowledgeFormData.category,
         summary: knowledgeFormData.summary.trim(),
-        content: knowledgeFormData.content.trim(),
+        content: generatedContent,
         tags,
+        processObjective: knowledgeFormData.processObjective,
+        processTrigger: knowledgeFormData.processTrigger,
+        processActors: knowledgeFormData.processActors,
+        processSteps: knowledgeFormData.processSteps,
+        jobMission: knowledgeFormData.jobMission,
+        jobResponsibilities: knowledgeFormData.jobResponsibilities,
+        jobSkills: knowledgeFormData.jobSkills,
+        jobTools: knowledgeFormData.jobTools,
         createdAt: now,
         updatedAt: now,
-        createdBy: user?.prenom || user?.name || 'Utilisateur'
+        createdBy: user?.prenom || user?.name || 'Utilisateur',
+        updatedBy: user?.prenom || user?.name || 'Utilisateur'
       };
       persistKnowledgeDocs([doc, ...knowledgeDocs]);
-      toast({ title: 'Succès', description: 'Processus ajouté à la Knowledge Base', status: 'success', duration: 2500, isClosable: true });
+      toast({ title: 'Succès', description: 'Document ajouté à la Knowledge Base', status: 'success', duration: 2500, isClosable: true });
     }
 
     resetKnowledgeForm();
     onKnowledgeClose();
-  }, [knowledgeDocs, knowledgeFormData, onKnowledgeClose, persistKnowledgeDocs, resetKnowledgeForm, selectedKnowledgeDoc, toast, user]);
+  }, [buildJobSheetDocument, buildProcessDocument, knowledgeDocs, knowledgeFormData, onKnowledgeClose, persistKnowledgeDocs, resetKnowledgeForm, selectedKnowledgeDoc, toast, user]);
 
   const handleKnowledgeDelete = useCallback((docId) => {
     if (!window.confirm('Supprimer ce document de la Knowledge Base ?')) return;
@@ -272,13 +456,27 @@ export default function SupportSite() {
     setSelectedKnowledgeDoc(doc);
     setKnowledgeFormData({
       title: doc.title || '',
+      docType: doc.docType || 'process',
       category: doc.category || 'process',
       summary: doc.summary || '',
       content: doc.content || '',
-      tags: Array.isArray(doc.tags) ? doc.tags.join(', ') : ''
+      tags: Array.isArray(doc.tags) ? doc.tags.join(', ') : '',
+      processObjective: doc.processObjective || '',
+      processTrigger: doc.processTrigger || '',
+      processActors: doc.processActors || '',
+      processSteps: doc.processSteps || '',
+      jobMission: doc.jobMission || '',
+      jobResponsibilities: doc.jobResponsibilities || '',
+      jobSkills: doc.jobSkills || '',
+      jobTools: doc.jobTools || ''
     });
     onKnowledgeOpen();
   }, [onKnowledgeOpen]);
+
+  const handleKnowledgeView = useCallback((doc) => {
+    setViewKnowledgeDoc(doc);
+    onKnowledgeViewOpen();
+  }, [onKnowledgeViewOpen]);
 
   useEffect(() => {
     (async () => {
@@ -504,6 +702,15 @@ export default function SupportSite() {
     }
   };
 
+  const knowledgeCountByCategory = useMemo(() => {
+    const init = { process: 0, procedure: 0, technical: 0, faq: 0, emergency: 0, training: 0 };
+    return knowledgeDocs.reduce((acc, doc) => {
+      const key = doc.category || 'process';
+      if (acc[key] !== undefined) acc[key] += 1;
+      return acc;
+    }, init);
+  }, [knowledgeDocs]);
+
   if (loading) {
     return (
       <Box p={6}>
@@ -564,15 +771,6 @@ export default function SupportSite() {
     </VStack>
   );
 
-  const knowledgeCountByCategory = useMemo(() => {
-    const init = { process: 0, procedure: 0, technical: 0, faq: 0, emergency: 0, training: 0 };
-    return knowledgeDocs.reduce((acc, doc) => {
-      const key = doc.category || 'process';
-      if (acc[key] !== undefined) acc[key] += 1;
-      return acc;
-    }, init);
-  }, [knowledgeDocs]);
-
   const KnowledgeContent = () => (
     <VStack spacing={6} align="stretch">
       <HStack justify="space-between">
@@ -580,17 +778,50 @@ export default function SupportSite() {
           <Heading size="sm">Base de connaissances</Heading>
           <Text fontSize="sm" color="gray.600">Documentation des processus, guides et procédures</Text>
         </VStack>
-        <Button
-          leftIcon={<FiPlus />}
-          colorScheme="red"
-          onClick={() => {
-            resetKnowledgeForm();
-            onKnowledgeOpen();
-          }}
-        >
-          Nouveau document
-        </Button>
+        <HStack>
+          <Button
+            leftIcon={<FiPlus />}
+            colorScheme="blue"
+            onClick={() => {
+              resetKnowledgeForm();
+              onKnowledgeOpen();
+            }}
+          >
+            Nouveau processus
+          </Button>
+          <Button
+            leftIcon={<FiPlus />}
+            colorScheme="teal"
+            variant="outline"
+            onClick={() => {
+              resetKnowledgeForm();
+              setKnowledgeFormData((prev) => ({
+                ...prev,
+                docType: 'job_sheet',
+                category: 'training'
+              }));
+              onKnowledgeOpen();
+            }}
+          >
+            Nouvelle fiche metier
+          </Button>
+        </HStack>
       </HStack>
+
+      <Card bg={cardBg} border="1px solid" borderColor={borderColor}>
+        <CardBody>
+          <VStack align="start" spacing={3}>
+            <Heading size="xs">Formulaires rapides</Heading>
+            <Text fontSize="sm" color="gray.600">Demarrer avec un modele pre-rempli pour gagner du temps.</Text>
+            <HStack flexWrap="wrap" spacing={2}>
+              <Button size="sm" variant="outline" onClick={() => applyKnowledgeTemplate('process_support_ticket')}>Modele processus support</Button>
+              <Button size="sm" variant="outline" onClick={() => applyKnowledgeTemplate('process_checkin')}>Modele processus check-in</Button>
+              <Button size="sm" variant="outline" onClick={() => applyKnowledgeTemplate('job_sheet_support_agent')}>Modele fiche support</Button>
+              <Button size="sm" variant="outline" onClick={() => applyKnowledgeTemplate('job_sheet_reception')}>Modele fiche accueil</Button>
+            </HStack>
+          </VStack>
+        </CardBody>
+      </Card>
 
       <Alert status="info" variant="left-accent">
         <AlertIcon />
@@ -697,6 +928,9 @@ export default function SupportSite() {
                       <HStack>
                         <Heading size="sm">{doc.title}</Heading>
                         <Badge colorScheme="blue" variant="subtle">{doc.category}</Badge>
+                        <Badge colorScheme={doc.docType === 'job_sheet' ? 'teal' : 'purple'} variant="outline">
+                          {doc.docType === 'job_sheet' ? 'Fiche metier' : 'Processus'}
+                        </Badge>
                       </HStack>
                       {doc.summary && <Text fontSize="sm" color="gray.600">{doc.summary}</Text>}
                       <Text fontSize="xs" color="gray.500">
@@ -713,6 +947,13 @@ export default function SupportSite() {
                       )}
                     </VStack>
                     <HStack>
+                      <IconButton
+                        aria-label="Consulter"
+                        icon={<FiEye />}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleKnowledgeView(doc)}
+                      />
                       <IconButton
                         aria-label="Editer"
                         icon={<FiEdit3 />}
@@ -987,20 +1228,35 @@ export default function SupportSite() {
       <Modal isOpen={isKnowledgeOpen} onClose={() => { onKnowledgeClose(); resetKnowledgeForm(); }} size="xl">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>{selectedKnowledgeDoc ? 'Modifier le document' : 'Nouveau processus'}</ModalHeader>
+          <ModalHeader>
+            {selectedKnowledgeDoc
+              ? 'Modifier le document'
+              : knowledgeFormData.docType === 'job_sheet'
+                ? 'Nouvelle fiche metier'
+                : 'Nouveau processus'}
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4} align="stretch">
-              <FormControl isRequired>
-                <FormLabel>Titre</FormLabel>
-                <Input
-                  value={knowledgeFormData.title}
-                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Ex: Processus de validation des tickets"
-                />
-              </FormControl>
-
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
+                <FormControl>
+                  <FormLabel>Type de document</FormLabel>
+                  <Select
+                    value={knowledgeFormData.docType}
+                    onChange={(e) => {
+                      const nextType = e.target.value;
+                      setKnowledgeFormData((prev) => ({
+                        ...prev,
+                        docType: nextType,
+                        category: nextType === 'job_sheet' ? 'training' : 'process'
+                      }));
+                    }}
+                  >
+                    <option value="process">Processus</option>
+                    <option value="job_sheet">Fiche metier</option>
+                  </Select>
+                </FormControl>
+
                 <FormControl>
                   <FormLabel>Catégorie</FormLabel>
                   <Select
@@ -1015,7 +1271,18 @@ export default function SupportSite() {
                     <option value="training">Formations</option>
                   </Select>
                 </FormControl>
+              </SimpleGrid>
 
+              <FormControl isRequired>
+                <FormLabel>Titre</FormLabel>
+                <Input
+                  value={knowledgeFormData.title}
+                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder={knowledgeFormData.docType === 'job_sheet' ? 'Ex: Fiche metier - Agent Accueil' : 'Ex: Processus de validation des tickets'}
+                />
+              </FormControl>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                 <FormControl>
                   <FormLabel>Tags (optionnel)</FormLabel>
                   <Input
@@ -1024,24 +1291,109 @@ export default function SupportSite() {
                     placeholder="check-in, support, process"
                   />
                 </FormControl>
+
+                <FormControl>
+                  <FormLabel>Résumé</FormLabel>
+                  <Input
+                    value={knowledgeFormData.summary}
+                    onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, summary: e.target.value }))}
+                    placeholder={knowledgeFormData.docType === 'job_sheet' ? 'Synthese du role' : 'Description courte du processus'}
+                  />
+                </FormControl>
               </SimpleGrid>
 
-              <FormControl>
-                <FormLabel>Résumé</FormLabel>
-                <Input
-                  value={knowledgeFormData.summary}
-                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, summary: e.target.value }))}
-                  placeholder="Description courte du processus"
-                />
-              </FormControl>
+              {knowledgeFormData.docType === 'process' ? (
+                <>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
+                    <FormControl>
+                      <FormLabel>Objectif</FormLabel>
+                      <Input
+                        value={knowledgeFormData.processObjective}
+                        onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, processObjective: e.target.value }))}
+                        placeholder="Resultat attendu du processus"
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Declencheur</FormLabel>
+                      <Input
+                        value={knowledgeFormData.processTrigger}
+                        onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, processTrigger: e.target.value }))}
+                        placeholder="Quand lancer ce processus"
+                      />
+                    </FormControl>
+                  </SimpleGrid>
 
-              <FormControl isRequired>
-                <FormLabel>Contenu du processus</FormLabel>
+                  <FormControl>
+                    <FormLabel>Acteurs</FormLabel>
+                    <Input
+                      value={knowledgeFormData.processActors}
+                      onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, processActors: e.target.value }))}
+                      placeholder="Ex: Support N1, Referent metier"
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Etapes (une ligne = une etape)</FormLabel>
+                    <Textarea
+                      rows={5}
+                      value={knowledgeFormData.processSteps}
+                      onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, processSteps: e.target.value }))}
+                      placeholder={"Qualifier la demande\nAffecter le ticket\nResoudre\nValider\nCloturer"}
+                    />
+                  </FormControl>
+                </>
+              ) : (
+                <>
+                  <FormControl>
+                    <FormLabel>Mission principale</FormLabel>
+                    <Input
+                      value={knowledgeFormData.jobMission}
+                      onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, jobMission: e.target.value }))}
+                      placeholder="Objectif principal du poste"
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Responsabilites</FormLabel>
+                    <Textarea
+                      rows={4}
+                      value={knowledgeFormData.jobResponsibilities}
+                      onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, jobResponsibilities: e.target.value }))}
+                      placeholder={"- Activite 1\n- Activite 2\n- Activite 3"}
+                    />
+                  </FormControl>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
+                    <FormControl>
+                      <FormLabel>Competences</FormLabel>
+                      <Textarea
+                        rows={4}
+                        value={knowledgeFormData.jobSkills}
+                        onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, jobSkills: e.target.value }))}
+                        placeholder={"- Competence 1\n- Competence 2"}
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Outils / logiciels</FormLabel>
+                      <Textarea
+                        rows={4}
+                        value={knowledgeFormData.jobTools}
+                        onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, jobTools: e.target.value }))}
+                        placeholder="Liste des outils utilises"
+                      />
+                    </FormControl>
+                  </SimpleGrid>
+                </>
+              )}
+
+              <FormControl>
+                <FormLabel>{knowledgeFormData.docType === 'job_sheet' ? 'Consignes / notes complementaires' : 'Details complementaires'}</FormLabel>
                 <Textarea
                   rows={8}
                   value={knowledgeFormData.content}
                   onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, content: e.target.value }))}
-                  placeholder={"Etape 1: ...\nEtape 2: ...\nEtape 3: ..."}
+                  placeholder={knowledgeFormData.docType === 'job_sheet' ? 'Consignes specifiques, points de vigilance...' : 'Contraintes, exceptions, escalade...'}
                 />
               </FormControl>
             </VStack>
@@ -1053,6 +1405,58 @@ export default function SupportSite() {
             <Button colorScheme="red" onClick={handleKnowledgeSubmit} leftIcon={<FiPlus />}>
               {selectedKnowledgeDoc ? 'Mettre a jour' : 'Ajouter'}
             </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal consultation Knowledge Base */}
+      <Modal isOpen={isKnowledgeViewOpen} onClose={onKnowledgeViewClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Consultation document</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {viewKnowledgeDoc ? (
+              <VStack align="stretch" spacing={4}>
+                <VStack align="start" spacing={1}>
+                  <HStack>
+                    <Heading size="md">{viewKnowledgeDoc.title}</Heading>
+                    <Badge colorScheme="blue" variant="subtle">{viewKnowledgeDoc.category}</Badge>
+                    <Badge colorScheme={viewKnowledgeDoc.docType === 'job_sheet' ? 'teal' : 'purple'} variant="outline">
+                      {viewKnowledgeDoc.docType === 'job_sheet' ? 'Fiche metier' : 'Processus'}
+                    </Badge>
+                  </HStack>
+                  {viewKnowledgeDoc.summary && (
+                    <Text fontSize="sm" color="gray.600">{viewKnowledgeDoc.summary}</Text>
+                  )}
+                  <Text fontSize="xs" color="gray.500">
+                    Mis a jour le {new Date(viewKnowledgeDoc.updatedAt || viewKnowledgeDoc.createdAt).toLocaleDateString('fr-FR')} par {viewKnowledgeDoc.updatedBy || viewKnowledgeDoc.createdBy || 'N/A'}
+                  </Text>
+                </VStack>
+
+                {Array.isArray(viewKnowledgeDoc.tags) && viewKnowledgeDoc.tags.length > 0 && (
+                  <HStack spacing={2} flexWrap="wrap">
+                    {viewKnowledgeDoc.tags.map((tag) => (
+                      <Tag key={`view_${viewKnowledgeDoc.id}_${tag}`} size="sm" variant="subtle" colorScheme="gray">
+                        <TagLabel>{tag}</TagLabel>
+                      </Tag>
+                    ))}
+                  </HStack>
+                )}
+
+                <Box p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
+                  <Text whiteSpace="pre-line" fontSize="sm">{viewKnowledgeDoc.content || 'Aucun contenu.'}</Text>
+                </Box>
+              </VStack>
+            ) : (
+              <Alert status="info">
+                <AlertIcon />
+                Aucun document selectionne.
+              </Alert>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onKnowledgeViewClose}>Fermer</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
