@@ -141,6 +141,7 @@ export default function StockManagement() {
   const { isOpen: isMovementModalOpen, onOpen: onMovementModalOpen, onClose: onMovementModalClose } = useDisclosure();
   const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure();
   const cancelRef = useRef();
+  const hasShownStocksUnavailableToast = useRef(false);
 
   // Charger les données
   useEffect(() => {
@@ -161,15 +162,19 @@ export default function StockManagement() {
       // response est déjà le JSON; pas de response.data ici
       const list = response?.stocks ?? (Array.isArray(response) ? response : []);
       setStocks(list);
+      hasShownStocksUnavailableToast.current = false;
     } catch (error) {
       console.error('Erreur lors du chargement des stocks:', error);
       setStocks([]); // fallback
-      toast({
-        title: 'Stocks indisponibles',
-        description: 'L’API des stocks n’est pas encore prête ou a renvoyé une erreur',
-        status: 'warning',
-        duration: 3000,
-      });
+      if (!hasShownStocksUnavailableToast.current) {
+        toast({
+          title: 'Stocks indisponibles',
+          description: 'L’API des stocks n’est pas encore prête ou a renvoyé une erreur',
+          status: 'warning',
+          duration: 3000,
+        });
+        hasShownStocksUnavailableToast.current = true;
+      }
     } finally {
       setLoading(false);
     }
