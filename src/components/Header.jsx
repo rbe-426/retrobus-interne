@@ -394,11 +394,13 @@ export default function Header() {
               />
             }
             size="xl"
-            bg="var(--rbe-red)"
-            _hover={{ bg: "rgba(187, 31, 17, 0.8)" }}
-            _active={{ bg: "var(--rbe-red)" }}
-            _focus={{ bg: "var(--rbe-red)", boxShadow: "none" }}
-            _focusVisible={{ bg: "var(--rbe-red)", boxShadow: "none" }}
+            variant="solid"
+            bg="#bb1f11"
+            color="white"
+            _hover={{ bg: "#a11b0f" }}
+            _active={{ bg: "#8a170d" }}
+            _focus={{ bg: "#a11b0f", boxShadow: "none" }}
+            _focusVisible={{ bg: "#a11b0f", boxShadow: "none" }}
             onClick={navDrawer.onOpen}
             title="Ouvrir le menu"
             position="absolute"
@@ -465,15 +467,15 @@ export default function Header() {
         size="full"
       >
         <DrawerOverlay backdropFilter="blur(4px)" />
-        <DrawerContent maxW="80vw" bg="gray.50">
-          <DrawerCloseButton size="lg" mr={3} mt={2} />
-          <DrawerHeader bg="var(--rbe-red)" color="white" py={5}>
-            <Text fontWeight="bold" fontSize="lg">👋 Bonjour {prenom || 'Utilisateur'}</Text>
+        <DrawerContent maxW="82vw" bg="gray.50" boxShadow="-8px 0 24px rgba(0,0,0,0.18)">
+          <DrawerCloseButton size="lg" mr={3} mt={2} color="white" _hover={{ bg: "whiteAlpha.300" }} />
+          <DrawerHeader bg="rbe.500" color="white" py={5}>
+            <Text fontWeight="bold" fontSize="lg" color="white">👋 Bonjour {prenom || 'Utilisateur'}</Text>
             {unreadCount > 0 && (
               <Text fontSize="sm" color="whiteAlpha.800" mt={2}>{unreadCount} flash(s) non lu(s)</Text>
             )}
           </DrawerHeader>
-          <DrawerBody p={0}>
+          <DrawerBody p={0} bg="white">
             <VStack align="stretch" spacing={0}>
               <Button 
                 as={RouterLink} 
@@ -481,9 +483,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 📊 Accueil
               </Button>
@@ -493,9 +497,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 🚗 Véhicules
               </Button>
@@ -505,9 +511,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 📅 Événements
               </Button>
@@ -517,9 +525,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 👤 MyRBE
               </Button>
@@ -529,9 +539,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 🛍️ RétroMerch
               </Button>
@@ -540,9 +552,11 @@ export default function Header() {
                 onClick={() => { viewer.onOpen(); navDrawer.onClose(); }} 
                 variant="ghost" 
                 justifyContent="flex-start" 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 ⭐ Voir les flashs
               </Button>
@@ -551,9 +565,11 @@ export default function Header() {
                   onClick={() => { manage.onOpen(); navDrawer.onClose(); }} 
                   variant="ghost" 
                   justifyContent="flex-start" 
-                  py={4} 
-                  px={5}
+                  py={3} 
+                  px={4}
+                  fontWeight="600"
                   _hover={{ bg: "gray.100" }}
+                  _active={{ bg: "gray.200" }}
                 >
                   ⚡ Gérer les flashs
                 </Button>
@@ -565,9 +581,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 📋 Mon Adhésion
               </Button>
@@ -577,9 +595,11 @@ export default function Header() {
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
               >
                 📧 RétroMail
               </Button>
@@ -588,9 +608,11 @@ export default function Header() {
                 colorScheme="red" 
                 justifyContent="flex-start" 
                 variant="ghost" 
-                py={4} 
-                px={5}
+                py={3} 
+                px={4}
+                fontWeight="600"
                 _hover={{ bg: "red.50" }}
+                _active={{ bg: "red.100" }}
                 mt={4}
               >
                 🔐 Déconnexion

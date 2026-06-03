@@ -7,12 +7,13 @@ import {
   Heading,
   Text,
   Icon,
+  IconButton,
   Flex,
   useColorModeValue,
   useMediaQuery,
   Divider
 } from "@chakra-ui/react";
-import { FiMenu, FiX } from "react-icons/fi";
+import { FiMenu, FiX, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
 /**
  * WorkspaceLayout - shared shell for MyRBE feature pages.
@@ -64,6 +65,38 @@ const WorkspaceLayout = ({
 
   return (
     <HStack align="stretch" spacing={0} h="100vh" bg={bgMain}>
+      {!isMobile && (
+        <IconButton
+          icon={sidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
+          onClick={toggleSidebar}
+          position="fixed"
+          top="120px"
+          left={sidebarOpen ? "280px" : "0px"}
+          transform="translateX(-50%)"
+          size="sm"
+          bg="white"
+          color="blue.500"
+          borderRadius="full"
+          border="2px solid"
+          borderColor="blue.500"
+          boxShadow="md"
+          zIndex={30}
+          aria-label={sidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          transition="left 0.3s ease, transform 0.3s ease"
+          _hover={{
+            bg: "blue.50",
+            borderColor: "blue.600",
+            color: "blue.600",
+            boxShadow: "lg"
+          }}
+          _active={{
+            bg: "blue.100",
+            borderColor: "blue.700",
+            color: "blue.700"
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <Box
         w={sidebarOpen && !isMobile ? "280px" : isMobile ? "100%" : "0"}
@@ -148,12 +181,19 @@ const WorkspaceLayout = ({
       <Box flex={1} overflowY="auto" position="relative" h="100%" ref={mainContentRef}>
         {isMobile && !sidebarOpen && (
           <Button
+            data-no-full-width
             position="fixed"
-            top={4}
+            top="72px"
             left={4}
             size="sm"
             variant="solid"
-            zIndex={30}
+            colorScheme="blue"
+            zIndex={1201}
+            minW="44px"
+            w="44px"
+            h="44px"
+            borderRadius="md"
+            boxShadow="lg"
             onClick={toggleSidebar}
           >
             <FiMenu />

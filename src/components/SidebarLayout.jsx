@@ -44,33 +44,35 @@ export default function SidebarLayout({
         {/* Bouton hamburger flottant en haut à gauche */}
         {showToggleButton && (
           <IconButton
+            data-no-full-width
             icon={<FiMenu />}
             onClick={toggle}
             position="fixed"
-            top={4}
+            top="72px"
             left={4}
             size="lg"
-            bg="white"
-            color="rbe.500"
+            variant="solid"
+            bg="#bb1f11"
+            color="white"
             borderRadius="md"
             border="2px solid"
-            borderColor="transparent"
+            borderColor="#bb1f11"
             boxShadow="lg"
-            zIndex={999}
+            zIndex={1201}
             aria-label="Ouvrir le menu"
             _hover={{ 
-              bg: "rbe.50", 
-              borderColor: "transparent",
-              color: "rbe.600",
+              bg: "#a11b0f", 
+              borderColor: "#a11b0f",
+              color: "white",
               boxShadow: "xl" 
             }}
             _active={{ 
-              bg: "rbe.100",
-              borderColor: "transparent",
-              color: "rbe.700"
+              bg: "#8a170d",
+              borderColor: "#8a170d",
+              color: "white"
             }}
-            _focus={{ boxShadow: "lg", borderColor: "transparent" }}
-            _focusVisible={{ boxShadow: "lg", borderColor: "transparent" }}
+            _focus={{ boxShadow: "lg", borderColor: "#bb1f11" }}
+            _focusVisible={{ boxShadow: "lg", borderColor: "#bb1f11" }}
           />
         )}
         

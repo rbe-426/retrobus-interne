@@ -13,6 +13,7 @@ import {
   Badge,
   Divider,
   useColorModeValue,
+  useMediaQuery,
   Icon,
   Container,
   Tabs,
@@ -80,12 +81,14 @@ import { useUserRoles } from '../hooks/useUserRoles';
 import { useUser } from '../context/UserContext';
 import SubventionStats from '../components/Subventions/SubventionStats';
 import KpiCard from '../components/Subventions/KpiCard';
+import SidebarLayout from '../components/SidebarLayout';
 
 const EXPENSE_CATEGORIES = ['FUEL', 'MAINTENANCE', 'INSURANCE', 'MATERIAL', 'ADMINISTRATIVE', 'OTHER'];
 
 export default function SubventionCampaign() {
   // Utilisateur connecté
   const { user: currentUser } = useUser();
+  const [isMobileView] = useMediaQuery('(max-width: 768px)');
   
   // État de navigation
   const [activeMainSection, setActiveMainSection] = useState('overview');
@@ -2643,7 +2646,7 @@ export default function SubventionCampaign() {
                     <Divider />
 
                     {/* Statistiques */}
-                    <SimpleGrid columns={2} spacing={2} w="full">
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2} w="full">
                       {Object.entries(module.stats).map(([key, value], idx) => (
                         <Box 
                           key={idx} 
@@ -2855,7 +2858,7 @@ export default function SubventionCampaign() {
 
                     <Divider />
 
-                    <SimpleGrid columns={3} spacing={3} w="full">
+                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} w="full">
                       <Box textAlign="center">
                         <Text fontSize="2xl" fontWeight="bold" color={category.color}>
                           {category.products}
@@ -3548,7 +3551,7 @@ export default function SubventionCampaign() {
                         />
                       </FormControl>
 
-                      <SimpleGrid columns={2} spacing={4} w="full">
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                         <FormControl isRequired>
                           <FormLabel>Email</FormLabel>
                           <Input
@@ -3576,7 +3579,7 @@ export default function SubventionCampaign() {
 
                   <Box>
                     <Heading size="md" mb={4}>Date et heure de visite</Heading>
-                    <SimpleGrid columns={2} spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                       <FormControl isRequired>
                         <FormLabel>Date</FormLabel>
                         <Input
@@ -3601,7 +3604,7 @@ export default function SubventionCampaign() {
 
                   <Box>
                     <Heading size="md" mb={4}>Type de visite</Heading>
-                    <SimpleGrid columns={2} spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                       <FormControl isRequired>
                         <FormLabel>Type</FormLabel>
                         <Select
@@ -3771,7 +3774,7 @@ export default function SubventionCampaign() {
                                   <Text fontWeight="bold" fontSize="lg">{visitor.name || `Visiteur ${index + 1}`}</Text>
                                 </HStack>
                                 
-                                <SimpleGrid columns={2} spacing={4} w="full">
+                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                                   <Box>
                                     <Text fontSize="sm" color="gray.600">Tarif</Text>
                                     <Text fontWeight="medium">{tariff?.label} - {price}€</Text>
@@ -3852,7 +3855,7 @@ export default function SubventionCampaign() {
 
                   <Box p={6} borderWidth="1px" borderRadius="lg" bg={useColorModeValue('blue.50', 'blue.900')}>
                     <VStack spacing={4} align="stretch">
-                      <SimpleGrid columns={2} spacing={4}>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                         <Box>
                           <Text fontSize="sm" color="gray.600">Responsable</Text>
                           <Text fontWeight="bold">{reservationForm.name}</Text>
@@ -4350,16 +4353,17 @@ export default function SubventionCampaign() {
           <ModalOverlay />
           <ModalContent>
             <ModalHeader bg="gray.50" borderBottomWidth="1px">
-              <VStack spacing={4} align="stretch">
-                <HStack justify="space-between">
+              <VStack spacing={{ base: 3, md: 4 }} align="stretch">
+                <HStack justify="space-between" align="center">
                   <HStack>
-                    <Icon as={FiUserCheck} boxSize={6} color="blue.500" />
-                    <Heading size="lg">Parcours de Check-in</Heading>
+                    <Icon as={FiUserCheck} boxSize={{ base: 5, md: 6 }} color="blue.500" />
+                    <Heading size={{ base: 'md', md: 'lg' }}>Parcours de Check-in</Heading>
                   </HStack>
                   <ModalCloseButton position="relative" top={0} right={0} />
                 </HStack>
 
                 {/* Stepper / Fil d'Ariane */}
+                {!isMobileView && (
                 <Stepper index={checkInStep - 1} colorScheme="blue" size="lg">
                   <Step>
                     <StepIndicator>
@@ -4427,21 +4431,41 @@ export default function SubventionCampaign() {
                     </Box>
                   </Step>
                 </Stepper>
+                )}
+
+                {isMobileView && (
+                  <VStack spacing={2} align="stretch">
+                    <HStack justify="space-between" w="full">
+                      {[1, 2, 3, 4].map((step) => (
+                        <Box
+                          key={step}
+                          w="22%"
+                          h="8px"
+                          borderRadius="full"
+                          bg={checkInStep >= step ? 'blue.500' : 'gray.200'}
+                        />
+                      ))}
+                    </HStack>
+                    <Text fontSize="sm" color="gray.600" textAlign="center" fontWeight="600">
+                      Etape {checkInStep} sur 4
+                    </Text>
+                  </VStack>
+                )}
 
                 {/* Progress bar */}
                 <Progress value={(checkInStep / 4) * 100} colorScheme="blue" size="sm" borderRadius="full" />
               </VStack>
             </ModalHeader>
 
-            <ModalBody p={8}>
-              <Container maxW="container.lg">
+            <ModalBody p={{ base: 3, md: 8 }}>
+              <Container maxW={{ base: 'full', md: 'container.lg' }} px={{ base: 0, md: 4 }}>
                 {/* ÉTAPE 1: IDENTIFICATION */}
                 {checkInStep === 1 && (
-                  <VStack spacing={8} align="stretch">
+                  <VStack spacing={{ base: 4, md: 8 }} align="stretch">
                     <VStack spacing={2}>
-                      <Icon as={FiSearch} boxSize={12} color="blue.500" />
-                      <Heading size="xl">Identification du Visiteur</Heading>
-                      <Text color="gray.600">Recherchez le visiteur par QR code, numéro de réservation, nom ou téléphone</Text>
+                      <Icon as={FiSearch} boxSize={{ base: 8, md: 12 }} color="blue.500" />
+                      <Heading size={{ base: 'lg', md: 'xl' }} textAlign="center">Identification du Visiteur</Heading>
+                      <Text color="gray.600" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>Recherchez le visiteur par QR code, numéro de réservation, nom ou téléphone</Text>
                     </VStack>
 
                     <Card>
@@ -4449,19 +4473,19 @@ export default function SubventionCampaign() {
                         <VStack spacing={4}>
                           <FormControl>
                             <FormLabel>Rechercher</FormLabel>
-                            <HStack>
+                            <VStack spacing={3} align="stretch">
                               <Input
                                 placeholder="QR code, numéro, nom ou téléphone..."
                                 value={checkInSearch}
                                 onChange={(e) => setCheckInSearch(e.target.value)}
-                                size="lg"
+                                size={{ base: 'md', md: 'lg' }}
                                 autoFocus
                                 onKeyPress={(e) => e.key === 'Enter' && handleSearchVisitor()}
                               />
-                              <Button colorScheme="blue" size="lg" leftIcon={<FiSearch />} onClick={handleSearchVisitor}>
+                              <Button colorScheme="blue" size={{ base: 'md', md: 'lg' }} leftIcon={<FiSearch />} onClick={handleSearchVisitor} w={{ base: 'full', md: 'auto' }}>
                                 Rechercher
                               </Button>
-                            </HStack>
+                            </VStack>
                           </FormControl>
 
                           <Divider />
@@ -4549,11 +4573,11 @@ export default function SubventionCampaign() {
 
                 {/* ÉTAPE 2: VÉRIFICATION */}
                 {checkInStep === 2 && selectedVisitor && (
-                  <VStack spacing={8} align="stretch">
+                  <VStack spacing={{ base: 4, md: 8 }} align="stretch">
                     <VStack spacing={2}>
-                      <Icon as={FiShield} boxSize={12} color="purple.500" />
-                      <Heading size="xl">Vérification</Heading>
-                      <Text color="gray.600">Contrôles d'identité, documents et statut de paiement</Text>
+                      <Icon as={FiShield} boxSize={{ base: 8, md: 12 }} color="purple.500" />
+                      <Heading size={{ base: 'lg', md: 'xl' }} textAlign="center">Vérification</Heading>
+                      <Text color="gray.600" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>Contrôles d'identité, documents et statut de paiement</Text>
                     </VStack>
 
                     <Card>
@@ -4572,7 +4596,7 @@ export default function SubventionCampaign() {
                                 Modifier
                               </Button>
                             </HStack>
-                            <SimpleGrid columns={2} spacing={4}>
+                            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                               <Box>
                                 <Text fontSize="sm" color="gray.600">Nom complet</Text>
                                 <Text fontWeight="bold" fontSize="lg">{selectedVisitor.name}</Text>
@@ -4883,11 +4907,11 @@ export default function SubventionCampaign() {
 
                 {/* ÉTAPE 3: APPLICATION */}
                 {checkInStep === 3 && selectedVisitor && (
-                  <VStack spacing={8} align="stretch">
+                  <VStack spacing={{ base: 4, md: 8 }} align="stretch">
                     <VStack spacing={2}>
-                      <Icon as={FiCheck} boxSize={12} color="blue.500" />
-                      <Heading size="xl">Application & Confirmation</Heading>
-                      <Text color="gray.600">Confirmation des vérifications et traitement du paiement</Text>
+                      <Icon as={FiCheck} boxSize={{ base: 8, md: 12 }} color="blue.500" />
+                      <Heading size={{ base: 'lg', md: 'xl' }} textAlign="center">Application & Confirmation</Heading>
+                      <Text color="gray.600" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>Confirmation des vérifications et traitement du paiement</Text>
                     </VStack>
 
                     <Card>
@@ -5325,11 +5349,11 @@ export default function SubventionCampaign() {
 
                 {/* ÉTAPE 4: ENTRÉE */}
                 {checkInStep === 4 && selectedVisitor && (
-                  <VStack spacing={8} align="stretch">
-                    <VStack spacing={4}>
-                      <Icon as={FiLogIn} boxSize={16} color="green.500" />
-                      <Heading size="2xl">Let's Go!</Heading>
-                      <Text color="gray.600" fontSize="lg">Le visiteur peut maintenant entrer au musée</Text>
+                  <VStack spacing={{ base: 4, md: 8 }} align="stretch">
+                    <VStack spacing={{ base: 2, md: 4 }}>
+                      <Icon as={FiLogIn} boxSize={{ base: 10, md: 16 }} color="green.500" />
+                      <Heading size={{ base: 'xl', md: '2xl' }} textAlign="center">Let's Go!</Heading>
+                      <Text color="gray.600" fontSize={{ base: 'sm', md: 'lg' }} textAlign="center">Le visiteur peut maintenant entrer au musée</Text>
                     </VStack>
 
                     <Card bg="green.50" borderWidth="3px" borderColor="green.500">
@@ -5351,7 +5375,7 @@ export default function SubventionCampaign() {
 
                           <Divider />
 
-                          <SimpleGrid columns={3} spacing={4} w="full">
+                          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} w="full">
                             <VStack>
                               <Icon as={FiCheckCircle} boxSize={8} color="green.500" />
                               <Text fontSize="sm" textAlign="center">Identité vérifiée</Text>
@@ -5485,10 +5509,17 @@ export default function SubventionCampaign() {
               </Container>
             </ModalBody>
 
-            <ModalFooter borderTopWidth="1px" bg="gray.50">
-              <HStack spacing={4} w="full" justify="space-between">
+            <ModalFooter borderTopWidth="1px" bg="gray.50" px={{ base: 3, md: 6 }} py={{ base: 3, md: 4 }}>
+              <HStack
+                spacing={{ base: 2, md: 4 }}
+                w="full"
+                justify="space-between"
+                align="center"
+                flexDirection={{ base: 'column', md: 'row' }}
+              >
                 <Button
                   variant="ghost"
+                  w={{ base: 'full', md: 'auto' }}
                   onClick={() => {
                     if (checkInStep > 1) {
                       setCheckInStep(checkInStep - 1);
@@ -5502,7 +5533,7 @@ export default function SubventionCampaign() {
                   {checkInStep === 1 ? 'Annuler' : 'Retour'}
                 </Button>
 
-                <HStack spacing={2}>
+                <HStack spacing={2} w={{ base: 'full', md: 'auto' }} justify={{ base: 'center', md: 'flex-start' }}>
                   <Text fontSize="sm" color="gray.600">
                     Étape {checkInStep} sur 4
                   </Text>
@@ -5511,6 +5542,7 @@ export default function SubventionCampaign() {
                 {checkInStep < 4 && (
                   <Button
                     colorScheme="blue"
+                    w={{ base: 'full', md: 'auto' }}
                     onClick={() => {
                       if (checkInStep === 1 && !selectedVisitor) {
                         toast({
@@ -5680,7 +5712,7 @@ export default function SubventionCampaign() {
                   )}
 
                   {/* Sélection de nouveau billet */}
-                  <SimpleGrid columns={3} spacing={2}>
+                  <SimpleGrid columns={{ base: 1, md: 3 }} spacing={2}>
                     <FormControl>
                       <FormLabel fontSize="sm">Type</FormLabel>
                       <Select
@@ -6445,7 +6477,7 @@ export default function SubventionCampaign() {
 
                       <Divider />
 
-                      <SimpleGrid columns={2} spacing={2}>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
                         <Box>
                           <Text fontSize="xs" color="gray.500">Validité</Text>
                           <Text fontSize="sm" fontWeight="medium">
@@ -6605,7 +6637,7 @@ export default function SubventionCampaign() {
                         </Box>
                       )}
 
-                      <SimpleGrid columns={2} spacing={2}>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
                         <Box>
                           <Text fontSize="xs" color="gray.500">Validité</Text>
                           <Text fontSize="sm" fontWeight="medium">
@@ -6685,7 +6717,7 @@ export default function SubventionCampaign() {
             <ModalCloseButton />
             <ModalBody pb={6}>
               <VStack spacing={4}>
-                <SimpleGrid columns={2} spacing={4} w="full">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                   <FormControl isRequired>
                     <FormLabel>Code</FormLabel>
                     <Input
@@ -6718,7 +6750,7 @@ export default function SubventionCampaign() {
                   />
                 </FormControl>
 
-                <SimpleGrid columns={2} spacing={4} w="full">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                   <FormControl isRequired>
                     <FormLabel>Type de réduction</FormLabel>
                     <Select
@@ -6743,7 +6775,7 @@ export default function SubventionCampaign() {
                   </FormControl>
                 </SimpleGrid>
 
-                <SimpleGrid columns={2} spacing={4} w="full">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                   <FormControl isRequired>
                     <FormLabel>Date de début</FormLabel>
                     <Input
@@ -6950,7 +6982,7 @@ export default function SubventionCampaign() {
                   />
                 </FormControl>
 
-                <SimpleGrid columns={2} spacing={4} w="full">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                   <FormControl isRequired>
                     <FormLabel>Type de réduction</FormLabel>
                     <Select
@@ -7013,7 +7045,7 @@ export default function SubventionCampaign() {
                   </VStack>
                 </FormControl>
 
-                <SimpleGrid columns={2} spacing={4} w="full">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
                   <FormControl display="flex" alignItems="center">
                     <FormLabel mb={0}>Réduction active</FormLabel>
                     <Checkbox
@@ -7090,53 +7122,44 @@ export default function SubventionCampaign() {
 
   if (loading) {
     return (
-      <HStack align="stretch" spacing={0} h="100vh" w="100%">
-        {/* Sidebar */}
+      <SidebarLayout
+        sidebar={
+          <VStack align="stretch" spacing={0} h="100%">
+            <Box p={6} borderBottom="1px" borderColor={borderColor}>
+              <HStack spacing={3} mb={3}>
+                <Icon as={FiArchive} color="rbe.500" boxSize={6} />
+                <Box>
+                  <Heading size="md">Le Musée</Heading>
+                  <Text fontSize="xs" color="gray.500">Pannel de gestion</Text>
+                </Box>
+              </HStack>
+            </Box>
+          </VStack>
+        }
+      >
+        <Center h="100%">
+          <VStack spacing={4}>
+            <Spinner size="lg" color="rbe.500" />
+            <Text>Chargement du musée...</Text>
+          </VStack>
+        </Center>
+      </SidebarLayout>
+    );
+  }
+
+  return (
+    <>
+    <SidebarLayout
+      sidebar={
         <VStack
           align="stretch"
           spacing={0}
-          w="280px"
+          h="100%"
           bg={sidebarBg}
           borderRight="1px"
           borderColor={borderColor}
           overflowY="auto"
         >
-          <Box p={6} borderBottom="1px" borderColor={borderColor}>
-            <HStack spacing={3} mb={3}>
-              <Icon as={FiArchive} color="rbe.500" boxSize={6} />
-              <Box>
-                <Heading size="md">Le Musée</Heading>
-                <Text fontSize="xs" color="gray.500">Pannel de gestion</Text>
-              </Box>
-            </HStack>
-          </Box>
-        </VStack>
-
-        {/* Contenu principal */}
-        <Box flex={1} overflowY="auto">
-          <Center h="100%">
-            <VStack spacing={4}>
-              <Spinner size="lg" color="rbe.500" />
-              <Text>Chargement du musée...</Text>
-            </VStack>
-          </Center>
-        </Box>
-      </HStack>
-    );
-  }
-
-  return (
-    <HStack align="stretch" spacing={0} h="100vh" w="100%">
-      {/* Sidebar Navigation */}
-      <VStack
-        align="stretch"
-        spacing={0}
-        w="280px"
-        bg={sidebarBg}
-        borderRight="1px"
-        borderColor={borderColor}
-        overflowY="auto"
-      >
         {/* Header du sidebar */}
         <Box p={6} borderBottom="1px" borderColor={borderColor}>
           <HStack spacing={3} mb={3}>
@@ -7196,15 +7219,16 @@ export default function SubventionCampaign() {
           </Card>
         </Box>
       </VStack>
-
+      }
+    >
       {/* Contenu principal */}
-      <Box flex={1} overflowY="auto" bg={sectionBg}>
+      <Box flex={1} overflowY="auto" bg={sectionBg} h="100%">
         <VStack align="stretch" spacing={0} h="100%">
           {/* En-tête avec bouton refresh */}
-          <Box bg={cardBg} borderBottom="1px" borderColor={borderColor} p={6}>
-            <HStack justify="space-between" align="center">
+          <Box bg={cardBg} borderBottom="1px" borderColor={borderColor} p={{ base: 4, md: 6 }}>
+            <HStack justify="space-between" align="center" flexWrap="wrap" spacing={{ base: 3, md: 4 }}>
               <Box>
-                <Heading size="lg">{sections.find(s => s.id === activeMainSection)?.label}</Heading>
+                <Heading size={{ base: 'md', md: 'lg' }}>{sections.find(s => s.id === activeMainSection)?.label}</Heading>
                 <Text fontSize="sm" color="gray.600">{sections.find(s => s.id === activeMainSection)?.description}</Text>
               </Box>
               <Button
@@ -7213,7 +7237,7 @@ export default function SubventionCampaign() {
                 isLoading={loading}
                 variant="outline"
                 colorScheme="orange"
-                size="sm"
+                size={{ base: 'xs', md: 'sm' }}
               >
                 Rafraîchir
               </Button>
@@ -7221,11 +7245,12 @@ export default function SubventionCampaign() {
           </Box>
 
           {/* Contenu */}
-          <Box flex={1} p={6} overflowY="auto">
+          <Box flex={1} p={{ base: 3, md: 6 }} overflowY="auto">
             {renderMainContent()}
           </Box>
         </VStack>
       </Box>
+    </SidebarLayout>
 
       {/* Modal - Détails campagne et soumission dépenses */}
       {selectedCampaign && (
@@ -7288,7 +7313,7 @@ export default function SubventionCampaign() {
                       />
                     </FormControl>
 
-                    <HStack spacing={3} width="100%">
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} width="100%">
                       <FormControl isRequired flex={1}>
                         <FormLabel>Montant (€)</FormLabel>
                         <Input
@@ -7312,7 +7337,7 @@ export default function SubventionCampaign() {
                           ))}
                         </Select>
                       </FormControl>
-                    </HStack>
+                    </SimpleGrid>
 
                     <FormControl>
                       <FormLabel>Notes/Observations</FormLabel>
@@ -7343,7 +7368,16 @@ export default function SubventionCampaign() {
                       <Heading size="sm" mb={3}>Vos soumissions ({userExpenses.length})</Heading>
                       <VStack spacing={2} align="stretch">
                         {userExpenses.map(expense => (
-                          <HStack key={expense.id} p={2} bg={sectionBg} borderRadius="md" justify="space-between" align="start">
+                          <HStack
+                            key={expense.id}
+                            p={2}
+                            bg={sectionBg}
+                            borderRadius="md"
+                            justify="space-between"
+                            align="start"
+                            flexDirection={{ base: 'column', md: 'row' }}
+                            spacing={{ base: 2, md: 3 }}
+                          >
                             <VStack align="start" spacing={1} flex={1}>
                               <Text fontWeight="500" fontSize="sm">{expense.description}</Text>
                               <HStack fontSize="xs" color="gray.600" spacing={2}>
@@ -7437,7 +7471,7 @@ export default function SubventionCampaign() {
                   />
                 </FormControl>
 
-                <HStack spacing={3} width="100%">
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} width="100%">
                   <FormControl>
                     <FormLabel>Montant minimum (€)</FormLabel>
                     <Input
@@ -7461,7 +7495,7 @@ export default function SubventionCampaign() {
                       step={100}
                     />
                   </FormControl>
-                </HStack>
+                </SimpleGrid>
 
                 <FormControl isRequired>
                   <FormLabel>Échéance</FormLabel>
@@ -7522,6 +7556,6 @@ export default function SubventionCampaign() {
           </ModalContent>
         </Modal>
       )}
-    </HStack>
+    </>
   );
 }

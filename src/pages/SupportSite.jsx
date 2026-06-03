@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardBody, CardHeader, Heading, Text, Button,
   Input, Select, VStack, HStack, Badge, useToast, Modal, ModalOverlay,
@@ -135,14 +135,24 @@ export default function SupportSite() {
     isOpen: isCommentOpen, onOpen: onCommentOpen, onClose: onCommentClose
   } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isKnowledgeOpen, onOpen: onKnowledgeOpen, onClose: onKnowledgeClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [selectedKnowledgeDoc, setSelectedKnowledgeDoc] = useState(null);
 
   const [reportFormData, setReportFormData] = useState({ title: '', description: '', category: '', priority: 'medium', type: 'bug' });
   const [editFormData, setEditFormData] = useState({ title: '', description: '', category: '', priority: 'medium', type: 'bug' });
   const [commentFormData, setCommentFormData] = useState({ message: '', status: '' });
+  const [knowledgeDocs, setKnowledgeDocs] = useState([]);
+  const [knowledgeFormData, setKnowledgeFormData] = useState({
+    title: '',
+    category: 'process',
+    summary: '',
+    content: '',
+    tags: ''
+  });
   const [reportScreenshots, setReportScreenshots] = useState([]); // File[]
 
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -163,13 +173,121 @@ export default function SupportSite() {
     }
   };
 
+  const KB_STORAGE_KEY = 'rbe_knowledge_base_docs_v1';
+
+  const loadKnowledgeDocs = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(KB_STORAGE_KEY);
+      if (!raw) {
+        setKnowledgeDocs([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setKnowledgeDocs(Array.isArray(parsed) ? parsed : []);
+    } catch (e) {
+      console.error('Erreur chargement KB:', e);
+      setKnowledgeDocs([]);
+    }
+  }, []);
+
+  const persistKnowledgeDocs = useCallback((docs) => {
+    localStorage.setItem(KB_STORAGE_KEY, JSON.stringify(docs));
+    setKnowledgeDocs(docs);
+  }, []);
+
+  const resetKnowledgeForm = useCallback(() => {
+    setKnowledgeFormData({
+      title: '',
+      category: 'process',
+      summary: '',
+      content: '',
+      tags: ''
+    });
+    setSelectedKnowledgeDoc(null);
+  }, []);
+
+  const handleKnowledgeSubmit = useCallback(() => {
+    if (!knowledgeFormData.title.trim() || !knowledgeFormData.content.trim()) {
+      toast({
+        title: 'Erreur',
+        description: 'Titre et contenu requis',
+        status: 'error',
+        duration: 2500,
+        isClosable: true
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const tags = knowledgeFormData.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (selectedKnowledgeDoc) {
+      const updated = knowledgeDocs.map((doc) => (
+        doc.id === selectedKnowledgeDoc.id
+          ? {
+              ...doc,
+              title: knowledgeFormData.title.trim(),
+              category: knowledgeFormData.category,
+              summary: knowledgeFormData.summary.trim(),
+              content: knowledgeFormData.content.trim(),
+              tags,
+              updatedAt: now,
+              updatedBy: user?.prenom || user?.name || 'Utilisateur'
+            }
+          : doc
+      ));
+      persistKnowledgeDocs(updated);
+      toast({ title: 'Succès', description: 'Processus mis à jour', status: 'success', duration: 2500, isClosable: true });
+    } else {
+      const doc = {
+        id: `kb_${Date.now()}`,
+        title: knowledgeFormData.title.trim(),
+        category: knowledgeFormData.category,
+        summary: knowledgeFormData.summary.trim(),
+        content: knowledgeFormData.content.trim(),
+        tags,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: user?.prenom || user?.name || 'Utilisateur'
+      };
+      persistKnowledgeDocs([doc, ...knowledgeDocs]);
+      toast({ title: 'Succès', description: 'Processus ajouté à la Knowledge Base', status: 'success', duration: 2500, isClosable: true });
+    }
+
+    resetKnowledgeForm();
+    onKnowledgeClose();
+  }, [knowledgeDocs, knowledgeFormData, onKnowledgeClose, persistKnowledgeDocs, resetKnowledgeForm, selectedKnowledgeDoc, toast, user]);
+
+  const handleKnowledgeDelete = useCallback((docId) => {
+    if (!window.confirm('Supprimer ce document de la Knowledge Base ?')) return;
+    const filtered = knowledgeDocs.filter((doc) => doc.id !== docId);
+    persistKnowledgeDocs(filtered);
+    toast({ title: 'Supprimé', description: 'Document supprimé', status: 'success', duration: 2200, isClosable: true });
+  }, [knowledgeDocs, persistKnowledgeDocs, toast]);
+
+  const handleKnowledgeEdit = useCallback((doc) => {
+    setSelectedKnowledgeDoc(doc);
+    setKnowledgeFormData({
+      title: doc.title || '',
+      category: doc.category || 'process',
+      summary: doc.summary || '',
+      content: doc.content || '',
+      tags: Array.isArray(doc.tags) ? doc.tags.join(', ') : ''
+    });
+    onKnowledgeOpen();
+  }, [onKnowledgeOpen]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
       await fetchReports();
+      loadKnowledgeDocs();
       setLoading(false);
     })();
-  }, []);
+  }, [loadKnowledgeDocs]);
 
   const handleReportSubmit = async () => {
     if (!reportFormData.title || !reportFormData.description) {
@@ -446,6 +564,15 @@ export default function SupportSite() {
     </VStack>
   );
 
+  const knowledgeCountByCategory = useMemo(() => {
+    const init = { process: 0, procedure: 0, technical: 0, faq: 0, emergency: 0, training: 0 };
+    return knowledgeDocs.reduce((acc, doc) => {
+      const key = doc.category || 'process';
+      if (acc[key] !== undefined) acc[key] += 1;
+      return acc;
+    }, init);
+  }, [knowledgeDocs]);
+
   const KnowledgeContent = () => (
     <VStack spacing={6} align="stretch">
       <HStack justify="space-between">
@@ -453,7 +580,16 @@ export default function SupportSite() {
           <Heading size="sm">Base de connaissances</Heading>
           <Text fontSize="sm" color="gray.600">Documentation des processus, guides et procédures</Text>
         </VStack>
-        <Button leftIcon={<FiPlus />} colorScheme="red">Nouveau document</Button>
+        <Button
+          leftIcon={<FiPlus />}
+          colorScheme="red"
+          onClick={() => {
+            resetKnowledgeForm();
+            onKnowledgeOpen();
+          }}
+        >
+          Nouveau document
+        </Button>
       </HStack>
 
       <Alert status="info" variant="left-accent">
@@ -474,7 +610,7 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Guides pas-à-pas pour les opérations courantes</Text>
-            <Badge mt={2} colorScheme="purple">0 documents</Badge>
+            <Badge mt={2} colorScheme="purple">{knowledgeCountByCategory.procedure} document(s)</Badge>
           </CardBody>
         </Card>
 
@@ -487,7 +623,7 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Workflows et processus organisationnels</Text>
-            <Badge mt={2} colorScheme="blue">0 documents</Badge>
+            <Badge mt={2} colorScheme="blue">{knowledgeCountByCategory.process} document(s)</Badge>
           </CardBody>
         </Card>
 
@@ -500,7 +636,7 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Documentation technique et configuration</Text>
-            <Badge mt={2} colorScheme="green">0 documents</Badge>
+            <Badge mt={2} colorScheme="green">{knowledgeCountByCategory.technical} document(s)</Badge>
           </CardBody>
         </Card>
 
@@ -513,7 +649,7 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Questions fréquemment posées</Text>
-            <Badge mt={2} colorScheme="orange">0 documents</Badge>
+            <Badge mt={2} colorScheme="orange">{knowledgeCountByCategory.faq} document(s)</Badge>
           </CardBody>
         </Card>
 
@@ -526,7 +662,7 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Procédures d'urgence et contacts critiques</Text>
-            <Badge mt={2} colorScheme="red">0 documents</Badge>
+            <Badge mt={2} colorScheme="red">{knowledgeCountByCategory.emergency} document(s)</Badge>
           </CardBody>
         </Card>
 
@@ -539,17 +675,66 @@ export default function SupportSite() {
           </CardHeader>
           <CardBody pt={2}>
             <Text fontSize="sm" color="gray.600">Supports de formation et tutoriels</Text>
-            <Badge mt={2} colorScheme="teal">0 documents</Badge>
+            <Badge mt={2} colorScheme="teal">{knowledgeCountByCategory.training} document(s)</Badge>
           </CardBody>
         </Card>
       </SimpleGrid>
 
       <Box>
         <Heading size="sm" mb={4}>📄 Documents récents</Heading>
-        <Alert status="info">
-          <AlertIcon />
-          Aucun document disponible. Créez votre premier document de connaissances.
-        </Alert>
+        {knowledgeDocs.length === 0 ? (
+          <Alert status="info">
+            <AlertIcon />
+            Aucun document disponible. Créez votre premier document de connaissances.
+          </Alert>
+        ) : (
+          <VStack spacing={3} align="stretch">
+            {knowledgeDocs.slice(0, 10).map((doc) => (
+              <Card key={doc.id} bg={cardBg}>
+                <CardBody>
+                  <HStack justify="space-between" align="start">
+                    <VStack align="start" spacing={1} flex={1}>
+                      <HStack>
+                        <Heading size="sm">{doc.title}</Heading>
+                        <Badge colorScheme="blue" variant="subtle">{doc.category}</Badge>
+                      </HStack>
+                      {doc.summary && <Text fontSize="sm" color="gray.600">{doc.summary}</Text>}
+                      <Text fontSize="xs" color="gray.500">
+                        Mis a jour le {new Date(doc.updatedAt || doc.createdAt).toLocaleDateString('fr-FR')} par {doc.updatedBy || doc.createdBy || 'N/A'}
+                      </Text>
+                      {Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                        <HStack spacing={2} flexWrap="wrap">
+                          {doc.tags.map((tag) => (
+                            <Tag key={`${doc.id}_${tag}`} size="sm" variant="subtle" colorScheme="gray">
+                              <TagLabel>{tag}</TagLabel>
+                            </Tag>
+                          ))}
+                        </HStack>
+                      )}
+                    </VStack>
+                    <HStack>
+                      <IconButton
+                        aria-label="Editer"
+                        icon={<FiEdit3 />}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleKnowledgeEdit(doc)}
+                      />
+                      <IconButton
+                        aria-label="Supprimer"
+                        icon={<FiTrash2 />}
+                        size="sm"
+                        variant="ghost"
+                        color="red.500"
+                        onClick={() => handleKnowledgeDelete(doc.id)}
+                      />
+                    </HStack>
+                  </HStack>
+                </CardBody>
+              </Card>
+            ))}
+          </VStack>
+        )}
       </Box>
     </VStack>
   );
@@ -794,6 +979,80 @@ export default function SupportSite() {
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onEditClose}>Annuler</Button>
             <Button colorScheme="blue" onClick={handleEditSubmit}>Enregistrer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal Knowledge Base */}
+      <Modal isOpen={isKnowledgeOpen} onClose={() => { onKnowledgeClose(); resetKnowledgeForm(); }} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{selectedKnowledgeDoc ? 'Modifier le document' : 'Nouveau processus'}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl isRequired>
+                <FormLabel>Titre</FormLabel>
+                <Input
+                  value={knowledgeFormData.title}
+                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Processus de validation des tickets"
+                />
+              </FormControl>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="full">
+                <FormControl>
+                  <FormLabel>Catégorie</FormLabel>
+                  <Select
+                    value={knowledgeFormData.category}
+                    onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, category: e.target.value }))}
+                  >
+                    <option value="process">Processus métiers</option>
+                    <option value="procedure">Procédures</option>
+                    <option value="technical">Guides techniques</option>
+                    <option value="faq">FAQ</option>
+                    <option value="emergency">Urgences</option>
+                    <option value="training">Formations</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Tags (optionnel)</FormLabel>
+                  <Input
+                    value={knowledgeFormData.tags}
+                    onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, tags: e.target.value }))}
+                    placeholder="check-in, support, process"
+                  />
+                </FormControl>
+              </SimpleGrid>
+
+              <FormControl>
+                <FormLabel>Résumé</FormLabel>
+                <Input
+                  value={knowledgeFormData.summary}
+                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, summary: e.target.value }))}
+                  placeholder="Description courte du processus"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Contenu du processus</FormLabel>
+                <Textarea
+                  rows={8}
+                  value={knowledgeFormData.content}
+                  onChange={(e) => setKnowledgeFormData((prev) => ({ ...prev, content: e.target.value }))}
+                  placeholder={"Etape 1: ...\nEtape 2: ...\nEtape 3: ..."}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => { onKnowledgeClose(); resetKnowledgeForm(); }}>
+              Annuler
+            </Button>
+            <Button colorScheme="red" onClick={handleKnowledgeSubmit} leftIcon={<FiPlus />}>
+              {selectedKnowledgeDoc ? 'Mettre a jour' : 'Ajouter'}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
