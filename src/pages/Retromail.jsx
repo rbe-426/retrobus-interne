@@ -465,19 +465,19 @@ export default function Retromail() {
   // Écran de connexion
   if (!isConnected) {
     return (
-      <Box p={6}>
-        <Heading size="lg" mb={6}>📧 RétroMail</Heading>
+      <Box p={{ base: 3, md: 4, lg: 6 }}>
+        <Heading size={{ base: "md", md: "lg" }} mb={{ base: 4, md: 6 }}>📧 RétroMail</Heading>
         
         <Center minH="50vh">
           <Card maxW="500px" w="100%" bg={cardBg}>
             <CardHeader>
-              <Heading size="md">📧 RétroMail</Heading>
-              <Text fontSize="sm" color="gray.600" mt={2}>
+              <Heading size={{ base: "sm", md: "md" }}>📧 RétroMail</Heading>
+              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mt={2}>
                 Accédez à vos emails Infomaniak
               </Text>
             </CardHeader>
             <CardBody>
-              <VStack spacing={4} align="stretch">
+              <VStack spacing={{ base: 3, md: 4 }} align="stretch">
                 {/* Suggestion intelligente */}
                 {showAutoConnectSuggest && deducedEmail && (
                   <Card bg="rbe.50" borderColor="rbe.500" borderWidth="1px">
@@ -563,17 +563,23 @@ export default function Retromail() {
 
   // Interface mail principale
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 4, lg: 6 }}>
       {/* Header */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading size="lg">📧 RétroMail</Heading>
-        <HStack spacing={3}>
-          <Text fontSize="sm" color="gray.600">
-            Connecté : <Badge colorScheme="green">{emailAccount}</Badge>
+      <Flex 
+        direction={{ base: 'column', md: 'row' }}
+        justify="space-between" 
+        align={{ base: 'stretch', md: 'center' }} 
+        mb={{ base: 4, md: 6 }}
+        gap={{ base: 3, md: 0 }}
+      >
+        <Heading size={{ base: "md", md: "lg" }}>📧 RétroMail</Heading>
+        <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap">
+          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" display={{ base: 'none', sm: 'block' }}>
+            Connecté : <Badge colorScheme="green" fontSize={{ base: "2xs", md: "xs" }}>{emailAccount}</Badge>
           </Text>
           <Button 
             leftIcon={<FiRefreshCw />} 
-            size="sm" 
+            size={{ base: "xs", md: "sm" }}
             variant="outline"
             onClick={loadEmails}
             isLoading={loading}
@@ -583,13 +589,13 @@ export default function Retromail() {
           <Button 
             leftIcon={<FiEdit />}
             colorScheme="rbe"
-            size="sm"
+            size={{ base: "xs", md: "sm" }}
             onClick={onComposeOpen}
           >
-            Nouveau message
+            Nouveau
           </Button>
           <Menu>
-            <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" />
+            <MenuButton as={IconButton} icon={<FiSettings />} size={{ base: "xs", md: "sm" }} variant="ghost" />
             <MenuList>
               <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
               <MenuItem onClick={handleDisconnect} color="red.500">
@@ -601,14 +607,20 @@ export default function Retromail() {
       </Flex>
 
       {/* Layout principal */}
-      <Flex gap={4} align="stretch" minH="70vh">
+      <Flex 
+        gap={{ base: 2, md: 4 }} 
+        align="stretch" 
+        minH="70vh"
+        direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
+      >
         {/* Sidebar - Dossiers */}
         <Box 
-          w="200px" 
+          w={{ base: 'full', md: '200px' }}
+          display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
           borderRadius="md" 
-          p={3} 
+          p={{ base: 2, md: 3 }}
           bg={cardBg}
         >
           <VStack align="stretch" spacing={2}>
@@ -618,6 +630,7 @@ export default function Retromail() {
               justifyContent="flex-start"
               leftIcon={<FiInbox />}
               onClick={() => setActiveFolder('INBOX')}
+              size={{ base: 'sm', md: 'md' }}
             >
               Boîte de réception
             </Button>
@@ -627,6 +640,7 @@ export default function Retromail() {
               justifyContent="flex-start"
               leftIcon={<FiSend />}
               onClick={() => setActiveFolder('SENT')}
+              size={{ base: 'sm', md: 'md' }}
             >
               Envoyés
             </Button>
@@ -636,6 +650,7 @@ export default function Retromail() {
               justifyContent="flex-start"
               leftIcon={<FiTrash2 />}
               onClick={() => setActiveFolder('TRASH')}
+              size={{ base: 'sm', md: 'md' }}
             >
               Corbeille
             </Button>
@@ -644,11 +659,12 @@ export default function Retromail() {
 
         {/* Liste des emails */}
         <Box 
-          w="350px" 
+          w={{ base: 'full', md: '350px', lg: '400px' }}
+          display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
           borderRadius="md" 
-          p={3} 
+          p={{ base: 2, md: 3 }}
           bg={cardBg}
           overflowY="auto"
           maxH="70vh"
@@ -656,6 +672,7 @@ export default function Retromail() {
           <Input 
             placeholder="Rechercher..." 
             mb={3}
+            size={{ base: 'sm', md: 'md' }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -718,11 +735,13 @@ export default function Retromail() {
 
         {/* Lecteur d'email */}
         <Box 
-          flex="1" 
+          flex="1"
+          w={{ base: 'full', md: 'auto' }}
+          display={{ base: selectedEmail ? 'block' : 'none', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
           borderRadius="md" 
-          p={4} 
+          p={{ base: 2, md: 4 }}
           bg={cardBg}
           overflowY="auto"
           maxH="70vh"
@@ -735,16 +754,28 @@ export default function Retromail() {
               </VStack>
             </Center>
           ) : (
-            <VStack align="stretch" spacing={4}>
+            <VStack align="stretch" spacing={{ base: 2, md: 4 }}>
+              {/* Bouton retour mobile */}
+              <Button
+                display={{ base: 'flex', md: 'none' }}
+                leftIcon={<FiChevronLeft />}
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedEmail(null)}
+                alignSelf="flex-start"
+              >
+                Retour
+              </Button>
+              
               {/* En-tête de l'email */}
               <Box>
                 <Flex justify="space-between" align="start" mb={3}>
-                  <Heading size="md" flex="1">{selectedEmail.subject || "(Sans objet)"}</Heading>
+                  <Heading size={{ base: "sm", md: "md" }} flex="1">{selectedEmail.subject || "(Sans objet)"}</Heading>
                 </Flex>
                 <HStack spacing={2}>
                   <Avatar size="sm" name={selectedEmail.fromName || selectedEmail.from} />
                   <Box flex="1">
-                    <Text fontWeight="600" fontSize="sm">
+                    <Text fontWeight="600" fontSize={{ base: "xs", md: "sm" }}>
                       {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from 
                         ? selectedEmail.fromName 
                         : selectedEmail.from}
@@ -771,7 +802,7 @@ export default function Retromail() {
               >
                 <Button
                   leftIcon={<FiChevronLeft />}
-                  size="sm"
+                  size={{ base: "xs", md: "sm" }}
                   variant="outline"
                   colorScheme="rbe"
                   onClick={() => {

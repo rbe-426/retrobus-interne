@@ -75,11 +75,17 @@ const Vehicules = () => {
   };
 
   return (
-    <Box p={{ base: 4, md: 6 }}>
-      <Flex justify="space-between" align="center" mb={6}>
+    <Box p={{ base: 3, md: 4, lg: 6 }}>
+      <Flex 
+        direction={{ base: 'column', md: 'row' }} 
+        justify="space-between" 
+        align={{ base: 'stretch', md: 'center' }} 
+        mb={{ base: 4, md: 6 }}
+        gap={{ base: 3, md: 0 }}
+      >
         <VStack align="start" spacing={1}>
-          <Heading color="black" size="lg">🚘 Véhicules</Heading>
-          <Text fontSize="sm" color="gray.600">
+          <Heading color="black" size={{ base: "md", md: "lg" }}>🚘 Véhicules</Heading>
+          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
             Créez, consultez et configurez le parc de véhicules de l'association
           </Text>
         </VStack>
@@ -88,17 +94,20 @@ const Vehicules = () => {
           to="/dashboard/vehicules/ajouter"
           leftIcon={<FiPlus />}
           colorScheme="rbe"
+          size={{ base: "sm", md: "md" }}
+          w={{ base: "full", md: "auto" }}
         >
           Ajouter un véhicule
         </Button>
       </Flex>
 
-      <Box mb={6}>
+      <Box mb={{ base: 4, md: 6 }}>
         <Input
           placeholder="Rechercher par parc, modèle, marque ou immatriculation..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          maxW="400px"
+          maxW={{ base: "full", md: "400px" }}
+          size={{ base: "sm", md: "md" }}
           borderColor="gray.200"
         />
       </Box>
@@ -116,49 +125,49 @@ const Vehicules = () => {
           </VStack>
         </Container>
       ) : (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+        <SimpleGrid columns={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing={{ base: 3, md: 4 }}>
           {filtered.map((vehicle) => (
             <Card key={vehicle.parc} shadow="sm" borderColor="gray.200" borderWidth="1px">
               <CardHeader pb={2}>
                 <HStack justify="space-between">
-                  <Heading size="sm" color="black">{vehicle.parc}</Heading>
-                  <Badge colorScheme={vehicle.etat === 'disponible' ? 'green' : 'orange'}>
+                  <Heading size={{ base: "xs", md: "sm" }} color="black">{vehicle.parc}</Heading>
+                  <Badge colorScheme={vehicle.etat === 'disponible' ? 'green' : 'orange'} fontSize={{ base: "2xs", md: "xs" }}>
                     {vehicle.etat}
                   </Badge>
                 </HStack>
               </CardHeader>
               {vehicle.thumbnailImage && (
-                <Box px={4} pt={2}>
+                <Box px={{ base: 3, md: 4 }} pt={2}>
                   <Image
                     src={vehicle.thumbnailImage}
                     alt={vehicle.modele}
                     w="100%"
-                    h="120px"
+                    h={{ base: "100px", md: "120px" }}
                     objectFit="cover"
                     borderRadius="md"
                     mb={2}
                   />
                 </Box>
               )}
-              <CardBody pt={vehicle.thumbnailImage ? 2 : 0}>
+              <CardBody pt={vehicle.thumbnailImage ? 2 : 0} px={{ base: 3, md: 4 }}>
                 <VStack align="start" spacing={2}>
-                  <HStack spacing={2} align="center">
-                    <Text><strong>Modèle:</strong> {vehicle.modele || 'Non spécifié'}</Text>
+                  <HStack spacing={2} align="center" flexWrap="wrap">
+                    <Text fontSize={{ base: "xs", md: "sm" }}><strong>Modèle:</strong> {vehicle.modele || 'Non spécifié'}</Text>
                     {vehicle.type && (
-                      <Badge colorScheme="cyan" fontSize="xs">
+                      <Badge colorScheme="cyan" fontSize="2xs">
                         {vehicle.type}
                       </Badge>
                     )}
                   </HStack>
-                  <Text><strong>Marque:</strong> {vehicle.marque || 'Non spécifiée'}</Text>
-                  {vehicle.immat && <Text><strong>Immat:</strong> {vehicle.immat}</Text>}
+                  <Text fontSize={{ base: "xs", md: "sm" }}><strong>Marque:</strong> {vehicle.marque || 'Non spécifiée'}</Text>
+                  {vehicle.immat && <Text fontSize={{ base: "xs", md: "sm" }}><strong>Immat:</strong> {vehicle.immat}</Text>}
                   
-                  <HStack spacing={2} pt={4} w="100%">
+                  <HStack spacing={2} pt={{ base: 2, md: 4 }} w="100%">
                     <Button
                       as={RouterLink}
                       to={`/dashboard/vehicules/${vehicle.parc}/edit`}
                       leftIcon={<FiEdit />}
-                      size="sm"
+                      size={{ base: "xs", md: "sm" }}
                       flex={1}
                       colorScheme="blue"
                     >
@@ -166,7 +175,7 @@ const Vehicules = () => {
                     </Button>
                     <Button
                       leftIcon={<FiGrid />}
-                      size="sm"
+                      size={{ base: "xs", md: "sm" }}
                       onClick={() => handleQRShow(vehicle)}
                     >
                       QR

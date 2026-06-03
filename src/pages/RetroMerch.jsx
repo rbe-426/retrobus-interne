@@ -39,6 +39,7 @@ import {
 } from "@chakra-ui/react";
 import retromerchService from "../lib/retromerchService";
 import PageBuilder from "../components/RetroMerch/PageBuilder";
+import SidebarLayout from "../components/SidebarLayout";
 
 const RetroMerch = () => {
   const toast = useToast();
@@ -397,93 +398,86 @@ const RetroMerch = () => {
     }
   };
 
-  return (
-    <HStack align="stretch" spacing={0} h="100vh" w="100%">
-      {/* Sidebar */}
-      <VStack
-        align="stretch"
-        spacing={0}
-        w="280px"
-        bg="gray.50"
-        borderRight="1px"
-        borderColor="gray.200"
-        overflowY="auto"
-      >
-        {/* Header du sidebar */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200">
-          <HStack spacing={3} mb={3}>
-            <Icon as={FiPackage} color="red.500" boxSize={6} />
-            <Box>
-              <Heading size="md" color="gray.800">RetroMerch</Heading>
-              <Text fontSize="sm" color="gray.500">Boutique</Text>
-            </Box>
-          </HStack>
-          <Text fontSize="xs" color="gray.500">Gestion RBE</Text>
-        </Box>
+  // Rendu de la sidebar
+  const renderSidebar = () => (
+    <VStack align="stretch" spacing={0} h="100%">
+      {/* Header du sidebar */}
+      <Box p={{ base: 4, md: 6 }} borderBottom="1px" borderColor="gray.200">
+        <HStack spacing={3} mb={3}>
+          <Icon as={FiPackage} color="red.500" boxSize={{ base: 5, md: 6 }} />
+          <Box>
+            <Heading size={{ base: "sm", md: "md" }} color="gray.800">RetroMerch</Heading>
+            <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">Boutique</Text>
+          </Box>
+        </HStack>
+        <Text fontSize="xs" color="gray.500">Gestion RBE</Text>
+      </Box>
 
-        {/* Navigation principale */}
-        <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
-          {sections.map((section) => {
-            const isActive = section.id === activeMainSection;
-            const SectionIcon = section.icon;
-            return (
-              <Button
-                key={section.id}
-                leftIcon={<Icon as={SectionIcon} />}
-                variant="ghost"
-                justifyContent="flex-start"
-                w="full"
-                bg={isActive ? "red.50" : "transparent"}
-                borderLeft="3px"
-                borderColor={isActive ? "red.500" : "transparent"}
-                borderRadius={0}
-                px={4}
-                py={6}
-                fontSize="sm"
-                fontWeight={isActive ? "600" : "500"}
-                color={isActive ? "red.500" : "inherit"}
-                _hover={{ bg: "gray.100", borderLeftColor: "red.500" }}
-                onClick={() => setActiveMainSection(section.id)}
-              >
-                <Flex direction="column" align="flex-start" w="full">
-                  <Text>{section.label}</Text>
-                  {section.description && (
-                    <Text fontSize="xs" color="gray.500">{section.description}</Text>
-                  )}
-                </Flex>
-              </Button>
-            );
-          })}
-        </VStack>
-
-        {/* Footer du sidebar */}
-        <Box
-          p={4}
-          borderTop="1px"
-          borderColor="gray.200"
-          fontSize="xs"
-          color="gray.500"
-          textAlign="center"
-          w="full"
-        >
-          MyRBE RetroMerch
-        </Box>
+      {/* Navigation principale */}
+      <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
+        {sections.map((section) => {
+          const isActive = section.id === activeMainSection;
+          const SectionIcon = section.icon;
+          return (
+            <Button
+              key={section.id}
+              leftIcon={<Icon as={SectionIcon} />}
+              variant="ghost"
+              justifyContent="flex-start"
+              w="full"
+              bg={isActive ? "red.50" : "transparent"}
+              borderLeft="3px"
+              borderColor={isActive ? "red.500" : "transparent"}
+              borderRadius={0}
+              px={4}
+              py={{ base: 4, md: 6 }}
+              fontSize={{ base: "xs", md: "sm" }}
+              fontWeight={isActive ? "600" : "500"}
+              color={isActive ? "red.500" : "inherit"}
+              _hover={{ bg: "gray.100", borderLeftColor: "red.500" }}
+              onClick={() => setActiveMainSection(section.id)}
+            >
+              <Flex direction="column" align="flex-start" w="full">
+                <Text>{section.label}</Text>
+                {section.description && (
+                  <Text fontSize="xs" color="gray.500">{section.description}</Text>
+                )}
+              </Flex>
+            </Button>
+          );
+        })}
       </VStack>
 
-      {/* Contenu principal */}
-      <VStack align="stretch" spacing={0} flex={1} overflowY="auto">
+      {/* Footer du sidebar */}
+      <Box
+        p={4}
+        borderTop="1px"
+        borderColor="gray.200"
+        fontSize="xs"
+        color="gray.500"
+        textAlign="center"
+        w="full"
+      >
+        MyRBE RetroMerch
+      </Box>
+    </VStack>
+  );
+
+  return (
+    <SidebarLayout sidebar={renderSidebar()}>
+      <VStack align="stretch" spacing={0} flex={1} h="100%">
         {/* Header */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
+        <Box p={{ base: 4, md: 6 }} borderBottom="1px" borderColor="gray.200" bg="white">
           <HStack justify="space-between">
             <Box>
-              <Heading size="lg">
+              <Heading size={{ base: "md", md: "lg" }}>
                 {activeMainSection === "catalogue" && "Catalogue"}
                 {activeMainSection === "commandes" && "Commandes"}
                 {activeMainSection === "layout" && "Mise-en-page"}
                 {activeMainSection === "stats" && "Statistiques"}
                 {activeMainSection === "settings" && "Paramètres"}
               </Heading>
-              <Text fontSize="sm" color="gray.500">
+              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">
                 {activeMainSection === "catalogue" && "Gérez votre catalogue de produits"}
                 {activeMainSection === "commandes" && "Suivi des commandes clients"}
                 {activeMainSection === "layout" && "Organisez votre boutique"}
@@ -495,9 +489,12 @@ const RetroMerch = () => {
         </Box>
 
         {/* Contenu */}
-        <Box flex={1} overflowY="auto" p={6} w="full">
+        <Box flex={1} overflowY="auto" p={{ base: 3, md: 4, lg: 6 }} w="full">
           {renderMainContent()}
         </Box>
+      </VStack>
+    </SidebarLayout>
+  );
       </VStack>
 
       {/* Modal Produit */}
