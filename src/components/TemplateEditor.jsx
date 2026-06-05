@@ -3,7 +3,7 @@
  * Édition directe du visuel sans voir le code - accessible à tous
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   ModalCloseButton, Button, HStack, Text, Box, useToast, Badge,
@@ -25,6 +25,13 @@ export default function TemplateEditor({
   const [originalHtml] = useState(templateHtml);
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
+
+  // Injecter le HTML dans l'éditeur après le montage
+  useEffect(() => {
+    if (editorRef.current && templateHtml) {
+      editorRef.current.innerHTML = templateHtml;
+    }
+  }, [templateHtml, isOpen]);
 
   // Commandes d'édition
   const execCommand = useCallback((command, value = null) => {

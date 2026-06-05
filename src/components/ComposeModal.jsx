@@ -1,14 +1,14 @@
 /**
- * Modal de composition d'email optimisé avec éditeur enrichi
- * Fonctionnalités: formatage HTML, CC/BCC, aperçu, pièces jointes avec preview
+ * Modal de composition d'email optimisé avec éditeur WYSIWYG
+ * Édition visuelle sans voir le code HTML - accessible à tous
  */
 
-import React, { memo, useCallback, useState, useRef } from 'react';
+import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  ModalCloseButton, Button, FormControl, FormLabel, Input, Textarea,
+  ModalCloseButton, Button, FormControl, FormLabel, Input,
   VStack, HStack, IconButton, Card, CardBody, Text, Flex, useToast,
-  Tabs, TabList, TabPanels, Tab, TabPanel, Collapse, Badge, Tooltip,
+  Collapse, Badge, Tooltip,
   ButtonGroup, Divider, Box, useColorModeValue, Image, Menu, MenuButton, MenuList, MenuItem
 } from '@chakra-ui/react';
 import { 
@@ -38,19 +38,36 @@ const ComposeModal = memo(({
   onOpenTemplateEditor
 }) => {
   const toast = useToast();
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null);
   
   // États locaux pour fonctionnalités avancées
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [composeCc, setComposeCc] = useState('');
   const [composeBcc, setComposeBcc] = useState('');
-  const [editorMode, setEditorMode] = useState('text'); // 'text' ou 'html'
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
   const previewBg = useColorModeValue('white', 'gray.800');
+
+  // Synchroniser l'éditeur avec composeBody au chargement
+  useEffect(() => {
+    if (editorRef.current && composeBody && isOpen) {
+      // Ne mettre à jour que si le contenu est différent pour éviter les boucles
+      if (editorRef.current.innerHTML !== composeBody) {
+        editorRef.current.innerHTML = composeBody || '';
+      }
+    }
+  }, [isOpen]);
+
+  // Mettre à jour le state parent quand l'éditeur change
+  const handleEditorInput = useCallback(() => {
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      onComposeBodyChange({ target: { value: html } });
+    }
+  }, [onComposeBodyChange]);
 
   // Calculer la taille totale des pièces jointes
   const totalAttachmentSize = composeAttachments.reduce((sum, att) => sum + (att.size || 0), 0);
@@ -58,47 +75,49 @@ const ComposeModal = memo(({
   const totalSizeKB = (totalAttachmentSize / 1024).toFixed(0);
   const isLargeAttachment = totalAttachmentSize > 2 * 1024 * 1024;
 
-  // Fonctions de formatage de texte
-  const insertFormatting = useCallback((before, after = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+  // Commandes d'édition WYSIWYG
+  const execCommand = useCallback((command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  }, []);
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = composeBody.substring(start, end);
-    const newText = composeBody.substring(0, start) + before + selectedText + after + composeBody.substring(end);
-    
-    onComposeBodyChange({ target: { value: newText } });
-    
-    // Remettre le focus et la sélection
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-    }, 0);
-  }, [composeBody, onComposeBodyChange]);
-
-  const formatBold = useCallback(() => insertFormatting('<b>', '</b>'), [insertFormatting]);
-  const formatItalic = useCallback(() => insertFormatting('<i>', '</i>'), [insertFormatting]);
-  const formatUnderline = useCallback(() => insertFormatting('<u>', '</u>'), [insertFormatting]);
-  const formatCode = useCallback(() => insertFormatting('<code>', '</code>'), [insertFormatting]);
+  // Formatage
+  const formatBold = useCallback(() => execCommand('bold'), [execCommand]);
+  const formatItalic = useCallback(() => execCommand('italic'), [execCommand]);
+  const formatUnderline = useCallback(() => execCommand('underline'), [execCommand]);
+  const formatCode = useCallback(() => {
+    execCommand('formatBlock', 'pre');
+  }, [execCommand]);
   
   const insertList = useCallback((type) => {
-    const tag = type === 'ul' ? 'ul' : 'ol';
-    insertFormatting(`<${tag}>\n  <li>`, `</li>\n</${tag}>`);
-  }, [insertFormatting]);
+    if (type === 'ul') {
+      execCommand('insertUnorderedList');
+    } else {
+      execCommand('insertOrderedList');
+    }
+  }, [execCommand]);
   
   const insertLink = useCallback(() => {
     const url = prompt('URL du lien :');
-    if (url) insertFormatting(`<a href="${url}">`, '</a>');
-  }, [insertFormatting]);
+    if (url) execCommand('createLink', url);
+  }, [execCommand]);
   
   const insertHeading = useCallback((level) => {
-    insertFormatting(`<h${level}>`, `</h${level}>`);
-  }, [insertFormatting]);
+    execCommand('formatBlock', `h${level}`);
+  }, [execCommand]);
   
   const setTextColor = useCallback((color) => {
-    insertFormatting(`<span style="color: ${color}">`, '</span>');
-  }, [insertFormatting]);
+    execCommand('foreColor', color);
+  }, [execCommand]);
+
+  // Gérer la touche Entrée pour des sauts de ligne simples
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.execCommand('insertLineBreak');
+      handleEditorInput(); // Mettre à jour le state
+    }
+  }, [handleEditorInput]);
 
   // Insérer la signature
   const insertSignature = useCallback(() => {
@@ -112,12 +131,7 @@ const ComposeModal = memo(({
       return;
     }
 
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = composeBody || '';
+    if (!editorRef.current) return;
 
     // Construire la signature HTML
     let signatureHtml = '<br><br><div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">';
@@ -136,22 +150,15 @@ const ComposeModal = memo(({
     signatureHtml += '</div>';
 
     // Insérer à la position du curseur
-    const newText = currentText.substring(0, start) + signatureHtml + currentText.substring(end);
-    onComposeBodyChange({ target: { value: newText } });
-
-    // Replacer le curseur après la signature
-    setTimeout(() => {
-      textarea.focus();
-      const newPosition = start + signatureHtml.length;
-      textarea.setSelectionRange(newPosition, newPosition);
-    }, 0);
+    document.execCommand('insertHTML', false, signatureHtml);
+    handleEditorInput();
 
     toast({
       title: "Signature insérée",
       status: "success",
       duration: 2000
     });
-  }, [signature, signatureImage, composeBody, onComposeBodyChange, toast]);
+  }, [signature, signatureImage, handleEditorInput, toast]);
 
   const charCount = composeBody?.length || 0;
   
@@ -497,15 +504,6 @@ const ComposeModal = memo(({
                   </Button>
                 </Tooltip>
 
-                <Divider orientation="vertical" h="24px" />
-
-                <Tabs size="sm" variant="soft-rounded" colorScheme="blue" index={editorMode === 'text' ? 0 : 1}>
-                  <TabList>
-                    <Tab fontSize="xs" onClick={() => setEditorMode('text')}>✍️ Édition</Tab>
-                    <Tab fontSize="xs" onClick={() => setEditorMode('html')}>👁️ Aperçu</Tab>
-                  </TabList>
-                </Tabs>
-
                 <Text fontSize="xs" color="gray.500" ml="auto">
                   {charCount} caractères
                 </Text>
@@ -513,53 +511,53 @@ const ComposeModal = memo(({
             </Box>
             )}
 
-            {/* Zone d'édition / Aperçu */}
+            {/* Zone d'édition WYSIWYG */}
             <FormControl flex={1}>
-              {editorMode === 'text' ? (
-                <Textarea 
-                  ref={textareaRef}
-                  placeholder="Composez votre message... Utilisez les boutons ci-dessus pour formater le texte."
-                  minH="300px"
-                  value={composeBody}
-                  onChange={onComposeBodyChange}
-                  fontFamily={mailFont}
-                  fontSize="md"
-                  resize="vertical"
-                  bg={previewBg}
-                  borderColor={borderColor}
-                  _focus={{
-                    borderColor: 'blue.400',
-                    boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)'
-                  }}
-                />
-              ) : (
-                <Box
-                  minH="300px"
-                  p={4}
-                  bg={previewBg}
-                  border="1px solid"
-                  borderColor={borderColor}
-                  borderRadius="md"
-                  overflowY="auto"
-                  dangerouslySetInnerHTML={{ __html: composeBody || '<p style="color: gray;">Aucun contenu à prévisualiser</p>' }}
-                  sx={{
-                    '& h1, & h2, & h3': { marginBottom: '0.5em', fontWeight: 'bold' },
-                    '& h1': { fontSize: '2em' },
-                    '& h2': { fontSize: '1.5em' },
-                    '& h3': { fontSize: '1.2em' },
-                    '& p': { marginBottom: '1em' },
-                    '& ul, & ol': { marginLeft: '1.5em', marginBottom: '1em' },
-                    '& code': { 
-                      bg: 'gray.100', 
-                      px: 1, 
-                      py: 0.5, 
-                      borderRadius: 'sm',
-                      fontFamily: 'monospace'
-                    },
-                    '& a': { color: 'blue.500', textDecoration: 'underline' }
-                  }}
-                />
-              )}
+              <Box
+                ref={editorRef}
+                contentEditable
+                onInput={handleEditorInput}
+                onKeyDown={handleKeyDown}
+                placeholder="Composez votre message... Utilisez les boutons ci-dessus pour formater le texte."
+                minH="300px"
+                p={4}
+                bg={previewBg}
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="md"
+                overflowY="auto"
+                fontFamily={mailFont}
+                fontSize="md"
+                whiteSpace="pre-wrap"
+                textTransform="none"
+                _focus={{
+                  borderColor: 'blue.400',
+                  boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)',
+                  outline: 'none'
+                }}
+                _empty={{
+                  _before: {
+                    content: 'attr(placeholder)',
+                    color: 'gray.400'
+                  }
+                }}
+                sx={{
+                  '& h1, & h2, & h3': { marginBottom: '0.5em', fontWeight: 'bold' },
+                  '& h1': { fontSize: '2em' },
+                  '& h2': { fontSize: '1.5em' },
+                  '& h3': { fontSize: '1.2em' },
+                  '& p': { marginBottom: '0' },
+                  '& ul, & ol': { marginLeft: '1.5em', marginBottom: '0.5em' },
+                  '& code': { 
+                    bg: 'gray.100', 
+                    px: 1, 
+                    py: 0.5, 
+                    borderRadius: 'sm',
+                    fontFamily: 'monospace'
+                  },
+                  '& a': { color: 'blue.500', textDecoration: 'underline' }
+                }}
+              />
               <HStack justify="space-between" mt={2}>
                 <Text fontSize="xs" color="gray.500">
                   Police : {mailFont} • {signature && '✅ Signature'} {signatureImage && '📸'}
