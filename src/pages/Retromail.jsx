@@ -21,6 +21,7 @@ import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
+import TemplateEditor from "../components/TemplateEditor.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -34,6 +35,7 @@ export default function Retromail() {
   const { isOpen: isTemplatePreviewOpen, onOpen: onTemplatePreviewOpen, onClose: onTemplatePreviewClose } = useDisclosure();
   const { isOpen: isProfilePhotoCropOpen, onOpen: onProfilePhotoCropOpen, onClose: onProfilePhotoCropClose } = useDisclosure();
   const { isOpen: isSignatureCropOpen, onOpen: onSignatureCropOpen, onClose: onSignatureCropClose } = useDisclosure();
+  const { isOpen: isTemplateEditorOpen, onOpen: onTemplateEditorOpen, onClose: onTemplateEditorClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -319,6 +321,36 @@ export default function Retromail() {
       console.error("Erreur déconnexion:", e);
     }
   };
+
+  // Minifier le HTML pour éviter le clipping Gmail (contenu abrégé)
+  const minifyHtml = useCallback((html) => {
+    if (!html) return html;
+    
+    // Gmail clippe les emails > 102KB, on doit donc optimiser
+    let minified = html
+      // Supprimer les commentaires HTML
+      .replace(/<!--[\s\S]*?-->/g, '')
+      // Supprimer les espaces multiples
+      .replace(/\s+/g, ' ')
+      // Supprimer les espaces avant/après les balises
+      .replace(/>\s+</g, '><')
+      // Supprimer les lignes vides
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+    
+    const originalSize = (html.length / 1024).toFixed(1);
+    const minifiedSize = (minified.length / 1024).toFixed(1);
+    const savings = ((1 - minified.length / html.length) * 100).toFixed(0);
+    
+    console.log(`📦 HTML minifié: ${originalSize}KB → ${minifiedSize}KB (${savings}% réduit)`);
+    
+    // Si toujours > 102KB après minification, avertir
+    if (minified.length > 102 * 1024) {
+      console.warn(`⚠️ Email volumineux (${minifiedSize}KB) - Risque de clipping Gmail`);
+    }
+    
+    return minified;
+  }, []);
 
   // Compresser une image si nécessaire
   const compressImage = useCallback(async (file) => {
@@ -679,6 +711,20 @@ export default function Retromail() {
       let finalHtml = htmlBody;
       if (signatureImage && !isFullHtml) {
         finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+      }
+
+      // Minifier le HTML pour éviter le clipping Gmail
+      finalHtml = minifyHtml(finalHtml);
+      
+      // Ajouter un wrapper anti-clipping Gmail (force l'affichage complet)
+      // Gmail clippe après 102KB ou si contenu répétitif détecté
+      if (isFullHtml) {
+        // Pour les templates HTML complets, ajouter un span invisible unique pour éviter le clipping
+        const uniqueId = Date.now() + Math.random().toString(36).substring(2, 9);
+        finalHtml = finalHtml.replace(
+          '</body>',
+          `<span style="display:none;">${uniqueId}</span></body>`
+        );
       }
 
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {
@@ -1365,6 +1411,7 @@ export default function Retromail() {
         signatureImage={signatureImage}
         isNoReplyAccount={isNoReplyAccount}
         onOpenTemplates={onTemplatesOpen}
+        onOpenTemplateEditor={onTemplateEditorOpen}
       />
 
       {/* Modal - Paramètres */}
@@ -2094,6 +2141,22 @@ export default function Retromail() {
         maxHeight={150}
         outputFormat="png"
         quality={0.95}
+      />
+
+      {/* Éditeur de template HTML avec interface graphique */}
+      <TemplateEditor
+        isOpen={isTemplateEditorOpen}
+        onClose={onTemplateEditorClose}
+        templateHtml={composeBody}
+        onSave={(editedHtml) => {
+          setComposeBody(editedHtml);
+          toast({
+            title: "Template personnalisé",
+            description: "Vos modifications ont été appliquées",
+            status: "success",
+            duration: 3000
+          });
+        }}
       />
     </Box>
   );

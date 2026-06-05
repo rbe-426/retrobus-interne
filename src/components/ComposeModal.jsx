@@ -13,7 +13,7 @@ import {
 } from '@chakra-ui/react';
 import { 
   FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
-  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2
+  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit2
 } from 'react-icons/fi';
 
 const ComposeModal = memo(({
@@ -34,7 +34,8 @@ const ComposeModal = memo(({
   signature,
   signatureImage,
   isNoReplyAccount,
-  onOpenTemplates
+  onOpenTemplates,
+  onOpenTemplateEditor
 }) => {
   const toast = useToast();
   const textareaRef = useRef(null);
@@ -151,6 +152,17 @@ const ComposeModal = memo(({
               )}
             </HStack>
             <HStack spacing={2}>
+              {contentType === 'template' && onOpenTemplateEditor && (
+                <Button
+                  size="sm"
+                  leftIcon={<FiEdit2 />}
+                  colorScheme="green"
+                  variant="outline"
+                  onClick={onOpenTemplateEditor}
+                >
+                  Personnaliser
+                </Button>
+              )}
               {isNoReplyAccount && (
                 <Button
                   size="sm"
@@ -288,19 +300,31 @@ const ComposeModal = memo(({
             {contentType === 'template' ? (
               <Box 
                 p={3} 
-                bg="yellow.50" 
+                bg="green.50" 
                 borderRadius="md" 
                 border="1px solid"
-                borderColor="yellow.300"
+                borderColor="green.300"
               >
-                <HStack spacing={2}>
-                  <Text fontSize="sm" fontWeight="600" color="yellow.800">
-                    ⚠️ Template HTML complet détecté
-                  </Text>
-                  <Text fontSize="sm" color="yellow.700">
-                    - Barre d'outils désactivée. Le template sera envoyé avec sa structure complète.
-                  </Text>
-                </HStack>
+                <Flex justify="space-between" align="center">
+                  <HStack spacing={2}>
+                    <Text fontSize="sm" fontWeight="600" color="green.800">
+                      📄 Template HTML complet détecté
+                    </Text>
+                    <Text fontSize="sm" color="green.700">
+                      - Cliquez sur "Personnaliser" pour modifier texte, images et liens
+                    </Text>
+                  </HStack>
+                  {onOpenTemplateEditor && (
+                    <Button
+                      size="sm"
+                      colorScheme="green"
+                      leftIcon={<FiEdit2 />}
+                      onClick={onOpenTemplateEditor}
+                    >
+                      Personnaliser
+                    </Button>
+                  )}
+                </Flex>
               </Box>
             ) : (
               <Box 
