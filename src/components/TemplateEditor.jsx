@@ -26,9 +26,6 @@ export default function TemplateEditor({
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
 
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
-  const toolbarBg = useColorModeValue('gray.50', 'gray.700');
-
   // Commandes d'édition
   const execCommand = useCallback((command, value = null) => {
     document.execCommand(command, false, value);
@@ -51,6 +48,14 @@ export default function TemplateEditor({
   const setBackgroundColor = useCallback((color) => {
     execCommand('hiliteColor', color);
   }, [execCommand]);
+
+  // Gérer la touche Entrée pour insérer des <br> au lieu de créer des blocs
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.execCommand('insertLineBreak');
+    }
+  }, []);
 
   // Sauvegarder
   const handleSave = useCallback(() => {
@@ -203,6 +208,7 @@ export default function TemplateEditor({
             contentEditable
             suppressContentEditableWarning
             dangerouslySetInnerHTML={{ __html: templateHtml }}
+            onKeyDown={handleKeyDown}
             p={6}
             bg="white"
             border="2px solid"
@@ -212,10 +218,15 @@ export default function TemplateEditor({
             maxH="70vh"
             overflowY="auto"
             outline="none"
+            whiteSpace="pre-wrap"
+            textTransform="none"
             sx={{
               '&:focus': {
                 borderColor: 'blue.500',
                 boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)'
+              },
+              '& *': {
+                textTransform: 'none'
               }
             }}
           />
