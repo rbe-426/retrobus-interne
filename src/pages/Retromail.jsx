@@ -310,6 +310,12 @@ export default function Retromail() {
   const loadEmails = useCallback(async () => {
     if (!isConnected) return;
     
+    // DRAFTS est géré localement, pas besoin de charger depuis l'API
+    if (activeFolder === 'DRAFTS') {
+      setEmails([]);
+      return;
+    }
+    
     setLoading(true);
     try {
       const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${activeFolder}`, {
@@ -927,6 +933,12 @@ export default function Retromail() {
 
   // Lire un email complet
   const handleReadEmail = async (email) => {
+    // Si c'est un brouillon, ouvrir le compositeur avec les données du brouillon
+    if (activeFolder === 'DRAFTS') {
+      loadDraft(email);
+      return;
+    }
+    
     setSelectedEmail(email); // Afficher immédiatement pour UX
     
     try {
@@ -956,8 +968,21 @@ export default function Retromail() {
   };
 
   // Filtrer les emails par recherche
-  const filteredEmails = emails.filter(email => {
+  const sourceEmails = activeFolder === 'DRAFTS' ? drafts : emails;
+  
+  const filteredEmails = sourceEmails.filter(email => {
     const q = searchQuery.toLowerCase();
+    
+    // Pour les brouillons
+    if (activeFolder === 'DRAFTS') {
+      return (
+        email.subject?.toLowerCase().includes(q) ||
+        email.to?.toLowerCase().includes(q) ||
+        email.body?.toLowerCase().includes(q)
+      );
+    }
+    
+    // Pour les emails normaux
     return (
       email.subject?.toLowerCase().includes(q) ||
       email.from?.toLowerCase().includes(q) ||
@@ -1222,11 +1247,29 @@ export default function Retromail() {
             </Center>
           ) : filteredEmails.length === 0 ? (
             <Center p={6}>
-              <Text color="gray.600">Aucun email</Text>
+              <VStack spacing={2}>
+                <Text color="gray.600">
+                  {activeFolder === 'DRAFTS' ? 'Aucun brouillon' : 
+                   activeFolder === 'SENT' ? 'Aucun email envoyé' :
+                   activeFolder === 'TRASH' ? 'Corbeille vide' : 
+                   'Aucun email'}
+                </Text>
+                {activeFolder === 'DRAFTS' && (
+                  <Text fontSize="xs" color="gray.500">
+                    Les brouillons sont sauvegardés automatiquement
+                  </Text>
+                )}
+              </VStack>
             </Center>
           ) : (
             <VStack align="stretch" spacing={2}>
-              {filteredEmails.map((email) => (
+              {filteredEmails.map((email) => {
+                // Adapter l'affichage selon le type (brouillon ou email normal)
+                const isDraft = activeFolder === 'DRAFTS';
+                const displayName = isDraft ? email.to : (email.fromName || email.from || "Inconnu");
+                const displaySubName = isDraft ? null : (email.fromName && email.fromName !== email.from ? email.from : null);
+                
+                return (
                 <Card
                   key={email.id}
                   size="sm"
@@ -1240,21 +1283,20 @@ export default function Retromail() {
                   <CardBody>
                     <Flex justify="space-between" align="start" mb={1}>
                       <HStack spacing={2} flex="1" minW="0">
-                        <Avatar size="xs" name={email.fromName || email.from} />
+                        <Avatar size="xs" name={displayName} />
                         <VStack align="start" spacing={0} flex="1" minW="0">
                           <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1}>
-                            {email.fromName && email.fromName !== email.from 
-                              ? email.fromName 
-                              : email.from || "Inconnu"}
+                            {isDraft ? `À: ${displayName}` : displayName}
                           </Text>
-                          {email.fromName && email.fromName !== email.from && (
+                          {displaySubName && (
                             <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                              {email.from}
+                              {displaySubName}
                             </Text>
                           )}
                         </VStack>
                       </HStack>
-                      {!email.read && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
+                      {!email.read && !isDraft && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
+                      {isDraft && <Badge colorScheme="purple" fontSize="xs">Brouillon</Badge>}
                     </Flex>
                     <Text fontWeight="600" fontSize="sm" noOfLines={1} mb={1}>
                       {email.subject || "(Sans objet)"}
@@ -1263,11 +1305,12 @@ export default function Retromail() {
                       {email.preview || email.body?.substring(0, 80) || ""}
                     </Text>
                     <Text fontSize="xs" color="gray.500" mt={1}>
-                      {email.date ? new Date(email.date).toLocaleString('fr-FR') : ''}
+                      {email.date ? new Date(email.date).toLocaleString('fr-FR') : (email.savedAt ? new Date(email.savedAt).toLocaleString('fr-FR') : '')}
                     </Text>
                   </CardBody>
                 </Card>
-              ))}
+                );
+              })}
             </VStack>
           )}
         </Box>

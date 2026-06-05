@@ -133,8 +133,8 @@ const ComposeModal = memo(({
 
     if (!editorRef.current) return;
 
-    // Construire la signature HTML
-    let signatureHtml = '<br><br><div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">';
+    // Construire la signature HTML sans encadré
+    let signatureHtml = '<br><br>';
     
     if (signature) {
       // Convertir les sauts de ligne en <br>
@@ -144,10 +144,8 @@ const ComposeModal = memo(({
     
     if (signatureImage) {
       if (signature) signatureHtml += '<br>';
-      signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; margin-top: 10px;" />`;
+      signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
     }
-    
-    signatureHtml += '</div>';
 
     // Insérer à la position du curseur
     document.execCommand('insertHTML', false, signatureHtml);
