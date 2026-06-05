@@ -100,6 +100,59 @@ const ComposeModal = memo(({
     insertFormatting(`<span style="color: ${color}">`, '</span>');
   }, [insertFormatting]);
 
+  // Insérer la signature
+  const insertSignature = useCallback(() => {
+    if (!signature && !signatureImage) {
+      toast({
+        title: "Aucune signature",
+        description: "Configurez votre signature dans les paramètres",
+        status: "info",
+        duration: 3000
+      });
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = composeBody || '';
+
+    // Construire la signature HTML
+    let signatureHtml = '<br><br><div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">';
+    
+    if (signature) {
+      // Convertir les sauts de ligne en <br>
+      const signatureLines = signature.split('\n').join('<br>');
+      signatureHtml += signatureLines;
+    }
+    
+    if (signatureImage) {
+      if (signature) signatureHtml += '<br>';
+      signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; margin-top: 10px;" />`;
+    }
+    
+    signatureHtml += '</div>';
+
+    // Insérer à la position du curseur
+    const newText = currentText.substring(0, start) + signatureHtml + currentText.substring(end);
+    onComposeBodyChange({ target: { value: newText } });
+
+    // Replacer le curseur après la signature
+    setTimeout(() => {
+      textarea.focus();
+      const newPosition = start + signatureHtml.length;
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
+
+    toast({
+      title: "Signature insérée",
+      status: "success",
+      duration: 2000
+    });
+  }, [signature, signatureImage, composeBody, onComposeBodyChange, toast]);
+
   const charCount = composeBody?.length || 0;
   
   // Détecter le type de contenu
@@ -428,6 +481,21 @@ const ComposeModal = memo(({
                     <MenuItem onClick={() => setTextColor('#AA00AA')}>🟣 Violet</MenuItem>
                   </MenuList>
                 </Menu>
+
+                <Divider orientation="vertical" h="24px" />
+
+                <Tooltip label="Insérer ma signature">
+                  <Button
+                    size="sm"
+                    leftIcon={<Text fontSize="md">✍️</Text>}
+                    onClick={insertSignature}
+                    variant="outline"
+                    colorScheme="purple"
+                    isDisabled={!signature && !signatureImage}
+                  >
+                    Signature
+                  </Button>
+                </Tooltip>
 
                 <Divider orientation="vertical" h="24px" />
 

@@ -1,17 +1,18 @@
 /**
- * Éditeur de templates HTML avec interface graphique
- * Permet de personnaliser le texte, images et liens sans casser la structure
+ * Éditeur WYSIWYG simple pour templates HTML
+ * Édition directe du visuel sans voir le code - accessible à tous
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  ModalCloseButton, Button, VStack, HStack, Text, Box, Input, Textarea,
-  FormControl, FormLabel, useToast, Tabs, TabList, TabPanels, Tab, TabPanel,
-  Badge, IconButton, Tooltip, Divider, Accordion, AccordionItem, AccordionButton,
-  AccordionPanel, AccordionIcon, Image, Select, Heading
+  ModalCloseButton, Button, HStack, Text, Box, useToast, Badge,
+  IconButton, Tooltip, ButtonGroup, Menu, MenuButton, MenuList, MenuItem,
+  useColorModeValue
 } from '@chakra-ui/react';
-import { FiEdit2, FiEye, FiSave, FiRefreshCw, FiImage, FiLink, FiType } from 'react-icons/fi';
+import { 
+  FiSave, FiRefreshCw, FiBold, FiItalic, FiUnderline, FiType, FiChevronDown
+} from 'react-icons/fi';
 
 export default function TemplateEditor({
   isOpen,
@@ -20,9 +21,10 @@ export default function TemplateEditor({
   onSave
 }) {
   const toast = useToast();
-  const [editedHtml, setEditedHtml] = useState(templateHtml);
-  const [editableFields, setEditableFields] = useState([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const editorRef = useRef(null);
+  const [originalHtml] = useState(templateHtml);
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const toolbarBg = useColorModeValue('gray.50', 'gray.700');
 
   // Extraire les champs éditables du HTML
   useEffect(() => {

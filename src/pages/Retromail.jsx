@@ -51,6 +51,16 @@ export default function Retromail() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
   const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
+  const [drafts, setDrafts] = useState(() => {
+    // Charger les brouillons depuis localStorage
+    try {
+      const saved = localStorage.getItem('mail_drafts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [currentDraftId, setCurrentDraftId] = useState(null);
 
   // Formulaire de connexion Infomaniak
   const [emailAccount, setEmailAccount] = useState("");
@@ -128,6 +138,104 @@ export default function Retromail() {
   const isNoReplyAccount = useMemo(() => {
     return emailAccount.toLowerCase().includes('noreply@association-rbe.fr');
   }, [emailAccount]);
+
+  // Sauvegarder les brouillons dans localStorage
+  const saveDraftsToStorage = useCallback((draftsArray) => {
+    try {
+      localStorage.setItem('mail_drafts', JSON.stringify(draftsArray));
+    } catch (error) {
+      console.error('Erreur sauvegarde brouillons:', error);
+    }
+  }, []);
+
+  // Sauvegarder le brouillon actuel
+  const saveDraft = useCallback(() => {
+    // Ne sauvegarder que si au moins un champ est rempli
+    if (!composeTo.trim() && !composeSubject.trim() && !composeBody.trim() && composeAttachments.length === 0) {
+      return;
+    }
+
+    const draft = {
+      id: currentDraftId || Date.now().toString(),
+      to: composeTo,
+      subject: composeSubject,
+      body: composeBody,
+      attachments: composeAttachments,
+      savedAt: new Date().toISOString()
+    };
+
+    setDrafts(prev => {
+      const existingIndex = prev.findIndex(d => d.id === draft.id);
+      let newDrafts;
+      
+      if (existingIndex >= 0) {
+        // Mettre à jour le brouillon existant
+        newDrafts = [...prev];
+        newDrafts[existingIndex] = draft;
+      } else {
+        // Ajouter un nouveau brouillon
+        newDrafts = [draft, ...prev];
+      }
+      
+      saveDraftsToStorage(newDrafts);
+      return newDrafts;
+    });
+
+    if (!currentDraftId) {
+      setCurrentDraftId(draft.id);
+    }
+
+    console.log('💾 Brouillon sauvegardé:', draft.id);
+  }, [composeTo, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
+
+  // Debounced autosave - sauvegarde 1 seconde après la dernière modification
+  useEffect(() => {
+    if (!isComposeOpen) return;
+    
+    const timeoutId = setTimeout(() => {
+      saveDraft();
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [composeTo, composeSubject, composeBody, composeAttachments, isComposeOpen, saveDraft]);
+
+  // Charger un brouillon
+  const loadDraft = useCallback((draft) => {
+    setComposeTo(draft.to || '');
+    setComposeSubject(draft.subject || '');
+    setComposeBody(draft.body || '');
+    setComposeAttachments(draft.attachments || []);
+    setCurrentDraftId(draft.id);
+    
+    onComposeOpen();
+    setActiveFolder('INBOX'); // Retourner à la boîte de réception
+    
+    toast({
+      title: "Brouillon chargé",
+      description: "Vous pouvez continuer votre message",
+      status: "info",
+      duration: 2000
+    });
+  }, [onComposeOpen, toast]);
+
+  // Supprimer un brouillon
+  const deleteDraft = useCallback((draftId) => {
+    setDrafts(prev => {
+      const newDrafts = prev.filter(d => d.id !== draftId);
+      saveDraftsToStorage(newDrafts);
+      return newDrafts;
+    });
+    
+    if (currentDraftId === draftId) {
+      setCurrentDraftId(null);
+    }
+    
+    toast({
+      title: "Brouillon supprimé",
+      status: "success",
+      duration: 2000
+    });
+  }, [currentDraftId, saveDraftsToStorage, toast]);
 
   // Auto-remplir l'email au montage
   useEffect(() => {
@@ -707,10 +815,26 @@ export default function Retromail() {
         htmlBody = convertToHtml(finalBody);
       }
       
-      // Ajouter signature image (en HTML) seulement si pas de HTML complet
+      // Vérifier si la signature est déjà présente dans le corps du message
+      const signatureAlreadyPresent = signature && finalBody.includes(signature);
+      const signatureImageAlreadyPresent = signatureImage && (
+        finalBody.includes(signatureImage) || 
+        htmlBody.includes(signatureImage)
+      );
+      
+      // Ajouter signature seulement si pas de HTML complet ET pas déjà présente
       let finalHtml = htmlBody;
-      if (signatureImage && !isFullHtml) {
-        finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+      if (!isFullHtml) {
+        // Ajouter signature texte si non présente
+        if (signature && !signatureAlreadyPresent && !hasHtmlTags) {
+          // Pour texte brut uniquement (pas pour HTML partiel)
+          finalHtml += '<br><br>' + signature.split('\n').join('<br>');
+        }
+        
+        // Ajouter signature image si non présente
+        if (signatureImage && !signatureImageAlreadyPresent) {
+          finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+        }
       }
 
       // Minifier le HTML pour éviter le clipping Gmail
@@ -1036,6 +1160,28 @@ export default function Retromail() {
               size={{ base: 'sm', md: 'md' }}
             >
               Envoyés
+            </Button>
+            <Button
+              variant={activeFolder === 'DRAFTS' ? 'solid' : 'ghost'}
+              colorScheme={activeFolder === 'DRAFTS' ? 'rbe' : 'gray'}
+              justifyContent="flex-start"
+              leftIcon={<FiEdit />}
+              onClick={() => setActiveFolder('DRAFTS')}
+              size={{ base: 'sm', md: 'md' }}
+              position="relative"
+            >
+              Brouillons
+              {drafts.length > 0 && (
+                <Badge
+                  ml={2}
+                  colorScheme="purple"
+                  borderRadius="full"
+                  px={2}
+                  fontSize="xs"
+                >
+                  {drafts.length}
+                </Badge>
+              )}
             </Button>
             <Button
               variant={activeFolder === 'TRASH' ? 'solid' : 'ghost'}
