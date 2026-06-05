@@ -15,10 +15,12 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiEye, FiDownload, FiShare2, FiX
+  FiFolder, FiCornerUpRight, FiEye, FiDownload, FiShare2, FiX, FiFileText
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
+import ComposeModal from "../components/ComposeModal.jsx";
+import ImageCropper from "../components/ImageCropper.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -28,6 +30,10 @@ export default function Retromail() {
   const { isOpen: isComposeOpen, onOpen: onComposeOpen, onClose: onComposeClose } = useDisclosure();
   const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose } = useDisclosure();
   const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
+  const { isOpen: isTemplatesOpen, onOpen: onTemplatesOpen, onClose: onTemplatesClose } = useDisclosure();
+  const { isOpen: isTemplatePreviewOpen, onOpen: onTemplatePreviewOpen, onClose: onTemplatePreviewClose } = useDisclosure();
+  const { isOpen: isProfilePhotoCropOpen, onOpen: onProfilePhotoCropOpen, onClose: onProfilePhotoCropClose } = useDisclosure();
+  const { isOpen: isSignatureCropOpen, onOpen: onSignatureCropOpen, onClose: onSignatureCropClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -39,6 +45,7 @@ export default function Retromail() {
   const [emails, setEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
   const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
@@ -86,8 +93,27 @@ export default function Retromail() {
   const [composeBody, setComposeBody] = useState("");
   const [composeAttachments, setComposeAttachments] = useState([]);
   
+  // Handlers mémorisés pour éviter les re-renders
+  const handleComposeToChange = useCallback((e) => {
+    setComposeTo(e.target.value);
+  }, []);
+  
+  const handleComposeSubjectChange = useCallback((e) => {
+    setComposeSubject(e.target.value);
+  }, []);
+  
+  const handleComposeBodyChange = useCallback((e) => {
+    setComposeBody(e.target.value);
+  }, []);
+  
   // Prévisualisation de pièce jointe
   const [previewAttachment, setPreviewAttachment] = useState(null);
+  
+  // Templates d'emails
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateFilter, setSelectedTemplateFilter] = useState('ALL');
+  const [previewingTemplate, setPreviewingTemplate] = useState(null);
   
   // Paramètres mail
   const [displayName, setDisplayName] = useState(() => localStorage.getItem('mail_displayName') || user?.nom + ' ' + user?.prenom || '');
@@ -95,6 +121,11 @@ export default function Retromail() {
   const [signature, setSignature] = useState(() => localStorage.getItem('mail_signature') || '');
   const [mailFont, setMailFont] = useState(() => localStorage.getItem('mail_font') || 'Arial');
   const [signatureImage, setSignatureImage] = useState(() => localStorage.getItem('mail_signatureImage') || '');
+
+  // Détecter si connecté avec NoReply
+  const isNoReplyAccount = useMemo(() => {
+    return emailAccount.toLowerCase().includes('noreply@association-rbe.fr');
+  }, [emailAccount]);
 
   // Auto-remplir l'email au montage
   useEffect(() => {
@@ -289,8 +320,62 @@ export default function Retromail() {
     }
   };
 
+  // Compresser une image si nécessaire
+  const compressImage = useCallback(async (file) => {
+    return new Promise((resolve) => {
+      // Ne compresser que si > 500 KB
+      if (file.size <= 500 * 1024 || !file.type.startsWith('image/')) {
+        resolve(file);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Réduire si trop grande (max 1920px)
+          const maxDimension = 1920;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height / width) * maxDimension;
+              width = maxDimension;
+            } else {
+              width = (width / height) * maxDimension;
+              height = maxDimension;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compresser en JPEG qualité 0.8
+          canvas.toBlob(
+            (blob) => {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              });
+              console.log(`🗜️ Image compressée: ${(file.size/1024).toFixed(0)}KB → ${(compressedFile.size/1024).toFixed(0)}KB`);
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            0.8
+          );
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
   // Gérer l'upload de pièces jointes
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = useCallback(async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -308,21 +393,56 @@ export default function Retromail() {
       return;
     }
 
+    // Afficher un toast pour les gros fichiers
+    if (totalSize > 2 * 1024 * 1024) {
+      toast({
+        title: "⏳ Traitement en cours...",
+        description: `Compression des images (${(totalSize/1024/1024).toFixed(1)} MB)`,
+        status: "info",
+        duration: 2000
+      });
+    }
+
     try {
+      // Compresser les images d'abord
+      const processedFiles = await Promise.all(
+        files.map(file => compressImage(file))
+      );
+
       const attachmentsData = await Promise.all(
-        files.map(file => {
+        processedFiles.map(file => {
           return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
-              const base64 = reader.result.split(',')[1];
+              // Extraire le base64 pur (sans le préfixe data:xxx;base64,)
+              const dataUrl = reader.result;
+              const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+              
+              if (!base64Match) {
+                reject(new Error('Format base64 invalide'));
+                return;
+              }
+              
+              // Nettoyer le base64 : supprimer tous les espaces/retours à la ligne
+              const base64Clean = base64Match[1].replace(/\s+/g, '');
+              
+              // Valider que c'est bien du base64
+              if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Clean)) {
+                reject(new Error('Base64 contient des caractères invalides'));
+                return;
+              }
+              
               resolve({
                 filename: file.name,
                 contentType: file.type || 'application/octet-stream',
                 size: file.size,
-                content: base64
+                content: base64Clean
               });
             };
-            reader.onerror = reject;
+            reader.onerror = (error) => {
+              console.error('Erreur lecture fichier:', error);
+              reject(error);
+            };
             reader.readAsDataURL(file);
           });
         })
@@ -330,9 +450,10 @@ export default function Retromail() {
 
       setComposeAttachments(prev => [...prev, ...attachmentsData]);
       
+      const newTotalSize = attachmentsData.reduce((sum, a) => sum + a.size, 0);
       toast({
         title: "Fichiers ajoutés",
-        description: `${files.length} fichier(s) ajouté(s)`,
+        description: `${files.length} fichier(s) - ${(newTotalSize/1024).toFixed(0)} KB`,
         status: "success",
         duration: 2000
       });
@@ -345,12 +466,12 @@ export default function Retromail() {
         duration: 3000
       });
     }
-  };
+  }, [toast]);
 
   // Retirer une pièce jointe
-  const handleRemoveAttachment = (index) => {
+  const handleRemoveAttachment = useCallback((index) => {
     setComposeAttachments(prev => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
   // Prévisualiser une pièce jointe
   const handlePreviewAttachment = (attachment) => {
@@ -381,8 +502,68 @@ export default function Retromail() {
     );
   };
 
+  // Charger les templates d'emails depuis l'API
+  const loadEmailTemplates = useCallback(async () => {
+    if (!isNoReplyAccount) return;
+    
+    setTemplatesLoading(true);
+    try {
+      const res = await fetchWithCSRF(`${API}/api/email-templates`, {
+        method: 'GET'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEmailTemplates(data.templates || []);
+        console.log(`📧 ${data.templates?.length || 0} templates chargés`);
+      } else {
+        throw new Error('Erreur lors du chargement des templates');
+      }
+    } catch (error) {
+      console.error('Erreur chargement templates:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les templates",
+        status: "error",
+        duration: 3000
+      });
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, [isNoReplyAccount, toast]);
+
+  // Appliquer un template au formulaire de composition
+  const applyTemplate = (template) => {
+    setComposeSubject(template.subject || '');
+    setComposeBody(template.body || '');
+    
+    toast({
+      title: "Template chargé",
+      description: `Template "${template.name}" appliqué. Vous pouvez maintenant le modifier.`,
+      status: "success",
+      duration: 3000
+    });
+    
+    onTemplatesClose();
+    onComposeOpen();
+  };
+
+  // Prévisualiser un template avant de l'appliquer
+  const previewTemplate = useCallback((template, e) => {
+    e?.stopPropagation();
+    setPreviewingTemplate(template);
+    onTemplatePreviewOpen();
+  }, [onTemplatePreviewOpen]);
+
+  // Charger les templates quand on se connecte avec NoReply
+  useEffect(() => {
+    if (isConnected && isNoReplyAccount) {
+      loadEmailTemplates();
+    }
+  }, [isConnected, isNoReplyAccount, loadEmailTemplates]);
+
   // Envoyer un email
-  const handleSendEmail = async () => {
+  const handleSendEmail = useCallback(async () => {
     if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) {
       toast({
         title: "Champs requis",
@@ -393,7 +574,21 @@ export default function Retromail() {
       return;
     }
 
-    setLoading(true);
+    // Calculer la taille totale des pièces jointes
+    const totalAttachmentSize = composeAttachments.reduce((sum, a) => sum + a.size, 0);
+    const isLargeAttachment = totalAttachmentSize > 2 * 1024 * 1024;
+
+    if (isLargeAttachment) {
+      toast({
+        title: "📤 Envoi en cours...",
+        description: `Transmission de ${(totalAttachmentSize/1024/1024).toFixed(1)} MB, patientez...`,
+        status: "info",
+        duration: 5000,
+        isClosable: true
+      });
+    }
+
+    setIsSending(true);
     try {
       // Construire le corps avec signature
       let finalBody = composeBody;
@@ -403,65 +598,86 @@ export default function Retromail() {
         finalBody += '\n\n--\n' + signature;
       }
       
-      // Convertir le texte en HTML pour les citations
-      const convertToHtml = (text) => {
-        const lines = text.split('\n');
-        let html = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">';
-        let inQuote = false;
-        let quoteLines = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+      // Détecter si le contenu est déjà du HTML complet
+      const isFullHtml = finalBody.trim().startsWith('<!DOCTYPE') || 
+                         finalBody.trim().startsWith('<html') ||
+                         finalBody.includes('</html>');
+      
+      // Détecter si le contenu contient déjà des balises HTML significatives
+      const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|br|strong|em|a|img)[>\s]/i.test(finalBody);
+      
+      let htmlBody;
+      
+      if (isFullHtml) {
+        // HTML complet (template) - utiliser tel quel
+        console.log('📄 HTML complet détecté - utilisation directe');
+        htmlBody = finalBody;
+      } else if (hasHtmlTags) {
+        // HTML partiel (édité avec la barre d'outils) - wrapper simple
+        console.log('🎨 HTML partiel détecté - wrapper simple');
+        htmlBody = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">${finalBody}</div>`;
+      } else {
+        // Texte brut - convertir en HTML avec citations
+        console.log('📝 Texte brut détecté - conversion HTML');
+        const convertToHtml = (text) => {
+          const lines = text.split('\n');
+          let html = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">`;
+          let inQuote = false;
+          let quoteLines = [];
           
-          if (line.startsWith('> ')) {
-            // Ligne citée
-            if (!inQuote) {
-              inQuote = true;
-              quoteLines = [];
-            }
-            quoteLines.push(line.substring(2));
-          } else {
-            // Ligne normale
-            if (inQuote) {
-              // Fermer la citation précédente
-              html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
-              html += quoteLines.join('<br>');
-              html += '</blockquote>';
-              inQuote = false;
-              quoteLines = [];
-            }
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
             
-            // Ligne vide ou avec contenu
-            if (line.trim() === '') {
-              html += '<br>';
-            } else if (line.startsWith('---') || line.startsWith('Le ') && line.includes('a écrit :')) {
-              // Séparateur ou en-tête de citation
-              html += '<div style="color: #666; font-size: 12px; margin: 15px 0; font-style: italic;">' + line + '</div>';
-            } else if (line.startsWith('De :') || line.startsWith('Date :') || line.startsWith('Objet :') || line.startsWith('A :')) {
-              // Métadonnées d'email
-              html += '<div style="color: #666; font-size: 12px; margin: 2px 0;"><strong>' + line.split(':')[0] + ' :</strong>' + line.split(':').slice(1).join(':') + '</div>';
+            if (line.startsWith('> ')) {
+              // Ligne citée
+              if (!inQuote) {
+                inQuote = true;
+                quoteLines = [];
+              }
+              quoteLines.push(line.substring(2));
             } else {
-              html += '<p style="margin: 5px 0;">' + line + '</p>';
+              // Ligne normale
+              if (inQuote) {
+                // Fermer la citation précédente
+                html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
+                html += quoteLines.join('<br>');
+                html += '</blockquote>';
+                inQuote = false;
+                quoteLines = [];
+              }
+              
+              // Ligne vide ou avec contenu
+              if (line.trim() === '') {
+                html += '<br>';
+              } else if (line.startsWith('---') || line.startsWith('Le ') && line.includes('a écrit :')) {
+                // Séparateur ou en-tête de citation
+                html += '<div style="color: #666; font-size: 12px; margin: 15px 0; font-style: italic;">' + line + '</div>';
+              } else if (line.startsWith('De :') || line.startsWith('Date :') || line.startsWith('Objet :') || line.startsWith('A :')) {
+                // Métadonnées d'email
+                html += '<div style="color: #666; font-size: 12px; margin: 2px 0;"><strong>' + line.split(':')[0] + ' :</strong>' + line.split(':').slice(1).join(':') + '</div>';
+              } else {
+                html += '<p style="margin: 5px 0;">' + line + '</p>';
+              }
             }
           }
-        }
+          
+          // Fermer la dernière citation si nécessaire
+          if (inQuote) {
+            html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
+            html += quoteLines.join('<br>');
+            html += '</blockquote>';
+          }
+          
+          html += '</div>';
+          return html;
+        };
         
-        // Fermer la dernière citation si nécessaire
-        if (inQuote) {
-          html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
-          html += quoteLines.join('<br>');
-          html += '</blockquote>';
-        }
-        
-        html += '</div>';
-        return html;
-      };
+        htmlBody = convertToHtml(finalBody);
+      }
       
-      const htmlBody = convertToHtml(finalBody);
-      
-      // Ajouter signature image (en HTML)
+      // Ajouter signature image (en HTML) seulement si pas de HTML complet
       let finalHtml = htmlBody;
-      if (signatureImage) {
+      if (signatureImage && !isFullHtml) {
         finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
       }
 
@@ -504,9 +720,9 @@ export default function Retromail() {
         duration: 4000
       });
     } finally {
-      setLoading(false);
+      setIsSending(false);
     }
-  };
+  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, mailFont, API, emailAccount, password, toast, onComposeClose]);
 
   // Supprimer un email
   const handleDeleteEmail = async (emailId) => {
@@ -1130,105 +1346,26 @@ export default function Retromail() {
       </Flex>
 
       {/* Modal - Composer un email */}
-      <Modal isOpen={isComposeOpen} onClose={onComposeClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Nouveau message</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              <FormControl>
-                <FormLabel>Destinataire</FormLabel>
-                <Input 
-                  type="email"
-                  placeholder="email@example.com"
-                  value={composeTo}
-                  onChange={(e) => setComposeTo(e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Objet</FormLabel>
-                <Input 
-                  placeholder="Objet du message"
-                  value={composeSubject}
-                  onChange={(e) => setComposeSubject(e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Message</FormLabel>
-                <Textarea 
-                  placeholder="Votre message..."
-                  rows={10}
-                  value={composeBody}
-                  onChange={(e) => setComposeBody(e.target.value)}
-                  fontFamily={mailFont}
-                  fontSize="md"
-                />
-                <Text fontSize="xs" color="gray.500" mt={1}>
-                  Police : {mailFont} • {signature && '✅ Signature activée'} {signatureImage && '📸'}
-                </Text>
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>
-                  <FiPaperclip style={{ display: 'inline', marginRight: '4px' }} />
-                  Pièces jointes
-                </FormLabel>
-                <Input 
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  accept="*/*"
-                  pt={1}
-                />
-                {composeAttachments.length > 0 && (
-                  <VStack align="stretch" spacing={2} mt={3}>
-                    {composeAttachments.map((att, idx) => (
-                      <Flex 
-                        key={idx} 
-                        p={2} 
-                        bg="gray.50" 
-                        borderRadius="md" 
-                        align="center" 
-                        justify="space-between"
-                      >
-                        <HStack spacing={2}>
-                          <FiPaperclip />
-                          <Text fontSize="sm">{att.filename}</Text>
-                          <Badge fontSize="xs">{(att.size / 1024).toFixed(1)} KB</Badge>
-                        </HStack>
-                        <IconButton
-                          icon={<FiTrash2 />}
-                          size="xs"
-                          colorScheme="red"
-                          variant="ghost"
-                          onClick={() => handleRemoveAttachment(idx)}
-                          aria-label="Retirer"
-                        />
-                      </Flex>
-                    ))}
-                  </VStack>
-                )}
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onComposeClose}>
-              Annuler
-            </Button>
-            <Button 
-              colorScheme="rbe" 
-              leftIcon={<FiSend />}
-              onClick={handleSendEmail}
-              isLoading={loading}
-            >
-              Envoyer
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ComposeModal
+        isOpen={isComposeOpen}
+        onClose={onComposeClose}
+        composeTo={composeTo}
+        composeSubject={composeSubject}
+        composeBody={composeBody}
+        onComposeToChange={handleComposeToChange}
+        onComposeSubjectChange={handleComposeSubjectChange}
+        onComposeBodyChange={handleComposeBodyChange}
+        composeAttachments={composeAttachments}
+        onFileUpload={handleFileUpload}
+        onRemoveAttachment={handleRemoveAttachment}
+        onSendEmail={handleSendEmail}
+        isSending={isSending}
+        mailFont={mailFont}
+        signature={signature}
+        signatureImage={signatureImage}
+        isNoReplyAccount={isNoReplyAccount}
+        onOpenTemplates={onTemplatesOpen}
+      />
 
       {/* Modal - Paramètres */}
       <Modal isOpen={isSettingsOpen} onClose={onSettingsClose} size="xl">
@@ -1284,24 +1421,53 @@ export default function Retromail() {
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel fontSize="sm">Photo de profil (URL)</FormLabel>
-                    <Input 
-                      placeholder="https://example.com/photo.jpg"
-                      value={profilePhoto}
-                      onChange={(e) => {
-                        setProfilePhoto(e.target.value);
-                        localStorage.setItem('mail_profilePhoto', e.target.value);
-                      }}
-                    />
-                    {profilePhoto && (
-                      <HStack mt={2}>
-                        <Avatar src={profilePhoto} size="sm" />
-                        <Text fontSize="xs" color="gray.600">Aperçu</Text>
-                      </HStack>
-                    )}
-                    <Text fontSize="xs" color="gray.500" mt={1}>
-                      💡 Astuce : Uploadez votre photo sur imgur.com ou utilisez Gravatar
-                    </Text>
+                    <FormLabel fontSize="sm">Photo de profil</FormLabel>
+                    <VStack align="stretch" spacing={2}>
+                      {profilePhoto ? (
+                        <Flex gap={3} align="center">
+                          <Avatar src={profilePhoto} size="lg" />
+                          <VStack align="start" spacing={1} flex={1}>
+                            <Text fontSize="xs" color="gray.600">Photo enregistrée</Text>
+                            <HStack>
+                              <Button
+                                size="xs"
+                                leftIcon={<FiEdit />}
+                                onClick={onProfilePhotoCropOpen}
+                              >
+                                Modifier
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                colorScheme="red"
+                                onClick={() => {
+                                  setProfilePhoto('');
+                                  localStorage.removeItem('mail_profilePhoto');
+                                  toast({
+                                    title: "Photo supprimée",
+                                    status: "success",
+                                    duration: 2000
+                                  });
+                                }}
+                              >
+                                Supprimer
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        </Flex>
+                      ) : (
+                        <Button
+                          leftIcon={<FiPaperclip />}
+                          onClick={onProfilePhotoCropOpen}
+                          variant="outline"
+                        >
+                          📸 Ajouter une photo de profil
+                        </Button>
+                      )}
+                      <Text fontSize="xs" color="gray.500">
+                        💡 Comme Gmail : la photo s'affichera dans les clients mail des destinataires
+                      </Text>
+                    </VStack>
                   </FormControl>
                 </VStack>
               </Box>
@@ -1329,23 +1495,52 @@ export default function Retromail() {
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel fontSize="sm">Image de signature (URL)</FormLabel>
-                    <Input 
-                      placeholder="https://example.com/signature.png"
-                      value={signatureImage}
-                      onChange={(e) => {
-                        setSignatureImage(e.target.value);
-                        localStorage.setItem('mail_signatureImage', e.target.value);
-                      }}
-                    />
-                    {signatureImage && (
-                      <Box mt={2} p={2} bg="gray.50" borderRadius="md">
-                        <img src={signatureImage} alt="Signature" style={{ maxWidth: '100%', maxHeight: '100px' }} />
-                      </Box>
-                    )}
-                    <Text fontSize="xs" color="gray.500" mt={1}>
-                      📸 Comme Gmail : uploadez votre signature sur imgur.com puis collez le lien
-                    </Text>
+                    <FormLabel fontSize="sm">Image de signature</FormLabel>
+                    <VStack align="stretch" spacing={2}>
+                      {signatureImage ? (
+                        <VStack align="stretch" spacing={2}>
+                          <Box p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
+                            <img src={signatureImage} alt="Signature" style={{ maxWidth: '100%', maxHeight: '120px' }} />
+                          </Box>
+                          <HStack>
+                            <Button
+                              size="xs"
+                              leftIcon={<FiEdit />}
+                              onClick={onSignatureCropOpen}
+                            >
+                              Modifier
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => {
+                                setSignatureImage('');
+                                localStorage.removeItem('mail_signatureImage');
+                                toast({
+                                  title: "Signature supprimée",
+                                  status: "success",
+                                  duration: 2000
+                                });
+                              }}
+                            >
+                              Supprimer
+                            </Button>
+                          </HStack>
+                        </VStack>
+                      ) : (
+                        <Button
+                          leftIcon={<FiPaperclip />}
+                          onClick={onSignatureCropOpen}
+                          variant="outline"
+                        >
+                          ✍️ Ajouter une signature image
+                        </Button>
+                      )}
+                      <Text fontSize="xs" color="gray.500">
+                        📸 Comme Gmail : créez votre signature graphique et importez-la
+                      </Text>
+                    </VStack>
                   </FormControl>
                 </VStack>
               </Box>
@@ -1531,6 +1726,375 @@ export default function Retromail() {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {/* Modal - Sélection de templates d'emails */}
+      <Modal isOpen={isTemplatesOpen} onClose={onTemplatesClose} size="4xl">
+        <ModalOverlay />
+        <ModalContent maxH="80vh">
+          <ModalHeader>
+            <Flex justify="space-between" align="center">
+              <HStack spacing={3}>
+                <FiFileText size={24} />
+                <VStack align="start" spacing={0}>
+                  <Text>Templates d'emails</Text>
+                  <Text fontSize="sm" fontWeight="normal" color="gray.500">
+                    Sélectionnez un template pour le modifier et l'envoyer
+                  </Text>
+                </VStack>
+              </HStack>
+              {templatesLoading && <Spinner size="sm" />}
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto">
+            {templatesLoading ? (
+              <Center py={10}>
+                <VStack spacing={3}>
+                  <Spinner size="xl" color="purple.500" />
+                  <Text color="gray.500">Chargement des templates...</Text>
+                </VStack>
+              </Center>
+            ) : emailTemplates.length === 0 ? (
+              <Center py={10}>
+                <VStack spacing={3}>
+                  <FiFileText size={48} color="gray.400" />
+                  <Text color="gray.500">Aucun template disponible</Text>
+                  <Text fontSize="sm" color="gray.400">
+                    Créez des templates depuis l'espace Administration
+                  </Text>
+                </VStack>
+              </Center>
+            ) : (
+              <VStack spacing={4} align="stretch">
+                {/* Filtre par catégorie */}
+                <Flex gap={2} flexWrap="wrap">
+                  <Button
+                    size="sm"
+                    variant={selectedTemplateFilter === 'ALL' ? 'solid' : 'outline'}
+                    colorScheme="purple"
+                    onClick={() => setSelectedTemplateFilter('ALL')}
+                  >
+                    Tous ({emailTemplates.length})
+                  </Button>
+                  {['WELCOME', 'TICKETS', 'EVENTS', 'FINANCE', 'MEMBERSHIP', 'VEHICLES', 'ADMIN', 'CUSTOM'].map(cat => {
+                    const count = emailTemplates.filter(t => t.category === cat).length;
+                    if (count === 0) return null;
+                    return (
+                      <Button
+                        key={cat}
+                        size="sm"
+                        variant={selectedTemplateFilter === cat ? 'solid' : 'outline'}
+                        colorScheme="purple"
+                        onClick={() => setSelectedTemplateFilter(cat)}
+                      >
+                        {cat} ({count})
+                      </Button>
+                    );
+                  })}
+                </Flex>
+
+                {/* Liste des templates */}
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  {emailTemplates
+                    .filter(t => selectedTemplateFilter === 'ALL' || t.category === selectedTemplateFilter)
+                    .map(template => (
+                      <Card 
+                        key={template.id} 
+                        variant="outline" 
+                        cursor="pointer"
+                        _hover={{ borderColor: 'purple.500', shadow: 'md', transform: 'translateY(-2px)' }}
+                        transition="all 0.2s"
+                        onClick={() => applyTemplate(template)}
+                      >
+                        <CardBody>
+                          <VStack align="start" spacing={3}>
+                            <Flex justify="space-between" w="100%" align="start">
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text fontWeight="600" fontSize="md">
+                                  {template.name}
+                                </Text>
+                                {template.description && (
+                                  <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                                    {template.description}
+                                  </Text>
+                                )}
+                              </VStack>
+                              <Badge colorScheme="purple" fontSize="xs">
+                                {template.category}
+                              </Badge>
+                            </Flex>
+                            
+                            <Divider />
+                            
+                            <VStack align="start" spacing={1} w="100%">
+                              <Text fontSize="xs" fontWeight="600" color="gray.500">
+                                Objet :
+                              </Text>
+                              <Text fontSize="sm" noOfLines={1} color="gray.700" fontWeight="500">
+                                {template.subject || '(Aucun objet)'}
+                              </Text>
+                            </VStack>
+
+                            {/* Aperçu HTML rendu */}
+                            <VStack align="start" spacing={1} w="100%">
+                              <Text fontSize="xs" fontWeight="600" color="gray.500">
+                                Aperçu du rendu :
+                              </Text>
+                              <Box
+                                w="100%"
+                                maxH="120px"
+                                overflowY="auto"
+                                p={2}
+                                bg="gray.50"
+                                borderRadius="md"
+                                border="1px solid"
+                                borderColor="gray.200"
+                                fontSize="xs"
+                                dangerouslySetInnerHTML={{ __html: template.body || '<p style="color: gray;">Corps vide</p>' }}
+                                sx={{
+                                  '& h1, & h2, & h3': { fontSize: '0.9em', fontWeight: 'bold', marginBottom: '0.3em' },
+                                  '& p': { marginBottom: '0.5em', fontSize: '0.85em' },
+                                  '& ul, & ol': { marginLeft: '1em', marginBottom: '0.5em', fontSize: '0.85em' },
+                                  '& img': { maxWidth: '100%', height: 'auto' },
+                                  '& a': { color: 'blue.500' }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </VStack>
+
+                            <HStack w="100%" spacing={2}>
+                              <Button
+                                size="sm"
+                                colorScheme="blue"
+                                variant="ghost"
+                                flex={1}
+                                leftIcon={<FiEye />}
+                                onClick={(e) => previewTemplate(template, e)}
+                              >
+                                Aperçu complet
+                              </Button>
+                              <Button
+                                size="sm"
+                                colorScheme="purple"
+                                variant="solid"
+                                flex={1}
+                                leftIcon={<FiEdit />}
+                              >
+                                Utiliser
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+                    ))}
+                </SimpleGrid>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onTemplatesClose}>
+              Fermer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal - Prévisualisation détaillée d'un template */}
+      <Modal isOpen={isTemplatePreviewOpen} onClose={onTemplatePreviewClose} size="6xl">
+        <ModalOverlay />
+        <ModalContent maxH="90vh">
+          <ModalHeader>
+            <Flex justify="space-between" align="center">
+              <HStack spacing={3}>
+                <FiEye size={24} />
+                <VStack align="start" spacing={0}>
+                  <Text>{previewingTemplate?.name || 'Template'}</Text>
+                  <Text fontSize="sm" fontWeight="normal" color="gray.500">
+                    Aperçu du rendu final - Cliquez sur "Utiliser" pour l'éditer
+                  </Text>
+                </VStack>
+              </HStack>
+              <Badge colorScheme="purple" fontSize="sm">
+                {previewingTemplate?.category}
+              </Badge>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto">
+            {previewingTemplate && (
+              <VStack spacing={4} align="stretch">
+                {/* Métadonnées du template */}
+                <Card variant="outline" bg="purple.50">
+                  <CardBody>
+                    <VStack align="start" spacing={2}>
+                      <HStack spacing={4} w="100%">
+                        <VStack align="start" spacing={1} flex={1}>
+                          <Text fontSize="xs" fontWeight="600" color="gray.600">
+                            📧 Objet de l'email
+                          </Text>
+                          <Text fontSize="md" fontWeight="600">
+                            {previewingTemplate.subject || '(Aucun objet)'}
+                          </Text>
+                        </VStack>
+                        {previewingTemplate.description && (
+                          <VStack align="start" spacing={1} flex={1}>
+                            <Text fontSize="xs" fontWeight="600" color="gray.600">
+                              📝 Description
+                            </Text>
+                            <Text fontSize="sm" color="gray.700">
+                              {previewingTemplate.description}
+                            </Text>
+                          </VStack>
+                        )}
+                      </HStack>
+                    </VStack>
+                  </CardBody>
+                </Card>
+
+                {/* Rendu HTML complet */}
+                <Card variant="outline">
+                  <CardHeader>
+                    <HStack>
+                      <Text fontSize="sm" fontWeight="600">
+                        👁️ Aperçu du rendu HTML
+                      </Text>
+                      <Badge colorScheme="green" fontSize="xs">RENDU FINAL</Badge>
+                    </HStack>
+                  </CardHeader>
+                  <CardBody>
+                    <Box
+                      p={6}
+                      bg="white"
+                      border="2px solid"
+                      borderColor="gray.200"
+                      borderRadius="lg"
+                      minH="400px"
+                      maxH="60vh"
+                      overflowY="auto"
+                      dangerouslySetInnerHTML={{ __html: previewingTemplate.body || '<p style="color: gray;">Corps vide</p>' }}
+                      sx={{
+                        '& h1': { fontSize: '2em', fontWeight: 'bold', marginBottom: '0.5em', color: '#2D3748' },
+                        '& h2': { fontSize: '1.5em', fontWeight: 'bold', marginBottom: '0.5em', color: '#2D3748' },
+                        '& h3': { fontSize: '1.2em', fontWeight: 'bold', marginBottom: '0.5em', color: '#2D3748' },
+                        '& p': { marginBottom: '1em', lineHeight: '1.6', color: '#4A5568' },
+                        '& ul, & ol': { marginLeft: '1.5em', marginBottom: '1em', lineHeight: '1.6' },
+                        '& li': { marginBottom: '0.5em' },
+                        '& strong, & b': { fontWeight: 'bold', color: '#1A202C' },
+                        '& em, & i': { fontStyle: 'italic' },
+                        '& code': { 
+                          bg: '#EDF2F7', 
+                          px: 2, 
+                          py: 1, 
+                          borderRadius: 'sm',
+                          fontFamily: 'monospace',
+                          fontSize: '0.9em'
+                        },
+                        '& img': { maxWidth: '100%', height: 'auto', borderRadius: 'md', marginBottom: '1em' },
+                        '& a': { color: '#3182CE', textDecoration: 'underline' },
+                        '& blockquote': {
+                          borderLeft: '4px solid #CBD5E0',
+                          paddingLeft: '1em',
+                          marginLeft: 0,
+                          marginBottom: '1em',
+                          color: '#718096',
+                          fontStyle: 'italic'
+                        },
+                        '& table': {
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          marginBottom: '1em'
+                        },
+                        '& th, & td': {
+                          border: '1px solid #E2E8F0',
+                          padding: '0.5em',
+                          textAlign: 'left'
+                        },
+                        '& th': {
+                          backgroundColor: '#EDF2F7',
+                          fontWeight: 'bold'
+                        }
+                      }}
+                    />
+                  </CardBody>
+                </Card>
+
+                {/* Instructions */}
+                <Card variant="outline" bg="blue.50">
+                  <CardBody>
+                    <HStack spacing={2}>
+                      <Text fontSize="sm">
+                        💡 <strong>Astuce :</strong> Cliquez sur "Utiliser ce template" pour l'importer dans l'éditeur 
+                        et modifier son contenu selon vos besoins.
+                      </Text>
+                    </HStack>
+                  </CardBody>
+                </Card>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor="gray.200">
+            <HStack spacing={3}>
+              <Button variant="ghost" onClick={onTemplatePreviewClose}>
+                Fermer
+              </Button>
+              <Button 
+                colorScheme="purple"
+                leftIcon={<FiEdit />}
+                onClick={() => {
+                  applyTemplate(previewingTemplate);
+                  onTemplatePreviewClose();
+                }}
+              >
+                Utiliser ce template
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* ImageCropper pour photo de profil */}
+      <ImageCropper
+        isOpen={isProfilePhotoCropOpen}
+        onClose={onProfilePhotoCropClose}
+        onImageCropped={(base64Image) => {
+          setProfilePhoto(base64Image);
+          localStorage.setItem('mail_profilePhoto', base64Image);
+          toast({
+            title: "Photo de profil enregistrée",
+            description: "Elle sera visible par vos destinataires",
+            status: "success",
+            duration: 3000
+          });
+        }}
+        title="Photo de profil"
+        aspectRatio={1}
+        maxWidth={200}
+        maxHeight={200}
+        outputFormat="jpeg"
+        quality={0.9}
+      />
+
+      {/* ImageCropper pour signature */}
+      <ImageCropper
+        isOpen={isSignatureCropOpen}
+        onClose={onSignatureCropClose}
+        onImageCropped={(base64Image) => {
+          setSignatureImage(base64Image);
+          localStorage.setItem('mail_signatureImage', base64Image);
+          toast({
+            title: "Signature enregistrée",
+            description: "Elle sera ajoutée automatiquement à vos emails",
+            status: "success",
+            duration: 3000
+          });
+        }}
+        title="Signature image"
+        aspectRatio={4}
+        maxWidth={600}
+        maxHeight={150}
+        outputFormat="png"
+        quality={0.95}
+      />
     </Box>
   );
 }

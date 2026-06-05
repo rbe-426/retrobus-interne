@@ -1,0 +1,619 @@
+/**
+ * Modal de composition d'email optimisé avec éditeur enrichi
+ * Fonctionnalités: formatage HTML, CC/BCC, aperçu, pièces jointes avec preview
+ */
+
+import React, { memo, useCallback, useState, useRef } from 'react';
+import {
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalCloseButton, Button, FormControl, FormLabel, Input, Textarea,
+  VStack, HStack, IconButton, Card, CardBody, Text, Flex, useToast,
+  Tabs, TabList, TabPanels, Tab, TabPanel, Collapse, Badge, Tooltip,
+  ButtonGroup, Divider, Box, useColorModeValue, Image, Menu, MenuButton, MenuList, MenuItem
+} from '@chakra-ui/react';
+import { 
+  FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
+  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2
+} from 'react-icons/fi';
+
+const ComposeModal = memo(({
+  isOpen,
+  onClose,
+  composeTo,
+  composeSubject,
+  composeBody,
+  onComposeToChange,
+  onComposeSubjectChange,
+  onComposeBodyChange,
+  composeAttachments,
+  onFileUpload,
+  onRemoveAttachment,
+  onSendEmail,
+  isSending,
+  mailFont,
+  signature,
+  signatureImage,
+  isNoReplyAccount,
+  onOpenTemplates
+}) => {
+  const toast = useToast();
+  const textareaRef = useRef(null);
+  
+  // États locaux pour fonctionnalités avancées
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [composeCc, setComposeCc] = useState('');
+  const [composeBcc, setComposeBcc] = useState('');
+  const [editorMode, setEditorMode] = useState('text'); // 'text' ou 'html'
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const toolbarBg = useColorModeValue('gray.50', 'gray.700');
+  const previewBg = useColorModeValue('white', 'gray.800');
+
+  // Calculer la taille totale des pièces jointes
+  const totalAttachmentSize = composeAttachments.reduce((sum, att) => sum + (att.size || 0), 0);
+  const totalSizeMB = (totalAttachmentSize / (1024 * 1024)).toFixed(2);
+  const totalSizeKB = (totalAttachmentSize / 1024).toFixed(0);
+  const isLargeAttachment = totalAttachmentSize > 2 * 1024 * 1024;
+
+  // Fonctions de formatage de texte
+  const insertFormatting = useCallback((before, after = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = composeBody.substring(start, end);
+    const newText = composeBody.substring(0, start) + before + selectedText + after + composeBody.substring(end);
+    
+    onComposeBodyChange({ target: { value: newText } });
+    
+    // Remettre le focus et la sélection
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, end + before.length);
+    }, 0);
+  }, [composeBody, onComposeBodyChange]);
+
+  const formatBold = useCallback(() => insertFormatting('<b>', '</b>'), [insertFormatting]);
+  const formatItalic = useCallback(() => insertFormatting('<i>', '</i>'), [insertFormatting]);
+  const formatUnderline = useCallback(() => insertFormatting('<u>', '</u>'), [insertFormatting]);
+  const formatCode = useCallback(() => insertFormatting('<code>', '</code>'), [insertFormatting]);
+  
+  const insertList = useCallback((type) => {
+    const tag = type === 'ul' ? 'ul' : 'ol';
+    insertFormatting(`<${tag}>\n  <li>`, `</li>\n</${tag}>`);
+  }, [insertFormatting]);
+  
+  const insertLink = useCallback(() => {
+    const url = prompt('URL du lien :');
+    if (url) insertFormatting(`<a href="${url}">`, '</a>');
+  }, [insertFormatting]);
+  
+  const insertHeading = useCallback((level) => {
+    insertFormatting(`<h${level}>`, `</h${level}>`);
+  }, [insertFormatting]);
+  
+  const setTextColor = useCallback((color) => {
+    insertFormatting(`<span style="color: ${color}">`, '</span>');
+  }, [insertFormatting]);
+
+  const charCount = composeBody?.length || 0;
+  
+  // Détecter le type de contenu
+  const isFullHtml = composeBody?.trim().startsWith('<!DOCTYPE') || 
+                     composeBody?.trim().startsWith('<html') ||
+                     composeBody?.includes('</html>');
+  const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|br|strong|em|a|img)[>\s]/i.test(composeBody || '');
+  
+  const contentType = isFullHtml ? 'template' : (hasHtmlTags ? 'html' : 'text');
+
+  // Handler pour le bouton d'envoi
+  const handleSend = useCallback(() => {
+    if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) {
+      toast({
+        title: "Champs requis",
+        description: "Veuillez remplir tous les champs",
+        status: "warning",
+        duration: 3000
+      });
+      return;
+    }
+    onSendEmail();
+  }, [composeTo, composeSubject, composeBody, onSendEmail, toast]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size={isFullscreen ? 'full' : '4xl'}>
+      <ModalOverlay />
+      <ModalContent maxH={isFullscreen ? '100vh' : '90vh'}>
+        <ModalHeader>
+          <Flex justify="space-between" align="center">
+            <HStack spacing={3}>
+              <Text fontSize="lg" fontWeight="600">✉️ Nouveau message</Text>
+              {isNoReplyAccount && (
+                <Badge colorScheme="purple" fontSize="xs">NoReply</Badge>
+              )}
+              {contentType === 'template' && (
+                <Tooltip label="Template HTML complet détecté - Sera envoyé tel quel">
+                  <Badge colorScheme="green" fontSize="xs">📄 Template HTML</Badge>
+                </Tooltip>
+              )}
+              {contentType === 'html' && (
+                <Tooltip label="Contenu HTML formaté - Conservera le formatage">
+                  <Badge colorScheme="blue" fontSize="xs">🎨 HTML</Badge>
+                </Tooltip>
+              )}
+              {contentType === 'text' && composeBody && (
+                <Tooltip label="Texte brut - Sera converti en HTML à l'envoi">
+                  <Badge colorScheme="gray" fontSize="xs">📝 Texte</Badge>
+                </Tooltip>
+              )}
+            </HStack>
+            <HStack spacing={2}>
+              {isNoReplyAccount && (
+                <Button
+                  size="sm"
+                  leftIcon={<FiFileText />}
+                  colorScheme="purple"
+                  variant="outline"
+                  onClick={onOpenTemplates}
+                >
+                  Templates
+                </Button>
+              )}
+              <Tooltip label={isFullscreen ? "Mode normal" : "Plein écran"}>
+                <IconButton
+                  icon={<FiMaximize2 />}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  aria-label="Basculer plein écran"
+                />
+              </Tooltip>
+            </HStack>
+          </Flex>
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody overflowY="auto">
+          <VStack spacing={3} align="stretch">
+            {/* Destinataires */}
+            <VStack spacing={2} align="stretch">
+              <FormControl>
+                <HStack>
+                  <FormLabel mb={0} minW="80px">À :</FormLabel>
+                  <Input 
+                    type="email"
+                    placeholder="destinataire@example.com"
+                    value={composeTo}
+                    onChange={onComposeToChange}
+                    autoComplete="off"
+                    size="sm"
+                    flex={1}
+                  />
+                  <HStack spacing={1}>
+                    <Button
+                      size="xs"
+                      variant="link"
+                      colorScheme="blue"
+                      onClick={() => setShowCc(!showCc)}
+                    >
+                      Cc
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="link"
+                      colorScheme="blue"
+                      onClick={() => setShowBcc(!showBcc)}
+                    >
+                      Bcc
+                    </Button>
+                  </HStack>
+                </HStack>
+              </FormControl>
+
+              <Collapse in={showCc}>
+                <FormControl>
+                  <HStack>
+                    <FormLabel mb={0} minW="80px">Cc :</FormLabel>
+                    <Input 
+                      type="email"
+                      placeholder="copie@example.com"
+                      value={composeCc}
+                      onChange={(e) => setComposeCc(e.target.value)}
+                      autoComplete="off"
+                      size="sm"
+                      flex={1}
+                    />
+                    <IconButton
+                      icon={<FiX />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowCc(false);
+                        setComposeCc('');
+                      }}
+                      aria-label="Masquer Cc"
+                    />
+                  </HStack>
+                </FormControl>
+              </Collapse>
+
+              <Collapse in={showBcc}>
+                <FormControl>
+                  <HStack>
+                    <FormLabel mb={0} minW="80px">Bcc :</FormLabel>
+                    <Input 
+                      type="email"
+                      placeholder="copie-cachee@example.com"
+                      value={composeBcc}
+                      onChange={(e) => setComposeBcc(e.target.value)}
+                      autoComplete="off"
+                      size="sm"
+                      flex={1}
+                    />
+                    <IconButton
+                      icon={<FiX />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowBcc(false);
+                        setComposeBcc('');
+                      }}
+                      aria-label="Masquer Bcc"
+                    />
+                  </HStack>
+                </FormControl>
+              </Collapse>
+
+              <FormControl>
+                <HStack>
+                  <FormLabel mb={0} minW="80px">Objet :</FormLabel>
+                  <Input 
+                    placeholder="Objet du message"
+                    value={composeSubject}
+                    onChange={onComposeSubjectChange}
+                    autoComplete="off"
+                    size="sm"
+                    flex={1}
+                    fontWeight="500"
+                  />
+                </HStack>
+              </FormControl>
+            </VStack>
+
+            <Divider />
+
+            {/* Barre d'outils de formatage */}
+            {contentType === 'template' ? (
+              <Box 
+                p={3} 
+                bg="yellow.50" 
+                borderRadius="md" 
+                border="1px solid"
+                borderColor="yellow.300"
+              >
+                <HStack spacing={2}>
+                  <Text fontSize="sm" fontWeight="600" color="yellow.800">
+                    ⚠️ Template HTML complet détecté
+                  </Text>
+                  <Text fontSize="sm" color="yellow.700">
+                    - Barre d'outils désactivée. Le template sera envoyé avec sa structure complète.
+                  </Text>
+                </HStack>
+              </Box>
+            ) : (
+              <Box 
+                p={2} 
+                bg={toolbarBg} 
+                borderRadius="md" 
+                border="1px solid"
+                borderColor={borderColor}
+              >
+                <Flex gap={2} wrap="wrap" align="center">
+                  <ButtonGroup size="sm" isAttached variant="outline">
+                    <Tooltip label="Gras (Ctrl+B)">
+                      <IconButton
+                        icon={<FiBold />}
+                        onClick={formatBold}
+                        aria-label="Gras"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Italique (Ctrl+I)">
+                      <IconButton
+                        icon={<FiItalic />}
+                        onClick={formatItalic}
+                        aria-label="Italique"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Souligné (Ctrl+U)">
+                      <IconButton
+                        icon={<FiUnderline />}
+                        onClick={formatUnderline}
+                        aria-label="Souligné"
+                      />
+                    </Tooltip>
+                  </ButtonGroup>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                <ButtonGroup size="sm" isAttached variant="outline">
+                  <Tooltip label="Liste à puces">
+                    <IconButton
+                      icon={<FiList />}
+                      onClick={() => insertList('ul')}
+                      aria-label="Liste à puces"
+                    />
+                  </Tooltip>
+                  <Tooltip label="Liste numérotée">
+                    <IconButton
+                      icon={<FiType />}
+                      onClick={() => insertList('ol')}
+                      aria-label="Liste numérotée"
+                    />
+                  </Tooltip>
+                </ButtonGroup>
+
+                <Divider orientation="vertical" h="24px" />
+
+                <Tooltip label="Insérer un lien">
+                  <IconButton
+                    size="sm"
+                    icon={<FiLink />}
+                    onClick={insertLink}
+                    variant="outline"
+                    aria-label="Lien"
+                  />
+                </Tooltip>
+
+                <Tooltip label="Code">
+                  <IconButton
+                    size="sm"
+                    icon={<FiCode />}
+                    onClick={formatCode}
+                    variant="outline"
+                    aria-label="Code"
+                  />
+                </Tooltip>
+
+                <Menu>
+                  <Tooltip label="Titre">
+                    <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                      H
+                    </MenuButton>
+                  </Tooltip>
+                  <MenuList>
+                    <MenuItem onClick={() => insertHeading(1)}>Titre 1</MenuItem>
+                    <MenuItem onClick={() => insertHeading(2)}>Titre 2</MenuItem>
+                    <MenuItem onClick={() => insertHeading(3)}>Titre 3</MenuItem>
+                  </MenuList>
+                </Menu>
+
+                <Menu>
+                  <Tooltip label="Couleur du texte">
+                    <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                      🎨
+                    </MenuButton>
+                  </Tooltip>
+                  <MenuList>
+                    <MenuItem onClick={() => setTextColor('#000000')}>⚫ Noir</MenuItem>
+                    <MenuItem onClick={() => setTextColor('#FF0000')}>🔴 Rouge</MenuItem>
+                    <MenuItem onClick={() => setTextColor('#0000FF')}>🔵 Bleu</MenuItem>
+                    <MenuItem onClick={() => setTextColor('#00AA00')}>🟢 Vert</MenuItem>
+                    <MenuItem onClick={() => setTextColor('#FF8800')}>🟠 Orange</MenuItem>
+                    <MenuItem onClick={() => setTextColor('#AA00AA')}>🟣 Violet</MenuItem>
+                  </MenuList>
+                </Menu>
+
+                <Divider orientation="vertical" h="24px" />
+
+                <Tabs size="sm" variant="soft-rounded" colorScheme="blue" index={editorMode === 'text' ? 0 : 1}>
+                  <TabList>
+                    <Tab fontSize="xs" onClick={() => setEditorMode('text')}>✍️ Édition</Tab>
+                    <Tab fontSize="xs" onClick={() => setEditorMode('html')}>👁️ Aperçu</Tab>
+                  </TabList>
+                </Tabs>
+
+                <Text fontSize="xs" color="gray.500" ml="auto">
+                  {charCount} caractères
+                </Text>
+              </Flex>
+            </Box>
+            )}
+
+            {/* Zone d'édition / Aperçu */}
+            <FormControl flex={1}>
+              {editorMode === 'text' ? (
+                <Textarea 
+                  ref={textareaRef}
+                  placeholder="Composez votre message... Utilisez les boutons ci-dessus pour formater le texte."
+                  minH="300px"
+                  value={composeBody}
+                  onChange={onComposeBodyChange}
+                  fontFamily={mailFont}
+                  fontSize="md"
+                  resize="vertical"
+                  bg={previewBg}
+                  borderColor={borderColor}
+                  _focus={{
+                    borderColor: 'blue.400',
+                    boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)'
+                  }}
+                />
+              ) : (
+                <Box
+                  minH="300px"
+                  p={4}
+                  bg={previewBg}
+                  border="1px solid"
+                  borderColor={borderColor}
+                  borderRadius="md"
+                  overflowY="auto"
+                  dangerouslySetInnerHTML={{ __html: composeBody || '<p style="color: gray;">Aucun contenu à prévisualiser</p>' }}
+                  sx={{
+                    '& h1, & h2, & h3': { marginBottom: '0.5em', fontWeight: 'bold' },
+                    '& h1': { fontSize: '2em' },
+                    '& h2': { fontSize: '1.5em' },
+                    '& h3': { fontSize: '1.2em' },
+                    '& p': { marginBottom: '1em' },
+                    '& ul, & ol': { marginLeft: '1.5em', marginBottom: '1em' },
+                    '& code': { 
+                      bg: 'gray.100', 
+                      px: 1, 
+                      py: 0.5, 
+                      borderRadius: 'sm',
+                      fontFamily: 'monospace'
+                    },
+                    '& a': { color: 'blue.500', textDecoration: 'underline' }
+                  }}
+                />
+              )}
+              <HStack justify="space-between" mt={2}>
+                <Text fontSize="xs" color="gray.500">
+                  Police : {mailFont} • {signature && '✅ Signature'} {signatureImage && '📸'}
+                </Text>
+              </HStack>
+            </FormControl>
+
+            {/* Pièces jointes */}
+            <FormControl>
+              <FormLabel fontSize="sm" fontWeight="600">
+                <HStack spacing={2} justify="space-between" w="100%">
+                  <HStack spacing={2}>
+                    <FiPaperclip />
+                    <Text>Pièces jointes</Text>
+                    {composeAttachments.length > 0 && (
+                      <Badge colorScheme="blue">{composeAttachments.length}</Badge>
+                    )}
+                  </HStack>
+                  {composeAttachments.length > 0 && (
+                    <HStack spacing={2}>
+                      <Badge colorScheme={isLargeAttachment ? "orange" : "green"} fontSize="xs">
+                        {totalAttachmentSize > 1024 * 1024 ? `${totalSizeMB} MB` : `${totalSizeKB} KB`}
+                      </Badge>
+                      {isLargeAttachment && (
+                        <Tooltip label="Fichiers volumineux - L'envoi peut prendre quelques secondes">
+                          <Badge colorScheme="orange" fontSize="xs">⚠️ Volumineux</Badge>
+                        </Tooltip>
+                      )}
+                    </HStack>
+                  )}
+                </HStack>
+              </FormLabel>
+              <Input 
+                type="file"
+                multiple
+                onChange={onFileUpload}
+                accept="*/*"
+                size="sm"
+                pt={1}
+              />
+              {composeAttachments.length > 0 && (
+                <VStack align="stretch" spacing={2} mt={3}>
+                  {composeAttachments.map((att, idx) => {
+                    const isImage = att.contentType?.startsWith('image/');
+                    return (
+                      <Card key={idx} size="sm" variant="outline">
+                        <CardBody>
+                          <Flex gap={3} align="center">
+                            {isImage && att.content && (
+                              <Image
+                                src={`data:${att.contentType};base64,${att.content}`}
+                                alt={att.filename}
+                                maxH="60px"
+                                maxW="60px"
+                                objectFit="cover"
+                                borderRadius="md"
+                              />
+                            )}
+                            <VStack align="start" spacing={0} flex={1}>
+                              <Text fontSize="sm" fontWeight="500" noOfLines={1}>{att.filename}</Text>
+                              <HStack spacing={2}>
+                                <Badge fontSize="xs" colorScheme="gray">
+                                  {att.size > 1024 * 1024 
+                                    ? `${(att.size / 1024 / 1024).toFixed(2)} MB`
+                                    : `${(att.size / 1024).toFixed(1)} KB`
+                                  }
+                                </Badge>
+                                {att.contentType && (
+                                  <Text fontSize="xs" color="gray.500">
+                                    {att.contentType.split('/')[1]?.toUpperCase()}
+                                  </Text>
+                                )}
+                              </HStack>
+                            </VStack>
+                            <IconButton
+                              icon={<FiX />}
+                              size="sm"
+                              colorScheme="red"
+                              variant="ghost"
+                              onClick={() => onRemoveAttachment(idx)}
+                              aria-label="Retirer"
+                            />
+                          </Flex>
+                        </CardBody>
+                      </Card>
+                    );
+                  })}
+                </VStack>
+              )}
+            </FormControl>
+          </VStack>
+        </ModalBody>
+
+        <ModalFooter borderTop="1px solid" borderColor={borderColor}>
+          <HStack spacing={3} w="100%" justify="space-between">
+            <Box>
+              {isLargeAttachment ? (
+                <HStack spacing={2}>
+                  <Text fontSize="xs" color="orange.600" fontWeight="600">
+                    ⚠️ Fichiers volumineux ({totalSizeMB} MB)
+                  </Text>
+                  <Text fontSize="xs" color="gray.500">
+                    - L'envoi peut prendre 10-30 secondes
+                  </Text>
+                </HStack>
+              ) : composeAttachments.length > 0 ? (
+                <Text fontSize="xs" color="green.600" fontWeight="500">
+                  ✅ {composeAttachments.length} fichier(s) - {totalSizeKB} KB - Envoi rapide
+                </Text>
+              ) : contentType === 'template' ? (
+                <Text fontSize="xs" color="green.600" fontWeight="500">
+                  📄 Template HTML détecté - Sera envoyé avec styles et structure complets
+                </Text>
+              ) : contentType === 'html' ? (
+                <Text fontSize="xs" color="blue.600" fontWeight="500">
+                  🎨 Contenu HTML - Le formatage sera préservé à l'envoi
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="gray.500">
+                  💡 Astuce : Ctrl+B (gras), Ctrl+I (italique), Ctrl+U (souligné)
+                </Text>
+              )}
+            </Box>
+            <HStack spacing={3}>
+              <Button variant="ghost" onClick={onClose} size="md" isDisabled={isSending}>
+                Annuler
+              </Button>
+              <Button 
+                colorScheme="rbe"
+                leftIcon={<FiSend />}
+                onClick={handleSend}
+                isLoading={isSending}
+                loadingText={isLargeAttachment ? "Transmission..." : "Envoi..."}
+                size="md"
+                px={6}
+              >
+                Envoyer
+              </Button>
+            </HStack>
+          </HStack>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+});
+
+ComposeModal.displayName = 'ComposeModal';
+
+export default ComposeModal;
