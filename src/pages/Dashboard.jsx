@@ -24,7 +24,6 @@ export default function Dashboard() {
         <Route path="vehicules/ajouter" element={<RequireCreator><VehiculeCreate /></RequireCreator>} />
         <Route path="vehicules/:parc" element={<VehiculeShow />} />
         <Route path="retromail" element={<RetroMail />} />
-        <Route path="mobile/v/:parc" element={<MobileVehicle />} />
         <Route path="myrbe" element={<MyRBE />} />
         <Route path="myrbe/:parc" element={<MyRBEActions />} />
         <Route path="qr" element={<QRManager />} />

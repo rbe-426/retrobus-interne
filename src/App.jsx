@@ -183,6 +183,8 @@ export default function App() {
         
         {/* 📱 Version mobile */}
         <Route path="/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
+        <Route path="/dashboard/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
+        <Route path="/dashboard/mobile/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         
         {/* Route par défaut - redirige vers le dashboard home */}
         <Route path="/" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
