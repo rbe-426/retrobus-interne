@@ -26,380 +26,217 @@ export default function TemplateEditor({
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
 
-  // Extraire les champs éditables du HTML
-  useEffect(() => {
-    if (!templateHtml) return;
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const toolbarBg = useColorModeValue('gray.50', 'gray.700');
 
-    const fields = [];
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(templateHtml, 'text/html');
-
-    // Extraire les textes dans les balises communes
-    const textSelectors = [
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'p', 'span', 'td', 'div',
-      'a'
-    ];
-
-    let fieldId = 0;
-    textSelectors.forEach(selector => {
-      const elements = doc.querySelectorAll(selector);
-      elements.forEach((el, idx) => {
-        const text = el.textContent?.trim();
-        if (text && text.length > 0 && text.length < 500) {
-          // Générer un identifiant unique pour ce texte
-          const id = `text_${selector}_${idx}_${fieldId++}`;
-          fields.push({
-            id,
-            type: 'text',
-            label: `${selector.toUpperCase()} - ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`,
-            value: text,
-            originalValue: text,
-            selector,
-            index: idx
-          });
-        }
-      });
-    });
-
-    // Extraire les images
-    const images = doc.querySelectorAll('img');
-    images.forEach((img, idx) => {
-      const src = img.getAttribute('src') || '';
-      const alt = img.getAttribute('alt') || '';
-      if (src) {
-        fields.push({
-          id: `img_${idx}`,
-          type: 'image',
-          label: `Image ${idx + 1} - ${alt || 'Sans titre'}`,
-          value: src,
-          originalValue: src,
-          alt,
-          index: idx
-        });
-      }
-    });
-
-    // Extraire les liens
-    const links = doc.querySelectorAll('a[href]');
-    links.forEach((link, idx) => {
-      const href = link.getAttribute('href') || '';
-      const text = link.textContent?.trim() || '';
-      if (href && href.startsWith('http')) {
-        fields.push({
-          id: `link_${idx}`,
-          type: 'link',
-          label: `Lien ${idx + 1} - ${text.substring(0, 30) || 'Sans texte'}`,
-          value: href,
-          originalValue: href,
-          text,
-          index: idx
-        });
-      }
-    });
-
-    setEditableFields(fields);
-    setEditedHtml(templateHtml);
-  }, [templateHtml]);
-
-  // Mettre à jour un champ
-  const updateField = useCallback((fieldId, newValue) => {
-    setEditableFields(prev => 
-      prev.map(field => 
-        field.id === fieldId ? { ...field, value: newValue } : field
-      )
-    );
+  // Commandes d'édition
+  const execCommand = useCallback((command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
   }, []);
 
-  // Appliquer les modifications au HTML
-  const applyChanges = useCallback(() => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(editedHtml, 'text/html');
+  // Formatage
+  const formatBold = useCallback(() => execCommand('bold'), [execCommand]);
+  const formatItalic = useCallback(() => execCommand('italic'), [execCommand]);
+  const formatUnderline = useCallback(() => execCommand('underline'), [execCommand]);
+  
+  const setFontSize = useCallback((size) => {
+    execCommand('fontSize', size);
+  }, [execCommand]);
 
-    editableFields.forEach(field => {
-      if (field.value === field.originalValue) return; // Pas de changement
+  const setTextColor = useCallback((color) => {
+    execCommand('foreColor', color);
+  }, [execCommand]);
 
-      try {
-        if (field.type === 'text') {
-          const elements = doc.querySelectorAll(field.selector);
-          const targetEl = elements[field.index];
-          if (targetEl && targetEl.textContent?.trim() === field.originalValue) {
-            targetEl.textContent = field.value;
-          }
-        } else if (field.type === 'image') {
-          const images = doc.querySelectorAll('img');
-          const targetImg = images[field.index];
-          if (targetImg) {
-            targetImg.setAttribute('src', field.value);
-          }
-        } else if (field.type === 'link') {
-          const links = doc.querySelectorAll('a[href]');
-          const targetLink = links[field.index];
-          if (targetLink && targetLink.getAttribute('href') === field.originalValue) {
-            targetLink.setAttribute('href', field.value);
-          }
-        }
-      } catch (error) {
-        console.error(`Erreur mise à jour champ ${field.id}:`, error);
-      }
-    });
+  const setBackgroundColor = useCallback((color) => {
+    execCommand('hiliteColor', color);
+  }, [execCommand]);
 
-    // Récupérer le HTML modifié
-    const serializer = new XMLSerializer();
-    const modifiedHtml = serializer.serializeToString(doc);
-    setEditedHtml(modifiedHtml);
-
-    return modifiedHtml;
-  }, [editedHtml, editableFields]);
-
-  // Sauvegarder et fermer
+  // Sauvegarder
   const handleSave = useCallback(() => {
-    const finalHtml = applyChanges();
+    if (!editorRef.current) return;
     
-    // Compter les modifications
-    const modifiedCount = editableFields.filter(f => f.value !== f.originalValue).length;
-    
-    onSave(finalHtml);
+    const editedHtml = editorRef.current.innerHTML;
+    onSave(editedHtml);
     
     toast({
       title: "Template personnalisé",
-      description: `${modifiedCount} modification(s) appliquée(s)`,
+      description: "Vos modifications ont été enregistrées",
       status: "success",
       duration: 3000
     });
     
     onClose();
-  }, [applyChanges, editableFields, onSave, onClose, toast]);
+  }, [onSave, onClose, toast]);
 
   // Réinitialiser
   const handleReset = useCallback(() => {
-    setEditableFields(prev => 
-      prev.map(field => ({ ...field, value: field.originalValue }))
-    );
-    setEditedHtml(templateHtml);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = originalHtml;
+    }
     toast({
-      title: "Modifications annulées",
+      title: "Réinitialisé",
+      description: "Le template original a été restauré",
       status: "info",
       duration: 2000
     });
-  }, [templateHtml, toast]);
-
-  // Grouper les champs par type
-  const textFields = editableFields.filter(f => f.type === 'text');
-  const imageFields = editableFields.filter(f => f.type === 'image');
-  const linkFields = editableFields.filter(f => f.type === 'link');
+  }, [originalHtml, toast]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="full">
       <ModalOverlay />
-      <ModalContent maxH="95vh">
+      <ModalContent maxH="100vh">
         <ModalHeader>
           <HStack spacing={3}>
-            <Text>🎨 Personnaliser le template</Text>
-            <Badge colorScheme="purple" fontSize="sm">
-              {editableFields.filter(f => f.value !== f.originalValue).length} modification(s)
+            <Text>✏️ Éditeur Visuel - Cliquez pour modifier</Text>
+            <Badge colorScheme="green" fontSize="sm">
+              WYSIWYG
             </Badge>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
         
-        <ModalBody overflowY="auto">
-          <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed">
-            <TabList>
-              <Tab>
-                <HStack spacing={2}>
-                  <FiEdit2 />
-                  <Text>Éditer ({textFields.length + imageFields.length + linkFields.length})</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack spacing={2}>
-                  <FiEye />
-                  <Text>Aperçu</Text>
-                </HStack>
-              </Tab>
-            </TabList>
-
-            <TabPanels>
-              {/* Panel d'édition */}
-              <TabPanel>
-                <VStack spacing={6} align="stretch">
-                  {/* Textes */}
-                  {textFields.length > 0 && (
-                    <Box>
-                      <HStack spacing={2} mb={3}>
-                        <FiType />
-                        <Heading size="sm">Textes ({textFields.length})</Heading>
-                      </HStack>
-                      <Accordion allowMultiple>
-                        {textFields.map((field, idx) => (
-                          <AccordionItem key={field.id} border="1px solid" borderColor="gray.200" borderRadius="md" mb={2}>
-                            <AccordionButton>
-                              <Box flex="1" textAlign="left">
-                                <HStack spacing={2}>
-                                  <Badge colorScheme="blue" fontSize="xs">{field.selector.toUpperCase()}</Badge>
-                                  <Text fontSize="sm" noOfLines={1}>
-                                    {field.value.substring(0, 60)}...
-                                  </Text>
-                                  {field.value !== field.originalValue && (
-                                    <Badge colorScheme="green" fontSize="xs">Modifié</Badge>
-                                  )}
-                                </HStack>
-                              </Box>
-                              <AccordionIcon />
-                            </AccordionButton>
-                            <AccordionPanel pb={4}>
-                              <FormControl>
-                                {field.value.length < 100 ? (
-                                  <Input
-                                    value={field.value}
-                                    onChange={(e) => updateField(field.id, e.target.value)}
-                                    size="sm"
-                                  />
-                                ) : (
-                                  <Textarea
-                                    value={field.value}
-                                    onChange={(e) => updateField(field.id, e.target.value)}
-                                    rows={3}
-                                    size="sm"
-                                  />
-                                )}
-                              </FormControl>
-                            </AccordionPanel>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    </Box>
-                  )}
-
-                  {/* Images */}
-                  {imageFields.length > 0 && (
-                    <Box>
-                      <HStack spacing={2} mb={3}>
-                        <FiImage />
-                        <Heading size="sm">Images ({imageFields.length})</Heading>
-                      </HStack>
-                      <VStack spacing={3} align="stretch">
-                        {imageFields.map((field) => (
-                          <Box key={field.id} p={3} border="1px solid" borderColor="gray.200" borderRadius="md">
-                            <VStack spacing={2} align="stretch">
-                              <HStack justify="space-between">
-                                <Text fontSize="sm" fontWeight="600">{field.label}</Text>
-                                {field.value !== field.originalValue && (
-                                  <Badge colorScheme="green" fontSize="xs">Modifié</Badge>
-                                )}
-                              </HStack>
-                              {field.value && field.value.startsWith('http') && (
-                                <Image src={field.value} alt={field.alt} maxH="150px" objectFit="contain" />
-                              )}
-                              <FormControl>
-                                <FormLabel fontSize="xs">URL de l'image</FormLabel>
-                                <Input
-                                  value={field.value}
-                                  onChange={(e) => updateField(field.id, e.target.value)}
-                                  placeholder="https://..."
-                                  size="sm"
-                                />
-                              </FormControl>
-                            </VStack>
-                          </Box>
-                        ))}
-                      </VStack>
-                    </Box>
-                  )}
-
-                  {/* Liens */}
-                  {linkFields.length > 0 && (
-                    <Box>
-                      <HStack spacing={2} mb={3}>
-                        <FiLink />
-                        <Heading size="sm">Liens ({linkFields.length})</Heading>
-                      </HStack>
-                      <VStack spacing={3} align="stretch">
-                        {linkFields.map((field) => (
-                          <Box key={field.id} p={3} border="1px solid" borderColor="gray.200" borderRadius="md">
-                            <VStack spacing={2} align="stretch">
-                              <HStack justify="space-between">
-                                <Text fontSize="sm" fontWeight="600">{field.label}</Text>
-                                {field.value !== field.originalValue && (
-                                  <Badge colorScheme="green" fontSize="xs">Modifié</Badge>
-                                )}
-                              </HStack>
-                              <FormControl>
-                                <FormLabel fontSize="xs">URL du lien</FormLabel>
-                                <Input
-                                  value={field.value}
-                                  onChange={(e) => updateField(field.id, e.target.value)}
-                                  placeholder="https://..."
-                                  size="sm"
-                                />
-                              </FormControl>
-                              <Text fontSize="xs" color="gray.500">
-                                Texte du lien : "{field.text}"
-                              </Text>
-                            </VStack>
-                          </Box>
-                        ))}
-                      </VStack>
-                    </Box>
-                  )}
-
-                  {editableFields.length === 0 && (
-                    <Box p={6} textAlign="center" bg="gray.50" borderRadius="md">
-                      <Text color="gray.500">
-                        Aucun champ éditable détecté dans ce template
-                      </Text>
-                    </Box>
-                  )}
-                </VStack>
-              </TabPanel>
-
-              {/* Panel d'aperçu */}
-              <TabPanel>
-                <Box
-                  p={4}
-                  bg="white"
-                  border="2px solid"
-                  borderColor="gray.300"
-                  borderRadius="lg"
-                  maxH="70vh"
-                  overflowY="auto"
-                >
-                  <div
-                    dangerouslySetInnerHTML={{ __html: editedHtml }}
-                    style={{ width: '100%' }}
+        <ModalBody>
+          {/* Barre d'outils */}
+          <Box 
+            p={3} 
+            bg={toolbarBg} 
+            borderRadius="md" 
+            border="1px solid"
+            borderColor={borderColor}
+            mb={4}
+            position="sticky"
+            top={0}
+            zIndex={10}
+          >
+            <HStack spacing={3} wrap="wrap">
+              <ButtonGroup size="sm" isAttached variant="outline">
+                <Tooltip label="Gras (Ctrl+B)">
+                  <IconButton
+                    icon={<FiBold />}
+                    onClick={formatBold}
+                    aria-label="Gras"
                   />
-                </Box>
-                <Text fontSize="xs" color="gray.500" mt={2}>
-                  💡 Cliquez sur l'onglet "Éditer" pour modifier le contenu
-                </Text>
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </ModalBody>
+                </Tooltip>
+                <Tooltip label="Italique (Ctrl+I)">
+                  <IconButton
+                    icon={<FiItalic />}
+                    onClick={formatItalic}
+                    aria-label="Italique"
+                  />
+                </Tooltip>
+                <Tooltip label="Souligné (Ctrl+U)">
+                  <IconButton
+                    icon={<FiUnderline />}
+                    onClick={formatUnderline}
+                    aria-label="Souligné"
+                  />
+                </Tooltip>
+              </ButtonGroup>
 
-        <ModalFooter borderTop="1px solid" borderColor="gray.200">
-          <HStack spacing={3} w="100%" justify="space-between">
-            <Button
-              leftIcon={<FiRefreshCw />}
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
-            >
-              Réinitialiser
-            </Button>
-            <HStack spacing={2}>
-              <Button variant="ghost" onClick={onClose}>
-                Annuler
-              </Button>
+              <Menu>
+                <Tooltip label="Taille du texte">
+                  <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                    <HStack spacing={1}>
+                      <FiType />
+                      <Text fontSize="xs">Taille</Text>
+                    </HStack>
+                  </MenuButton>
+                </Tooltip>
+                <MenuList>
+                  <MenuItem onClick={() => setFontSize(1)}>Très petit</MenuItem>
+                  <MenuItem onClick={() => setFontSize(2)}>Petit</MenuItem>
+                  <MenuItem onClick={() => setFontSize(3)}>Normal</MenuItem>
+                  <MenuItem onClick={() => setFontSize(4)}>Grand</MenuItem>
+                  <MenuItem onClick={() => setFontSize(5)}>Très grand</MenuItem>
+                  <MenuItem onClick={() => setFontSize(7)}>Énorme</MenuItem>
+                </MenuList>
+              </Menu>
+
+              <Menu>
+                <Tooltip label="Couleur du texte">
+                  <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                    🎨 Couleur
+                  </MenuButton>
+                </Tooltip>
+                <MenuList>
+                  <MenuItem onClick={() => setTextColor('#000000')}>⚫ Noir</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#FF0000')}>🔴 Rouge</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#0000FF')}>🔵 Bleu</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#00AA00')}>🟢 Vert</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#FF8800')}>🟠 Orange</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#AA00AA')}>🟣 Violet</MenuItem>
+                  <MenuItem onClick={() => setTextColor('#FFFFFF')}>⚪ Blanc</MenuItem>
+                </MenuList>
+              </Menu>
+
+              <Menu>
+                <Tooltip label="Surlignage">
+                  <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                    🖍️ Surligner
+                  </MenuButton>
+                </Tooltip>
+                <MenuList>
+                  <MenuItem onClick={() => setBackgroundColor('#FFFF00')}>💛 Jaune</MenuItem>
+                  <MenuItem onClick={() => setBackgroundColor('#00FF00')}>💚 Vert</MenuItem>
+                  <MenuItem onClick={() => setBackgroundColor('#00FFFF')}>💙 Cyan</MenuItem>
+                  <MenuItem onClick={() => setBackgroundColor('#FFC0CB')}>💗 Rose</MenuItem>
+                  <MenuItem onClick={() => setBackgroundColor('#FFFFFF')}>⚪ Retirer</MenuItem>
+                </MenuList>
+              </Menu>
+
               <Button
-                colorScheme="purple"
-                leftIcon={<FiSave />}
-                onClick={handleSave}
+                size="sm"
+                leftIcon={<FiRefreshCw />}
+                variant="outline"
+                onClick={handleReset}
+                colorScheme="orange"
               >
-                Enregistrer et utiliser
+                Réinitialiser
               </Button>
             </HStack>
+          </Box>
+
+          {/* Zone d'édition WYSIWYG */}
+          <Box
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            dangerouslySetInnerHTML={{ __html: templateHtml }}
+            p={6}
+            bg="white"
+            border="2px solid"
+            borderColor="blue.300"
+            borderRadius="lg"
+            minH="60vh"
+            maxH="70vh"
+            overflowY="auto"
+            outline="none"
+            sx={{
+              '&:focus': {
+                borderColor: 'blue.500',
+                boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)'
+              }
+            }}
+          />
+
+          <Text fontSize="xs" color="gray.500" mt={2}>
+            💡 <strong>Astuce :</strong> Sélectionnez du texte puis utilisez les boutons de la barre d'outils pour le formater. Cliquez directement dans le texte pour le modifier.
+          </Text>
+        </ModalBody>
+
+        <ModalFooter borderTop="1px solid" borderColor={borderColor}>
+          <HStack spacing={3}>
+            <Button variant="ghost" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button
+              colorScheme="blue"
+              leftIcon={<FiSave />}
+              onClick={handleSave}
+            >
+              Enregistrer et utiliser
+            </Button>
           </HStack>
         </ModalFooter>
       </ModalContent>
