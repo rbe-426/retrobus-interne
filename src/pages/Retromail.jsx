@@ -83,6 +83,7 @@ export default function Retromail() {
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  const [composeAttachments, setComposeAttachments] = useState([]);
   
   // Paramètres mail
   const [displayName, setDisplayName] = useState(() => localStorage.getItem('mail_displayName') || user?.nom + ' ' + user?.prenom || '');
@@ -97,6 +98,22 @@ export default function Retromail() {
       setEmailAccount(deducedEmail);
     }
   }, [deducedEmail]);
+
+  // Créer une URL de téléchargement depuis base64
+  const createDownloadUrl = (base64Content, contentType) => {
+    try {
+      const binaryString = atob(base64Content);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: contentType });
+      return URL.createObjectURL(blob);
+    } catch (err) {
+      console.error("Erreur création URL blob:", err);
+      return null;
+    }
+  };
 
   // Vérifier la connexion au montage
   useEffect(() => {
@@ -126,10 +143,19 @@ export default function Retromail() {
         setIsConnected(data.connected);
         if (data.connected && data.email) {
           setEmailAccount(data.email);
+          // Sauvegarder l'état connecté dans sessionStorage
+          sessionStorage.setItem('mail_connected', 'true');
+          sessionStorage.setItem('mail_account', data.email);
+        } else {
+          // Nettoyer si pas connecté
+          sessionStorage.removeItem('mail_connected');
+          sessionStorage.removeItem('mail_account');
         }
       }
     } catch (e) {
       console.warn("Vérification connexion mail échouée:", e);
+      sessionStorage.removeItem('mail_connected');
+      sessionStorage.removeItem('mail_account');
     } finally {
       setConnectionLoading(false);
     }
@@ -204,6 +230,9 @@ export default function Retromail() {
       if (res.ok) {
         setIsConnected(true);
         setEmailAccount(finalEmail); // Mémoriser l'email utilisé
+        // Sauvegarder dans sessionStorage pour persistance
+        sessionStorage.setItem('mail_connected', 'true');
+        sessionStorage.setItem('mail_account', finalEmail);
         // Note: on garde le mot de passe pour permettre l'autocomplete navigateur
         toast({
           title: "Connecté ! 📧",
@@ -241,6 +270,10 @@ export default function Retromail() {
       setSelectedEmail(null);
       setEmailAccount("");
       
+      // Nettoyer sessionStorage
+      sessionStorage.removeItem('mail_connected');
+      sessionStorage.removeItem('mail_account');
+      
       toast({
         title: "Déconnecté",
         description: "Votre compte mail a été déconnecté",
@@ -250,6 +283,69 @@ export default function Retromail() {
     } catch (e) {
       console.error("Erreur déconnexion:", e);
     }
+  };
+
+  // Gérer l'upload de pièces jointes
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Limiter la taille totale à 10 MB
+    const maxSize = 10 * 1024 * 1024;
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    
+    if (totalSize > maxSize) {
+      toast({
+        title: "Fichiers trop volumineux",
+        description: "La taille totale ne doit pas dépasser 10 MB",
+        status: "warning",
+        duration: 4000
+      });
+      return;
+    }
+
+    try {
+      const attachmentsData = await Promise.all(
+        files.map(file => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64 = reader.result.split(',')[1];
+              resolve({
+                filename: file.name,
+                contentType: file.type || 'application/octet-stream',
+                size: file.size,
+                content: base64
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+
+      setComposeAttachments(prev => [...prev, ...attachmentsData]);
+      
+      toast({
+        title: "Fichiers ajoutés",
+        description: `${files.length} fichier(s) ajouté(s)`,
+        status: "success",
+        duration: 2000
+      });
+    } catch (err) {
+      console.error("Erreur upload:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de lire les fichiers",
+        status: "error",
+        duration: 3000
+      });
+    }
+  };
+
+  // Retirer une pièce jointe
+  const handleRemoveAttachment = (index) => {
+    setComposeAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   // Envoyer un email
@@ -343,7 +439,8 @@ export default function Retromail() {
           subject: composeSubject,
           body: finalBody,  // Texte brut pour fallback
           html: finalHtml,  // Version HTML
-          fromName: displayName || undefined
+          fromName: displayName || undefined,
+          attachments: composeAttachments  // Pièces jointes en base64
         })
       });
 
@@ -359,6 +456,7 @@ export default function Retromail() {
         setComposeTo("");
         setComposeSubject("");
         setComposeBody("");
+        setComposeAttachments([]);
         onComposeClose();
       } else {
         const data = await res.json();
@@ -931,18 +1029,40 @@ export default function Retromail() {
                       Pièces jointes ({selectedEmail.attachments.length})
                     </Text>
                     <VStack align="stretch" spacing={2}>
-                      {selectedEmail.attachments.map((att, idx) => (
-                        <Card key={idx} size="sm">
-                          <CardBody>
-                            <Flex justify="space-between" align="center">
-                              <Text fontSize="sm">{att.filename}</Text>
-                              <Button size="xs" as="a" href={att.url} download>
-                                Télécharger
-                              </Button>
-                            </Flex>
-                          </CardBody>
-                        </Card>
-                      ))}
+                      {selectedEmail.attachments.map((att, idx) => {
+                        const downloadUrl = att.content 
+                          ? createDownloadUrl(att.content, att.contentType)
+                          : null;
+                        
+                        return (
+                          <Card key={idx} size="sm">
+                            <CardBody>
+                              <Flex justify="space-between" align="center">
+                                <HStack spacing={2}>
+                                  <FiPaperclip />
+                                  <VStack align="start" spacing={0}>
+                                    <Text fontSize="sm" fontWeight="500">{att.filename}</Text>
+                                    <Text fontSize="xs" color="gray.500">
+                                      {att.contentType} • {(att.size / 1024).toFixed(1)} KB
+                                    </Text>
+                                  </VStack>
+                                </HStack>
+                                {downloadUrl && (
+                                  <Button 
+                                    size="xs" 
+                                    colorScheme="rbe"
+                                    as="a" 
+                                    href={downloadUrl} 
+                                    download={att.filename}
+                                  >
+                                    Télécharger
+                                  </Button>
+                                )}
+                              </Flex>
+                            </CardBody>
+                          </Card>
+                        );
+                      })}
                     </VStack>
                   </Box>
                 </>
@@ -993,6 +1113,48 @@ export default function Retromail() {
                   Police : {mailFont} • {signature && '✅ Signature activée'} {signatureImage && '📸'}
                 </Text>
               </FormControl>
+
+              <FormControl>
+                <FormLabel>
+                  <FiPaperclip style={{ display: 'inline', marginRight: '4px' }} />
+                  Pièces jointes
+                </FormLabel>
+                <Input 
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  accept="*/*"
+                  pt={1}
+                />
+                {composeAttachments.length > 0 && (
+                  <VStack align="stretch" spacing={2} mt={3}>
+                    {composeAttachments.map((att, idx) => (
+                      <Flex 
+                        key={idx} 
+                        p={2} 
+                        bg="gray.50" 
+                        borderRadius="md" 
+                        align="center" 
+                        justify="space-between"
+                      >
+                        <HStack spacing={2}>
+                          <FiPaperclip />
+                          <Text fontSize="sm">{att.filename}</Text>
+                          <Badge fontSize="xs">{(att.size / 1024).toFixed(1)} KB</Badge>
+                        </HStack>
+                        <IconButton
+                          icon={<FiTrash2 />}
+                          size="xs"
+                          colorScheme="red"
+                          variant="ghost"
+                          onClick={() => handleRemoveAttachment(idx)}
+                          aria-label="Retirer"
+                        />
+                      </Flex>
+                    ))}
+                  </VStack>
+                )}
+              </FormControl>
             </VStack>
           </ModalBody>
           <ModalFooter>
@@ -1022,16 +1184,25 @@ export default function Retromail() {
               {/* Compte connecté */}
               <Box>
                 <Heading size="sm" mb={3}>📧 Compte connecté</Heading>
-                <Badge colorScheme="green" fontSize="md">{emailAccount}</Badge>
-                <Button 
-                  size="xs" 
-                  variant="ghost" 
-                  colorScheme="red" 
-                  ml={3}
-                  onClick={handleDisconnect}
-                >
-                  Se déconnecter
-                </Button>
+                <VStack align="stretch" spacing={3}>
+                  <Flex align="center" gap={2}>
+                    <Badge colorScheme="green" fontSize="md" px={3} py={1}>
+                      {emailAccount}
+                    </Badge>
+                  </Flex>
+                  <Button 
+                    size="sm" 
+                    colorScheme="red" 
+                    variant="outline"
+                    leftIcon={<FiTrash2 />}
+                    onClick={handleDisconnect}
+                  >
+                    🔌 Dissocier ce compte
+                  </Button>
+                  <Text fontSize="xs" color="gray.500">
+                    ⚠️ Cette action révoquera l'accès à votre compte mail jusqu'à la prochaine connexion
+                  </Text>
+                </VStack>
               </Box>
 
               <Divider />
