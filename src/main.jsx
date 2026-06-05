@@ -8,6 +8,7 @@ import './index.css'
 import './styles/mobile.css'
 import './styles/tablet.css'
 import { UserProvider } from './context/UserContext'
+import { CacheProvider } from './context/CacheContext'
 
 // Enregistrement du Service Worker pour PWA
 if ('serviceWorker' in navigator) {
@@ -33,7 +34,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ChakraProvider theme={theme}>
       <BrowserRouter>
         <UserProvider>
-          <App />
+          <CacheProvider>
+            <App />
+          </CacheProvider>
         </UserProvider>
       </BrowserRouter>
     </ChakraProvider>

@@ -7,7 +7,8 @@ import {
   useToast, IconButton, Image, useMediaQuery
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
-import ReactMarkdown from 'react-markdown';
+// Lazy load ReactMarkdown pour réduire le bundle initial
+const ReactMarkdown = React.lazy(() => import('react-markdown'));
 import { 
   FiActivity, FiBell, FiCalendar, FiClock, FiCpu, 
   FiDollarSign, FiExternalLink, FiEye, FiFileText, FiGitBranch, 
@@ -16,6 +17,7 @@ import {
   FiChevronLeft, FiChevronRight, FiShare2, FiMail
 } from "react-icons/fi";
 import { useUser } from '../context/UserContext';
+import { useCache } from '../context/CacheContext';
 
 // Import APIs avec gestion d'erreur
 import { vehiculesAPI } from '../api/vehicles';
@@ -45,6 +47,7 @@ function loadFlashes() {
 
 export default function DashboardHome() {
   const user = useUser();
+  const cache = useCache();
   const footerBg = useColorModeValue('gray.900', 'gray.950');
   const [flashes, setFlashes] = useState([]);
   const [stats, setStats] = useState({
@@ -86,7 +89,11 @@ export default function DashboardHome() {
         return;
       }
 
-      const response = await vehiculesAPI.getAll();
+      // Utiliser le cache (5 minutes)
+      const response = await cache.fetchWithCache('dashboard:vehicles', 
+        () => vehiculesAPI.getAll(),
+        5 * 60 * 1000
+      );
       console.log('🚛 Réponse véhicules:', response);
       
       // Adapter selon la structure de la réponse
@@ -123,7 +130,7 @@ export default function DashboardHome() {
         vehicles: { total: 0, active: 0, loading: false }
       }));
     }
-  }, []);
+  }, [cache]);
 
   const loadEventsData = useCallback(async () => {
     try {
@@ -139,7 +146,10 @@ export default function DashboardHome() {
         return;
       }
 
-      const response = await eventsAPI.getAll();
+      const response = await cache.fetchWithCache('dashboard:events', 
+        () => eventsAPI.getAll(),
+        5 * 60 * 1000
+      );
       console.log('📅 Réponse événements:', response);
       
       // Adapter selon la structure de la réponse
@@ -185,7 +195,7 @@ export default function DashboardHome() {
         events: { total: 0, upcoming: 0, published: 0, loading: false }
       }));
     }
-  }, []);
+  }, [cache]);
 
   const loadMembersData = useCallback(async () => {
     try {
@@ -201,7 +211,10 @@ export default function DashboardHome() {
         return;
       }
 
-      const response = await membersAPI.getAll();
+      const response = await cache.fetchWithCache('dashboard:members', 
+        () => membersAPI.getAll(),
+        5 * 60 * 1000
+      );
       console.log('👥 Réponse membres:', response);
       
       // Adapter selon la structure de la réponse
@@ -236,14 +249,17 @@ export default function DashboardHome() {
         members: { total: 0, active: 0, loading: false }
       }));
     }
-  }, []);
+  }, [cache]);
 
   const loadRetroActus = useCallback(async () => {
     try {
       console.log('📰 Chargement des RétroActus...');
       
-      // Charger les actualités publiées depuis l'API RetroNews
-      const response = await apiClient.get('/api/retro-news');
+      // Charger les actualités publiées avec cache (5 minutes)
+      const response = await cache.fetchWithCache('dashboard:retro-actus',
+        () => apiClient.get('/api/retro-news'),
+        5 * 60 * 1000
+      );
       const data = Array.isArray(response) ? response : (response?.news || []);
       
       // Filtrer pour ne garder que les publiés et les trier (vedettes en premier)
@@ -279,7 +295,7 @@ export default function DashboardHome() {
         retroActus: { total: 0, loading: false }
       }));
     }
-  }, []);
+  }, [cache]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -327,11 +343,11 @@ export default function DashboardHome() {
       
       // Compter les succès
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-      console.log(`📊 Charger du dashboard: ${successCount}/4 sources réussies`);
+      console.log(`📊 Chargement du dashboard: ${successCount}/4 sources réussies`);
     } catch (error) {
       console.error('❌ Erreur globale loadDashboardData:', error);
     }
-  }, [loadVehiclesData, loadEventsData, loadMembersData, loadRetroActus]);
+  }, [cache, loadVehiclesData, loadEventsData, loadMembersData, loadRetroActus]);
 
   const shareRetroActu = async (actu) => {
     const subject = encodeURIComponent(`RétroActus: ${actu?.title || 'News'}`);
@@ -378,8 +394,8 @@ export default function DashboardHome() {
     setFlashes(loadFlashes());
     loadDashboardData();
     
-    // Actualiser les données toutes les 10 minutes (réduit de 5 pour optimiser)
-    const interval = setInterval(loadDashboardData, 10 * 60 * 1000);
+    // Actualiser les données toutes les 30 minutes (optimisé avec cache)
+    const interval = setInterval(loadDashboardData, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadDashboardData]);
 
@@ -715,9 +731,11 @@ export default function DashboardHome() {
                         color: 'gray.600'
                       }
                     }}>
-                      <ReactMarkdown>
-                        {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
-                      </ReactMarkdown>
+                      <React.Suspense fallback={<Spinner size="sm" />}>
+                        <ReactMarkdown>
+                          {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
+                        </ReactMarkdown>
+                      </React.Suspense>
                     </Box>
 
                     {/* Media Gallery */}

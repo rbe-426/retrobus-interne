@@ -15,7 +15,7 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight
+  FiFolder, FiCornerUpRight, FiEye, FiDownload, FiShare2, FiX
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -27,6 +27,7 @@ export default function Retromail() {
   const toast = useToast();
   const { isOpen: isComposeOpen, onOpen: onComposeOpen, onClose: onComposeClose } = useDisclosure();
   const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose } = useDisclosure();
+  const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -84,6 +85,9 @@ export default function Retromail() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeAttachments, setComposeAttachments] = useState([]);
+  
+  // Prévisualisation de pièce jointe
+  const [previewAttachment, setPreviewAttachment] = useState(null);
   
   // Paramètres mail
   const [displayName, setDisplayName] = useState(() => localStorage.getItem('mail_displayName') || user?.nom + ' ' + user?.prenom || '');
@@ -346,6 +350,35 @@ export default function Retromail() {
   // Retirer une pièce jointe
   const handleRemoveAttachment = (index) => {
     setComposeAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Prévisualiser une pièce jointe
+  const handlePreviewAttachment = (attachment) => {
+    setPreviewAttachment(attachment);
+    onPreviewOpen();
+  };
+
+  // Transférer une pièce jointe (l'ajouter au formulaire de composition)
+  const handleForwardAttachment = (attachment) => {
+    setComposeAttachments(prev => [...prev, attachment]);
+    toast({
+      title: "Pièce jointe ajoutée",
+      description: `${attachment.filename} ajouté à la composition`,
+      status: "success",
+      duration: 2000
+    });
+    onComposeOpen();
+  };
+
+  // Déterminer si un fichier est prévisualisable
+  const isPreviewable = (contentType) => {
+    if (!contentType) return false;
+    return (
+      contentType.startsWith('image/') ||
+      contentType === 'application/pdf' ||
+      contentType.startsWith('text/') ||
+      contentType === 'application/json'
+    );
   };
 
   // Envoyer un email
@@ -1033,12 +1066,13 @@ export default function Retromail() {
                         const downloadUrl = att.content 
                           ? createDownloadUrl(att.content, att.contentType)
                           : null;
+                        const canPreview = isPreviewable(att.contentType);
                         
                         return (
-                          <Card key={idx} size="sm">
+                          <Card key={idx} size="sm" bg={cardBg}>
                             <CardBody>
-                              <Flex justify="space-between" align="center">
-                                <HStack spacing={2}>
+                              <Flex justify="space-between" align="center" gap={3}>
+                                <HStack spacing={2} flex={1}>
                                   <FiPaperclip />
                                   <VStack align="start" spacing={0}>
                                     <Text fontSize="sm" fontWeight="500">{att.filename}</Text>
@@ -1047,17 +1081,40 @@ export default function Retromail() {
                                     </Text>
                                   </VStack>
                                 </HStack>
-                                {downloadUrl && (
-                                  <Button 
-                                    size="xs" 
-                                    colorScheme="rbe"
-                                    as="a" 
-                                    href={downloadUrl} 
-                                    download={att.filename}
-                                  >
-                                    Télécharger
-                                  </Button>
-                                )}
+                                <HStack spacing={1}>
+                                  {canPreview && (
+                                    <IconButton
+                                      icon={<FiEye />}
+                                      size="xs"
+                                      colorScheme="blue"
+                                      variant="ghost"
+                                      onClick={() => handlePreviewAttachment(att)}
+                                      aria-label="Aperçu"
+                                      title="Aperçu"
+                                    />
+                                  )}
+                                  <IconButton
+                                    icon={<FiShare2 />}
+                                    size="xs"
+                                    colorScheme="green"
+                                    variant="ghost"
+                                    onClick={() => handleForwardAttachment(att)}
+                                    aria-label="Transférer"
+                                    title="Transférer"
+                                  />
+                                  {downloadUrl && (
+                                    <Button 
+                                      size="xs" 
+                                      colorScheme="rbe"
+                                      leftIcon={<FiDownload />}
+                                      as="a" 
+                                      href={downloadUrl} 
+                                      download={att.filename}
+                                    >
+                                      Télécharger
+                                    </Button>
+                                  )}
+                                </HStack>
                               </Flex>
                             </CardBody>
                           </Card>
@@ -1346,6 +1403,132 @@ export default function Retromail() {
               Enregistrer et fermer
             </Button>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal - Prévisualisation de pièce jointe */}
+      <Modal isOpen={isPreviewOpen} onClose={onPreviewClose} size="6xl">
+        <ModalOverlay />
+        <ModalContent maxH="90vh">
+          <ModalHeader>
+            <Flex justify="space-between" align="center">
+              <HStack spacing={3}>
+                <FiEye />
+                <VStack align="start" spacing={0}>
+                  <Text>{previewAttachment?.filename || 'Aperçu'}</Text>
+                  <Text fontSize="xs" fontWeight="normal" color="gray.500">
+                    {previewAttachment?.contentType} • {previewAttachment ? (previewAttachment.size / 1024).toFixed(1) : 0} KB
+                  </Text>
+                </VStack>
+              </HStack>
+              <HStack>
+                {previewAttachment?.content && (
+                  <>
+                    <Button
+                      size="sm"
+                      leftIcon={<FiShare2 />}
+                      colorScheme="green"
+                      variant="ghost"
+                      onClick={() => {
+                        handleForwardAttachment(previewAttachment);
+                        onPreviewClose();
+                      }}
+                    >
+                      Transférer
+                    </Button>
+                    <Button
+                      size="sm"
+                      leftIcon={<FiDownload />}
+                      colorScheme="rbe"
+                      as="a"
+                      href={createDownloadUrl(previewAttachment.content, previewAttachment.contentType)}
+                      download={previewAttachment.filename}
+                    >
+                      Télécharger
+                    </Button>
+                  </>
+                )}
+              </HStack>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto">
+            {previewAttachment && previewAttachment.content ? (
+              <Box>
+                {/* Images */}
+                {previewAttachment.contentType?.startsWith('image/') && (
+                  <Center>
+                    <img
+                      src={`data:${previewAttachment.contentType};base64,${previewAttachment.content}`}
+                      alt={previewAttachment.filename}
+                      style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+                    />
+                  </Center>
+                )}
+
+                {/* PDFs */}
+                {previewAttachment.contentType === 'application/pdf' && (
+                  <Box w="100%" h="70vh">
+                    <iframe
+                      src={`data:application/pdf;base64,${previewAttachment.content}`}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 'none' }}
+                      title={previewAttachment.filename}
+                    />
+                  </Box>
+                )}
+
+                {/* Texte / JSON */}
+                {(previewAttachment.contentType?.startsWith('text/') || 
+                  previewAttachment.contentType === 'application/json') && (
+                  <Box
+                    as="pre"
+                    p={4}
+                    bg="gray.50"
+                    borderRadius="md"
+                    fontSize="sm"
+                    fontFamily="monospace"
+                    overflowX="auto"
+                    maxH="70vh"
+                    overflowY="auto"
+                  >
+                    {(() => {
+                      try {
+                        const decoded = atob(previewAttachment.content);
+                        return decoded;
+                      } catch (e) {
+                        return 'Erreur de décodage du contenu';
+                      }
+                    })()}
+                  </Box>
+                )}
+
+                {/* Type non prévisualisable */}
+                {!isPreviewable(previewAttachment.contentType) && (
+                  <Center h="300px">
+                    <VStack spacing={4}>
+                      <FiPaperclip size={48} color="gray" />
+                      <Text color="gray.500">Aperçu non disponible pour ce type de fichier</Text>
+                      <Button
+                        colorScheme="rbe"
+                        leftIcon={<FiDownload />}
+                        as="a"
+                        href={createDownloadUrl(previewAttachment.content, previewAttachment.contentType)}
+                        download={previewAttachment.filename}
+                      >
+                        Télécharger pour ouvrir
+                      </Button>
+                    </VStack>
+                  </Center>
+                )}
+              </Box>
+            ) : (
+              <Center h="300px">
+                <Text color="gray.500">Aucun contenu à afficher</Text>
+              </Center>
+            )}
+          </ModalBody>
         </ModalContent>
       </Modal>
     </Box>
