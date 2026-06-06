@@ -824,8 +824,19 @@ export default function Retromail() {
       let finalHtml = htmlBody;
       
       // Vérifier si la signature est déjà présente dans le contenu
-      const signatureTextPresent = signature && (finalBody.includes(signature) || htmlBody.includes(signature));
-      const signatureImagePresent = signatureImage && (finalBody.includes(signatureImage) || htmlBody.includes(signatureImage));
+      // Pour la signature texte, vérifier à la fois la version texte et HTML (avec <br>)
+      const signatureHtmlVersion = signature ? signature.split('\n').join('<br>') : '';
+      const signatureTextPresent = signature && (
+        finalBody.includes(signature) || 
+        htmlBody.includes(signature) ||
+        htmlBody.includes(signatureHtmlVersion) ||
+        // Vérifier au moins les 20 premiers caractères de la signature
+        (signature.length > 20 && htmlBody.includes(signature.substring(0, 20)))
+      );
+      const signatureImagePresent = signatureImage && (
+        finalBody.includes(signatureImage) || 
+        htmlBody.includes(signatureImage)
+      );
       
       // Ajouter la signature seulement si elle n'est pas déjà là et si on n'est pas en mode template complet
       if (!isFullHtml) {
@@ -833,7 +844,7 @@ export default function Retromail() {
         
         // Ajouter signature texte si elle n'est pas déjà présente
         if (signature && !signatureTextPresent) {
-          signatureHtml += '<br><br>' + signature.split('\n').join('<br>');
+          signatureHtml += '<br><br>' + signatureHtmlVersion;
         }
         
         // Ajouter signature image si elle n'est pas déjà présente
