@@ -313,6 +313,7 @@ export default function Retromail() {
     // DRAFTS est géré localement, pas besoin de charger depuis l'API
     if (activeFolder === 'DRAFTS') {
       setEmails([]);
+      setLoading(false);
       return;
     }
     
@@ -326,25 +327,29 @@ export default function Retromail() {
         const data = await res.json();
         setEmails(data.emails || []);
       } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Erreur chargement emails:', errorData);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les emails",
+          description: errorData.error || "Impossible de charger les emails",
           status: "error",
           duration: 3000
         });
+        setEmails([]);
       }
     } catch (e) {
       console.error("Erreur chargement emails:", e);
       toast({
         title: "Erreur",
-        description: e.message,
+        description: e.message || "Erreur de connexion",
         status: "error",
         duration: 3000
       });
+      setEmails([]);
     } finally {
       setLoading(false);
     }
-  }, [isConnected, activeFolder, toast]);
+  }, [isConnected, activeFolder, toast, API]);
 
   useEffect(() => {
     if (isConnected) {
@@ -440,16 +445,20 @@ export default function Retromail() {
   const minifyHtml = useCallback((html) => {
     if (!html) return html;
     
+    // Si petit (< 50KB), pas besoin de minifier
+    if (html.length < 50 * 1024) {
+      console.log(`📦 HTML petit (${(html.length / 1024).toFixed(1)}KB) - Pas de minification`);
+      return html;
+    }
+    
     // Gmail clippe les emails > 102KB, on doit donc optimiser
-    let minified = html
+    const minified = html
       // Supprimer les commentaires HTML
       .replace(/<!--[\s\S]*?-->/g, '')
-      // Supprimer les espaces multiples
-      .replace(/\s+/g, ' ')
+      // Supprimer les espaces multiples (en une seule passe)
+      .replace(/\s\s+/g, ' ')
       // Supprimer les espaces avant/après les balises
       .replace(/>\s+</g, '><')
-      // Supprimer les lignes vides
-      .replace(/\n\s*\n/g, '\n')
       .trim();
     
     const originalSize = (html.length / 1024).toFixed(1);
@@ -744,31 +753,32 @@ export default function Retromail() {
                          finalBody.trim().startsWith('<html') ||
                          finalBody.includes('</html>');
       
-      // Détecter du vrai HTML formaté (pas juste des <br> de sauts de ligne)
-      const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img)[>\s]/i.test(finalBody);
-      
       let htmlBody;
       
       if (isFullHtml) {
-        // HTML complet (template) - utiliser tel quel
-        console.log('📄 HTML complet détecté - utilisation directe');
+        // HTML complet (template) - utiliser tel quel sans traitement lourd
+        console.log('📄 Template HTML complet - envoi direct');
         htmlBody = finalBody;
-      } else if (hasHtmlTags) {
-        // HTML partiel (édité avec la barre d'outils WYSIWYG) - wrapper simple
-        console.log('🎨 HTML partiel détecté - wrapper simple');
-        htmlBody = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">${finalBody}</div>`;
       } else {
-        // Texte brut (ou texte avec juste des <br>) - convertir en HTML
-        console.log('📝 Texte brut détecté - conversion HTML');
+        // Détecter du vrai HTML formaté (pas juste des <br> de sauts de ligne)
+        const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img)[>\s]/i.test(finalBody);
         
-        // Si le contenu contient des <br> (générés par l'éditeur), les remplacer par des sauts de ligne
-        let textContent = finalBody.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
-        
-        const convertToHtml = (text) => {
-          const lines = text.split('\n');
-          let html = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">`;
-          let inQuote = false;
-          let quoteLines = [];
+        if (hasHtmlTags) {
+          // HTML partiel (édité avec la barre d'outils WYSIWYG) - wrapper simple
+          console.log('🎨 HTML partiel détecté - wrapper simple');
+          htmlBody = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">${finalBody}</div>`;
+        } else {
+          // Texte brut (ou texte avec juste des <br>) - convertir en HTML
+          console.log('📝 Texte brut détecté - conversion HTML');
+          
+          // Si le contenu contient des <br> (générés par l'éditeur), les remplacer par des sauts de ligne
+          let textContent = finalBody.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+          
+          const convertToHtml = (text) => {
+            const lines = text.split('\n');
+            let html = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">`;
+            let inQuote = false;
+            let quoteLines = [];
           
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -818,28 +828,40 @@ export default function Retromail() {
         };
         
         htmlBody = convertToHtml(textContent);
+        }
       }
       
-      // Ajouter automatiquement la signature à la fin si elle n'est pas déjà présente
-      let finalHtml = htmlBody;
+      // Traitement rapide pour templates vs emails normaux
+      let finalHtml;
       
-      // Vérifier si la signature est déjà présente dans le contenu
-      // Pour la signature texte, vérifier à la fois la version texte et HTML (avec <br>)
-      const signatureHtmlVersion = signature ? signature.split('\n').join('<br>') : '';
-      const signatureTextPresent = signature && (
-        finalBody.includes(signature) || 
-        htmlBody.includes(signature) ||
-        htmlBody.includes(signatureHtmlVersion) ||
-        // Vérifier au moins les 20 premiers caractères de la signature
-        (signature.length > 20 && htmlBody.includes(signature.substring(0, 20)))
-      );
-      const signatureImagePresent = signatureImage && (
-        finalBody.includes(signatureImage) || 
-        htmlBody.includes(signatureImage)
-      );
-      
-      // Ajouter la signature seulement si elle n'est pas déjà là et si on n'est pas en mode template complet
-      if (!isFullHtml) {
+      if (isFullHtml) {
+        // Template complet : traitement minimal
+        console.log('⚡ Template complet - traitement rapide');
+        finalHtml = htmlBody; // Pas de signature, pas de minification lourde
+        
+        // Juste ajouter un ID unique pour Gmail
+        const uniqueId = Date.now() + Math.random().toString(36).substring(2, 9);
+        finalHtml = finalHtml.replace(
+          '</body>',
+          `<span style="display:none;">${uniqueId}</span></body>`
+        );
+      } else {
+        // Email normal : ajouter signature si nécessaire
+        console.log('📧 Email normal - traitement complet');
+        
+        // Vérifier si la signature est déjà présente dans le contenu
+        const signatureHtmlVersion = signature ? signature.split('\n').join('<br>') : '';
+        const signatureTextPresent = signature && (
+          finalBody.includes(signature) || 
+          htmlBody.includes(signature) ||
+          htmlBody.includes(signatureHtmlVersion) ||
+          (signature.length > 20 && htmlBody.includes(signature.substring(0, 20)))
+        );
+        const signatureImagePresent = signatureImage && (
+          finalBody.includes(signatureImage) || 
+          htmlBody.includes(signatureImage)
+        );
+        
         let signatureHtml = '';
         
         // Ajouter signature texte si elle n'est pas déjà présente
@@ -854,23 +876,10 @@ export default function Retromail() {
           signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
         }
         
-        if (signatureHtml) {
-          finalHtml = htmlBody + signatureHtml;
-        }
-      }
-
-      // Minifier le HTML pour éviter le clipping Gmail
-      finalHtml = minifyHtml(finalHtml);
-      
-      // Ajouter un wrapper anti-clipping Gmail (force l'affichage complet)
-      // Gmail clippe après 102KB ou si contenu répétitif détecté
-      if (isFullHtml) {
-        // Pour les templates HTML complets, ajouter un span invisible unique pour éviter le clipping
-        const uniqueId = Date.now() + Math.random().toString(36).substring(2, 9);
-        finalHtml = finalHtml.replace(
-          '</body>',
-          `<span style="display:none;">${uniqueId}</span></body>`
-        );
+        finalHtml = signatureHtml ? htmlBody + signatureHtml : htmlBody;
+        
+        // Minifier seulement si nécessaire
+        finalHtml = minifyHtml(finalHtml);
       }
 
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {

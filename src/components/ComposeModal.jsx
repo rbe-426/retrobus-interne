@@ -39,6 +39,7 @@ const ComposeModal = memo(({
 }) => {
   const toast = useToast();
   const editorRef = useRef(null);
+  const updateTimerRef = useRef(null);
   
   // États locaux pour fonctionnalités avancées
   const [showCc, setShowCc] = useState(false);
@@ -61,11 +62,28 @@ const ComposeModal = memo(({
     }
   }, [isOpen]);
 
-  // Mettre à jour le state parent quand l'éditeur change
+  // Cleanup du timer au démontage
+  useEffect(() => {
+    return () => {
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Mettre à jour le state parent avec debounce pour éviter les lags
   const handleEditorInput = useCallback(() => {
     if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
-      onComposeBodyChange({ target: { value: html } });
+      // Annuler le timer précédent
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+      }
+      
+      // Mettre à jour après 150ms d'inactivité
+      updateTimerRef.current = setTimeout(() => {
+        const html = editorRef.current.innerHTML;
+        onComposeBodyChange({ target: { value: html } });
+      }, 150);
     }
   }, [onComposeBodyChange]);
 
