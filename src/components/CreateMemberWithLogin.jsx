@@ -16,7 +16,17 @@ const MEMBERSHIP_TYPES = {
   FAMILY: { label: 'Adhésion Famille', description: 'Adhésion pour une famille (2 adultes + enfants)' },
   STUDENT: { label: 'Adhésion Étudiant', description: 'Tarif réduit pour les étudiants' },
   HONORARY: { label: 'Membre d\'Honneur', description: 'Membre honorifique' },
-  BIENFAITEUR: { label: 'Bienfaiteur', description: 'Soutien financier renforcé' }
+  BIENFAITEUR: { label: 'Bienfaiteur', description: 'Soutien financier renforcé' },
+  STAGIAIRE: { label: 'Stagiaire', description: 'Stagiaire en formation' }
+};
+
+const PAYMENT_METHODS = {
+  CASH: 'Espèces',
+  CHECK: 'Chèque',
+  BANK_TRANSFER: 'Virement',
+  CARD: 'Carte bancaire',
+  PAYPAL: 'PayPal',
+  HELLOASSO: 'HelloAsso'
 };
 
 const MEMBER_ROLES = {
@@ -33,7 +43,8 @@ const MEMBERSHIP_STATUS = {
   PENDING: 'En attente',
   ACTIVE: 'Actif',
   EXPIRED: 'Expiré',
-  SUSPENDED: 'Suspendu'
+  SUSPENDED: 'Suspendu',
+  CANCELLED: 'Annulé'
 };
 
 export default function CreateMemberWithLogin({ isOpen, onClose, onMemberCreated }) {
@@ -42,8 +53,11 @@ export default function CreateMemberWithLogin({ isOpen, onClose, onMemberCreated
     lastName: '',
     email: '',
     matricule: '',
+    memberNumber: '',
     membershipType: 'STANDARD',
     membershipStatus: 'ACTIVE',
+    membershipStartDate: new Date().toISOString().split('T')[0],
+    membershipEndDate: '',
     role: 'MEMBER',
     hasInternalAccess: true,
     hasExternalAccess: false,
@@ -589,28 +603,55 @@ export default function CreateMemberWithLogin({ isOpen, onClose, onMemberCreated
 
                         <SimpleGrid columns={2} spacing={4} width="100%">
                           <FormControl>
+                            <FormLabel>Numéro d'adhérent</FormLabel>
+                            <Input
+                              value={formData.memberNumber}
+                              onChange={(e) => setFormData(prev => ({ ...prev, memberNumber: e.target.value }))}
+                              placeholder="Ex: ADH2026-001"
+                            />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Début d'adhésion</FormLabel>
+                            <Input
+                              type="date"
+                              value={formData.membershipStartDate}
+                              onChange={(e) => setFormData(prev => ({ ...prev, membershipStartDate: e.target.value }))}
+                            />
+                          </FormControl>
+                        </SimpleGrid>
+
+                        <SimpleGrid columns={2} spacing={4} width="100%">
+                          <FormControl>
+                            <FormLabel>Fin d'adhésion</FormLabel>
+                            <Input
+                              type="date"
+                              value={formData.membershipEndDate}
+                              onChange={(e) => setFormData(prev => ({ ...prev, membershipEndDate: e.target.value }))}
+                              placeholder="Optionnel"
+                            />
+                          </FormControl>
+                          <FormControl>
                             <FormLabel>Montant cotisation (€)</FormLabel>
                             <Input
                               type="number"
+                              step="0.01"
                               value={formData.paymentAmount}
                               onChange={(e) => setFormData(prev => ({ ...prev, paymentAmount: e.target.value }))}
                             />
                           </FormControl>
-                          <FormControl>
-                            <FormLabel>Mode de paiement</FormLabel>
-                            <Select
-                              value={formData.paymentMethod}
-                              onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                            >
-                              <option value="CASH">Espèces</option>
-                              <option value="CHECK">Chèque</option>
-                              <option value="BANK_TRANSFER">Virement</option>
-                              <option value="CARD">Carte</option>
-                              <option value="PAYPAL">PayPal</option>
-                              <option value="HELLOASSO">HelloAsso</option>
-                            </Select>
-                          </FormControl>
                         </SimpleGrid>
+
+                        <FormControl>
+                          <FormLabel>Mode de paiement</FormLabel>
+                          <Select
+                            value={formData.paymentMethod}
+                            onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                          >
+                            {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
+                              <option key={key} value={key}>{label}</option>
+                            ))}
+                          </Select>
+                        </FormControl>
                       </VStack>
                     </CardBody>
                   </Card>

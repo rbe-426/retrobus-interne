@@ -20,9 +20,13 @@ const ComposeModal = memo(({
   isOpen,
   onClose,
   composeTo,
+  composeCc,
+  composeBcc,
   composeSubject,
   composeBody,
   onComposeToChange,
+  onComposeCcChange,
+  onComposeBccChange,
   onComposeSubjectChange,
   onComposeBodyChange,
   composeAttachments,
@@ -44,8 +48,6 @@ const ComposeModal = memo(({
   // États locaux pour fonctionnalités avancées
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
-  const [composeCc, setComposeCc] = useState('');
-  const [composeBcc, setComposeBcc] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -324,7 +326,7 @@ const ComposeModal = memo(({
                       type="email"
                       placeholder="copie@example.com"
                       value={composeCc}
-                      onChange={(e) => setComposeCc(e.target.value)}
+                      onChange={onComposeCcChange}
                       autoComplete="off"
                       size="sm"
                       flex={1}
@@ -335,7 +337,7 @@ const ComposeModal = memo(({
                       variant="ghost"
                       onClick={() => {
                         setShowCc(false);
-                        setComposeCc('');
+                        onComposeCcChange({ target: { value: '' } });
                       }}
                       aria-label="Masquer Cc"
                     />
@@ -351,7 +353,7 @@ const ComposeModal = memo(({
                       type="email"
                       placeholder="copie-cachee@example.com"
                       value={composeBcc}
-                      onChange={(e) => setComposeBcc(e.target.value)}
+                      onChange={onComposeBccChange}
                       autoComplete="off"
                       size="sm"
                       flex={1}
@@ -362,7 +364,7 @@ const ComposeModal = memo(({
                       variant="ghost"
                       onClick={() => {
                         setShowBcc(false);
-                        setComposeBcc('');
+                        onComposeBccChange({ target: { value: '' } });
                       }}
                       aria-label="Masquer Bcc"
                     />

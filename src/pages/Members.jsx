@@ -32,7 +32,8 @@ const MEMBERSHIP_TYPES = {
   FAMILY: { label: 'Famille', price: 100, description: '2 adultes + enfants mineurs', color: 'green' },
   STUDENT: { label: 'Étudiant', price: 35, description: 'Tarif réduit sur justificatif', color: 'purple' },
   HONORARY: { label: 'Honneur', price: 0, description: 'Membre d\'honneur', color: 'gold' },
-  LIFETIME: { label: 'À vie', price: 0, description: 'Adhésion permanente', color: 'red' }
+  LIFETIME: { label: 'À vie', price: 0, description: 'Adhésion permanente', color: 'red' },
+  STAGIAIRE: { label: 'Stagiaire', price: 0, description: 'Stagiaire en formation', color: 'orange' }
 };
 
 const MEMBERSHIP_STATUS = {

@@ -72,8 +72,8 @@ const cards = [
     cardAccess: true
   },
   {
-    title: "Gérer les adhésions",
-    description: "Membres, cotisations et documents",
+    title: "Gestion RH",
+    description: "Adhérents, stagiaires, cotisations et documents",
     to: "/dashboard/members-management",
     icon: FiUsers,
     color: "blue",

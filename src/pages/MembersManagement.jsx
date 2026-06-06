@@ -20,6 +20,7 @@ import {
 import { membersAPI } from '../api/members.js';
 import CreateMember from '../components/CreateMember';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
+import { fetchWithCSRF } from '../lib/csrfClient';
 
 // API base builder with relative fallback
 const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -351,12 +352,8 @@ export default function MembersManagement() {
     try {
       const action = member.loginEnabled ? 'disable' : 'enable';
       
-      const response = await fetch(apiUrl(`/api/members/${member.id}/toggle-login`), {
+      const response = await fetchWithCSRF(apiUrl(`/api/members/${member.id}/toggle-login`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ action })
       });
 
@@ -406,11 +403,8 @@ export default function MembersManagement() {
     }
 
     try {
-      const response = await fetch(apiUrl(`/api/members/${member.id}/reset-password`), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetchWithCSRF(apiUrl(`/api/members/${member.id}/reset-password`), {
+        method: 'POST'
       });
 
       if (!response.ok) {
@@ -451,9 +445,8 @@ export default function MembersManagement() {
       const allowed = ['firstName','lastName','email','phone','address','city','postalCode','membershipType','membershipStatus','paymentAmount','paymentMethod','newsletter','notes'];
       const payload = {};
       for (const k of allowed) if (k in editData) payload[k] = editData[k];
-      const resp = await fetch(apiUrl(`/api/members/${selectedMember.id}`), {
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${selectedMember.id}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify(payload)
       });
       const data = await resp.json().catch(()=> ({}));
@@ -484,9 +477,8 @@ export default function MembersManagement() {
       if (terminateForm.notes) fd.append('notes', terminateForm.notes);
       if (terminateForm.pv) fd.append('pv', terminateForm.pv);
       if (terminateForm.resignation) fd.append('resignation', terminateForm.resignation);
-      const resp = await fetch(apiUrl(`/api/members/${terminateMember.id}/terminate`), {
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${terminateMember.id}/terminate`), {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: fd
       });
       const data = await resp.json().catch(()=> ({}));
@@ -506,9 +498,8 @@ export default function MembersManagement() {
         return;
       }
       if (!window.confirm(`Effacer définitivement ${member.firstName} ${member.lastName} ?`)) return;
-      const resp = await fetch(apiUrl(`/api/members/${member.id}`), {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${member.id}`), {
+        method: 'DELETE'
       });
       if (!resp.ok && resp.status !== 204) {
         const data = await resp.json().catch(()=> ({}));
@@ -523,12 +514,8 @@ export default function MembersManagement() {
 
   const handleActivateAdhesion = async (member) => {
     try {
-      const resp = await fetch(apiUrl(`/api/members/${member.id}`), {
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${member.id}`), {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ membershipStatus: 'ACTIVE' })
       });
       if (!resp.ok) {
@@ -570,9 +557,8 @@ export default function MembersManagement() {
         toast({ title: 'Renseignez matricule ou email', status: 'warning' });
         return;
       }
-      const resp = await fetch(apiUrl(`/api/members/${selectedMember.id}/link-access`), {
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${selectedMember.id}/link-access`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ username: linkForm.username || undefined, email: linkForm.email || undefined })
       });
       const data = await resp.json().catch(()=> ({}));
@@ -852,21 +838,21 @@ export default function MembersManagement() {
 
   const headerActions = [
     <Button key="create" leftIcon={<FiPlus />} colorScheme="blue" onClick={onCreateOpen}>
-      Nouvel adhérent
+      Ajout RH
     </Button>
   ];
 
   return (
     <>
       <WorkspaceLayout
-        title="Gestion des Adhésions"
-        subtitle="Gérer les adhérents, les permissions et la configuration d'affichage des profils"
+        title="Gestion RH"
+        subtitle="Gérer les adhérents, stagiaires, cotisations et documents"
         sections={workspaceSections}
         defaultSectionId="dashboard"
-        sidebarTitle="Adhésions"
+        sidebarTitle="Gestion RH"
         sidebarSubtitle="Espace MyRBE"
         sidebarTitleIcon={FiUsers}
-        versionLabel="Adhésions v2"
+        versionLabel="RH v2.1"
         headerActions={headerActions}
       />
 

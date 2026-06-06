@@ -13,6 +13,7 @@ import {
   FiMapPin, FiKey, FiEdit, FiDownload, FiSave, FiX, FiPlus 
 } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
+import { fetchWithCSRF } from '../lib/csrfClient';
 // NOTE: Profil adhérent est géré côté serveur (créé depuis l'admin MyRBE)
 
 // Use relative URLs by default so Vite dev proxy can route calls; fall back to env when provided
@@ -30,7 +31,8 @@ const MEMBERSHIP_TYPES = {
   FAMILY: 'Adhésion Famille',
   STUDENT: 'Adhésion Étudiant',
   HONORARY: 'Membre d\'Honneur',
-  BIENFAITEUR: 'Bienfaiteur'
+  BIENFAITEUR: 'Bienfaiteur',
+  STAGIAIRE: 'Stagiaire'
 };
 
 const PAYMENT_METHODS = {
@@ -166,12 +168,8 @@ export default function MyMembership() {
       let response = null;
       for (const b of bases) {
         try {
-          const r = await fetch(`${b}/api/members/me`, {
+          const r = await fetchWithCSRF(`${b}/api/members/me`, {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
             body: JSON.stringify(editData)
           });
           if (r.ok) { response = r; break; }
@@ -277,12 +275,8 @@ export default function MyMembership() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/members/change-password`, {
+      const response = await fetchWithCSRF(`${API_BASE_URL}/api/members/change-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword
@@ -1010,9 +1004,8 @@ export default function MyMembership() {
                   let resp = null; let data = null;
                   for (const b of [apiBase ?? '', API_BASE_URL || '']) {
                     try {
-                      const r = await fetch(`${b}/api/members/${memberData?.id}/terminate`, {
+                      const r = await fetchWithCSRF(`${b}/api/members/${memberData?.id}/terminate`, {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                         body: fd
                       });
                       if (r.ok) { resp = r; data = await r.json(); break; }
@@ -1060,9 +1053,8 @@ export default function MyMembership() {
                   let ok = false; let err = null;
                   for (const b of [apiBase ?? '', API_BASE_URL || '']) {
                     try {
-                      const r = await fetch(`${b}/api/members/${linkSelectedId}/link-access`, {
+                      const r = await fetchWithCSRF(`${b}/api/members/${linkSelectedId}/link-access`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                         body: JSON.stringify({ username: (user?.username || '').toLowerCase() })
                       });
                       const d = await r.json().catch(()=>({}));

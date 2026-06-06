@@ -101,6 +101,8 @@ export default function Retromail() {
 
   // Formulaire de composition
   const [composeTo, setComposeTo] = useState("");
+  const [composeCc, setComposeCc] = useState("");
+  const [composeBcc, setComposeBcc] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeAttachments, setComposeAttachments] = useState([]);
@@ -108,6 +110,14 @@ export default function Retromail() {
   // Handlers mémorisés pour éviter les re-renders
   const handleComposeToChange = useCallback((e) => {
     setComposeTo(e.target.value);
+  }, []);
+  
+  const handleComposeCcChange = useCallback((e) => {
+    setComposeCc(e.target.value);
+  }, []);
+  
+  const handleComposeBccChange = useCallback((e) => {
+    setComposeBcc(e.target.value);
   }, []);
   
   const handleComposeSubjectChange = useCallback((e) => {
@@ -886,6 +896,8 @@ export default function Retromail() {
         method: 'POST',
         body: JSON.stringify({
           to: composeTo,
+          cc: composeCc || undefined,
+          bcc: composeBcc || undefined,
           subject: composeSubject,
           body: finalBody,  // Texte brut pour fallback
           html: finalHtml,  // Version HTML
@@ -895,15 +907,18 @@ export default function Retromail() {
       });
 
       if (res.ok) {
+        const recipients = [composeTo, composeCc, composeBcc].filter(Boolean).join(', ');
         toast({
           title: "Email envoyé ! 📨",
-          description: `Message envoyé à ${composeTo}`,
+          description: `Message envoyé à ${recipients}`,
           status: "success",
           duration: 3000
         });
         
         // Réinitialiser le formulaire
         setComposeTo("");
+        setComposeCc("");
+        setComposeBcc("");
         setComposeSubject("");
         setComposeBody("");
         setComposeAttachments([]);
@@ -1610,9 +1625,13 @@ export default function Retromail() {
         isOpen={isComposeOpen}
         onClose={onComposeClose}
         composeTo={composeTo}
+        composeCc={composeCc}
+        composeBcc={composeBcc}
         composeSubject={composeSubject}
         composeBody={composeBody}
         onComposeToChange={handleComposeToChange}
+        onComposeCcChange={handleComposeCcChange}
+        onComposeBccChange={handleComposeBccChange}
         onComposeSubjectChange={handleComposeSubjectChange}
         onComposeBodyChange={handleComposeBodyChange}
         composeAttachments={composeAttachments}

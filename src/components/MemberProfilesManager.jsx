@@ -17,7 +17,8 @@ const MEMBERSHIP_TYPES = {
   FAMILY: 'Adhésion Famille',
   STUDENT: 'Adhésion Étudiant',
   HONORARY: 'Membre d\'Honneur',
-  BIENFAITEUR: 'Bienfaiteur'
+  BIENFAITEUR: 'Bienfaiteur',
+  STAGIAIRE: 'Stagiaire'
 };
 
 const PAYMENT_METHODS = {

@@ -14,6 +14,7 @@ import {
   FiTrash2, FiFileText
 } from 'react-icons/fi';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
+import { fetchWithCSRF } from '../lib/csrfClient';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const apiUrl = (path) => API_BASE_URL ? `${API_BASE_URL}${path}` : path;
@@ -23,7 +24,8 @@ const MEMBERSHIP_TYPES = {
   FAMILY: 'Adhésion Famille',
   STUDENT: 'Adhésion Étudiant',
   HONORARY: 'Membre d\'Honneur',
-  BIENFAITEUR: 'Bienfaiteur'
+  BIENFAITEUR: 'Bienfaiteur',
+  STAGIAIRE: 'Stagiaire'
 };
 
 const MEMBERSHIP_STATUS = {
@@ -163,12 +165,8 @@ export default function AdhesionManagement() {
           let response = null;
           for (const url of candidates) {
             try {
-              const r = await fetch(url, {
+              const r = await fetchWithCSRF(url, {
                 method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(payload)
               });
               if (r.ok) { response = r; break; }
@@ -224,9 +222,8 @@ export default function AdhesionManagement() {
       let response = null;
       for (const url of candidates) {
         try {
-          const r = await fetch(url, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const r = await fetchWithCSRF(url, {
+            method: 'DELETE'
           });
           if (r.ok) { response = r; break; }
         } catch {}
@@ -246,12 +243,8 @@ export default function AdhesionManagement() {
       let response = null;
       for (const url of candidates) {
         try {
-          const r = await fetch(url, {
+          const r = await fetchWithCSRF(url, {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify(editData)
           });
           if (r.ok) { response = r; break; }
