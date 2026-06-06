@@ -6,7 +6,7 @@ import {
   Heading, useToast, HStack, Switch, Box, Text, Badge, Icon,
   Stepper, Step, StepIndicator, StepStatus, StepIcon, StepNumber,
   StepTitle, StepDescription, StepSeparator, Progress, Alert, AlertIcon,
-  RadioGroup, Radio, Stack, Checkbox, useSteps
+  RadioGroup, Radio, Stack, Checkbox, useSteps, Divider, useColorModeValue
 } from '@chakra-ui/react';
 import { FiUser, FiMapPin, FiKey, FiFileText, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { membersAPI } from '../api/members.js';
@@ -38,12 +38,16 @@ const PAYMENT_METHODS = {
 };
 
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
+  // Thème Trilogy RBE
+  const cardBg = useColorModeValue('white', 'gray.800');
+  
   const steps = [
     { title: 'Type', description: 'Profil RH', icon: FiUser },
     { title: 'Identité', description: 'Infos perso', icon: FiUser },
     { title: 'Adresse', description: 'Coordonnées', icon: FiMapPin },
     { title: 'Identifiants', description: 'Matricule', icon: FiKey },
     { title: 'Adhésion', description: 'Cotisation', icon: FiFileText },
+    { title: 'Bulletin', description: 'Signature', icon: FiFileText },
     { title: 'Validation', description: 'Récapitulatif', icon: FiCheck }
   ];
 
@@ -92,6 +96,19 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     convention: null,
     exemptionDocument: null,
     
+    // Bulletin d'adhésion
+    bulletinFile: null,
+    signatureMethod: 'paper', // 'paper', 'electronic', 'digital_flow'
+    eSignatureProvider: '',
+    eSignatureStatus: 'none',
+    
+    // Parcours numérique
+    sendDigitalFlow: false,
+    digitalFlowEmail: '',
+    digitalFlowPhone: '',
+    templateFile: null,
+    templateId: '',
+    
     // Divers
     notes: '',
     newsletter: true
@@ -113,6 +130,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       isExempted: false, exemptionReason: '',
       internshipStartDate: '', internshipEndDate: '', internshipType: '', supervisor: '',
       convention: null, exemptionDocument: null,
+      bulletinFile: null, signatureMethod: 'paper', eSignatureProvider: '', eSignatureStatus: 'none',
+      sendDigitalFlow: false, digitalFlowEmail: '', digitalFlowPhone: '', templateFile: null, templateId: '',
       notes: '', newsletter: true
     });
   };
@@ -139,6 +158,38 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           }
         }
         return true;
+      case 5: // Bulletin d'adhésion
+        // Les stagiaires n'ont pas de bulletin
+        if (profileType === 'stagiaire') return true;
+        
+        // Si bulletin papier, vérifier l'upload
+        if (formData.signatureMethod === 'paper' && !formData.bulletinFile) {
+          toast({ 
+            title: 'Bulletin requis', 
+            description: 'Veuillez uploader le bulletin d\'adhésion signé ou choisir un autre mode de signature', 
+            status: 'warning', 
+            duration: 4000 
+          });
+          return false;
+        }
+        
+        // Si parcours numérique activé, vérifier email ou phone
+        if (formData.signatureMethod === 'digital_flow' && formData.sendDigitalFlow) {
+          const hasEmail = (formData.digitalFlowEmail || formData.email || '').trim();
+          const hasPhone = (formData.digitalFlowPhone || formData.phone || '').trim();
+          
+          if (!hasEmail && !hasPhone) {
+            toast({ 
+              title: 'Contact requis', 
+              description: 'Veuillez saisir un email ou un numéro de téléphone pour le parcours numérique', 
+              status: 'warning', 
+              duration: 4000 
+            });
+            return false;
+          }
+        }
+        
+        return true;
       default:
         return true;
     }
@@ -163,7 +214,50 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         ...formData,
         membershipType: profileType === 'stagiaire' ? 'STAGIAIRE' : formData.membershipType
       };
+      
+      // Créer l'adhérent
       const created = await membersAPI.create(payload);
+      
+      // Si parcours numérique activé, envoyer le lien de signature
+      if (formData.signatureMethod === 'digital_flow' && formData.sendDigitalFlow) {
+        try {
+          const email = formData.digitalFlowEmail || formData.email;
+          const phone = formData.digitalFlowPhone || formData.phone;
+          
+          const bulletinResponse = await fetch('http://localhost:4000/api/bulletin-flow/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              memberData: created,
+              sendEmail: !!email,
+              sendSMS: !!phone,
+              email,
+              phone
+            })
+          });
+          
+          const bulletinData = await bulletinResponse.json();
+          
+          if (bulletinData.success) {
+            toast({ 
+              title: 'Parcours de signature envoyé !', 
+              description: `Lien envoyé par ${email ? 'email' : ''}${email && phone ? ' et ' : ''}${phone ? 'SMS' : ''}`,
+              status: 'success', 
+              duration: 5000 
+            });
+            console.log('📧 Lien de signature:', bulletinData.link);
+          }
+        } catch (bulletinError) {
+          console.error('❌ Error sending bulletin flow:', bulletinError);
+          toast({ 
+            title: 'Adhérent créé, mais envoi du lien échoué', 
+            description: 'Vous pouvez renvoyer le lien depuis la fiche adhérent',
+            status: 'warning', 
+            duration: 5000 
+          });
+        }
+      }
+      
       toast({ title: 'Adhérent créé', status: 'success', duration: 3000 });
       onMemberCreated?.(created);
       reset();
@@ -189,17 +283,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                 <Card 
                   cursor="pointer" 
                   borderWidth={2} 
-                  borderColor={profileType === 'adherent' ? 'blue.500' : 'gray.200'}
+                  borderColor={profileType === 'adherent' ? 'rbe.500' : 'gray.200'}
                   onClick={() => setProfileType('adherent')}
+                  _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                  transition="all 0.2s"
+                  bg={cardBg}
                 >
                   <CardBody>
                     <HStack>
                       <Radio value="adherent" />
                       <VStack align="start" spacing={1}>
                         <HStack>
-                          <Icon as={FiUser} />
-                          <Text fontWeight="bold">Adhérent</Text>
-                          <Badge colorScheme="blue">Standard</Badge>
+                        <Icon as={FiUser} color="gray.600" boxSize={6} />
+                        <Text fontWeight="bold" color="black">Adhérent</Text>
+                        <Badge colorScheme="rbe">Standard</Badge>
                         </HStack>
                         <Text fontSize="sm" color="gray.600">
                           Membre avec cotisation, bulletin d'adhésion et droits d'accès complets
@@ -213,6 +310,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   borderWidth={2} 
                   borderColor={profileType === 'stagiaire' ? 'orange.500' : 'gray.200'}
                   onClick={() => setProfileType('stagiaire')}
+                  _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                  transition="all 0.2s"
+                  bg={cardBg}
                 >
                   <CardBody>
                     <HStack>
@@ -487,12 +587,229 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           );
         }
 
-      case 5: // Validation et notes
+      case 5: // Bulletin d'adhésion et parcours numérique
+        // Les stagiaires n'ont pas de bulletin d'adhésion
+        if (profileType === 'stagiaire') {
+          // Passer directement à l'étape validation
+          return (
+            <VStack spacing={4} align="stretch">
+              <Alert status="info" variant="left-accent">
+                <AlertIcon />
+                <Text fontSize="sm">Les stagiaires n'ont pas de bulletin d'adhésion. Passez à l'étape suivante.</Text>
+              </Alert>
+            </VStack>
+          );
+        }
+
         return (
           <VStack spacing={6} align="stretch">
             <HStack>
-              <Icon as={FiCheck} color="green.500" boxSize={5} />
-              <Heading size="sm">Récapitulatif et validation</Heading>
+              <Icon as={FiFileText} color="rbe.500" boxSize={6} />
+              <Heading size="sm" color="black">Bulletin d'adhésion et signature</Heading>
+            </HStack>
+
+            {/* Méthode de signature */}
+            <Card>
+              <CardHeader><Heading size="xs">Mode de signature</Heading></CardHeader>
+              <CardBody>
+                <RadioGroup value={formData.signatureMethod} onChange={(val)=>setFormData(p=>({...p, signatureMethod: val}))}>
+                  <Stack spacing={3}>
+                    <Card 
+                      cursor="pointer" 
+                      borderWidth={2} 
+                      borderColor={formData.signatureMethod === 'paper' ? 'rbe.500' : 'gray.200'}
+                      onClick={() => setFormData(p=>({...p, signatureMethod: 'paper'}))}
+                      _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                      transition="all 0.2s"
+                      bg={cardBg}
+                    >
+                      <CardBody>
+                        <HStack>
+                          <Radio value="paper" />
+                          <VStack align="start" spacing={0}>
+                            <Text fontWeight="bold">📄 Bulletin papier signé</Text>
+                            <Text fontSize="sm" color="gray.600">Scanner et uploader le bulletin déjà signé</Text>
+                          </VStack>
+                        </HStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card 
+                      cursor="pointer" 
+                      borderWidth={2} 
+                      borderColor={formData.signatureMethod === 'electronic' ? 'rbe.500' : 'gray.200'}
+                      onClick={() => setFormData(p=>({...p, signatureMethod: 'electronic'}))}
+                      _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                      transition="all 0.2s"
+                      bg={cardBg}
+                    >
+                      <CardBody>
+                        <HStack>
+                          <Radio value="electronic" />
+                          <VStack align="start" spacing={0}>
+                            <Text fontWeight="bold">✍️ Signature électronique immédiate</Text>
+                            <Text fontSize="sm" color="gray.600">Via DocuSign, HelloSign ou autre (à configurer)</Text>
+                          </VStack>
+                        </HStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card 
+                      cursor="pointer" 
+                      borderWidth={2} 
+                      borderColor={formData.signatureMethod === 'digital_flow' ? 'rbe.500' : 'gray.200'}
+                      onClick={() => setFormData(p=>({...p, signatureMethod: 'digital_flow'}))}
+                      _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                      transition="all 0.2s"
+                      bg={cardBg}
+                    >
+                      <CardBody>
+                        <HStack>
+                          <Radio value="digital_flow" />
+                          <VStack align="start" spacing={0}>
+                            <Text fontWeight="bold">� Parcours numérique interactif</Text>
+                            <Text fontSize="sm" color="gray.600">Lien sécurisé par SMS/email avec stepper et signature en ligne</Text>
+                          </VStack>
+                        </HStack>
+                      </CardBody>
+                    </Card>
+                  </Stack>
+                </RadioGroup>
+              </CardBody>
+            </Card>
+
+            {/* Upload bulletin papier */}
+            {formData.signatureMethod === 'paper' && (
+              <Card>
+                <CardHeader><Heading size="xs">Upload du bulletin signé</Heading></CardHeader>
+                <CardBody>
+                  <FormControl>
+                    <FormLabel>Fichier PDF ou image</FormLabel>
+                    <Input 
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e)=>setFormData(p=>({...p, bulletinFile: e.target.files[0]}))}
+                      pt={1}
+                    />
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      {formData.bulletinFile ? `📄 ${formData.bulletinFile.name}` : 'Format accepté : PDF, JPG, PNG'}
+                    </Text>
+                  </FormControl>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Signature électronique */}
+            {formData.signatureMethod === 'electronic' && (
+              <Card>
+                <CardHeader><Heading size="xs">Configuration signature électronique</Heading></CardHeader>
+                <CardBody>
+                  <VStack spacing={4} align="stretch">
+                    <Alert status="info" variant="left-accent">
+                      <AlertIcon />
+                      <VStack align="start" spacing={1}>
+                        <Text fontSize="sm" fontWeight="bold">À configurer ensemble</Text>
+                        <Text fontSize="xs">Intégration avec DocuSign, HelloSign, ou signature Canvas HTML5</Text>
+                      </VStack>
+                    </Alert>
+                    <FormControl>
+                      <FormLabel>Fournisseur de signature</FormLabel>
+                      <Select 
+                        value={formData.eSignatureProvider} 
+                        onChange={(e)=>setFormData(p=>({...p, eSignatureProvider: e.target.value}))}
+                        placeholder="Sélectionner un fournisseur"
+                      >
+                        <option value="docusign">DocuSign</option>
+                        <option value="hellosign">HelloSign (Dropbox Sign)</option>
+                        <option value="adobe_sign">Adobe Sign</option>
+                        <option value="yousign">YouSign</option>
+                        <option value="canvas">Signature Canvas (intégrée)</option>
+                      </Select>
+                    </FormControl>
+                  </VStack>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Parcours numérique */}
+            {formData.signatureMethod === 'digital_flow' && (
+              <Card>
+                <CardHeader><Heading size="xs">Parcours numérique interactif</Heading></CardHeader>
+                <CardBody>
+                  <VStack spacing={4} align="stretch">
+                    <Alert status="success" variant="left-accent">
+                      <AlertIcon />
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="sm" fontWeight="bold">🚀 Parcours sécurisé avec stepper</Text>
+                        <Text fontSize="xs">
+                          L'adhérent reçoit un lien privé (email/SMS) pour un parcours guidé en 5 étapes avec signature en ligne
+                        </Text>
+                      </VStack>
+                    </Alert>
+
+                    <FormControl display="flex" alignItems="center">
+                      <Checkbox 
+                        isChecked={formData.sendDigitalFlow}
+                        onChange={(e)=>setFormData(p=>({...p, sendDigitalFlow: e.target.checked}))}
+                      >
+                        Activer l'envoi automatique du lien
+                      </Checkbox>
+                    </FormControl>
+
+                    {formData.sendDigitalFlow && (
+                      <>
+                        <SimpleGrid columns={2} spacing={4}>
+                          <FormControl>
+                            <FormLabel>Email destinataire</FormLabel>
+                            <Input 
+                              type="email"
+                              value={formData.digitalFlowEmail || formData.email} 
+                              onChange={(e)=>setFormData(p=>({...p, digitalFlowEmail: e.target.value}))}
+                              placeholder={formData.email || "email@exemple.com"}
+                            />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>N° de téléphone (SMS)</FormLabel>
+                            <Input 
+                              type="tel"
+                              value={formData.digitalFlowPhone || formData.phone} 
+                              onChange={(e)=>setFormData(p=>({...p, digitalFlowPhone: e.target.value}))}
+                              placeholder={formData.phone || "06 12 34 56 78"}
+                            />
+                          </FormControl>
+                        </SimpleGrid>
+
+                        <Card bg={cardBg} borderColor="rbe.200" borderWidth={1} _hover={{ shadow: 'md' }} transition="all 0.2s">
+                          <CardBody>
+                            <VStack align="start" spacing={2}>
+                              <Text fontSize="sm" fontWeight="bold" color="black">📋 Le parcours en 5 étapes :</Text>
+                              <Text fontSize="xs" color="gray.700">1️⃣ Bienvenue et présentation</Text>
+                              <Text fontSize="xs" color="gray.700">2️⃣ Vérification des informations pré-remplies</Text>
+                              <Text fontSize="xs" color="gray.700">3️⃣ Compléments d'information (optionnel)</Text>
+                              <Text fontSize="xs" color="gray.700">4️⃣ Signature électronique (Canvas)</Text>
+                              <Text fontSize="xs" color="gray.700">5️⃣ Confirmation et téléchargement du bulletin signé</Text>
+                              <Divider my={2} />
+                              <Text fontSize="xs" color="rbe.600" fontWeight="bold">
+                                🔒 Lien sécurisé valide 7 jours
+                              </Text>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      </>
+                    )}
+                  </VStack>
+                </CardBody>
+              </Card>
+            )}
+          </VStack>
+        );
+
+      case 6: // Validation et notes
+        return (
+          <VStack spacing={6} align="stretch">
+            <HStack>
+              <Icon as={FiCheck} color="green.500" boxSize={6} />
+              <Heading size="sm" color="black">Récapitulatif et validation</Heading>
             </HStack>
             
             <Card bg={profileType === 'stagiaire' ? 'orange.50' : 'blue.50'}>

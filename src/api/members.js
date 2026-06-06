@@ -1,3 +1,5 @@
+import { fetchWithCSRF } from '../lib/csrfClient';
+
 const BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 const tokenHeader = () => {
   const t = localStorage.getItem('token');
@@ -56,6 +58,39 @@ async function tryEndpoints(method, body, extraHeaders) {
   throw lastErr || new Error('Aucun endpoint membre valide');
 }
 
+// Version avec protection CSRF pour les opérations mutantes (POST, PUT, PATCH, DELETE)
+async function tryEndpointsWithCSRF(method, body, extraHeaders) {
+  let lastErr = null;
+  for (const ep of MEMBERS_ENDPOINTS) {
+    try {
+      const url = toUrl(ep);
+      const resp = await fetchWithCSRF(url, {
+        method,
+        headers: {
+          Accept: 'application/json',
+          ...(extraHeaders || {}),
+        },
+        body: body == null
+          ? undefined
+          : body instanceof FormData
+            ? body
+            : JSON.stringify(body),
+      });
+      if (!resp.ok) { 
+        const errData = await resp.json().catch(() => ({}));
+        lastErr = new Error(errData?.error || `HTTP ${resp.status}`); 
+        continue; 
+      }
+      await ensureJson(resp);
+      return await resp.json();
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr || new Error('Aucun endpoint membre valide');
+}
+
 export const membersAPI = {
   // Renvoie { members: [...] } pour s’adapter au code existant
   async getAll() {
@@ -88,17 +123,17 @@ export const membersAPI = {
   },
 
   async create(member) {
-    const res = await tryEndpoints('POST', member);
+    const res = await tryEndpointsWithCSRF('POST', member);
     return res?.member || res?.data || res;
   },
 
   async update(id, member) {
     // Essaye PATCH puis PUT si besoin
     try {
-      const out = await tryEndpoints('PATCH', { id, ...member }, { 'X-Method-Override': 'PATCH' });
+      const out = await tryEndpointsWithCSRF('PATCH', { id, ...member }, { 'X-Method-Override': 'PATCH' });
       return out?.member || out?.data || out;
     } catch {
-      const out = await tryEndpoints('PUT', { id, ...member });
+      const out = await tryEndpointsWithCSRF('PUT', { id, ...member });
       return out?.member || out?.data || out;
     }
   },
@@ -106,14 +141,14 @@ export const membersAPI = {
   async delete(id) {
     const payload = { id };
     try {
-      const out = await tryEndpoints('DELETE', payload);
+      const out = await tryEndpointsWithCSRF('DELETE', payload);
       return out?.ok === true ? out : { ok: true };
     } catch (e) {
-      // Certaines APIs n’acceptent pas de body en DELETE → fallback querystring
+      // Certaines APIs n'acceptent pas de body en DELETE → fallback querystring
       for (const ep of MEMBERS_ENDPOINTS) {
         try {
           const url = toUrl(`${ep}/${encodeURIComponent(id)}`);
-          const r = await fetchWithTimeout(url, { method: 'DELETE', headers: { ...tokenHeader() } });
+          const r = await fetchWithCSRF(url, { method: 'DELETE' });
           if (r.ok) return { ok: true };
         } catch {}
       }

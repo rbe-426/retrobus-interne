@@ -133,19 +133,27 @@ export const fetchWithCSRF = async (url, options = {}) => {
   // Extraire le baseURL depuis l'URL fournie ou utiliser la variable d'environnement
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   let baseURL = '';
+  let finalURL = url;
   
-  // Si l'URL est relative, utiliser API_BASE
+  // Si l'URL est relative, utiliser API_BASE et construire l'URL complète
   if (!url.startsWith('http')) {
     baseURL = API_BASE;
+    // Construire l'URL complète en combinant baseURL et path
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    finalURL = `${baseURL}${cleanPath}`;
   } else {
     // Si URL absolue, extraire le baseURL
     try {
       const urlObj = new URL(url);
       baseURL = `${urlObj.protocol}//${urlObj.host}`;
+      finalURL = url;
     } catch (_) {
       baseURL = API_BASE;
+      finalURL = url;
     }
   }
+
+  console.log(`🔍 fetchWithCSRF: url="${url}" → finalURL="${finalURL}"`);
 
   // Obtenir le token stocké
   let csrfToken = getStoredCSRFToken();
@@ -179,14 +187,14 @@ export const fetchWithCSRF = async (url, options = {}) => {
   // Ajouter le token CSRF si mutation
   if (isMutation && csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;
-    console.log('🔐 CSRF token added to headers for', options.method, url);
+    console.log('🔐 CSRF token added to headers for', options.method, finalURL);
   } else if (isMutation && !csrfToken) {
     console.error('❌ No CSRF token available for mutation!');
   }
 
   // Faire la requête
   try {
-    const response = await fetch(url, {
+    const response = await fetch(finalURL, {
       ...options,
       credentials: 'include',
       headers,
@@ -206,7 +214,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
           console.log('🔄 Retrying request with fresh CSRF token');
           
           // Retry la requête avec le nouveau token
-          const retryResponse = await fetch(url, {
+          const retryResponse = await fetch(finalURL, {
             ...options,
             credentials: 'include',
             headers,
