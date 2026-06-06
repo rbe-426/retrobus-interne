@@ -736,21 +736,16 @@ export default function Retromail() {
 
     setIsSending(true);
     try {
-      // Construire le corps avec signature
+      // Construire le corps - composeBody contient déjà le HTML de l'éditeur WYSIWYG
       let finalBody = composeBody;
-      
-      // Ajouter signature texte
-      if (signature) {
-        finalBody += '\n\n--\n' + signature;
-      }
       
       // Détecter si le contenu est déjà du HTML complet
       const isFullHtml = finalBody.trim().startsWith('<!DOCTYPE') || 
                          finalBody.trim().startsWith('<html') ||
                          finalBody.includes('</html>');
       
-      // Détecter si le contenu contient déjà des balises HTML significatives
-      const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|br|strong|em|a|img)[>\s]/i.test(finalBody);
+      // Détecter du vrai HTML formaté (pas juste des <br> de sauts de ligne)
+      const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img)[>\s]/i.test(finalBody);
       
       let htmlBody;
       
@@ -759,12 +754,16 @@ export default function Retromail() {
         console.log('📄 HTML complet détecté - utilisation directe');
         htmlBody = finalBody;
       } else if (hasHtmlTags) {
-        // HTML partiel (édité avec la barre d'outils) - wrapper simple
+        // HTML partiel (édité avec la barre d'outils WYSIWYG) - wrapper simple
         console.log('🎨 HTML partiel détecté - wrapper simple');
         htmlBody = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">${finalBody}</div>`;
       } else {
-        // Texte brut - convertir en HTML avec citations
+        // Texte brut (ou texte avec juste des <br>) - convertir en HTML
         console.log('📝 Texte brut détecté - conversion HTML');
+        
+        // Si le contenu contient des <br> (générés par l'éditeur), les remplacer par des sauts de ligne
+        let textContent = finalBody.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+        
         const convertToHtml = (text) => {
           const lines = text.split('\n');
           let html = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">`;
@@ -818,28 +817,34 @@ export default function Retromail() {
           return html;
         };
         
-        htmlBody = convertToHtml(finalBody);
+        htmlBody = convertToHtml(textContent);
       }
       
-      // Vérifier si la signature est déjà présente dans le corps du message
-      const signatureAlreadyPresent = signature && finalBody.includes(signature);
-      const signatureImageAlreadyPresent = signatureImage && (
-        finalBody.includes(signatureImage) || 
-        htmlBody.includes(signatureImage)
-      );
-      
-      // Ajouter signature seulement si pas de HTML complet ET pas déjà présente
+      // Ajouter automatiquement la signature à la fin si elle n'est pas déjà présente
       let finalHtml = htmlBody;
+      
+      // Vérifier si la signature est déjà présente dans le contenu
+      const signatureTextPresent = signature && (finalBody.includes(signature) || htmlBody.includes(signature));
+      const signatureImagePresent = signatureImage && (finalBody.includes(signatureImage) || htmlBody.includes(signatureImage));
+      
+      // Ajouter la signature seulement si elle n'est pas déjà là et si on n'est pas en mode template complet
       if (!isFullHtml) {
-        // Ajouter signature texte si non présente
-        if (signature && !signatureAlreadyPresent && !hasHtmlTags) {
-          // Pour texte brut uniquement (pas pour HTML partiel)
-          finalHtml += '<br><br>' + signature.split('\n').join('<br>');
+        let signatureHtml = '';
+        
+        // Ajouter signature texte si elle n'est pas déjà présente
+        if (signature && !signatureTextPresent) {
+          signatureHtml += '<br><br>' + signature.split('\n').join('<br>');
         }
         
-        // Ajouter signature image si non présente
-        if (signatureImage && !signatureImageAlreadyPresent) {
-          finalHtml += `<br><img src="${signatureImage}" alt="Signature" style="max-width: 400px;" />`;
+        // Ajouter signature image si elle n'est pas déjà présente
+        if (signatureImage && !signatureImagePresent) {
+          if (signatureHtml) signatureHtml += '<br>';
+          else signatureHtml = '<br><br>';
+          signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
+        }
+        
+        if (signatureHtml) {
+          finalHtml = htmlBody + signatureHtml;
         }
       }
 
@@ -898,7 +903,7 @@ export default function Retromail() {
     } finally {
       setIsSending(false);
     }
-  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, mailFont, API, emailAccount, password, toast, onComposeClose]);
+  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, mailFont, API, toast, onComposeClose, minifyHtml]);
 
   // Supprimer un email
   const handleDeleteEmail = async (emailId) => {

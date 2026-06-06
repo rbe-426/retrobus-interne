@@ -112,9 +112,22 @@ const ComposeModal = memo(({
 
   // Gérer la touche Entrée pour des sauts de ligne simples
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      document.execCommand('insertLineBreak');
+      // Insérer un <br> pour créer un saut de ligne
+      const br = document.createElement('br');
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
+      
+      range.deleteContents();
+      range.insertNode(br);
+      
+      // Positionner le curseur après le <br>
+      range.setStartAfter(br);
+      range.setEndAfter(br);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      
       handleEditorInput(); // Mettre à jour le state
     }
   }, [handleEditorInput]);
@@ -164,9 +177,12 @@ const ComposeModal = memo(({
   const isFullHtml = composeBody?.trim().startsWith('<!DOCTYPE') || 
                      composeBody?.trim().startsWith('<html') ||
                      composeBody?.includes('</html>');
-  const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|br|strong|em|a|img)[>\s]/i.test(composeBody || '');
   
-  const contentType = isFullHtml ? 'template' : (hasHtmlTags ? 'html' : 'text');
+  // Détecter du vrai HTML formaté (pas juste des <br> de sauts de ligne)
+  // On ignore les <br> car ils sont générés automatiquement par l'éditeur
+  const hasRealFormatting = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img)[>\s]/i.test(composeBody || '');
+  
+  const contentType = isFullHtml ? 'template' : (hasRealFormatting ? 'html' : 'text');
 
   // Handler pour le bouton d'envoi
   const handleSend = useCallback(() => {
@@ -526,8 +542,11 @@ const ComposeModal = memo(({
                 overflowY="auto"
                 fontFamily={mailFont}
                 fontSize="md"
-                whiteSpace="pre-wrap"
-                textTransform="none"
+                css={{
+                  whiteSpace: 'normal',
+                  textTransform: 'none !important',
+                  '& *': { textTransform: 'none !important' }
+                }}
                 _focus={{
                   borderColor: 'blue.400',
                   boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)',
@@ -540,11 +559,11 @@ const ComposeModal = memo(({
                   }
                 }}
                 sx={{
-                  '& h1, & h2, & h3': { marginBottom: '0.5em', fontWeight: 'bold' },
+                  '& h1, & h2, & h3': { marginBottom: '0.5em', fontWeight: 'bold', textTransform: 'none !important' },
                   '& h1': { fontSize: '2em' },
                   '& h2': { fontSize: '1.5em' },
                   '& h3': { fontSize: '1.2em' },
-                  '& p': { marginBottom: '0' },
+                  '& p': { marginBottom: '0', textTransform: 'none !important' },
                   '& ul, & ol': { marginLeft: '1.5em', marginBottom: '0.5em' },
                   '& code': { 
                     bg: 'gray.100', 
@@ -553,7 +572,9 @@ const ComposeModal = memo(({
                     borderRadius: 'sm',
                     fontFamily: 'monospace'
                   },
-                  '& a': { color: 'blue.500', textDecoration: 'underline' }
+                  '& a': { color: 'blue.500', textDecoration: 'underline' },
+                  '& br': { display: 'block', content: '""', marginTop: '0' },
+                  '& div, & span': { textTransform: 'none !important' }
                 }}
               />
               <HStack justify="space-between" mt={2}>
