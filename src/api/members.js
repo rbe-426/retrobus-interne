@@ -25,7 +25,7 @@ const toUrl = (path) => {
   return BASE ? `${BASE}/${p}` : `/${p}`;
 };
 
-const MEMBERS_ENDPOINTS = ['api/members', 'members', 'api/v1/members', 'v1/members'];
+const MEMBERS_ENDPOINTS = ['api/members', 'members'];
 
 async function tryEndpoints(method, body, extraHeaders) {
   let lastErr = null;
@@ -78,12 +78,18 @@ async function tryEndpointsWithCSRF(method, body, extraHeaders) {
       });
       if (!resp.ok) { 
         const errData = await resp.json().catch(() => ({}));
-        lastErr = new Error(errData?.error || `HTTP ${resp.status}`); 
+        const errorMsg = errData?.details || errData?.error || `HTTP ${resp.status}`;
+        lastErr = new Error(errorMsg);
+        lastErr.status = resp.status;
+        lastErr.field = errData?.field;
+        // Si c'est un conflit (409), on lance immédiatement l'erreur
+        if (resp.status === 409) throw lastErr;
         continue; 
       }
       await ensureJson(resp);
       return await resp.json();
     } catch (e) {
+      if (e?.status === 409) throw e;
       lastErr = e;
       continue;
     }

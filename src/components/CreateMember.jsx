@@ -264,7 +264,25 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       reset();
       onClose();
     } catch (e) {
-      toast({ title: 'Erreur', description: e.message, status: 'error', duration: 5000 });
+      // Gestion des erreurs spécifiques
+      if (e.status === 409 || e.message?.includes('existe déjà')) {
+        const fieldName = e.field === 'email' ? 'email' : 
+                         e.field === 'memberNumber' ? 'numéro adhérent' :
+                         e.field === 'matricule' ? 'matricule' : 'donnée';
+        toast({ 
+          title: 'Adhérent déjà existant', 
+          description: `Un adhérent avec ce ${fieldName} existe déjà. Utilisez un autre ${fieldName} ou modifiez l'adhérent existant.`,
+          status: 'warning', 
+          duration: 7000 
+        });
+      } else {
+        toast({ 
+          title: 'Erreur', 
+          description: e.message || 'Impossible de créer l\'adhérent', 
+          status: 'error', 
+          duration: 5000 
+        });
+      }
     } finally {
       setLoading(false);
     }
