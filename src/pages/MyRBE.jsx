@@ -81,13 +81,14 @@ const cards = [
     cardAccess: true
   },
   {
-    title: "Édition des Adhésions",
-    description: "Modifier statut, dates, paiements",
-    to: "/dashboard/adhesion-management",
+    title: "Carte MyRBE",
+    description: "Bientôt une nouvelle carte MyRBE",
+    to: null,
     icon: FiShield,
-    color: "purple",
-    resource: "ADHESION_MANAGEMENT",
-    cardAccess: true
+    color: "gray",
+    resource: null,
+    cardAccess: true,
+    isPlaceholder: true
   },
   {
     title: "Gestion des Stocks",
@@ -309,16 +310,30 @@ export default function MyRBE() {
         {visibleCards.length > 0 ? (
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                 {visibleCards.map((card) => (
-                  <ModernCard
-                    key={card.title}
-                    title={card.title}
-                    description={card.description}
-                    icon={card.icon}
-                    color={card.color}
-                    badge={card.badge}
-                    as={RouterLink}
-                    to={card.to}
-                  />
+                  card.isPlaceholder ? (
+                    <ModernCard
+                      key={card.title}
+                      title={card.title}
+                      description={card.description}
+                      icon={card.icon}
+                      color={card.color}
+                      badge={card.badge}
+                      opacity={0.6}
+                      cursor="not-allowed"
+                      _hover={{ transform: 'none' }}
+                    />
+                  ) : (
+                    <ModernCard
+                      key={card.title}
+                      title={card.title}
+                      description={card.description}
+                      icon={card.icon}
+                      color={card.color}
+                      badge={card.badge}
+                      as={RouterLink}
+                      to={card.to}
+                    />
+                  )
                 ))}
               </SimpleGrid>
             ) : (

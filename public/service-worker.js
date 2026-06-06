@@ -59,6 +59,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Ignorer les schémas non-HTTP/HTTPS (chrome-extension, data, blob, etc.)
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
+  
   // Ignorer les requêtes vers l'API (toujours fetch depuis le réseau)
   if (url.pathname.startsWith('/api/') || url.hostname.includes('railway.app')) {
     return;
@@ -78,7 +83,13 @@ self.addEventListener('fetch', (event) => {
         
         caches.open(CACHE_NAME)
           .then((cache) => {
-            cache.put(request, responseToCache);
+            // Double vérification du schéma avant de mettre en cache
+            if (request.url.startsWith('http')) {
+              cache.put(request, responseToCache);
+            }
+          })
+          .catch((error) => {
+            console.warn('⚠️ Service Worker: Cache put failed:', error.message);
           });
         
         return response;

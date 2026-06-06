@@ -8,9 +8,11 @@ import {
   DrawerHeader, DrawerBody, Divider, useMediaQuery
 
 } from "@chakra-ui/react";
+import { FiMail } from "react-icons/fi";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { flashAPI } from "../api/flash.js";
+import { useUnreadMailCount } from "../hooks/useUnreadMailCount";
 import NotificationCenter from './NotificationCenter';
 import logo from "../assets/retro_intranet_essonne.svg";
 import logoMobile from "../assets/URBEX.svg";
@@ -110,6 +112,9 @@ export default function Header() {
   const manage = useDisclosure();
   const viewer = useDisclosure();
   const navDrawer = useDisclosure();
+  
+  // Hook pour les emails non lus
+  const { unreadCount: mailUnreadCount } = useUnreadMailCount(30000); // Refresh toutes les 30s
   
   // Mobile detection using Chakra UI useMediaQuery hook (more reliable)
   const [isLessThan768] = useMediaQuery("(max-width: 768px)");
@@ -414,20 +419,41 @@ export default function Header() {
           />
         ) : (
           <HStack spacing={3} flexShrink={0}>
-            {/* Megaphone - admin only */}
-            <Tooltip label={isAdmin ? "Gérer les flashs" : "Vous n'êtes pas autorisé"}>
-              <span>
+            {/* RétroMail - Tous les utilisateurs */}
+            <Tooltip label="Accéder à RétroMail">
+              <Box position="relative">
                 <IconButton
-                  aria-label="Annonces"
-                  icon={<MegaphoneIcon />}
+                  as={RouterLink}
+                  to="/retromail"
+                  aria-label="RétroMail"
+                  icon={<FiMail size={20} />}
                   size="sm"
                   variant="ghost"
                   color="white"
-                  onClick={() => { if (isAdmin) manage.onOpen(); }}
-                  title="Annonces"
-                  isDisabled={!isAdmin}
+                  title="RétroMail"
+                  _hover={{ bg: "whiteAlpha.200" }}
                 />
-              </span>
+                {mailUnreadCount > 0 && (
+                  <Badge
+                    position="absolute"
+                    top="-2px"
+                    right="-2px"
+                    bg="#d30c4c"
+                    color="white"
+                    borderRadius="full"
+                    fontSize="10px"
+                    minW="18px"
+                    h="18px"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    fontWeight="bold"
+                    px="4px"
+                  >
+                    {mailUnreadCount > 99 ? '99+' : mailUnreadCount}
+                  </Badge>
+                )}
+              </Box>
             </Tooltip>
 
             {/* Notifications */}
@@ -471,9 +497,6 @@ export default function Header() {
           <DrawerCloseButton size="lg" mr={3} mt={2} color="white" _hover={{ bg: "whiteAlpha.300" }} />
           <DrawerHeader bg="rbe.500" color="white" py={5}>
             <Text fontWeight="bold" fontSize="lg" color="white">👋 Bonjour {prenom || 'Utilisateur'}</Text>
-            {unreadCount > 0 && (
-              <Text fontSize="sm" color="whiteAlpha.800" mt={2}>{unreadCount} flash(s) non lu(s)</Text>
-            )}
           </DrawerHeader>
           <DrawerBody p={0} bg="white">
             <VStack align="stretch" spacing={0}>
@@ -549,31 +572,33 @@ export default function Header() {
               </Button>
               <Divider my={2} />
               <Button 
-                onClick={() => { viewer.onOpen(); navDrawer.onClose(); }} 
+                as={RouterLink}
+                to="/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
+                onClick={navDrawer.onClose}
                 py={3} 
                 px={4}
                 fontWeight="600"
                 _hover={{ bg: "gray.100" }}
                 _active={{ bg: "gray.200" }}
               >
-                ⭐ Voir les flashs
+                <HStack spacing={2} w="full" justify="space-between">
+                  <Text>📧 RétroMail</Text>
+                  {mailUnreadCount > 0 && (
+                    <Badge 
+                      bg="#d30c4c" 
+                      color="white" 
+                      borderRadius="full" 
+                      fontSize="10px" 
+                      px="6px"
+                      minW="20px"
+                    >
+                      {mailUnreadCount > 99 ? '99+' : mailUnreadCount}
+                    </Badge>
+                  )}
+                </HStack>
               </Button>
-              {isAdmin && (
-                <Button 
-                  onClick={() => { manage.onOpen(); navDrawer.onClose(); }} 
-                  variant="ghost" 
-                  justifyContent="flex-start" 
-                  py={3} 
-                  px={4}
-                  fontWeight="600"
-                  _hover={{ bg: "gray.100" }}
-                  _active={{ bg: "gray.200" }}
-                >
-                  ⚡ Gérer les flashs
-                </Button>
-              )}
               <Divider my={2} />
               <Button 
                 as={RouterLink} 

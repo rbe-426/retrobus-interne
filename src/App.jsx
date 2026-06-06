@@ -70,6 +70,8 @@ const EventCreationWizardPage = lazy(() => import("./pages/EventCreationWizardPa
 const EventWizardDemoPage = lazy(() => import("./pages/EventWizardDemoPage"));
 const AccountsManagement = lazy(() => import("./pages/AccountsManagement"));
 const EventModeManager = lazy(() => import("./pages/EventModeManager"));
+const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
+const RGPD = lazy(() => import("./pages/RGPD"));
 
 export default function App() {
   const { isAuthenticated, matricule } = useUser();
@@ -118,8 +120,8 @@ export default function App() {
         {/* 📋 RétroDemandes - Demandes unifiées avec contrôle d'accès */}
         <Route path="/dashboard/retro-demandes" element={<ProtectedRoute><RetroDemandes /></ProtectedRoute>} />
         
-        {/* 👥 Gestion des Adhésions */}
-        <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} />
+        {/* 👥 Gestion des Adhésions - DÉSACTIVÉE */}
+        {/* <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} /> */}
         
         {/* 🏛️ Le Musée (dev ou w.belaidi uniquement) */}
         {canAccessMuseum && (
@@ -151,7 +153,8 @@ export default function App() {
         {/* 🌐 Gestion du site et contenu */}
         <Route path="/dashboard/planning-rbe" element={<ProtectedRoute><SharedPlanning /></ProtectedRoute>} />
         <Route path="/dashboard/site-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.SITE_MANAGEMENT}><SiteManagement /></PermissionProtectedRoute></RoleProtectedRoute>} />
-        <Route path="/dashboard/flash-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><FlashManagement /></RoleProtectedRoute>} />
+        {/* Route flash-management désactivée - remplacée par RétroMail */}
+        {/* <Route path="/dashboard/flash-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><FlashManagement /></RoleProtectedRoute>} /> */}
         {/* 🛒 RétroMerch (administration) */}
         <Route path="/dashboard/retromerch" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroMerch /></RoleProtectedRoute>} />
         
@@ -181,7 +184,11 @@ export default function App() {
         <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
         
-        {/* 📱 Version mobile */}
+        {/* � Pages légales */}
+        <Route path="/mentions-legales" element={<ProtectedRoute><MentionsLegales /></ProtectedRoute>} />
+        <Route path="/rgpd" element={<ProtectedRoute><RGPD /></ProtectedRoute>} />
+        
+        {/* �📱 Version mobile */}
         <Route path="/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         <Route path="/dashboard/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         <Route path="/dashboard/mobile/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
