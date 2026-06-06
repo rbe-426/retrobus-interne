@@ -224,7 +224,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           const email = formData.digitalFlowEmail || formData.email;
           const phone = formData.digitalFlowPhone || formData.phone;
           
-          const bulletinResponse = await fetch('http://localhost:4000/api/bulletin-flow/create', {
+          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+          const bulletinResponse = await fetch(`${API_BASE}/api/bulletin-flow/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

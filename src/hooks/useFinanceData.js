@@ -18,7 +18,7 @@ import {
 } from "../utils/financeBusinessRules";
 import { fetchWithCSRF } from "../lib/csrfClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export const useFinanceData = (currentUser = null) => {
   const toast = useToast();

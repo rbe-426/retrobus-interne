@@ -10,7 +10,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@chakra-ui/react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export const useFinanceExpenses = (currentUser = null) => {
   const toast = useToast();
