@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
   ModalBody, ModalFooter, Button, FormControl, FormLabel, Input,
@@ -10,6 +10,7 @@ import {
 } from '@chakra-ui/react';
 import { FiUser, FiMapPin, FiKey, FiFileText, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { membersAPI } from '../api/members.js';
+import { fetchWithCSRF } from '../lib/csrfClient';
 
 const MEMBERSHIP_TYPES = {
   STANDARD: 'Adhésion Standard',
@@ -37,6 +38,9 @@ const PAYMENT_METHODS = {
   HELLOASSO: 'HelloAsso'
 };
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const DIGITAL_FLOW_DRAFT_KEY = 'create_member_pending_flow_v1';
+
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
   // Thème Trilogy RBE
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -56,6 +60,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     count: steps.length
   });
 
+  const [onboardingMode, setOnboardingMode] = useState('import'); // 'import' | 'create'
   const [profileType, setProfileType] = useState('adherent'); // 'adherent' ou 'stagiaire'
   const [formData, setFormData] = useState({
     // Informations personnelles
@@ -103,7 +108,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     eSignatureStatus: 'none',
     
     // Parcours numérique
-    sendDigitalFlow: false,
+    sendDigitalFlow: true,
     digitalFlowEmail: '',
     digitalFlowPhone: '',
     templateFile: null,
@@ -115,11 +120,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
   });
 
   const [loading, setLoading] = useState(false);
+  const [digitalFlowToken, setDigitalFlowToken] = useState('');
+  const [digitalFlowLink, setDigitalFlowLink] = useState('');
+  const [digitalFlowStatus, setDigitalFlowStatus] = useState('idle'); // idle | pending | in_progress | signed
+  const [digitalFlowSignedAt, setDigitalFlowSignedAt] = useState('');
   const toast = useToast();
 
   const reset = () => {
+    setOnboardingMode('import');
     setProfileType('adherent');
     setActiveStep(0);
+    setDigitalFlowToken('');
+    setDigitalFlowLink('');
+    setDigitalFlowStatus('idle');
+    setDigitalFlowSignedAt('');
     setFormData({
       firstName: '', lastName: '', email: '', phone: '', birthDate: '',
       address: '', city: '', postalCode: '',
@@ -131,9 +145,183 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       internshipStartDate: '', internshipEndDate: '', internshipType: '', supervisor: '',
       convention: null, exemptionDocument: null,
       bulletinFile: null, signatureMethod: 'paper', eSignatureProvider: '', eSignatureStatus: 'none',
-      sendDigitalFlow: false, digitalFlowEmail: '', digitalFlowPhone: '', templateFile: null, templateId: '',
+      sendDigitalFlow: true, digitalFlowEmail: '', digitalFlowPhone: '', templateFile: null, templateId: '',
       notes: '', newsletter: true
     });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const raw = localStorage.getItem(DIGITAL_FLOW_DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.token) {
+        setOnboardingMode('create');
+        setDigitalFlowToken(parsed.token);
+        setDigitalFlowLink(parsed.link || '');
+        setDigitalFlowStatus(parsed.status || 'pending');
+        if (parsed.formData && typeof parsed.formData === 'object') {
+          setFormData((prev) => ({ ...prev, ...parsed.formData, signatureMethod: 'digital_flow', sendDigitalFlow: true }));
+        }
+      }
+    } catch {
+      // ignore invalid persisted draft
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (onboardingMode !== 'create') return;
+    if (!digitalFlowToken && !formData.firstName && !formData.lastName && !formData.email && !formData.phone) return;
+
+    localStorage.setItem(DIGITAL_FLOW_DRAFT_KEY, JSON.stringify({
+      token: digitalFlowToken,
+      link: digitalFlowLink,
+      status: digitalFlowStatus,
+      updatedAt: Date.now(),
+      formData: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        birthDate: formData.birthDate,
+        address: formData.address,
+        city: formData.city,
+        postalCode: formData.postalCode,
+        digitalFlowEmail: formData.digitalFlowEmail,
+        digitalFlowPhone: formData.digitalFlowPhone,
+        membershipType: formData.membershipType,
+        membershipStatus: formData.membershipStatus,
+        membershipStartDate: formData.membershipStartDate,
+        membershipEndDate: formData.membershipEndDate,
+        paymentAmount: formData.paymentAmount,
+        paymentMethod: formData.paymentMethod,
+        isExempted: formData.isExempted,
+        exemptionReason: formData.exemptionReason,
+        notes: formData.notes,
+        newsletter: formData.newsletter,
+        signatureMethod: 'digital_flow',
+        sendDigitalFlow: true
+      }
+    }));
+  }, [onboardingMode, digitalFlowToken, digitalFlowLink, digitalFlowStatus, formData]);
+
+  useEffect(() => {
+    if (!isOpen || !digitalFlowToken || onboardingMode !== 'create') return;
+
+    let isCancelled = false;
+
+    const pollFlowStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/bulletin-flow/${digitalFlowToken}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (isCancelled) return;
+
+        const nextStatus = data?.status || 'pending';
+        setDigitalFlowStatus(nextStatus);
+        if (data?.signedAt) {
+          setDigitalFlowSignedAt(data.signedAt);
+        }
+
+        if (data?.memberData && typeof data.memberData === 'object') {
+          setFormData((prev) => ({
+            ...prev,
+            ...data.memberData,
+            signatureMethod: 'digital_flow',
+            sendDigitalFlow: true
+          }));
+        }
+
+        localStorage.setItem(DIGITAL_FLOW_DRAFT_KEY, JSON.stringify({
+          token: digitalFlowToken,
+          link: digitalFlowLink,
+          status: nextStatus,
+          updatedAt: Date.now()
+        }));
+      } catch (err) {
+        console.error('❌ Erreur polling bulletin-flow:', err);
+      }
+    };
+
+    pollFlowStatus();
+    const interval = setInterval(pollFlowStatus, 5000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [digitalFlowToken, digitalFlowLink, isOpen, onboardingMode]);
+
+  const launchDigitalFlow = async () => {
+    const email = (formData.digitalFlowEmail || formData.email || '').trim();
+    const phone = (formData.digitalFlowPhone || formData.phone || '').trim();
+
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast({
+        title: 'Identite incomplete',
+        description: 'Le prenom et le nom sont obligatoires pour envoyer le parcours.',
+        status: 'warning',
+        duration: 4000
+      });
+      return false;
+    }
+
+    if (!email && !phone) {
+      toast({
+        title: 'Contact requis',
+        description: 'Renseignez un email ou un numero de telephone pour envoyer le lien.',
+        status: 'warning',
+        duration: 4000
+      });
+      return false;
+    }
+
+    const response = await fetchWithCSRF(`${API_BASE}/api/bulletin-flow/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        memberData: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          birthDate: formData.birthDate,
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode
+        },
+        sendEmail: !!email,
+        sendSMS: !!phone,
+        email,
+        phone
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error || 'Envoi du parcours impossible');
+    }
+
+    setDigitalFlowToken(data.token);
+    setDigitalFlowLink(data.link || '');
+    setDigitalFlowStatus('pending');
+
+    localStorage.setItem(DIGITAL_FLOW_DRAFT_KEY, JSON.stringify({
+      token: data.token,
+      link: data.link || '',
+      status: 'pending',
+      updatedAt: Date.now()
+    }));
+
+    toast({
+      title: 'Parcours envoye',
+      description: `Lien envoye par ${email ? 'email' : ''}${email && phone ? ' et ' : ''}${phone ? 'SMS' : ''}`,
+      status: 'success',
+      duration: 5000
+    });
+
+    return true;
   };
 
   const validateStep = (step) => {
@@ -141,8 +329,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       case 0: // Type de profil
         return true;
       case 1: // Identité
-        if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
-          toast({ title: 'Champs requis', description: 'Prénom, nom et email sont obligatoires', status: 'error', duration: 3000 });
+        if (!formData.firstName.trim() || !formData.lastName.trim()) {
+          toast({ title: 'Champs requis', description: 'Prénom et nom sont obligatoires', status: 'error', duration: 3000 });
+          return false;
+        }
+
+        if (onboardingMode === 'create') {
+          const hasEmail = (formData.digitalFlowEmail || formData.email || '').trim();
+          const hasPhone = (formData.digitalFlowPhone || formData.phone || '').trim();
+          if (!hasEmail && !hasPhone) {
+            toast({ title: 'Contact requis', description: 'Renseignez un email ou un téléphone pour envoyer le parcours', status: 'warning', duration: 4000 });
+            return false;
+          }
+        } else if (!formData.email.trim()) {
+          toast({ title: 'Champs requis', description: 'L\'email est obligatoire en mode import', status: 'error', duration: 3000 });
           return false;
         }
         return true;
@@ -161,6 +361,10 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       case 5: // Bulletin d'adhésion
         // Les stagiaires n'ont pas de bulletin
         if (profileType === 'stagiaire') return true;
+
+        if (onboardingMode === 'create') {
+          return true;
+        }
         
         // Si bulletin papier, vérifier l'upload
         if (formData.signatureMethod === 'paper' && !formData.bulletinFile) {
@@ -210,56 +414,40 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
 
     try {
       setLoading(true);
-      const payload = { 
-        ...formData,
-        membershipType: profileType === 'stagiaire' ? 'STAGIAIRE' : formData.membershipType
-      };
-      
-      // Créer l'adhérent
-      const created = await membersAPI.create(payload);
-      
-      // Si parcours numérique activé, envoyer le lien de signature
-      if (formData.signatureMethod === 'digital_flow' && formData.sendDigitalFlow) {
-        try {
-          const email = formData.digitalFlowEmail || formData.email;
-          const phone = formData.digitalFlowPhone || formData.phone;
-          
-          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-          const bulletinResponse = await fetch(`${API_BASE}/api/bulletin-flow/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              memberData: created,
-              sendEmail: !!email,
-              sendSMS: !!phone,
-              email,
-              phone
-            })
+
+      if (onboardingMode === 'create') {
+        if (!digitalFlowToken) {
+          await launchDigitalFlow();
+          setLoading(false);
+          return;
+        }
+
+        if (digitalFlowStatus !== 'signed') {
+          toast({
+            title: 'En attente de signature',
+            description: 'Le lien a ete envoye. Finalisez la creation apres reception de la signature.',
+            status: 'info',
+            duration: 4000
           });
-          
-          const bulletinData = await bulletinResponse.json();
-          
-          if (bulletinData.success) {
-            toast({ 
-              title: 'Parcours de signature envoyé !', 
-              description: `Lien envoyé par ${email ? 'email' : ''}${email && phone ? ' et ' : ''}${phone ? 'SMS' : ''}`,
-              status: 'success', 
-              duration: 5000 
-            });
-            console.log('📧 Lien de signature:', bulletinData.link);
-          }
-        } catch (bulletinError) {
-          console.error('❌ Error sending bulletin flow:', bulletinError);
-          toast({ 
-            title: 'Adhérent créé, mais envoi du lien échoué', 
-            description: 'Vous pouvez renvoyer le lien depuis la fiche adhérent',
-            status: 'warning', 
-            duration: 5000 
-          });
+          setLoading(false);
+          return;
         }
       }
-      
-      toast({ title: 'Adhérent créé', status: 'success', duration: 3000 });
+
+      const payload = {
+        ...formData,
+        membershipType: profileType === 'stagiaire' ? 'STAGIAIRE' : formData.membershipType,
+        signatureMethod: onboardingMode === 'create' ? 'digital_flow' : formData.signatureMethod,
+        sendDigitalFlow: onboardingMode === 'create' ? true : formData.sendDigitalFlow
+      };
+
+      const created = await membersAPI.create(payload);
+
+      if (onboardingMode === 'create') {
+        localStorage.removeItem(DIGITAL_FLOW_DRAFT_KEY);
+      }
+
+      toast({ title: onboardingMode === 'create' ? 'Adherent cree apres signature' : 'Adhérent créé', status: 'success', duration: 3000 });
       onMemberCreated?.(created);
       reset();
       onClose();
@@ -296,7 +484,69 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       case 0: // Type de profil
         return (
           <VStack spacing={6} align="stretch">
-            <Text fontSize="lg" fontWeight="bold">Quel type de profil souhaitez-vous créer ?</Text>
+            <Text fontSize="lg" fontWeight="bold">Quel parcours souhaitez-vous lancer ?</Text>
+
+            <RadioGroup value={onboardingMode} onChange={setOnboardingMode}>
+              <Stack spacing={4}>
+                <Card
+                  cursor="pointer"
+                  borderWidth={2}
+                  borderColor={onboardingMode === 'import' ? 'blue.500' : 'gray.200'}
+                  onClick={() => setOnboardingMode('import')}
+                  _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                  transition="all 0.2s"
+                  bg={cardBg}
+                >
+                  <CardBody>
+                    <HStack>
+                      <Radio value="import" />
+                      <VStack align="start" spacing={1}>
+                        <HStack>
+                          <Icon as={FiFileText} color="blue.600" boxSize={6} />
+                          <Text fontWeight="bold" color="black">Importer un adherent</Text>
+                          <Badge colorScheme="blue">Interne</Badge>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.600">
+                          Vous saisissez les infos connues puis importez le bulletin deja signe.
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  </CardBody>
+                </Card>
+
+                <Card
+                  cursor="pointer"
+                  borderWidth={2}
+                  borderColor={onboardingMode === 'create' ? 'rbe.500' : 'gray.200'}
+                  onClick={() => {
+                    setOnboardingMode('create');
+                    setFormData((prev) => ({ ...prev, signatureMethod: 'digital_flow', sendDigitalFlow: true }));
+                  }}
+                  _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                  transition="all 0.2s"
+                  bg={cardBg}
+                >
+                  <CardBody>
+                    <HStack>
+                      <Radio value="create" />
+                      <VStack align="start" spacing={1}>
+                        <HStack>
+                          <Icon as={FiUser} color="rbe.600" boxSize={6} />
+                          <Text fontWeight="bold" color="black">Creer un nouvel adherent</Text>
+                          <Badge colorScheme="rbe">SMS / Email</Badge>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.600">
+                          Envoi d'un lien securise, saisie a distance, signature sur mobile, puis finalisation interne.
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  </CardBody>
+                </Card>
+              </Stack>
+            </RadioGroup>
+
+            <Divider />
+            <Text fontSize="md" fontWeight="bold">Type de profil RH</Text>
             <RadioGroup value={profileType} onChange={setProfileType}>
               <Stack spacing={4}>
                 <Card 
@@ -620,6 +870,74 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           );
         }
 
+        if (onboardingMode === 'create') {
+          return (
+            <VStack spacing={6} align="stretch">
+              <HStack>
+                <Icon as={FiFileText} color="rbe.500" boxSize={6} />
+                <Heading size="sm" color="black">Parcours nouvel adherent par lien securise</Heading>
+              </HStack>
+
+              <Alert status="info" variant="left-accent">
+                <AlertIcon />
+                <Text fontSize="sm">
+                  En mode creation, le lien est envoye a l'adherent. Cette page reste ouverte en attente des infos et de la signature.
+                </Text>
+              </Alert>
+
+              <SimpleGrid columns={2} spacing={4}>
+                <FormControl>
+                  <FormLabel>Email destinataire</FormLabel>
+                  <Input
+                    type="email"
+                    value={formData.digitalFlowEmail || formData.email}
+                    onChange={(e)=>setFormData(p=>({...p, digitalFlowEmail: e.target.value}))}
+                    placeholder={formData.email || 'email@exemple.com'}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>N° de telephone (SMS)</FormLabel>
+                  <Input
+                    type="tel"
+                    value={formData.digitalFlowPhone || formData.phone}
+                    onChange={(e)=>setFormData(p=>({...p, digitalFlowPhone: e.target.value}))}
+                    placeholder={formData.phone || '06 12 34 56 78'}
+                  />
+                </FormControl>
+              </SimpleGrid>
+
+              <Card bg={cardBg} borderColor="rbe.200" borderWidth={1}>
+                <CardBody>
+                  <VStack align="stretch" spacing={3}>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" fontWeight="bold" color="black">Etat du parcours</Text>
+                      <Badge colorScheme={digitalFlowStatus === 'signed' ? 'green' : 'orange'}>
+                        {digitalFlowStatus === 'signed' ? 'Signe' : digitalFlowStatus === 'in_progress' ? 'En cours' : digitalFlowStatus === 'pending' ? 'Envoye' : 'Non envoye'}
+                      </Badge>
+                    </HStack>
+
+                    {digitalFlowLink && (
+                      <Text fontSize="xs" color="gray.600">
+                        Lien: {digitalFlowLink}
+                      </Text>
+                    )}
+
+                    {digitalFlowSignedAt && (
+                      <Text fontSize="xs" color="green.700">
+                        Signature recue le {new Date(digitalFlowSignedAt).toLocaleString('fr-FR')}
+                      </Text>
+                    )}
+
+                    <Button colorScheme="rbe" onClick={launchDigitalFlow}>
+                      {digitalFlowToken ? 'Renvoyer le lien' : 'Envoyer le lien maintenant'}
+                    </Button>
+                  </VStack>
+                </CardBody>
+              </Card>
+            </VStack>
+          );
+        }
+
         return (
           <VStack spacing={6} align="stretch">
             <HStack>
@@ -890,6 +1208,22 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
               </CardBody>
             </Card>
 
+            {onboardingMode === 'create' && (
+              <Alert status={digitalFlowStatus === 'signed' ? 'success' : 'warning'} variant="left-accent">
+                <AlertIcon />
+                <VStack align="start" spacing={0}>
+                  <Text fontSize="sm" fontWeight="bold">
+                    {digitalFlowStatus === 'signed'
+                      ? 'Signature recue, vous pouvez finaliser la creation.'
+                      : 'Creation en attente de la saisie et de la signature via le lien envoye.'}
+                  </Text>
+                  {digitalFlowSignedAt && (
+                    <Text fontSize="xs">Signe le {new Date(digitalFlowSignedAt).toLocaleString('fr-FR')}</Text>
+                  )}
+                </VStack>
+              </Alert>
+            )}
+
             <FormControl>
               <FormLabel>Notes administratives</FormLabel>
               <Textarea 
@@ -932,6 +1266,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   {profileType === 'stagiaire' ? 'Stagiaire' : 'Adhérent'}
                 </Badge>
               )}
+              <Badge colorScheme={onboardingMode === 'create' ? 'rbe' : 'gray'}>
+                {onboardingMode === 'create' ? 'Creation via lien' : 'Import interne'}
+              </Badge>
             </HStack>
             <Progress value={(activeStep / (steps.length - 1)) * 100} size="sm" colorScheme="blue" />
           </VStack>
@@ -982,9 +1319,12 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   onClick={handleSubmit} 
                   isLoading={loading} 
                   loadingText="Création..."
+                  isDisabled={onboardingMode === 'create' && !!digitalFlowToken && digitalFlowStatus !== 'signed'}
                   leftIcon={<Icon as={FiCheck} />}
                 >
-                  Créer {profileType === 'stagiaire' ? 'le stagiaire' : 'l\'adhérent'}
+                  {onboardingMode === 'create' && !digitalFlowToken
+                    ? 'Envoyer le parcours'
+                    : `Créer ${profileType === 'stagiaire' ? 'le stagiaire' : 'l\'adhérent'}`}
                 </Button>
               )}
             </HStack>
