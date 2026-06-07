@@ -35,14 +35,18 @@ import {
   Alert,
   AlertIcon,
   Divider,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
   useToast,
   useDisclosure,
   Icon,
   Container
 } from '@chakra-ui/react';
-import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers, FiEye, FiTrash2, FiGlobe, FiEyeOff, FiLock, FiTruck, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiList, FiGrid, FiCalendar, FiMapPin, FiDollarSign, FiUsers, FiEye, FiTrash2, FiGlobe, FiEyeOff, FiLock, FiTruck, FiDownload, FiChevronRight, FiHome } from 'react-icons/fi';
 import VehicleSelector from '../components/VehicleSelector';
 import EventCreationWizard from '../components/EventCreationWizard';
+import EventCreationModeSelector from '../components/EventCreationModeSelector';
 import { eventsAPI, vehiculesAPI } from '../api';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
 
@@ -215,6 +219,7 @@ const EVENT_TEMPLATES = {
 };
 
 export default function EventsCreation() {
+  const WIZARD_STEPS = ['Infos de base', 'Template', 'Inscription', 'Personnalisation', 'Vérification'];
   const [events, setEvents] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,6 +236,10 @@ export default function EventsCreation() {
   const { isOpen: isHelloAssoOpen, onOpen: onHelloAssoOpen, onClose: onHelloAssoClose } = useDisclosure();
   const [editingEvent, setEditingEvent] = useState(null);
   const [selectedEventForModal, setSelectedEventForModal] = useState(null);
+  const [creationStep, setCreationStep] = useState('mode-selection');
+  const [creationMode, setCreationMode] = useState(null);
+  const [importedData, setImportedData] = useState(null);
+  const [wizardStep, setWizardStep] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     date: '',
@@ -320,6 +329,10 @@ export default function EventsCreation() {
       registrationConditions: {},
       advancedSettings: {}
     });
+    setCreationStep('mode-selection');
+    setCreationMode(null);
+    setImportedData(null);
+    setWizardStep(0);
     setEditingEvent(null);
   };
 
@@ -370,8 +383,34 @@ export default function EventsCreation() {
     onOpen();
   };
 
+  const handleModeSelected = (mode) => {
+    setCreationMode(mode);
+    if (mode === 'manual') {
+      setImportedData(null);
+      setWizardStep(0);
+      setCreationStep('wizard');
+    }
+  };
+
+  const handleImportComplete = (data) => {
+    setCreationMode('import');
+    setImportedData(data);
+    setWizardStep(0);
+    setCreationStep('wizard');
+  };
+
+  const handleBackToModeSelection = () => {
+    setCreationStep('mode-selection');
+    setCreationMode(null);
+    setImportedData(null);
+  };
+
   const handleEdit = (event) => {
     setEditingEvent(event);
+    setCreationStep('wizard');
+    setCreationMode('manual');
+    setImportedData(null);
+    setWizardStep(0);
     
     // Parser les extras pour récupérer la configuration
     let extras = {};
@@ -515,6 +554,7 @@ export default function EventsCreation() {
         time: wizardData.time || null,
         location: wizardData.location.trim() || null,
         description: wizardData.description.trim() || null,
+        helloAssoUrl: wizardData.helloAssoUrl?.trim() || null,
         adultPrice: wizardData.isFree ? null : (wizardData.adultPrice ? parseFloat(wizardData.adultPrice) : null),
         childPrice: wizardData.isFree ? null : (wizardData.childPrice ? parseFloat(wizardData.childPrice) : null),
         vehicleId: wizardData.vehicleId || null,
@@ -659,7 +699,7 @@ export default function EventsCreation() {
             colorScheme="rbe"
             onClick={handleCreate}
           >
-            Nouvel événement
+            Créer un événement
           </Button>
         </HStack>
       </Flex>
@@ -779,16 +819,68 @@ export default function EventsCreation() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {editingEvent ? 'Modifier l\'événement' : 'Créer un nouvel événement'}
+            {editingEvent ? 'Modifier l\'événement' : (creationStep === 'mode-selection' ? 'Créer un événement' : 'Parcours de création')}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <EventCreationWizard
-              vehicles={vehicles}
-              events={events}
-              initialEvent={editingEvent}
-              onSave={handleWizardSave}
-            />
+            <VStack align="stretch" spacing={4}>
+              {!editingEvent && (
+                <Box p={4} borderWidth="1px" borderRadius="lg" bg="gray.50">
+                  <VStack align="stretch" spacing={3}>
+                    <HStack justify="space-between" wrap="wrap">
+                      <Heading size="sm" color="rbe.600">Parcours de création</Heading>
+                      {creationStep === 'wizard' && (
+                        <Button size="xs" variant="outline" colorScheme="rbe" onClick={handleBackToModeSelection}>
+                          Retour au choix
+                        </Button>
+                      )}
+                    </HStack>
+
+                    <Breadcrumb separator={<Icon as={FiChevronRight} color="gray.500" />} fontSize="sm">
+                      <BreadcrumbItem isCurrentPage={creationStep === 'mode-selection'}>
+                        <BreadcrumbLink onClick={handleBackToModeSelection} color={creationStep === 'mode-selection' ? 'rbe.600' : 'gray.700'} fontWeight={creationStep === 'mode-selection' ? '700' : '500'}>
+                          <HStack spacing={1}>
+                            <Icon as={FiHome} boxSize={3.5} />
+                            <Text>Choix du parcours</Text>
+                          </HStack>
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbItem isCurrentPage={creationStep === 'wizard'}>
+                        <BreadcrumbLink color={creationStep === 'wizard' ? 'rbe.600' : 'gray.700'} fontWeight={creationStep === 'wizard' ? '700' : '500'}>
+                          {creationMode === 'import' ? 'Importer un événement' : 'Créer un événement'}
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      {creationStep === 'wizard' && (
+                        <BreadcrumbItem isCurrentPage>
+                          <BreadcrumbLink color="rbe.600" fontWeight="700">
+                            {WIZARD_STEPS[wizardStep] || 'Étape'}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                      )}
+                    </Breadcrumb>
+                  </VStack>
+                </Box>
+              )}
+
+              {!editingEvent && creationStep === 'mode-selection' && (
+                <EventCreationModeSelector
+                  onModeSelected={handleModeSelected}
+                  onImportComplete={handleImportComplete}
+                />
+              )}
+
+              {(editingEvent || creationStep === 'wizard') && (
+                <EventCreationWizard
+                  vehicles={vehicles}
+                  events={events}
+                  initialEvent={editingEvent}
+                  initialData={importedData}
+                  showStepper={false}
+                  onStepChange={(index) => setWizardStep(index)}
+                  onSave={handleWizardSave}
+                />
+              )}
+            </VStack>
           </ModalBody>
         </ModalContent>
       </Modal>

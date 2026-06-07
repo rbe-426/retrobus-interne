@@ -785,7 +785,7 @@ const Evenements = () => {
             colorScheme="rbe"
             onClick={handleCreate}
           >
-            Nouvel événement
+            Créer un événement
           </Button>
         </HStack>
       </Flex>
@@ -814,7 +814,7 @@ const Evenements = () => {
         <ModalOverlay />
         <ModalContent maxH="90vh" overflowY="auto">
           <ModalHeader>
-            {editingEvent ? 'Modifier l\'événement' : 'Nouvel événement'}
+            {editingEvent ? 'Modifier l\'événement' : 'Créer un événement'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>

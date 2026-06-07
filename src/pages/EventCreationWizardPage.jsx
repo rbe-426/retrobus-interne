@@ -16,10 +16,15 @@ import {
   Center,
   Spinner,
   useToast,
-  useColorModeValue
+  useColorModeValue,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  Icon
 } from '@chakra-ui/react';
-import { FiArrowLeft } from 'react-icons/fi';
+import { FiArrowLeft, FiHome, FiCalendar, FiChevronRight } from 'react-icons/fi';
 import EventCreationWizard from '../components/EventCreationWizard';
+import EventCreationModeSelector from '../components/EventCreationModeSelector';
 import { eventsAPI, vehiculesAPI } from '../api';
 
 export default function EventCreationWizardPage({ param } = {}) {
@@ -30,6 +35,11 @@ export default function EventCreationWizardPage({ param } = {}) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // États pour le parcours de création
+  const [creationStep, setCreationStep] = useState('mode-selection'); // 'mode-selection', 'wizard'
+  const [creationMode, setCreationMode] = useState(null); // 'import', 'manual'
+  const [importedData, setImportedData] = useState(null);
 
   // ===== LOAD DATA =====
   useEffect(() => {
@@ -67,6 +77,47 @@ export default function EventCreationWizardPage({ param } = {}) {
     };
 
     loadData();
+  }, []);
+
+  // ===== GESTION DU PARCOURS DE CRÉATION =====
+  
+  /**
+   * Gestionnaire de sélection du mode de création
+   */
+  const handleModeSelected = useCallback((mode) => {
+    console.log('🎯 Mode de création sélectionné:', mode);
+    setCreationMode(mode);
+    
+    if (mode === 'manual') {
+      // Mode manuel : passer directement au wizard
+      setCreationStep('wizard');
+    }
+  }, []);
+
+  /**
+   * Gestionnaire de complétion de l'import HelloAsso
+   */
+  const handleImportComplete = useCallback((data) => {
+    console.log('✅ Import HelloAsso complété:', data);
+    setImportedData(data);
+    setCreationMode('import');
+    setCreationStep('wizard');
+    
+    toast({
+      status: 'success',
+      title: 'Données importées avec succès',
+      description: 'Vous pouvez maintenant compléter les informations manquantes',
+      duration: 4000
+    });
+  }, [toast]);
+
+  /**
+   * Retour à la sélection du mode
+   */
+  const handleBackToModeSelection = useCallback(() => {
+    setCreationStep('mode-selection');
+    setCreationMode(null);
+    setImportedData(null);
   }, []);
 
   // ===== SAVE EVENT =====
@@ -148,18 +199,65 @@ export default function EventCreationWizardPage({ param } = {}) {
   return (
     <Box bg={bgPage} minH="100vh" p={4}>
       <VStack spacing={6} align="stretch" maxW="6xl" mx="auto">
-        {/* Header */}
+        {/* Fil d'Ariane */}
+        <Breadcrumb 
+          spacing={2} 
+          separator={<Icon as={FiChevronRight} color="gray.400" />}
+          fontSize="sm"
+        >
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin/dashboard">
+              <HStack spacing={1}>
+                <Icon as={FiHome} />
+                <Text>Accueil</Text>
+              </HStack>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin/events">
+              <HStack spacing={1}>
+                <Icon as={FiCalendar} />
+                <Text>Événements</Text>
+              </HStack>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          
+          <BreadcrumbItem isCurrentPage>
+            <BreadcrumbLink fontWeight="600">
+              {creationStep === 'mode-selection' && 'Nouveau'}
+              {creationStep === 'wizard' && creationMode === 'import' && 'Import HelloAsso'}
+              {creationStep === 'wizard' && creationMode === 'manual' && 'Création manuelle'}
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+        </Breadcrumb>
+
+        {/* Header avec bouton retour contextuel */}
         <HStack justify="space-between">
           <VStack align="start" spacing={0}>
-            <Heading size="xl">Créer un Événement</Heading>
-            <Box fontSize="sm" color="gray.600">Wizard étape par étape avec personnalisation</Box>
+            <Heading size="xl">
+              {creationStep === 'mode-selection' && 'Créer un Événement'}
+              {creationStep === 'wizard' && creationMode === 'import' && '📥 Import HelloAsso'}
+              {creationStep === 'wizard' && creationMode === 'manual' && '✏️ Création manuelle'}
+            </Heading>
+            <Box fontSize="sm" color="gray.600">
+              {creationStep === 'mode-selection' && 'Choisissez votre méthode de création'}
+              {creationStep === 'wizard' && creationMode === 'import' && 'Événement importé depuis HelloAsso'}
+              {creationStep === 'wizard' && creationMode === 'manual' && 'Wizard étape par étape avec personnalisation'}
+            </Box>
           </VStack>
           <Button
             leftIcon={<FiArrowLeft />}
             variant="outline"
-            onClick={() => window.location.href = '/admin/events'}
+            onClick={() => {
+              if (creationStep === 'wizard') {
+                handleBackToModeSelection();
+              } else {
+                window.location.href = '/admin/events';
+              }
+            }}
           >
-            Retour
+            {creationStep === 'wizard' ? 'Changer de mode' : 'Retour'}
           </Button>
         </HStack>
 
@@ -173,12 +271,41 @@ export default function EventCreationWizardPage({ param } = {}) {
           </Alert>
         )}
 
-        {/* Wizard */}
-        <EventCreationWizard
-          vehicles={vehicles}
-          events={events}
-          onSave={handleSaveEvent}
-        />
+        {/* Contenu principal selon l'étape */}
+        {creationStep === 'mode-selection' && (
+          <EventCreationModeSelector
+            onModeSelected={handleModeSelected}
+            onImportComplete={handleImportComplete}
+          />
+        )}
+
+        {creationStep === 'wizard' && (
+          <>
+            {importedData && (
+              <Alert status="success" borderRadius="md">
+                <AlertIcon />
+                <VStack align="start" spacing={1}>
+                  <Text fontWeight="600">✨ Données HelloAsso importées</Text>
+                  <Text fontSize="sm">
+                    Titre : <strong>{importedData.title}</strong> • 
+                    Méthode : <strong>HelloAsso</strong> • 
+                    URL : <strong>{importedData.helloAssoUrl?.slice(0, 50)}...</strong>
+                  </Text>
+                  <Text fontSize="xs" color="gray.600">
+                    Les champs ont été pré-remplis. Complétez les informations manquantes ci-dessous.
+                  </Text>
+                </VStack>
+              </Alert>
+            )}
+
+            <EventCreationWizard
+              vehicles={vehicles}
+              events={events}
+              onSave={handleSaveEvent}
+              initialData={importedData}
+            />
+          </>
+        )}
       </VStack>
     </Box>
   );

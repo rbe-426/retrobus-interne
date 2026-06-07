@@ -10,7 +10,7 @@ import { Link as RouterLink } from "react-router-dom";
 // Lazy load ReactMarkdown pour réduire le bundle initial
 const ReactMarkdown = React.lazy(() => import('react-markdown'));
 import { 
-  FiActivity, FiBell, FiCalendar, FiClock, FiCpu, 
+  FiActivity, FiBell, FiCalendar, FiClock, 
   FiDollarSign, FiExternalLink, FiEye, FiFileText, FiGitBranch, 
   FiHeart, FiMapPin, FiPlus, FiRefreshCw, FiSettings, 
   FiTrendingUp, FiTruck, FiUser, FiUsers, FiZap, FiBarChart,
@@ -976,20 +976,6 @@ export default function DashboardHome() {
                     fontSize={isMobile ? "sm" : "md"}
                   >
                     Finance
-                  </Button>
-                  <Divider my={1} />
-                  <Button
-                    as={RouterLink}
-                    to="/dashboard/api-diagnostics"
-                    variant="ghost"
-                    justifyContent="flex-start"
-                    leftIcon={<FiCpu />}
-                    size={isMobile ? "md" : "sm"}
-                    colorScheme="orange"
-                    minH={isMobile ? "44px" : "auto"}
-                    fontSize={isMobile ? "sm" : "md"}
-                  >
-                    🔧 Diagnostiques API
                   </Button>
                 </VStack>
               </CardBody>

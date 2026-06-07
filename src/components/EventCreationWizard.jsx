@@ -149,7 +149,15 @@ const EVENT_TEMPLATES = {
   }
 };
 
-export default function EventCreationWizard({ events = [], vehicles = [], onSave = () => {}, initialEvent = null }) {
+export default function EventCreationWizard({ 
+  events = [], 
+  vehicles = [], 
+  onSave = () => {}, 
+  initialEvent = null,
+  initialData = null,
+  showStepper = true,
+  onStepChange = () => {} 
+}) {
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.800');
   const bgSection = useColorModeValue('gray.50', 'gray.900');
@@ -172,7 +180,8 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
     allowPublicRegistration: false,
     requiresRegistration: false,
     isFree: true,
-    registrationMethod: 'none'
+    registrationMethod: 'none',
+    helloAssoUrl: '' // Ajout pour l'import HelloAsso
   });
 
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -188,6 +197,10 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
   const isStep5Complete = true; // Always valid for review
 
   const stepsComplete = [isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete, isStep5Complete];
+
+  useEffect(() => {
+    onStepChange(currentStep, WIZARD_STEPS[currentStep]);
+  }, [currentStep, onStepChange]);
 
   // ===== LOAD INITIAL EVENT DATA =====
   useEffect(() => {
@@ -210,6 +223,7 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
         location: initialEvent.location || '',
         description: initialEvent.description || '',
         vehicleId: initialEvent.vehicleId || '',
+        helloAssoUrl: initialEvent.helloAssoUrl || '',
         adultPrice: initialEvent.adultPrice?.toString() || '',
         childPrice: initialEvent.childPrice?.toString() || '',
         maxParticipants: extras.maxParticipants?.toString() || '',
@@ -229,6 +243,40 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
       setCustomQuestions(extras.customQuestions || []);
     }
   }, [initialEvent]);
+
+  // ===== LOAD IMPORTED DATA =====
+  useEffect(() => {
+    if (initialData && !initialEvent) {
+      setFormData(prev => ({
+        ...prev,
+        title: initialData.title || prev.title,
+        date: initialData.date || prev.date,
+        time: initialData.time || prev.time,
+        location: initialData.location || prev.location,
+        description: initialData.description || prev.description,
+        helloAssoUrl: initialData.helloAssoUrl || prev.helloAssoUrl,
+        adultPrice: initialData.adultPrice !== null && initialData.adultPrice !== undefined
+          ? String(initialData.adultPrice)
+          : prev.adultPrice,
+        childPrice: initialData.childPrice !== null && initialData.childPrice !== undefined
+          ? String(initialData.childPrice)
+          : prev.childPrice,
+        registrationMethod: initialData.registrationMethod || prev.registrationMethod,
+        isFree: initialData.isFree !== undefined ? initialData.isFree : prev.isFree,
+        isVisible: initialData.isVisible !== undefined ? initialData.isVisible : prev.isVisible,
+        allowPublicRegistration: initialData.allowPublicRegistration !== undefined
+          ? initialData.allowPublicRegistration
+          : prev.allowPublicRegistration,
+        requiresRegistration: initialData.requiresRegistration !== undefined
+          ? initialData.requiresRegistration
+          : prev.requiresRegistration,
+        status: initialData.status || prev.status
+      }));
+
+      // Template recommandé pour un import public avec inscription
+      setSelectedTemplate('public_with_registration');
+    }
+  }, [initialData, initialEvent]);
 
   // ===== HANDLERS =====
   const applyTemplate = useCallback((templateKey) => {
@@ -662,6 +710,7 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
     <Box w="100%" bg={bgSection} p={6} borderRadius="lg">
       <VStack spacing={6} align="stretch">
         {/* Stepper */}
+        {showStepper && (
         <Box>
           <Stepper index={currentStep} colorScheme="rbe">
             {WIZARD_STEPS.map((step, index) => (
@@ -681,6 +730,7 @@ export default function EventCreationWizard({ events = [], vehicles = [], onSave
             ))}
           </Stepper>
         </Box>
+        )}
 
         {/* Contenu de l'étape */}
         <Card bg={cardBg}>

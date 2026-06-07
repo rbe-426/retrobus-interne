@@ -16,14 +16,12 @@ import {
   Heading,
   Badge,
   Spinner,
-  Container,
-  Card,
-  CardBody
+  Container
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
-  FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool, FiShield,
+  FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool,
   FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag
 } from "react-icons/fi";
 import { FaPaintBrush } from "react-icons/fa";
@@ -34,6 +32,30 @@ import PageLayout from '../components/Layout/PageLayout';
 import ModernCard from '../components/Layout/ModernCard';
 
 const cards = [
+  {
+    title: "Le Musée",
+    description: "",
+    to: "/dashboard/rbe-lemusee",
+    icon: null,
+    titleImageSrc: "/myrbe_lemusee.png",
+    titleImageAlt: "Le Musée",
+    titleImageHeight: "62px",
+    titleImageScale: 1.7,
+    titleImageOffsetX: 0,
+    titleImageOffsetY: 3,
+    color: "gray",
+    resource: null,
+    cardAccess: true,
+    cardProps: {
+      bg: "black",
+      borderColor: "gray.700",
+      _hover: {
+        transform: "translateY(-4px)",
+        boxShadow: "0 20px 25px -5px rgba(0,0,0,0.35), 0 10px 10px -5px rgba(0,0,0,0.25)",
+        borderColor: "gray.500"
+      }
+    }
+  },
   {
     title: "Trilogy RBE",
     description: "Aperçu du thème complet et éléments graphiques",
@@ -79,16 +101,6 @@ const cards = [
     color: "blue",
     resource: "MEMBERS",
     cardAccess: true
-  },
-  {
-    title: "Carte MyRBE",
-    description: "Bientôt une nouvelle carte MyRBE",
-    to: null,
-    icon: FiShield,
-    color: "gray",
-    resource: null,
-    cardAccess: true,
-    isPlaceholder: true
   },
   {
     title: "Gestion des Stocks",
@@ -159,6 +171,10 @@ export default function MyRBE() {
    * Vérifier si une carte doit être affichée
    */
   const shouldShowCard = (card) => {
+    if (card.title === 'Le Musée' && !canAccessMuseum) {
+      return false;
+    }
+
     // Si la carte est masquée, ne pas l'afficher (sauf pour ADMIN)
     if (card.hidden && !isAdmin) {
       return false;
@@ -284,28 +300,6 @@ export default function MyRBE() {
       ]}
     >
       <VStack spacing={2} align="stretch">
-        {/* Carte mise en évidence: Le Musée (dev ou w.belaidi uniquement) */}
-        {canAccessMuseum && (
-          <Card
-            as={RouterLink}
-            to="/dashboard/rbe-lemusee"
-            bg="black"
-            color="white"
-            textAlign="center"
-            py={8}
-            cursor="pointer"
-            _hover={{ transform: 'translateY(-4px)', boxShadow: '2xl' }}
-            transition="all 0.3s"
-            borderRadius="lg"
-          >
-            <CardBody>
-              <Heading size="2xl" fontWeight="bold">
-                Le Musée
-              </Heading>
-            </CardBody>
-          </Card>
-        )}
-
         {/* Grille des fonctionnalités */}
         {visibleCards.length > 0 ? (
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
@@ -328,6 +322,13 @@ export default function MyRBE() {
                       title={card.title}
                       description={card.description}
                       icon={card.icon}
+                      titleImageSrc={card.titleImageSrc}
+                      titleImageAlt={card.titleImageAlt}
+                      titleImageHeight={card.titleImageHeight}
+                      titleImageScale={card.titleImageScale}
+                      titleImageOffsetX={card.titleImageOffsetX}
+                      titleImageOffsetY={card.titleImageOffsetY}
+                      {...(card.cardProps || {})}
                       color={card.color}
                       badge={card.badge}
                       as={RouterLink}
