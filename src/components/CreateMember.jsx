@@ -38,7 +38,7 @@ const PAYMENT_METHODS = {
   HELLOASSO: 'HelloAsso'
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const DIGITAL_FLOW_DRAFT_KEY = 'create_member_pending_flow_v1';
 
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
@@ -267,10 +267,10 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       return false;
     }
 
-    if (!email && !phone) {
+    if (!email) {
       toast({
-        title: 'Contact requis',
-        description: 'Renseignez un email ou un numero de telephone pour envoyer le lien.',
+        title: 'Email requis',
+        description: 'Le lien doit aussi etre envoye par mail. Veuillez renseigner une adresse email.',
         status: 'warning',
         duration: 4000
       });
@@ -314,12 +314,32 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       updatedAt: Date.now()
     }));
 
-    toast({
-      title: 'Parcours envoye',
-      description: `Lien envoye par ${email ? 'email' : ''}${email && phone ? ' et ' : ''}${phone ? 'SMS' : ''}`,
-      status: 'success',
-      duration: 5000
-    });
+    const channels = [];
+    if (data.emailSent) channels.push('email');
+    if (data.smsSent) channels.push('SMS');
+
+    if (channels.length > 0 && (!data.emailRequested || data.emailSent)) {
+      toast({
+        title: 'Parcours envoye',
+        description: `Lien envoye par ${channels.join(' et ')}`,
+        status: 'success',
+        duration: 5000
+      });
+    } else if (data.emailRequested && !data.emailSent && data.smsSent) {
+      toast({
+        title: 'Envoi partiel',
+        description: `SMS envoye, mais echec email: ${data.emailError || 'session noreply absente'}`,
+        status: 'warning',
+        duration: 7000
+      });
+    } else {
+      toast({
+        title: 'Parcours cree mais non envoye',
+        description: data.emailError || 'Aucun canal d\'envoi actif (email/SMS). Le lien est disponible dans la fiche en attente.',
+        status: 'warning',
+        duration: 7000
+      });
+    }
 
     return true;
   };
@@ -336,9 +356,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
 
         if (onboardingMode === 'create') {
           const hasEmail = (formData.digitalFlowEmail || formData.email || '').trim();
-          const hasPhone = (formData.digitalFlowPhone || formData.phone || '').trim();
-          if (!hasEmail && !hasPhone) {
-            toast({ title: 'Contact requis', description: 'Renseignez un email ou un téléphone pour envoyer le parcours', status: 'warning', duration: 4000 });
+          if (!hasEmail) {
+            toast({ title: 'Email requis', description: 'Renseignez un email pour envoyer le parcours', status: 'warning', duration: 4000 });
             return false;
           }
         } else if (!formData.email.trim()) {

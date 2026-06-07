@@ -131,7 +131,7 @@ export const hasValidCSRFToken = () => {
  */
 export const fetchWithCSRF = async (url, options = {}) => {
   // Extraire le baseURL depuis l'URL fournie ou utiliser la variable d'environnement
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
   let baseURL = '';
   let finalURL = url;
   

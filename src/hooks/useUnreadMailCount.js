@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { fetchWithCSRF } from '../lib/csrfClient';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export const useUnreadMailCount = (refreshInterval = 60000) => {
   const [unreadCount, setUnreadCount] = useState(0);

@@ -23,7 +23,7 @@ import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 export default function Retromail() {
   const { user, matricule } = useUser();
