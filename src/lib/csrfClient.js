@@ -131,7 +131,24 @@ export const hasValidCSRFToken = () => {
  */
 export const fetchWithCSRF = async (url, options = {}) => {
   // Extraire le baseURL depuis l'URL fournie ou utiliser la variable d'environnement
-  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+  const RAW_API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+  const API_BASE = (() => {
+    if (!RAW_API_BASE) return '';
+    if (typeof window === 'undefined') return RAW_API_BASE;
+
+    try {
+      const target = new URL(RAW_API_BASE, window.location.origin);
+      // En production, privilégier le same-origin pour éviter les erreurs CORS/CSRF
+      // liées aux cookies de session quand l'app appelle un autre domaine.
+      if (import.meta.env.PROD && target.origin !== window.location.origin) {
+        console.warn(`⚠️  VITE_API_URL cross-origin detecte en prod (${target.origin}). Fallback sur same-origin.`);
+        return '';
+      }
+      return RAW_API_BASE;
+    } catch {
+      return RAW_API_BASE;
+    }
+  })();
   let baseURL = '';
   let finalURL = url;
   

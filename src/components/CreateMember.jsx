@@ -38,7 +38,6 @@ const PAYMENT_METHODS = {
   HELLOASSO: 'HelloAsso'
 };
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const DIGITAL_FLOW_DRAFT_KEY = 'create_member_pending_flow_v1';
 
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
@@ -213,7 +212,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
 
     const pollFlowStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/bulletin-flow/${digitalFlowToken}`);
+        const response = await fetchWithCSRF(`/api/bulletin-flow/${digitalFlowToken}`);
         if (!response.ok) return;
 
         const data = await response.json();
@@ -280,7 +279,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         return false;
       }
 
-      const response = await fetchWithCSRF(`${API_BASE}/api/bulletin-flow/create`, {
+      const response = await fetchWithCSRF(`/api/bulletin-flow/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
