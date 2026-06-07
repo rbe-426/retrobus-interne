@@ -257,91 +257,111 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     const email = (formData.digitalFlowEmail || formData.email || '').trim();
     const phone = (formData.digitalFlowPhone || formData.phone || '').trim();
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      toast({
-        title: 'Identite incomplete',
-        description: 'Le prenom et le nom sont obligatoires pour envoyer le parcours.',
-        status: 'warning',
-        duration: 4000
+    try {
+      setLoading(true);
+
+      if (!formData.firstName.trim() || !formData.lastName.trim()) {
+        toast({
+          title: 'Identite incomplete',
+          description: 'Le prenom et le nom sont obligatoires pour envoyer le parcours.',
+          status: 'warning',
+          duration: 4000
+        });
+        return false;
+      }
+
+      if (!email) {
+        toast({
+          title: 'Email requis',
+          description: 'Le lien doit aussi etre envoye par mail. Veuillez renseigner une adresse email.',
+          status: 'warning',
+          duration: 4000
+        });
+        return false;
+      }
+
+      const response = await fetchWithCSRF(`${API_BASE}/api/bulletin-flow/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberData: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            birthDate: formData.birthDate,
+            address: formData.address,
+            city: formData.city,
+            postalCode: formData.postalCode
+          },
+          sendEmail: !!email,
+          sendSMS: !!phone,
+          email,
+          phone
+        })
       });
-      return false;
-    }
 
-    if (!email) {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) {
+        if (response.status === 401) {
+          throw new Error('Session expirée. Reconnectez-vous puis réessayez.');
+        }
+        if (response.status === 403 && (data?.code === 'CSRF_INVALID' || data?.code === 'CSRF_MISSING')) {
+          throw new Error('Token CSRF invalide. Rechargez la page et réessayez.');
+        }
+        throw new Error(data?.error || 'Envoi du parcours impossible');
+      }
+
+      setDigitalFlowToken(data.token);
+      setDigitalFlowLink(data.link || '');
+      setDigitalFlowStatus('pending');
+
+      localStorage.setItem(DIGITAL_FLOW_DRAFT_KEY, JSON.stringify({
+        token: data.token,
+        link: data.link || '',
+        status: 'pending',
+        updatedAt: Date.now()
+      }));
+
+      const channels = [];
+      if (data.emailSent) channels.push('email');
+      if (data.smsSent) channels.push('SMS');
+
+      if (channels.length > 0 && (!data.emailRequested || data.emailSent)) {
+        toast({
+          title: 'Parcours envoye',
+          description: `Lien envoye par ${channels.join(' et ')}`,
+          status: 'success',
+          duration: 5000
+        });
+      } else if (data.emailRequested && !data.emailSent && data.smsSent) {
+        toast({
+          title: 'Envoi partiel',
+          description: `SMS envoye, mais echec email: ${data.emailError || 'session noreply absente'}`,
+          status: 'warning',
+          duration: 7000
+        });
+      } else {
+        toast({
+          title: 'Parcours cree mais non envoye',
+          description: data.emailError || 'Aucun canal d\'envoi actif (email/SMS). Le lien est disponible dans la fiche en attente.',
+          status: 'warning',
+          duration: 7000
+        });
+      }
+
+      return true;
+    } catch (error) {
       toast({
-        title: 'Email requis',
-        description: 'Le lien doit aussi etre envoye par mail. Veuillez renseigner une adresse email.',
-        status: 'warning',
-        duration: 4000
-      });
-      return false;
-    }
-
-    const response = await fetchWithCSRF(`${API_BASE}/api/bulletin-flow/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        memberData: {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          birthDate: formData.birthDate,
-          address: formData.address,
-          city: formData.city,
-          postalCode: formData.postalCode
-        },
-        sendEmail: !!email,
-        sendSMS: !!phone,
-        email,
-        phone
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok || !data?.success) {
-      throw new Error(data?.error || 'Envoi du parcours impossible');
-    }
-
-    setDigitalFlowToken(data.token);
-    setDigitalFlowLink(data.link || '');
-    setDigitalFlowStatus('pending');
-
-    localStorage.setItem(DIGITAL_FLOW_DRAFT_KEY, JSON.stringify({
-      token: data.token,
-      link: data.link || '',
-      status: 'pending',
-      updatedAt: Date.now()
-    }));
-
-    const channels = [];
-    if (data.emailSent) channels.push('email');
-    if (data.smsSent) channels.push('SMS');
-
-    if (channels.length > 0 && (!data.emailRequested || data.emailSent)) {
-      toast({
-        title: 'Parcours envoye',
-        description: `Lien envoye par ${channels.join(' et ')}`,
-        status: 'success',
-        duration: 5000
-      });
-    } else if (data.emailRequested && !data.emailSent && data.smsSent) {
-      toast({
-        title: 'Envoi partiel',
-        description: `SMS envoye, mais echec email: ${data.emailError || 'session noreply absente'}`,
-        status: 'warning',
+        title: 'Envoi du lien impossible',
+        description: error?.message || 'Une erreur est survenue lors de l\'envoi du lien.',
+        status: 'error',
         duration: 7000
       });
-    } else {
-      toast({
-        title: 'Parcours cree mais non envoye',
-        description: data.emailError || 'Aucun canal d\'envoi actif (email/SMS). Le lien est disponible dans la fiche en attente.',
-        status: 'warning',
-        duration: 7000
-      });
+      return false;
+    } finally {
+      setLoading(false);
     }
-
-    return true;
   };
 
   const validateStep = (step) => {
@@ -947,7 +967,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                       </Text>
                     )}
 
-                    <Button colorScheme="rbe" onClick={launchDigitalFlow}>
+                    <Button colorScheme="rbe" onClick={launchDigitalFlow} isLoading={loading} loadingText="Envoi en cours">
                       {digitalFlowToken ? 'Renvoyer le lien' : 'Envoyer le lien maintenant'}
                     </Button>
                   </VStack>
