@@ -369,7 +369,18 @@ export default function Retromail() {
 
   // Connexion à Infomaniak
   const handleConnect = async () => {
-    const finalEmail = emailAccount.includes('@') ? emailAccount : deducedEmail;
+    const normalizeMailLogin = (rawEmail) => {
+      const normalized = String(rawEmail || '').trim().toLowerCase();
+
+      // Corrige faute de frappe frequente observee en production
+      if (normalized.endsWith('@ssociation-rbe.fr')) {
+        return normalized.replace('@ssociation-rbe.fr', '@association-rbe.fr');
+      }
+
+      return normalized;
+    };
+
+    const finalEmail = normalizeMailLogin(emailAccount.includes('@') ? emailAccount : deducedEmail);
     
     if (!finalEmail.trim() || !password.trim()) {
       toast({
