@@ -190,9 +190,11 @@ export const fetchWithCSRF = async (url, options = {}) => {
   }
 
   // Construire les headers
+  // Important: ne PAS forcer Content-Type pour FormData (le navigateur ajoute la boundary multipart)
+  const isFormDataBody = typeof FormData !== 'undefined' && options?.body instanceof FormData;
   const headers = {
     ...options.headers,
-    'Content-Type': 'application/json',
+    ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
   };
 
   // Ajouter le token d'authentification Bearer si disponible
