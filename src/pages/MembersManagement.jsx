@@ -43,7 +43,7 @@ const MEMBER_ROLES = {
 };
 
 // === COMPOSANTS MODERNES ===
-function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion }) {
+function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const statusConfig = MEMBERSHIP_STATUS[member.membershipStatus] || MEMBERSHIP_STATUS.PENDING;
   const roleConfig = MEMBER_ROLES[member.role] || MEMBER_ROLES.MEMBER;
@@ -104,6 +104,9 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
                 </MenuItem>
                 <MenuItem icon={<FiKey />} onClick={() => onLinkAccess(member)}>
                   Associer à un accès existant
+                </MenuItem>
+                <MenuItem icon={<FiMail />} onClick={() => onBulletinActions(member)}>
+                  Gestion bulletin
                 </MenuItem>
                 {member.membershipStatus === 'CANCELLED' && (
                   <MenuItem icon={<FiTrash2 />} onClick={() => onDeleteMember(member)} color="red.600">
@@ -286,7 +289,22 @@ export default function MembersManagement() {
     onOpen: onLinkOpen,
     onClose: onLinkClose
   } = useDisclosure();
+  const {
+    isOpen: isBulletinOpen,
+    onOpen: onBulletinOpen,
+    onClose: onBulletinClose
+  } = useDisclosure();
   const [linkForm, setLinkForm] = useState({ username: '', email: '' });
+  const [bulletinMember, setBulletinMember] = useState(null);
+  const [renewFlowState, setRenewFlowState] = useState({
+    email: '',
+    phone: '',
+    sendEmail: true,
+    sendSMS: false,
+    generatedLink: ''
+  });
+  const [resendState, setResendState] = useState({ recipientEmail: '' });
+  const [bulletinBusy, setBulletinBusy] = useState(false);
 
   // === CHARGEMENT DES DONNÉES ===
   useEffect(() => {
@@ -550,6 +568,105 @@ export default function MembersManagement() {
     onLinkOpen();
   };
 
+  const handleBulletinActions = (member) => {
+    setBulletinMember(member);
+    setRenewFlowState({
+      email: member.email || '',
+      phone: member.phone || '',
+      sendEmail: true,
+      sendSMS: false,
+      generatedLink: ''
+    });
+    setResendState({ recipientEmail: member.email || '' });
+    onBulletinOpen();
+  };
+
+  const handleRenewAdhesion = async () => {
+    try {
+      if (!bulletinMember) return;
+      if (renewFlowState.sendEmail && !renewFlowState.email.trim()) {
+        toast({ title: 'Email requis', description: 'Renseignez un email pour envoyer le parcours.', status: 'warning' });
+        return;
+      }
+
+      setBulletinBusy(true);
+      const response = await fetchWithCSRF(apiUrl('/api/bulletin-flow/create'), {
+        method: 'POST',
+        body: JSON.stringify({
+          memberData: {
+            id: bulletinMember.id,
+            firstName: bulletinMember.firstName,
+            lastName: bulletinMember.lastName,
+            email: bulletinMember.email,
+            phone: bulletinMember.phone,
+            birthDate: bulletinMember.birthDate,
+            address: bulletinMember.address,
+            city: bulletinMember.city,
+            postalCode: bulletinMember.postalCode,
+            membershipType: bulletinMember.membershipType,
+            paymentAmount: bulletinMember.paymentAmount,
+            paymentMethod: bulletinMember.paymentMethod
+          },
+          sendEmail: renewFlowState.sendEmail,
+          sendSMS: renewFlowState.sendSMS,
+          email: renewFlowState.email,
+          phone: renewFlowState.phone
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || 'Impossible de lancer le renouvellement');
+      }
+
+      setRenewFlowState((prev) => ({ ...prev, generatedLink: data.link || '' }));
+      toast({
+        title: 'Parcours de renouvellement lancé',
+        description: data.emailSent ? 'Lien envoyé à l’adhérent.' : 'Parcours créé. Copiez le lien si nécessaire.',
+        status: 'success'
+      });
+    } catch (e) {
+      toast({ title: 'Erreur', description: e.message, status: 'error' });
+    } finally {
+      setBulletinBusy(false);
+    }
+  };
+
+  const handleResendSignedBulletin = async () => {
+    try {
+      if (!bulletinMember) return;
+      if (!resendState.recipientEmail.trim()) {
+        toast({ title: 'Email requis', description: 'Renseignez un destinataire.', status: 'warning' });
+        return;
+      }
+
+      setBulletinBusy(true);
+      const response = await fetchWithCSRF(apiUrl('/api/bulletin-flow/member/resend-signed'), {
+        method: 'POST',
+        body: JSON.stringify({
+          memberId: bulletinMember.id,
+          email: bulletinMember.email,
+          recipientEmail: resendState.recipientEmail
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data?.details || data?.error || 'Renvoi du bulletin signé impossible');
+      }
+
+      toast({
+        title: 'Bulletin signé renvoyé',
+        description: `Envoyé à ${data.sentTo}`,
+        status: 'success'
+      });
+    } catch (e) {
+      toast({ title: 'Erreur', description: e.message, status: 'error' });
+    } finally {
+      setBulletinBusy(false);
+    }
+  };
+
   const confirmLinkAccess = async () => {
     try {
       if (!selectedMember) return;
@@ -705,6 +822,7 @@ export default function MembersManagement() {
               onTerminate={handleTerminate}
               onDeleteMember={handleDeleteMember}
               onActivateAdhesion={handleActivateAdhesion}
+              onBulletinActions={handleBulletinActions}
             />
           ))}
         </SimpleGrid>
@@ -1095,6 +1213,87 @@ export default function MembersManagement() {
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onTerminateClose}>Annuler</Button>
             <Button colorScheme="red" onClick={confirmTerminate}>Confirmer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isBulletinOpen} onClose={onBulletinClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Gestion bulletin - {bulletinMember ? `${bulletinMember.firstName} ${bulletinMember.lastName}` : ''}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Tabs colorScheme="blue" variant="enclosed">
+              <TabList>
+                <Tab>Renouveler l'adhésion</Tab>
+                <Tab>Renvoyer le bulletin signé</Tab>
+              </TabList>
+              <TabPanels>
+                <TabPanel px={0} pt={4}>
+                  <VStack spacing={4} align="stretch">
+                    <Alert status="info"><AlertIcon />Lance le même parcours adhérent (lien de saisie/signature).</Alert>
+                    <FormControl>
+                      <FormLabel>Email destinataire</FormLabel>
+                      <Input
+                        type="email"
+                        value={renewFlowState.email}
+                        onChange={(e) => setRenewFlowState((p) => ({ ...p, email: e.target.value }))}
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Téléphone (SMS)</FormLabel>
+                      <Input
+                        value={renewFlowState.phone}
+                        onChange={(e) => setRenewFlowState((p) => ({ ...p, phone: e.target.value }))}
+                      />
+                    </FormControl>
+                    <HStack>
+                      <Switch
+                        isChecked={renewFlowState.sendEmail}
+                        onChange={(e) => setRenewFlowState((p) => ({ ...p, sendEmail: e.target.checked }))}
+                      />
+                      <Text fontSize="sm">Envoyer par email</Text>
+                      <Switch
+                        isChecked={renewFlowState.sendSMS}
+                        onChange={(e) => setRenewFlowState((p) => ({ ...p, sendSMS: e.target.checked }))}
+                      />
+                      <Text fontSize="sm">Envoyer par SMS</Text>
+                    </HStack>
+                    <Button colorScheme="blue" onClick={handleRenewAdhesion} isLoading={bulletinBusy}>
+                      Lancer le parcours de renouvellement
+                    </Button>
+                    {renewFlowState.generatedLink && (
+                      <Box p={3} borderWidth={1} borderRadius="md" bg="gray.50">
+                        <Text fontSize="xs" color="gray.700">Lien généré:</Text>
+                        <Text fontSize="xs" wordBreak="break-all">{renewFlowState.generatedLink}</Text>
+                      </Box>
+                    )}
+                  </VStack>
+                </TabPanel>
+
+                <TabPanel px={0} pt={4}>
+                  <VStack spacing={4} align="stretch">
+                    <Alert status="info"><AlertIcon />Renvoie automatiquement le dernier bulletin signé trouvé pour cet adhérent.</Alert>
+                    <FormControl>
+                      <FormLabel>Email destinataire</FormLabel>
+                      <Input
+                        type="email"
+                        value={resendState.recipientEmail}
+                        onChange={(e) => setResendState({ recipientEmail: e.target.value })}
+                      />
+                    </FormControl>
+                    <Button colorScheme="green" onClick={handleResendSignedBulletin} isLoading={bulletinBusy}>
+                      Renvoyer le bulletin signé
+                    </Button>
+                  </VStack>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onBulletinClose}>Fermer</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
