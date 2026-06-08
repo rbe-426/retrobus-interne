@@ -352,6 +352,30 @@ export default function MyMembership() {
 
   const statusConfig = MEMBERSHIP_STATUS_CONFIG[memberData?.membershipStatus] || 
     { label: memberData?.membershipStatus || 'Non défini', color: 'gray', progress: 0 };
+  const signatureHistory = Array.isArray(memberData?.signatureHistory)
+    ? memberData.signatureHistory
+    : [];
+  const latestSignature = memberData?.latestSignature || signatureHistory[0] || null;
+
+  const formatDateTime = (d) => {
+    try {
+      if (!d) return '-';
+      const dt = typeof d === 'string' ? new Date(d) : d;
+      return Number.isNaN(dt?.getTime?.()) ? '-' : dt.toLocaleString('fr-FR');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatSignatureChannel = (channel) => {
+    const c = String(channel || '').toLowerCase();
+    if (!c) return 'Non précisé';
+    if (c.includes('sms')) return 'SMS';
+    if (c.includes('email')) return 'Email';
+    if (c.includes('paper') || c.includes('papier')) return 'Papier';
+    if (c.includes('web') || c.includes('digital') || c.includes('dematerial')) return 'Dématérialisé';
+    return channel;
+  };
 
   return (
     <Box p={6} maxW="4xl" mx="auto">
@@ -643,6 +667,48 @@ export default function MyMembership() {
                             <AlertIcon />
                             Votre adhésion est expirée. Veuillez procéder au renouvellement.
                           </Alert>
+                        )}
+                      </CardBody>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <Heading size="md">Signature de l'adhésion</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        {latestSignature ? (
+                          <VStack align="stretch" spacing={4}>
+                            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={{ base: 4, md: 6 }}>
+                              <Box>
+                                <Text fontSize="sm" color="gray.600" mb={1}>Dernière signature</Text>
+                                <Text fontWeight="bold">{formatDateTime(latestSignature.signedAt || latestSignature.createdAt)}</Text>
+                              </Box>
+                              <Box>
+                                <Text fontSize="sm" color="gray.600" mb={1}>Canal</Text>
+                                <Badge colorScheme="blue" fontSize="sm" p={2}>{formatSignatureChannel(latestSignature.channel)}</Badge>
+                              </Box>
+                              <Box>
+                                <Text fontSize="sm" color="gray.600" mb={1}>Référence</Text>
+                                <Text fontWeight="bold" noOfLines={1}>{latestSignature.token}</Text>
+                              </Box>
+                            </SimpleGrid>
+
+                            {signatureHistory.length > 1 && (
+                              <Box>
+                                <Text fontSize="sm" color="gray.600" mb={2}>Historique interne</Text>
+                                <VStack align="stretch" spacing={2}>
+                                  {signatureHistory.slice(0, 5).map((item) => (
+                                    <HStack key={item.token} justify="space-between" p={2} borderWidth="1px" borderRadius="md">
+                                      <Text fontSize="sm" fontWeight="600">{formatDateTime(item.signedAt || item.createdAt)}</Text>
+                                      <Badge colorScheme="gray">{formatSignatureChannel(item.channel)}</Badge>
+                                    </HStack>
+                                  ))}
+                                </VStack>
+                              </Box>
+                            )}
+                          </VStack>
+                        ) : (
+                          <Text color="gray.600">Aucune signature enregistrée pour le moment.</Text>
                         )}
                       </CardBody>
                     </Card>
