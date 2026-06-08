@@ -455,6 +455,39 @@ export default function MembersManagement() {
     setSelectedMember(member);
     setEditData({ ...member });
     onEditOpen();
+
+    // Charger les détails complets (incluant signature/historique) pour la vue d'édition
+    fetch(apiUrl(`/api/members/${member.id}`), {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+      .then(async (resp) => {
+        if (!resp.ok) return null;
+        return resp.json();
+      })
+      .then((details) => {
+        if (details) {
+          setEditData((prev) => ({ ...prev, ...details }));
+        }
+      })
+      .catch(() => {});
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('fr-FR');
+  };
+
+  const formatSignatureChannel = (channel) => {
+    const c = String(channel || '').toLowerCase();
+    if (!c) return 'Non précisé';
+    if (c.includes('sms')) return 'SMS';
+    if (c.includes('email')) return 'Email';
+    if (c.includes('paper') || c.includes('papier')) return 'Papier';
+    if (c.includes('web') || c.includes('digital') || c.includes('dematerial')) return 'Dématérialisé';
+    return channel;
   };
 
   const saveEdit = async () => {
@@ -1118,6 +1151,67 @@ export default function MembersManagement() {
                       </Select>
                     </FormControl>
                   </SimpleGrid>
+                </Box>
+
+                <Divider />
+
+                {/* Section Signature dématérialisée */}
+                <Box>
+                  <Heading size="sm" mb={3} color="gray.600">✍️ Bulletin dématérialisé signé</Heading>
+                  {editData.latestSignature ? (
+                    <VStack align="stretch" spacing={3}>
+                      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Date de signature</Text>
+                          <Text fontWeight="600">{formatDateTime(editData.latestSignature.signedAt || editData.latestSignature.createdAt)}</Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Canal</Text>
+                          <Badge colorScheme="blue">{formatSignatureChannel(editData.latestSignature.channel)}</Badge>
+                        </Box>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Référence</Text>
+                          <Text fontWeight="600" noOfLines={1}>{editData.latestSignature.token || '-'}</Text>
+                        </Box>
+                      </SimpleGrid>
+
+                      {editData.latestSignature.signatureDataUrl && (
+                        <Box borderWidth="1px" borderRadius="md" p={3} bg="white" maxW="420px">
+                          <Box
+                            as="img"
+                            src={editData.latestSignature.signatureDataUrl}
+                            alt="Signature adhérent"
+                            maxH="120px"
+                            objectFit="contain"
+                            w="100%"
+                          />
+                        </Box>
+                      )}
+
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Permis déclarés</Text>
+                          <Text fontWeight="600">
+                            {editData.latestSignature.memberSnapshot?.hasDrivingLicenses
+                              ? ((editData.latestSignature.memberSnapshot?.drivingLicenses || []).length > 0
+                                ? editData.latestSignature.memberSnapshot.drivingLicenses.join(', ')
+                                : 'Oui (non détaillé)')
+                              : 'Non'}
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Text fontSize="xs" color="gray.500">Engagements réglementaires</Text>
+                          <Text fontWeight="600">
+                            {editData.latestSignature.memberSnapshot?.acceptedStatuts && editData.latestSignature.memberSnapshot?.acceptedReglementInterieur && editData.latestSignature.memberSnapshot?.acceptedCsar
+                              ? 'Statuts + Règlement + CSAR acceptés'
+                              : 'Non renseigné'}
+                          </Text>
+                        </Box>
+                      </SimpleGrid>
+                    </VStack>
+                  ) : (
+                    <Text fontSize="sm" color="gray.500">Aucune signature dématérialisée enregistrée.</Text>
+                  )}
                 </Box>
 
                 <Divider />

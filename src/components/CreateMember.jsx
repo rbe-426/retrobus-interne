@@ -45,6 +45,30 @@ const EXEMPTION_REASON_OPTIONS = [
   { value: 'AUTRE', label: 'Autre' }
 ];
 
+const DRIVING_LICENSE_OPTIONS = [
+  { value: 'AM', label: 'Permis AM' },
+  { value: 'A1', label: 'Permis A1' },
+  { value: 'A2', label: 'Permis A2' },
+  { value: 'A', label: 'Permis A' },
+  { value: 'B', label: 'Permis B' },
+  { value: 'BE', label: 'Permis BE' },
+  { value: 'C', label: 'Permis C' },
+  { value: 'CE', label: 'Permis CE' },
+  { value: 'D', label: 'Permis D' },
+  { value: 'DE', label: 'Permis DE' }
+];
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  if (!file) {
+    resolve('');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Impossible de lire le fichier'));
+  reader.readAsDataURL(file);
+});
+
 const deriveExemptionConfig = (reason = '') => {
   const normalized = (reason || '').trim();
   if (!normalized) {
@@ -155,6 +179,13 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     exemptionCategory: '',
     exemptionOtherDetails: '',
     exemptionReason: '',
+
+    // Permis
+    hasDrivingLicenses: false,
+    drivingLicenses: [],
+    drivingLicenseNumbers: {},
+    drivingLicensePhotoFront: null,
+    drivingLicensePhotoBack: null,
     
     // Stage (pour stagiaires)
     internshipStartDate: '',
@@ -207,6 +238,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       membershipStartDate: new Date().toISOString().split('T')[0], membershipEndDate: '',
       paymentAmount: '', paymentMethod: 'CASH', 
       isExempted: false, exemptionCategory: '', exemptionOtherDetails: '', exemptionReason: '',
+      hasDrivingLicenses: false, drivingLicenses: [], drivingLicenseNumbers: {}, drivingLicensePhotoFront: null, drivingLicensePhotoBack: null,
       internshipStartDate: '', internshipEndDate: '', internshipType: '', supervisor: '',
       convention: null, exemptionDocument: null,
       bulletinFile: null, signatureMethod: 'paper', eSignatureProvider: '', eSignatureStatus: 'none',
@@ -273,6 +305,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         exemptionCategory: formData.exemptionCategory,
         exemptionOtherDetails: formData.exemptionOtherDetails,
         exemptionReason: buildExemptionReason(formData),
+        hasDrivingLicenses: formData.hasDrivingLicenses,
+        drivingLicenses: formData.drivingLicenses,
+        drivingLicenseNumbers: formData.drivingLicenseNumbers,
         notes: formData.notes,
         newsletter: formData.newsletter,
         signatureMethod: 'digital_flow',
@@ -307,6 +342,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             ...data.memberData,
             exemptionCategory: data.memberData.exemptionCategory || pollExemption.exemptionCategory,
             exemptionOtherDetails: data.memberData.exemptionOtherDetails || pollExemption.exemptionOtherDetails,
+            hasDrivingLicenses: !!data.memberData.hasDrivingLicenses,
+            drivingLicenses: Array.isArray(data.memberData.drivingLicenses) ? data.memberData.drivingLicenses : [],
+            drivingLicenseNumbers: data.memberData.drivingLicenseNumbers || {},
             signatureMethod: 'digital_flow',
             sendDigitalFlow: true
           }));
@@ -358,6 +396,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         return false;
       }
 
+      const drivingLicensePhotoFrontDataUrl = await readFileAsDataUrl(formData.drivingLicensePhotoFront);
+      const drivingLicensePhotoBackDataUrl = await readFileAsDataUrl(formData.drivingLicensePhotoBack);
+
       const response = await fetchWithCSRF(`/api/bulletin-flow/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -374,7 +415,12 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             membershipType: formData.membershipType,
             paymentAmount: formData.isExempted ? '0' : formData.paymentAmount,
             isExempted: formData.isExempted,
-            exemptionReason: buildExemptionReason(formData)
+            exemptionReason: buildExemptionReason(formData),
+            hasDrivingLicenses: formData.hasDrivingLicenses,
+            drivingLicenses: formData.drivingLicenses,
+            drivingLicenseNumbers: formData.drivingLicenseNumbers,
+            drivingLicensePhotoFrontDataUrl,
+            drivingLicensePhotoBackDataUrl
           },
           sendEmail: !!email,
           sendSMS: !!phone,
@@ -486,6 +532,21 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           if (formData.exemptionCategory === 'AUTRE' && !(formData.exemptionOtherDetails || '').trim()) {
             toast({ title: 'Précision requise', description: 'Veuillez préciser le motif pour "Autre".', status: 'warning', duration: 3000 });
             return false;
+          }
+        }
+
+        if (formData.hasDrivingLicenses) {
+          if (!Array.isArray(formData.drivingLicenses) || formData.drivingLicenses.length === 0) {
+            toast({ title: 'Permis requis', description: 'Veuillez cocher au moins un permis.', status: 'warning', duration: 3000 });
+            return false;
+          }
+
+          for (const permit of formData.drivingLicenses) {
+            const number = String(formData.drivingLicenseNumbers?.[permit] || '').trim();
+            if (!number) {
+              toast({ title: 'Numéro manquant', description: `Veuillez renseigner le numéro du permis ${permit}.`, status: 'warning', duration: 3000 });
+              return false;
+            }
           }
         }
         return true;
@@ -1020,6 +1081,109 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   )}
                 </VStack>
               </Box>
+
+              <Card borderColor="blue.100" borderWidth={1}>
+                <CardHeader><Heading size="xs">Permis de conduire</Heading></CardHeader>
+                <CardBody>
+                  <VStack spacing={4} align="stretch">
+                    <Checkbox
+                      isChecked={formData.hasDrivingLicenses}
+                      onChange={(e)=>setFormData((p)=>(
+                        {
+                          ...p,
+                          hasDrivingLicenses: e.target.checked,
+                          drivingLicenses: e.target.checked ? p.drivingLicenses : [],
+                          drivingLicenseNumbers: e.target.checked ? p.drivingLicenseNumbers : {}
+                        }
+                      ))}
+                    >
+                      Détenteur du/des permis
+                    </Checkbox>
+
+                    {formData.hasDrivingLicenses && (
+                      <>
+                        <SimpleGrid columns={{ base: 2, md: 3 }} spacing={2}>
+                          {DRIVING_LICENSE_OPTIONS.map((option) => (
+                            <Checkbox
+                              key={option.value}
+                              isChecked={formData.drivingLicenses.includes(option.value)}
+                              onChange={(e)=>setFormData((p)=>{
+                                const current = Array.isArray(p.drivingLicenses) ? p.drivingLicenses : [];
+                                const nextLicenses = e.target.checked
+                                  ? [...new Set([...current, option.value])]
+                                  : current.filter((v) => v !== option.value);
+
+                                const nextNumbers = { ...(p.drivingLicenseNumbers || {}) };
+                                if (!e.target.checked) {
+                                  delete nextNumbers[option.value];
+                                }
+
+                                return {
+                                  ...p,
+                                  drivingLicenses: nextLicenses,
+                                  drivingLicenseNumbers: nextNumbers
+                                };
+                              })}
+                            >
+                              {option.label}
+                            </Checkbox>
+                          ))}
+                        </SimpleGrid>
+
+                        {formData.drivingLicenses.length > 0 && (
+                          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                            {formData.drivingLicenses.map((permit) => (
+                              <FormControl key={permit} isRequired>
+                                <FormLabel>Numéro permis {permit}</FormLabel>
+                                <Input
+                                  value={formData.drivingLicenseNumbers?.[permit] || ''}
+                                  onChange={(e)=>setFormData((p)=>(
+                                    {
+                                      ...p,
+                                      drivingLicenseNumbers: {
+                                        ...(p.drivingLicenseNumbers || {}),
+                                        [permit]: e.target.value
+                                      }
+                                    }
+                                  ))}
+                                  placeholder={`Numéro du permis ${permit}`}
+                                />
+                              </FormControl>
+                            ))}
+                          </SimpleGrid>
+                        )}
+
+                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                          <FormControl>
+                            <FormLabel>Photo permis (recto)</FormLabel>
+                            <Input
+                              type="file"
+                              accept="image/*,.pdf"
+                              pt={1}
+                              onChange={(e)=>setFormData((p)=>({ ...p, drivingLicensePhotoFront: e.target.files?.[0] || null }))}
+                            />
+                            <Text fontSize="xs" color="gray.500" mt={1}>
+                              {formData.drivingLicensePhotoFront ? `📎 ${formData.drivingLicensePhotoFront.name}` : 'Import recto (optionnel)'}
+                            </Text>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Photo permis (verso)</FormLabel>
+                            <Input
+                              type="file"
+                              accept="image/*,.pdf"
+                              pt={1}
+                              onChange={(e)=>setFormData((p)=>({ ...p, drivingLicensePhotoBack: e.target.files?.[0] || null }))}
+                            />
+                            <Text fontSize="xs" color="gray.500" mt={1}>
+                              {formData.drivingLicensePhotoBack ? `📎 ${formData.drivingLicensePhotoBack.name}` : 'Import verso (optionnel)'}
+                            </Text>
+                          </FormControl>
+                        </SimpleGrid>
+                      </>
+                    )}
+                  </VStack>
+                </CardBody>
+              </Card>
             </VStack>
           );
         }

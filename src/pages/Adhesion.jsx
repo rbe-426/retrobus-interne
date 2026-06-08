@@ -356,6 +356,7 @@ export default function MyMembership() {
     ? memberData.signatureHistory
     : [];
   const latestSignature = memberData?.latestSignature || signatureHistory[0] || null;
+  const latestSignatureSnapshot = latestSignature?.memberSnapshot || {};
 
   const formatDateTime = (d) => {
     try {
@@ -692,6 +693,84 @@ export default function MyMembership() {
                                 <Text fontWeight="bold" noOfLines={1}>{latestSignature.token}</Text>
                               </Box>
                             </SimpleGrid>
+
+                            {latestSignature?.signatureDataUrl && (
+                              <Box>
+                                <Text fontSize="sm" color="gray.600" mb={2}>Signature enregistrée</Text>
+                                <Box
+                                  borderWidth="1px"
+                                  borderRadius="md"
+                                  p={3}
+                                  bg="white"
+                                  maxW="420px"
+                                >
+                                  <Box
+                                    as="img"
+                                    src={latestSignature.signatureDataUrl}
+                                    alt="Signature adhérent"
+                                    maxH="120px"
+                                    objectFit="contain"
+                                    w="100%"
+                                  />
+                                </Box>
+                              </Box>
+                            )}
+
+                            <Box>
+                              <Text fontSize="sm" color="gray.600" mb={2}>Informations du bulletin signé</Text>
+                              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Nom</Text>
+                                  <Text fontWeight="600">{`${latestSignatureSnapshot.firstName || memberData.firstName || ''} ${latestSignatureSnapshot.lastName || memberData.lastName || ''}`.trim() || '-'}</Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Email</Text>
+                                  <Text fontWeight="600">{latestSignatureSnapshot.email || memberData.email || '-'}</Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Téléphone</Text>
+                                  <Text fontWeight="600">{latestSignatureSnapshot.phone || memberData.phone || '-'}</Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Type d'adhésion</Text>
+                                  <Text fontWeight="600">{MEMBERSHIP_TYPES[latestSignatureSnapshot.membershipType] || latestSignatureSnapshot.membershipType || '-'}</Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Cotisation</Text>
+                                  <Text fontWeight="600">
+                                    {latestSignatureSnapshot.paymentAmount !== null && latestSignatureSnapshot.paymentAmount !== undefined
+                                      ? `${latestSignatureSnapshot.paymentAmount}€`
+                                      : (memberData?.paymentAmount ? `${memberData.paymentAmount}€` : '-')}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Adresse</Text>
+                                  <Text fontWeight="600">
+                                    {latestSignatureSnapshot.address
+                                      ? `${latestSignatureSnapshot.address}${latestSignatureSnapshot.postalCode || latestSignatureSnapshot.city ? `, ${latestSignatureSnapshot.postalCode || ''} ${latestSignatureSnapshot.city || ''}` : ''}`.trim()
+                                      : '-'}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Permis déclarés</Text>
+                                  <Text fontWeight="600">
+                                    {latestSignatureSnapshot.hasDrivingLicenses
+                                      ? (Array.isArray(latestSignatureSnapshot.drivingLicenses) && latestSignatureSnapshot.drivingLicenses.length > 0
+                                        ? latestSignatureSnapshot.drivingLicenses.join(', ')
+                                        : 'Oui (non détaillé)')
+                                      : 'Non'}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Engagements</Text>
+                                  <Text fontWeight="600">
+                                    {latestSignatureSnapshot.acceptedStatuts && latestSignatureSnapshot.acceptedReglementInterieur && latestSignatureSnapshot.acceptedCsar
+                                      ? 'Statuts + Règlement + CSAR acceptés'
+                                      : 'Non renseigné'}
+                                  </Text>
+                                </Box>
+                              </SimpleGrid>
+                            </Box>
 
                             {signatureHistory.length > 1 && (
                               <Box>
