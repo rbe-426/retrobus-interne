@@ -38,6 +38,60 @@ const PAYMENT_METHODS = {
   HELLOASSO: 'HelloAsso'
 };
 
+const EXEMPTION_REASON_OPTIONS = [
+  { value: 'ARTICLE_4_CSAR', label: 'Article 4 du CSAR' },
+  { value: 'ADHERENT_AVANT_2027', label: 'Adherent avant 2027' },
+  { value: 'BUREAU_ASSOCIATIF', label: 'Bureau Associatif' },
+  { value: 'AUTRE', label: 'Autre' }
+];
+
+const deriveExemptionConfig = (reason = '') => {
+  const normalized = (reason || '').trim();
+  if (!normalized) {
+    return { exemptionCategory: '', exemptionOtherDetails: '' };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.startsWith('autre')) {
+    const details = normalized.replace(/^autre\s*:?\s*/i, '').trim();
+    return {
+      exemptionCategory: 'AUTRE',
+      exemptionOtherDetails: details
+    };
+  }
+
+  const byLabel = EXEMPTION_REASON_OPTIONS.find((opt) => opt.label.toLowerCase() === lower);
+  if (byLabel) {
+    return {
+      exemptionCategory: byLabel.value,
+      exemptionOtherDetails: ''
+    };
+  }
+
+  return {
+    exemptionCategory: 'AUTRE',
+    exemptionOtherDetails: normalized
+  };
+};
+
+const buildExemptionReason = (data = {}) => {
+  if (!data.isExempted) return '';
+
+  const category = (data.exemptionCategory || '').trim();
+  const otherDetails = (data.exemptionOtherDetails || '').trim();
+
+  if (category === 'AUTRE') {
+    return otherDetails ? `Autre : ${otherDetails}` : 'Autre';
+  }
+
+  const option = EXEMPTION_REASON_OPTIONS.find((opt) => opt.value === category);
+  if (option) {
+    return option.label;
+  }
+
+  return (data.exemptionReason || '').trim();
+};
+
 const DIGITAL_FLOW_DRAFT_KEY = 'create_member_pending_flow_v1';
 
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
@@ -88,6 +142,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     paymentAmount: '',
     paymentMethod: 'CASH',
     isExempted: false,
+    exemptionCategory: '',
+    exemptionOtherDetails: '',
     exemptionReason: '',
     
     // Stage (pour stagiaires)
@@ -140,7 +196,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       membershipType: 'STANDARD', membershipStatus: 'ACTIVE', 
       membershipStartDate: new Date().toISOString().split('T')[0], membershipEndDate: '',
       paymentAmount: '', paymentMethod: 'CASH', 
-      isExempted: false, exemptionReason: '',
+      isExempted: false, exemptionCategory: '', exemptionOtherDetails: '', exemptionReason: '',
       internshipStartDate: '', internshipEndDate: '', internshipType: '', supervisor: '',
       convention: null, exemptionDocument: null,
       bulletinFile: null, signatureMethod: 'paper', eSignatureProvider: '', eSignatureStatus: 'none',
@@ -156,12 +212,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (parsed?.token) {
+        const parsedExemption = deriveExemptionConfig(parsed?.formData?.exemptionReason || '');
         setOnboardingMode('create');
         setDigitalFlowToken(parsed.token);
         setDigitalFlowLink(parsed.link || '');
         setDigitalFlowStatus(parsed.status || 'pending');
         if (parsed.formData && typeof parsed.formData === 'object') {
-          setFormData((prev) => ({ ...prev, ...parsed.formData, signatureMethod: 'digital_flow', sendDigitalFlow: true }));
+          setFormData((prev) => ({
+            ...prev,
+            ...parsed.formData,
+            exemptionCategory: parsed.formData.exemptionCategory || parsedExemption.exemptionCategory,
+            exemptionOtherDetails: parsed.formData.exemptionOtherDetails || parsedExemption.exemptionOtherDetails,
+            signatureMethod: 'digital_flow',
+            sendDigitalFlow: true
+          }));
         }
       }
     } catch {
@@ -196,7 +260,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         paymentAmount: formData.paymentAmount,
         paymentMethod: formData.paymentMethod,
         isExempted: formData.isExempted,
-        exemptionReason: formData.exemptionReason,
+        exemptionCategory: formData.exemptionCategory,
+        exemptionOtherDetails: formData.exemptionOtherDetails,
+        exemptionReason: buildExemptionReason(formData),
         notes: formData.notes,
         newsletter: formData.newsletter,
         signatureMethod: 'digital_flow',
@@ -225,9 +291,12 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         }
 
         if (data?.memberData && typeof data.memberData === 'object') {
+          const pollExemption = deriveExemptionConfig(data.memberData.exemptionReason || '');
           setFormData((prev) => ({
             ...prev,
             ...data.memberData,
+            exemptionCategory: data.memberData.exemptionCategory || pollExemption.exemptionCategory,
+            exemptionOtherDetails: data.memberData.exemptionOtherDetails || pollExemption.exemptionOtherDetails,
             signatureMethod: 'digital_flow',
             sendDigitalFlow: true
           }));
@@ -291,7 +360,11 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             birthDate: formData.birthDate,
             address: formData.address,
             city: formData.city,
-            postalCode: formData.postalCode
+            postalCode: formData.postalCode,
+            membershipType: formData.membershipType,
+            paymentAmount: formData.isExempted ? '0' : formData.paymentAmount,
+            isExempted: formData.isExempted,
+            exemptionReason: buildExemptionReason(formData)
           },
           sendEmail: !!email,
           sendSMS: !!phone,
@@ -394,6 +467,16 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             toast({ title: 'Dates requises', description: 'Les dates de stage sont obligatoires', status: 'warning', duration: 3000 });
             return false;
           }
+        } else if (formData.isExempted) {
+          if (!formData.exemptionCategory) {
+            toast({ title: 'Motif requis', description: 'Veuillez sélectionner un motif d\'exonération.', status: 'warning', duration: 3000 });
+            return false;
+          }
+
+          if (formData.exemptionCategory === 'AUTRE' && !(formData.exemptionOtherDetails || '').trim()) {
+            toast({ title: 'Précision requise', description: 'Veuillez préciser le motif pour "Autre".', status: 'warning', duration: 3000 });
+            return false;
+          }
         }
         return true;
       case 5: // Bulletin d'adhésion
@@ -478,6 +561,13 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         signatureMethod: onboardingMode === 'create' ? 'digital_flow' : formData.signatureMethod,
         sendDigitalFlow: onboardingMode === 'create' ? true : formData.sendDigitalFlow
       };
+
+      payload.exemptionReason = buildExemptionReason(payload);
+      if (!payload.isExempted) {
+        payload.exemptionReason = '';
+      }
+      delete payload.exemptionCategory;
+      delete payload.exemptionOtherDetails;
 
       const created = await membersAPI.create(payload);
 
@@ -834,7 +924,14 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   <FormControl display="flex" alignItems="center">
                     <Checkbox 
                       isChecked={formData.isExempted}
-                      onChange={(e)=>setFormData(p=>({...p, isExempted: e.target.checked, paymentAmount: e.target.checked ? '0' : p.paymentAmount}))}
+                      onChange={(e)=>setFormData((p)=>({
+                        ...p,
+                        isExempted: e.target.checked,
+                        paymentAmount: e.target.checked ? '0' : p.paymentAmount,
+                        exemptionCategory: e.target.checked ? p.exemptionCategory : '',
+                        exemptionOtherDetails: e.target.checked ? p.exemptionOtherDetails : '',
+                        exemptionReason: e.target.checked ? buildExemptionReason(p) : ''
+                      }))}
                     >
                       Exonération de cotisation
                     </Checkbox>
@@ -867,13 +964,36 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                       </Alert>
                       <FormControl isRequired>
                         <FormLabel>Motif d'exonération</FormLabel>
-                        <Textarea 
-                          value={formData.exemptionReason} 
-                          onChange={(e)=>setFormData(p=>({...p, exemptionReason: e.target.value}))} 
-                          placeholder="Précisez le motif de l'exonération (décision CA, situation particulière, etc.)"
-                          rows={3}
-                        />
+                        <Select
+                          value={formData.exemptionCategory}
+                          onChange={(e) => setFormData((p) => ({
+                            ...p,
+                            exemptionCategory: e.target.value,
+                            exemptionReason: buildExemptionReason({ ...p, exemptionCategory: e.target.value })
+                          }))}
+                          placeholder="Sélectionner un motif"
+                        >
+                          {EXEMPTION_REASON_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </Select>
                       </FormControl>
+
+                      {formData.exemptionCategory === 'AUTRE' && (
+                        <FormControl isRequired>
+                          <FormLabel>Préciser le motif</FormLabel>
+                          <Textarea
+                            value={formData.exemptionOtherDetails}
+                            onChange={(e) => setFormData((p) => ({
+                              ...p,
+                              exemptionOtherDetails: e.target.value,
+                              exemptionReason: buildExemptionReason({ ...p, exemptionOtherDetails: e.target.value })
+                            }))}
+                            placeholder="Précisez le motif d'exonération"
+                            rows={3}
+                          />
+                        </FormControl>
+                      )}
                       <FormControl>
                         <FormLabel>Document justificatif (optionnel)</FormLabel>
                         <Input 
@@ -964,6 +1084,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                       <Text fontSize="xs" color="green.700">
                         Signature recue le {new Date(digitalFlowSignedAt).toLocaleString('fr-FR')}
                       </Text>
+                    )}
+
+                    {formData.generatedDocumentUrl && (
+                      <Button
+                        as="a"
+                        href={formData.generatedDocumentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="sm"
+                        variant="outline"
+                        colorScheme="green"
+                      >
+                        Télécharger le bulletin final
+                      </Button>
                     )}
 
                     <Button colorScheme="rbe" onClick={launchDigitalFlow} isLoading={loading} loadingText="Envoi en cours">
@@ -1236,7 +1370,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                           <AlertIcon />
                           <VStack align="start" spacing={0}>
                             <Text fontSize="xs" fontWeight="bold">Motif d'exonération :</Text>
-                            <Text fontSize="xs">{formData.exemptionReason || 'Non précisé'}</Text>
+                            <Text fontSize="xs">{buildExemptionReason(formData) || 'Non précisé'}</Text>
                           </VStack>
                         </Alert>
                       )}
@@ -1257,6 +1391,20 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   </Text>
                   {digitalFlowSignedAt && (
                     <Text fontSize="xs">Signe le {new Date(digitalFlowSignedAt).toLocaleString('fr-FR')}</Text>
+                  )}
+                  {formData.generatedDocumentUrl && (
+                    <Button
+                      as="a"
+                      href={formData.generatedDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="xs"
+                      colorScheme="green"
+                      variant="outline"
+                      mt={1}
+                    >
+                      Télécharger le bulletin final
+                    </Button>
                   )}
                 </VStack>
               </Alert>
