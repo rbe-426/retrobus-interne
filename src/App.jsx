@@ -62,6 +62,7 @@ const RetroDemandes = lazy(() => import("./pages/RetroDemandes"));
 const EchancierPage = lazy(() => import("./pages/EchancierPage"));
 const ThemeShowcase = lazy(() => import("./pages/ThemeShowcase"));
 const TrilogyRBE = lazy(() => import("./pages/TrilogyRBE"));
+const TrilogyRBEExterne = lazy(() => import("./pages/TrilogyRBEExterne"));
 const SubventionCampaign = lazy(() => import("./pages/SubventionCampaign"));
 const SubventionCampaignAdmin = lazy(() => import("./pages/SubventionCampaignAdmin"));
 const PermissionsManager = lazy(() => import("./components/PermissionsManager"));
@@ -116,6 +117,7 @@ export default function App() {
   <Route path="/dashboard/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
+  <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
         
         {/* 📋 RétroDemandes - Demandes unifiées avec contrôle d'accès */}
         <Route path="/dashboard/retro-demandes" element={<ProtectedRoute><RetroDemandes /></ProtectedRoute>} />
