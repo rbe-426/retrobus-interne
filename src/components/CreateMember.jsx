@@ -92,6 +92,16 @@ const buildExemptionReason = (data = {}) => {
   return (data.exemptionReason || '').trim();
 };
 
+const normalizeDigitalFlowStatus = (status, signedAt) => {
+  if (signedAt) return 'signed';
+
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'signed') return 'signed';
+  if (normalized === 'in_progress' || normalized === 'in-progress') return 'in_progress';
+  if (normalized === 'pending') return 'pending';
+  return 'idle';
+};
+
 const DIGITAL_FLOW_DRAFT_KEY = 'create_member_pending_flow_v1';
 
 export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
@@ -284,7 +294,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         const data = await response.json();
         if (isCancelled) return;
 
-        const nextStatus = data?.status || 'pending';
+        const nextStatus = normalizeDigitalFlowStatus(data?.status, data?.signedAt);
         setDigitalFlowStatus(nextStatus);
         if (data?.signedAt) {
           setDigitalFlowSignedAt(data.signedAt);
@@ -1069,8 +1079,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                   <VStack align="stretch" spacing={3}>
                     <HStack justify="space-between">
                       <Text fontSize="sm" fontWeight="bold" color="black">Etat du parcours</Text>
-                      <Badge colorScheme={digitalFlowStatus === 'signed' ? 'green' : 'orange'}>
-                        {digitalFlowStatus === 'signed' ? 'Signe' : digitalFlowStatus === 'in_progress' ? 'En cours' : digitalFlowStatus === 'pending' ? 'Envoye' : 'Non envoye'}
+                      <Badge colorScheme={(digitalFlowStatus === 'signed' || !!digitalFlowSignedAt) ? 'green' : 'orange'}>
+                        {(digitalFlowStatus === 'signed' || !!digitalFlowSignedAt) ? 'Signe' : digitalFlowStatus === 'in_progress' ? 'En cours' : digitalFlowStatus === 'pending' ? 'Envoye' : 'Non envoye'}
                       </Badge>
                     </HStack>
 
@@ -1381,11 +1391,11 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             </Card>
 
             {onboardingMode === 'create' && (
-              <Alert status={digitalFlowStatus === 'signed' ? 'success' : 'warning'} variant="left-accent">
+              <Alert status={(digitalFlowStatus === 'signed' || !!digitalFlowSignedAt) ? 'success' : 'warning'} variant="left-accent">
                 <AlertIcon />
                 <VStack align="start" spacing={0}>
                   <Text fontSize="sm" fontWeight="bold">
-                    {digitalFlowStatus === 'signed'
+                    {(digitalFlowStatus === 'signed' || !!digitalFlowSignedAt)
                       ? 'Signature recue, vous pouvez finaliser la creation.'
                       : 'Creation en attente de la saisie et de la signature via le lien envoye.'}
                   </Text>
