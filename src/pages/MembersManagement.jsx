@@ -1200,6 +1200,10 @@ export default function MembersManagement() {
                           </Text>
                         </Box>
                         <Box>
+                          <Text fontSize="xs" color="gray.500">Numéro de permis</Text>
+                          <Text fontWeight="600">{editData.latestSignature.memberSnapshot?.drivingLicenseNumber || '-'}</Text>
+                        </Box>
+                        <Box>
                           <Text fontSize="xs" color="gray.500">Engagements réglementaires</Text>
                           <Text fontWeight="600">
                             {editData.latestSignature.memberSnapshot?.acceptedStatuts && editData.latestSignature.memberSnapshot?.acceptedReglementInterieur && editData.latestSignature.memberSnapshot?.acceptedCsar

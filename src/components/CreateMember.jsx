@@ -183,7 +183,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     // Permis
     hasDrivingLicenses: false,
     drivingLicenses: [],
-    drivingLicenseNumbers: {},
+    drivingLicenseNumber: '',
     drivingLicensePhotoFront: null,
     drivingLicensePhotoBack: null,
     
@@ -238,7 +238,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       membershipStartDate: new Date().toISOString().split('T')[0], membershipEndDate: '',
       paymentAmount: '', paymentMethod: 'CASH', 
       isExempted: false, exemptionCategory: '', exemptionOtherDetails: '', exemptionReason: '',
-      hasDrivingLicenses: false, drivingLicenses: [], drivingLicenseNumbers: {}, drivingLicensePhotoFront: null, drivingLicensePhotoBack: null,
+      hasDrivingLicenses: false, drivingLicenses: [], drivingLicenseNumber: '', drivingLicensePhotoFront: null, drivingLicensePhotoBack: null,
       internshipStartDate: '', internshipEndDate: '', internshipType: '', supervisor: '',
       convention: null, exemptionDocument: null,
       bulletinFile: null, signatureMethod: 'paper', eSignatureProvider: '', eSignatureStatus: 'none',
@@ -307,7 +307,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
         exemptionReason: buildExemptionReason(formData),
         hasDrivingLicenses: formData.hasDrivingLicenses,
         drivingLicenses: formData.drivingLicenses,
-        drivingLicenseNumbers: formData.drivingLicenseNumbers,
+        drivingLicenseNumber: formData.drivingLicenseNumber,
         notes: formData.notes,
         newsletter: formData.newsletter,
         signatureMethod: 'digital_flow',
@@ -344,7 +344,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             exemptionOtherDetails: data.memberData.exemptionOtherDetails || pollExemption.exemptionOtherDetails,
             hasDrivingLicenses: !!data.memberData.hasDrivingLicenses,
             drivingLicenses: Array.isArray(data.memberData.drivingLicenses) ? data.memberData.drivingLicenses : [],
-            drivingLicenseNumbers: data.memberData.drivingLicenseNumbers || {},
+            drivingLicenseNumber: data.memberData.drivingLicenseNumber || '',
             signatureMethod: 'digital_flow',
             sendDigitalFlow: true
           }));
@@ -418,7 +418,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
             exemptionReason: buildExemptionReason(formData),
             hasDrivingLicenses: formData.hasDrivingLicenses,
             drivingLicenses: formData.drivingLicenses,
-            drivingLicenseNumbers: formData.drivingLicenseNumbers,
+            drivingLicenseNumber: formData.drivingLicenseNumber,
             drivingLicensePhotoFrontDataUrl,
             drivingLicensePhotoBackDataUrl
           },
@@ -539,14 +539,6 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           if (!Array.isArray(formData.drivingLicenses) || formData.drivingLicenses.length === 0) {
             toast({ title: 'Permis requis', description: 'Veuillez cocher au moins un permis.', status: 'warning', duration: 3000 });
             return false;
-          }
-
-          for (const permit of formData.drivingLicenses) {
-            const number = String(formData.drivingLicenseNumbers?.[permit] || '').trim();
-            if (!number) {
-              toast({ title: 'Numéro manquant', description: `Veuillez renseigner le numéro du permis ${permit}.`, status: 'warning', duration: 3000 });
-              return false;
-            }
           }
         }
         return true;
@@ -1093,7 +1085,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                           ...p,
                           hasDrivingLicenses: e.target.checked,
                           drivingLicenses: e.target.checked ? p.drivingLicenses : [],
-                          drivingLicenseNumbers: e.target.checked ? p.drivingLicenseNumbers : {}
+                          drivingLicenseNumber: e.target.checked ? p.drivingLicenseNumber : ''
                         }
                       ))}
                     >
@@ -1112,16 +1104,9 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                                 const nextLicenses = e.target.checked
                                   ? [...new Set([...current, option.value])]
                                   : current.filter((v) => v !== option.value);
-
-                                const nextNumbers = { ...(p.drivingLicenseNumbers || {}) };
-                                if (!e.target.checked) {
-                                  delete nextNumbers[option.value];
-                                }
-
                                 return {
                                   ...p,
-                                  drivingLicenses: nextLicenses,
-                                  drivingLicenseNumbers: nextNumbers
+                                  drivingLicenses: nextLicenses
                                 };
                               })}
                             >
@@ -1130,28 +1115,17 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
                           ))}
                         </SimpleGrid>
 
-                        {formData.drivingLicenses.length > 0 && (
-                          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                            {formData.drivingLicenses.map((permit) => (
-                              <FormControl key={permit} isRequired>
-                                <FormLabel>Numéro permis {permit}</FormLabel>
-                                <Input
-                                  value={formData.drivingLicenseNumbers?.[permit] || ''}
-                                  onChange={(e)=>setFormData((p)=>(
-                                    {
-                                      ...p,
-                                      drivingLicenseNumbers: {
-                                        ...(p.drivingLicenseNumbers || {}),
-                                        [permit]: e.target.value
-                                      }
-                                    }
-                                  ))}
-                                  placeholder={`Numéro du permis ${permit}`}
-                                />
-                              </FormControl>
-                            ))}
-                          </SimpleGrid>
-                        )}
+                        <FormControl>
+                          <FormLabel>Numéro de permis (unique, toutes catégories)</FormLabel>
+                          <Input
+                            value={formData.drivingLicenseNumber || ''}
+                            onChange={(e)=>setFormData((p)=>({ ...p, drivingLicenseNumber: e.target.value }))}
+                            placeholder="Numéro de permis (optionnel en RH)"
+                          />
+                          <Text fontSize="xs" color="gray.500" mt={1}>
+                            En France, un seul numéro couvre toutes les catégories de permis.
+                          </Text>
+                        </FormControl>
 
                         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                           <FormControl>

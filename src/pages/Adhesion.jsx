@@ -762,6 +762,10 @@ export default function MyMembership() {
                                   </Text>
                                 </Box>
                                 <Box>
+                                  <Text fontSize="xs" color="gray.500">Numéro de permis</Text>
+                                  <Text fontWeight="600">{latestSignatureSnapshot.drivingLicenseNumber || '-'}</Text>
+                                </Box>
+                                <Box>
                                   <Text fontSize="xs" color="gray.500">Engagements</Text>
                                   <Text fontWeight="600">
                                     {latestSignatureSnapshot.acceptedStatuts && latestSignatureSnapshot.acceptedReglementInterieur && latestSignatureSnapshot.acceptedCsar
