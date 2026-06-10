@@ -75,7 +75,7 @@ const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 const RGPD = lazy(() => import("./pages/RGPD"));
 
 export default function App() {
-  const { isAuthenticated, matricule } = useUser();
+  const { isAuthenticated, user, matricule } = useUser();
   const location = useLocation();
   
   // Debug: afficher la route actuelle
