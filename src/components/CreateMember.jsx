@@ -256,11 +256,19 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (parsed?.token) {
+        // ⚠️ Ne pas recharger si le parcours est déjà terminé (signed)
+        const status = normalizeDigitalFlowStatus(parsed.status, parsed.signedAt);
+        if (status === 'signed') {
+          // Nettoyer le localStorage des parcours terminés
+          localStorage.removeItem(DIGITAL_FLOW_DRAFT_KEY);
+          return;
+        }
+        
         const parsedExemption = deriveExemptionConfig(parsed?.formData?.exemptionReason || '');
         setOnboardingMode('create');
         setDigitalFlowToken(parsed.token);
         setDigitalFlowLink(parsed.link || '');
-        setDigitalFlowStatus(parsed.status || 'pending');
+        setDigitalFlowStatus(status);
         if (parsed.formData && typeof parsed.formData === 'object') {
           setFormData((prev) => ({
             ...prev,
@@ -320,6 +328,11 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
 
   useEffect(() => {
     if (!isOpen || !digitalFlowToken || onboardingMode !== 'create') return;
+    
+    // ⚠️ Ne pas polluer si déjà signé
+    if (digitalFlowStatus === 'signed' || digitalFlowSignedAt) {
+      return;
+    }
 
     let isCancelled = false;
 
@@ -358,6 +371,11 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
           status: nextStatus,
           updatedAt: Date.now()
         }));
+        
+        // ✅ Arrêter le polling dès que c'est signé
+        if (nextStatus === 'signed') {
+          return; // Le cleanup se fera, pas besoin de clearInterval ici
+        }
       } catch (err) {
         console.error('❌ Erreur polling bulletin-flow:', err);
       }
@@ -369,7 +387,7 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [digitalFlowToken, digitalFlowLink, isOpen, onboardingMode]);
+  }, [digitalFlowToken, digitalFlowLink, isOpen, onboardingMode, digitalFlowStatus, digitalFlowSignedAt]);
 
   const launchDigitalFlow = async () => {
     const email = (formData.digitalFlowEmail || formData.email || '').trim();
