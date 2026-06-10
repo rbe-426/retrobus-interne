@@ -3,7 +3,10 @@ import { fetchJson } from '../apiClient';
 
 /**
  * Hook pour charger les permissions individuelles d'un utilisateur
+ * Optimisé pour la performance avec cache en mémoire
  */
+const permissionsCache = new Map();
+
 export function useUserPermissions(userId) {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,11 +14,15 @@ export function useUserPermissions(userId) {
 
   useEffect(() => {
     if (!userId) {
-      console.log('🔍 useUserPermissions: userId is empty, skipping');
       return;
     }
 
-    console.log(`🔍 useUserPermissions: Starting to load permissions for userId: ${userId}`);
+    // Vérifier le cache d'abord
+    const cached = permissionsCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < 60000) { // Cache 1 minute
+      setPermissions(cached.data);
+      return;
+    }
 
     const loadPermissions = async () => {
       try {
@@ -23,10 +30,7 @@ export function useUserPermissions(userId) {
         setError(null);
         
         const url = `/api/user-permissions/${userId}`;
-        console.log(`   Fetching: ${url}`);
-        
         const data = await fetchJson(url);
-        console.log(`   Response:`, data);
 
         if (data.success) {
           // Parser les actions si elles sont en JSON string
@@ -36,10 +40,15 @@ export function useUserPermissions(userId) {
               ? p.actions 
               : JSON.parse(p.actions || '[]')
           }));
-          console.log(`   ✅ Loaded ${parsed.length} permissions:`, parsed);
+          
+          // Mettre en cache
+          permissionsCache.set(userId, {
+            data: parsed,
+            timestamp: Date.now()
+          });
+          
           setPermissions(parsed);
         } else {
-          console.log(`   ❌ No success in response`);
           setError(data.error || 'Failed to load permissions');
         }
       } catch (err) {

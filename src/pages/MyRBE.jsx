@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   SimpleGrid,
   VStack,
@@ -168,9 +168,9 @@ export default function MyRBE() {
   const canAccessMuseum = import.meta.env.DEV || matricule === 'w.belaidi';
 
   /**
-   * Vérifier si une carte doit être affichée
+   * Vérifier si une carte doit être affichée (optimisé avec useMemo)
    */
-  const shouldShowCard = (card) => {
+  const shouldShowCard = useMemo(() => (card) => {
     if (card.title === 'Le Musée' && !canAccessMuseum) {
       return false;
     }
@@ -195,17 +195,13 @@ export default function MyRBE() {
       return false;
     }
 
-    // 🔒 NOUVELLE LOGIQUE: Vérifier si l'utilisateur a une restriction DENY pour cette ressource
+    // 🔒 Vérifier si l'utilisateur a une restriction DENY pour cette ressource
     if (card.resource) {
       const isDenied = userPermissions.some(p => 
         p.resource === card.resource && p.actions && p.actions.includes('DENY')
       );
       if (isDenied) {
-        console.log(`   🔒 Card "${card.title}" (${card.resource}): DENIED - hiding`);
         return false; // Masquer la carte si accès refusé
-      }
-      if (userPermissions.length > 0) {
-        console.log(`   ✅ Card "${card.title}" (${card.resource}): allowed - showing`);
       }
     }
 
@@ -253,22 +249,13 @@ export default function MyRBE() {
 
     // Les cartes sans ressource sont toujours visibles (ex: Mon Profil)
     return true;
-  };
+  }, [userRole, isAdmin, customPermissions, userPermissions, canAccessMuseum, roles]);
 
-  // Filtrer les cartes en fonction des permissions
-  const visibleCards = cards.filter(shouldShowCard);
-
-  // Log pour diagnostic
-  console.log('🔍 MyRBE DEBUG:');
-  console.log(`   user?.id: ${user?.id}`);
-  console.log(`   userRole: ${userRole}`);
-  console.log(`   isAdmin: ${isAdmin}`);
-  console.log(`   permissionsLoading: ${permissionsLoading}`);
-  console.log(`   userPermissions.length: ${userPermissions.length}`);
-  if (userPermissions.length > 0) {
-    console.log(`   userPermissions:`, userPermissions);
-  }
-  console.log(`   visibleCards: ${visibleCards.length}/${cards.length}`);
+  // Filtrer les cartes en fonction des permissions (optimisé avec useMemo)
+  const visibleCards = useMemo(() => 
+    cards.filter(shouldShowCard),
+    [shouldShowCard]
+  );
 
   if (permissionsLoading) {
     return (
