@@ -245,6 +245,8 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
       sendDigitalFlow: true, digitalFlowEmail: '', digitalFlowPhone: '', templateFile: null, templateId: '',
       notes: '', newsletter: true
     });
+    // Effacer le brouillon sauvegardé en localStorage
+    localStorage.removeItem(DIGITAL_FLOW_DRAFT_KEY);
   };
 
   useEffect(() => {
@@ -667,7 +669,17 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
     }
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => { 
+    const hasData = formData.firstName || formData.lastName || formData.email || digitalFlowToken;
+    if (hasData) {
+      const confirmed = window.confirm(
+        'Voulez-vous vraiment annuler ce parcours ?\n\nToutes les données saisies seront perdues.'
+      );
+      if (!confirmed) return;
+    }
+    reset(); 
+    onClose(); 
+  };
 
   // Rendu des étapes
   const renderStepContent = () => {
@@ -1640,7 +1652,14 @@ export default function CreateMember({ isOpen, onClose, onMemberCreated }) {
 
         <ModalFooter>
           <HStack spacing={3} width="100%" justify="space-between">
-            <Button variant="ghost" onClick={handleClose}>Annuler</Button>
+            <Button 
+              variant="outline" 
+              colorScheme="red" 
+              onClick={handleClose}
+              leftIcon={<Icon as={FiAlertCircle} />}
+            >
+              Annuler le parcours
+            </Button>
             <HStack>
               {activeStep > 0 && (
                 <Button onClick={handleBack}>Précédent</Button>
