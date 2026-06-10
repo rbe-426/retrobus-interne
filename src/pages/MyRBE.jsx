@@ -164,8 +164,14 @@ export default function MyRBE() {
   const userRole = roles?.[0] || 'MEMBER';
   const { permissions: userPermissions, loading: permissionsLoading } = useUserPermissions(user?.id);
   
-  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi
-  const canAccessMuseum = import.meta.env.DEV || matricule === 'w.belaidi';
+  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi (production comprise)
+  const isBelaidi = (
+    matricule?.toLowerCase() === 'w.belaidi' ||
+    user?.username?.toLowerCase() === 'w.belaidi' ||
+    user?.email?.toLowerCase().includes('w.belaidi') ||
+    user?.email?.toLowerCase() === 'w.belaidi@retrobus-essonne.fr'
+  );
+  const canAccessMuseum = import.meta.env.DEV || isBelaidi;
 
   /**
    * Vérifier si une carte doit être affichée (optimisé avec useMemo)

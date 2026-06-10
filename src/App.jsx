@@ -83,8 +83,14 @@ export default function App() {
   
   const showHeader = isAuthenticated && location.pathname !== '/login';
   
-  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi
-  const canAccessMuseum = import.meta.env.DEV || matricule === 'w.belaidi';
+  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi (production comprise)
+  const isBelaidi = (
+    matricule?.toLowerCase() === 'w.belaidi' ||
+    user?.username?.toLowerCase() === 'w.belaidi' ||
+    user?.email?.toLowerCase().includes('w.belaidi') ||
+    user?.email?.toLowerCase() === 'w.belaidi@retrobus-essonne.fr'
+  );
+  const canAccessMuseum = import.meta.env.DEV || isBelaidi;
 
   // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
   useEffect(() => {
