@@ -5,6 +5,7 @@
  */
 
 import { tokenManager, withAuthHeader } from './api/authService.js';
+import logger from './utils/logger.js';
 
 // ============================================================================
 // CONFIGURATION

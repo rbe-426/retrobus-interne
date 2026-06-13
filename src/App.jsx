@@ -4,6 +4,7 @@ import { Box, Center, Spinner, VStack, Text } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import { fetchCSRFToken } from "./lib/csrfClient";
+import logger from "./utils/logger";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import ErrorBoundary from "./components/ErrorBoundary";

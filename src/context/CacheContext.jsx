@@ -3,6 +3,7 @@
  * Évite de recharger les mêmes données trop fréquemment
  */
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import logger from '../utils/logger';
 
 const CacheContext = createContext();
 
