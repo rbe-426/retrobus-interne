@@ -82,6 +82,15 @@ export default function App() {
   // Debug: afficher la route actuelle
   logger.route('Current route:', location.pathname);
   
+  // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi
+  const isBelaidi = (
+    matricule?.toLowerCase() === 'w.belaidi' ||
+    user?.username?.toLowerCase() === 'w.belaidi' ||
+    user?.email?.toLowerCase() === 'belaidiw91@gmail.com' ||
+    user?.email?.toLowerCase() === 'w.belaidi@retrobus-essonne.fr'
+  );
+  const canAccessMuseum = import.meta.env.DEV || isBelaidi;
+  
   const showHeader = isAuthenticated && location.pathname !== '/login';
   
   // 🏛️ Le Musée accessible uniquement en dev ou pour w.belaidi (production comprise)
