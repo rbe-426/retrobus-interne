@@ -204,20 +204,22 @@ const AccessManagement = () => {
       setIsCreating(true);
       const pwd = formData.passwordOption === 'generate' ? generatedPassword : formData.password;
       
-      await apiClient.post('/api/admin/users', {
+      const response = await apiClient.post('/api/admin/users', {
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         matricule: formData.matricule,
         role: formData.role,
-        password: pwd
+        password: pwd,
+        mustChangePassword: true
       });
       
       toast({
-        title: 'Succès',
-        description: 'Accès utilisateur créé avec succès',
+        title: '✅ Utilisateur créé',
+        description: `Un email avec les identifiants a été envoyé à ${formData.email}`,
         status: 'success',
-        duration: 3000,
+        duration: 5000,
+        isClosable: true,
       });
       
       setFormData({
@@ -316,6 +318,29 @@ const AccessManagement = () => {
   const handleOpenDeleteModal = (user) => {
     setUserToDelete(user);
     onDeleteOpen();
+  };
+
+  const handleResetPassword = async (user) => {
+    try {
+      const response = await apiClient.post(`/api/admin/users/${user.id}/reset-password`, {
+        mustChangePassword: true
+      });
+
+      toast({
+        title: '✅ Mot de passe réinitialisé',
+        description: `Un email avec les nouveaux identifiants a été envoyé à ${user.email}`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de générer le mot de passe temporaire',
+        status: 'error',
+        duration: 3000,
+      });
+    }
   };
 
   const handleGenerateTemporaryPassword = async () => {
@@ -445,6 +470,15 @@ const AccessManagement = () => {
                             onClick={() => handleOpenEditModal(user)}
                           />
                         </Tooltip>
+                        <Tooltip label="Renouveler mot de passe">
+                          <IconButton
+                            size="sm"
+                            icon={<FiRefreshCw />}
+                            variant="ghost"
+                            colorScheme="orange"
+                            onClick={() => handleResetPassword(user)}
+                          />
+                        </Tooltip>
                         <Tooltip label="Supprimer">
                           <IconButton
                             size="sm"
@@ -557,9 +591,12 @@ const AccessManagement = () => {
                       size="sm"
                     />
                   </HStack>
-                  <Text fontSize="xs" color="blue.600" mt={2}>
-                    Ce mot de passe sera envoyé à l'utilisateur
-                  </Text>
+                  <Alert status="info" mt={2} fontSize="xs">
+                    <AlertIcon boxSize={3} />
+                    <Text>
+                      Un email avec ce mot de passe sera automatiquement envoyé à l'utilisateur. Il devra le changer à la première connexion.
+                    </Text>
+                  </Alert>
                 </Box>
               ) : (
                 <FormControl isRequired>
