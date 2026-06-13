@@ -144,7 +144,10 @@ const AccessManagement = () => {
   });
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isResetPasswordOpen, onOpen: onResetPasswordOpen, onClose: onResetPasswordClose } = useDisclosure();
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userToReset, setUserToReset] = useState(null);
+  const [alternativeEmail, setAlternativeEmail] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -320,19 +323,34 @@ const AccessManagement = () => {
     onDeleteOpen();
   };
 
-  const handleResetPassword = async (user) => {
+  const handleOpenResetPassword = (user) => {
+    setUserToReset(user);
+    setAlternativeEmail('');
+    onResetPasswordOpen();
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!userToReset) return;
+
     try {
-      const response = await apiClient.post(`/api/admin/users/${user.id}/reset-password`, {
-        mustChangePassword: true
+      const targetEmail = alternativeEmail.trim() || userToReset.email;
+      
+      const response = await apiClient.post(`/api/admin/users/${userToReset.id}/reset-password`, {
+        mustChangePassword: true,
+        alternativeEmail: alternativeEmail.trim() || undefined
       });
 
       toast({
         title: '✅ Mot de passe réinitialisé',
-        description: `Un email avec les nouveaux identifiants a été envoyé à ${user.email}`,
+        description: `Un email avec les nouveaux identifiants a été envoyé à ${targetEmail}`,
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
+      
+      setUserToReset(null);
+      setAlternativeEmail('');
+      onResetPasswordClose();
     } catch (error) {
       toast({
         title: 'Erreur',
@@ -461,7 +479,7 @@ const AccessManagement = () => {
                     </Td>
                     <Td>
                       <HStack spacing={2}>
-                        <Tooltip label="Modifier">
+                        <Tooltip label="Modifier"Open>
                           <IconButton
                             size="sm"
                             icon={<FiEdit />}
@@ -476,7 +494,7 @@ const AccessManagement = () => {
                             icon={<FiRefreshCw />}
                             variant="ghost"
                             colorScheme="orange"
-                            onClick={() => handleResetPassword(user)}
+                            onClick={() => handleOpenResetPassword(user)}
                           />
                         </Tooltip>
                         <Tooltip label="Supprimer">
@@ -760,6 +778,73 @@ const AccessManagement = () => {
             <Button variant="ghost" mr={3} onClick={onDeleteClose}>Annuler</Button>
             <Button colorScheme="red" onClick={handleDeleteUser}>
               Supprimer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal de réinitialisation de mot de passe */}
+      <Modal isOpen={isResetPasswordOpen} onClose={onResetPasswordClose} isCentered size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack spacing={2}>
+              <Box as={FiRefreshCw} color="orange.500" />
+              <Text>Réinitialiser le mot de passe</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              {userToReset && (
+                <Box p={3} bg="gray.50" borderRadius="md">
+                  <VStack align="start" spacing={2}>
+                    <Text fontSize="sm" color="gray.600">
+                      <b>Utilisateur:</b> {displayNameFromUser(userToReset)}
+                    </Text>
+                    <Text fontSize="sm" color="gray.600">
+                      <b>Email enregistré:</b> {userToReset.email}
+                    </Text>
+                  </VStack>
+                </Box>
+              )}
+
+              <FormControl>
+                <FormLabel fontSize="sm">
+                  <HStack spacing={2}>
+                    <FiMail />
+                    <Text>Email de destination (optionnel)</Text>
+                  </HStack>
+                </FormLabel>
+                <Input
+                  type="email"
+                  placeholder={userToReset?.email || 'Email alternatif...'}
+                  value={alternativeEmail}
+                  onChange={(e) => setAlternativeEmail(e.target.value)}
+                  size="sm"
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Laissez vide pour envoyer à l'email enregistré
+                </Text>
+              </FormControl>
+
+              <Alert status="info" borderRadius="md" fontSize="sm">
+                <AlertIcon boxSize={4} />
+                <Box>
+                  <Text fontWeight="bold">Mot de passe temporaire</Text>
+                  <Text fontSize="xs">
+                    Un nouveau mot de passe sera généré et envoyé par email. L'utilisateur devra le changer à la première connexion.
+                  </Text>
+                </Box>
+              </Alert>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onResetPasswordClose}>
+              Annuler
+            </Button>
+            <Button colorScheme="orange" onClick={handleConfirmResetPassword}>
+              Réinitialiser
             </Button>
           </ModalFooter>
         </ModalContent>
