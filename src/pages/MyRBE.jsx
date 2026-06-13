@@ -168,7 +168,7 @@ export default function MyRBE() {
   const isBelaidi = (
     matricule?.toLowerCase() === 'w.belaidi' ||
     user?.username?.toLowerCase() === 'w.belaidi' ||
-    user?.email?.toLowerCase().includes('w.belaidi') ||
+    user?.email?.toLowerCase() === 'belaidiw91@gmail.com' ||
     user?.email?.toLowerCase() === 'w.belaidi@retrobus-essonne.fr'
   );
   const canAccessMuseum = import.meta.env.DEV || isBelaidi;
