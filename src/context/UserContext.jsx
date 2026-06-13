@@ -3,6 +3,7 @@ import { normalizeRole as normRole } from '../lib/roles';
 import ForcePasswordChange from '../components/ForcePasswordChange';
 import { tokenManager, StorageManager, validateSession } from '../api/authService.js';
 import { useSessionTimeout } from '../hooks/useSessionTimeout';
+import logger from '../utils/logger';
 
 const UserContext = createContext(null);
 
@@ -94,17 +95,17 @@ export function UserProvider({ children }) {
 
   const refreshMember = async (force = false) => {
     if (!token) { 
-      console.log('❌ refreshMember: pas de token!');
+      logger.debug('refreshMember: no token');
       setMember(null); 
       setMemberError('no-token'); 
       setMemberDataReady(true);
       return null; 
     }
-    console.log('🔄 refreshMember: token trouvé, appel API...');
+    logger.debug('refreshMember: token found, calling API...');
     // simple throttle to avoid spamming
     const now = Date.now();
     if (!force && (now - lastMemberFetchRef.current < 500)) {
-      console.log('⏱️ refreshMember: throttled, skip');
+      logger.debug('refreshMember: throttled, skip');
       return member;
     }
     lastMemberFetchRef.current = now;
@@ -113,25 +114,25 @@ export function UserProvider({ children }) {
     setMemberError(null);
     try {
       const candidates = apiCandidates();
-      console.log('🔗 API candidates:', candidates);
+      logger.debug('API candidates:', candidates);
       let ok = false;
       let lastStatus = null;
       let data = null;
       for (const base of candidates) {
         try {
           const url = `${base}/api/members/me`;
-          console.log('📍 Tentative:', url);
+          logger.debug('Attempt:', url);
           const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
           });
           lastStatus = res.status;
-          console.log(`📊 Réponse status: ${res.status}`);
+          logger.debug(`Response status: ${res.status}`);
           if (res.ok) {
             data = await res.json();
-            console.log('✅ Données brutes reçues:', data);
+            logger.debug('Raw data received');
             // L'API retourne {member: {...}}, extraire le contenu
             const memberData = data.member || data;
-            console.log('✅ Données membre extraites:', memberData);
+            logger.debug('Member data extracted');
             setMember(memberData);
             setMemberApiBase(base || null);
             setMemberDataReady(true); // Marquer comme complètes
@@ -140,12 +141,12 @@ export function UserProvider({ children }) {
           }
         } catch (e) {
           lastStatus = 'network';
-          console.error('❌ Erreur réseau:', e.message);
+          logger.error('Network error:', e.message);
           continue;
         }
       }
       if (!ok) {
-        console.log('❌ Aucun endpoint n\'a réussi. lastStatus:', lastStatus);
+        logger.warn('No endpoint succeeded. lastStatus:', lastStatus);
         setMember(null);
         setMemberError(lastStatus);
         setMemberDataReady(true); // Marquer comme "traité" même en cas d'erreur

@@ -8,6 +8,8 @@
  * - Refresh du token après chaque réponse
  */
 
+import logger from '../utils/logger';
+
 const CSRF_TOKEN_KEY = 'X-CSRF-Token';
 const CSRF_EXPIRY_KEY = 'CSRF-Token-Expiry';
 
@@ -38,7 +40,7 @@ export const fetchCSRFToken = async (baseURL = '') => {
 
     // Stocker le token en localStorage
     storeCSRFToken(token);
-    console.log('✅ CSRF token fetched and stored');
+    logger.csrf('Token fetched and stored');
 
     return token;
   } catch (error) {
@@ -94,10 +96,10 @@ export const updateCSRFTokenFromResponse = (response) => {
     const newToken = response.headers.get('X-CSRF-Token');
     if (newToken) {
       storeCSRFToken(newToken);
-      console.log('✅ CSRF token updated from response:', newToken.substring(0, 20) + '...');
+      logger.csrf('Token updated from response');
       return newToken;
     } else {
-      console.log('ℹ️  No new CSRF token in response headers');
+      logger.debug('No new CSRF token in response headers');
     }
   } catch (error) {
     console.warn('⚠️  Could not update CSRF token from response:', error);
@@ -112,7 +114,7 @@ export const clearCSRFToken = () => {
   try {
     localStorage.removeItem(CSRF_TOKEN_KEY);
     localStorage.removeItem(CSRF_EXPIRY_KEY);
-    console.log('✅ CSRF token cleared');
+    logger.csrf('Token cleared');
   } catch (error) {
     console.warn('⚠️  Could not clear CSRF token:', error);
   }
@@ -170,7 +172,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
     }
   }
 
-  console.log(`🔍 fetchWithCSRF: url="${url}" → finalURL="${finalURL}"`);
+  logger.debug(`fetchWithCSRF: ${url} → ${finalURL}`);
 
   // Obtenir le token stocké
   let csrfToken = getStoredCSRFToken();
@@ -182,7 +184,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
     console.warn('⚠️  No CSRF token available for mutation. Fetching new one...');
     try {
       csrfToken = await fetchCSRFToken(baseURL);
-      console.log('✅ Fresh CSRF token obtained:', csrfToken ? 'present' : 'missing');
+      logger.csrf('Fresh token obtained');
     } catch (error) {
       console.error('❌ Could not fetch CSRF token for mutation:', error);
       throw error;
@@ -206,7 +208,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
   // Ajouter le token CSRF si mutation
   if (isMutation && csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;
-    console.log('🔐 CSRF token added to headers for', options.method, finalURL);
+    logger.debug(`CSRF token added for ${options.method} ${finalURL}`);
   } else if (isMutation && !csrfToken) {
     console.error('❌ No CSRF token available for mutation!');
   }
@@ -230,7 +232,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
         try {
           const newToken = await fetchCSRFToken(baseURL);
           headers['X-CSRF-Token'] = newToken;
-          console.log('🔄 Retrying request with fresh CSRF token');
+          logger.csrf('Retrying with fresh token');
           
           // Retry la requête avec le nouveau token
           const retryResponse = await fetch(finalURL, {
@@ -242,7 +244,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
           // Mettre à jour le token si nouveau reçu
           const newTokenFromRetry = updateCSRFTokenFromResponse(retryResponse);
           if (newTokenFromRetry) {
-            console.log('✅ CSRF token refreshed from retry response for next mutation');
+            logger.csrf('Token refreshed from retry');
           }
           
           return retryResponse;
@@ -256,7 +258,7 @@ export const fetchWithCSRF = async (url, options = {}) => {
     // IMPORTANT: Mettre à jour le token si nouveau reçu (backend envoie un nouveau après chaque mutation)
     const newToken = updateCSRFTokenFromResponse(response);
     if (newToken && isMutation) {
-      console.log('✅ CSRF token refreshed from response for next mutation');
+      logger.csrf('Token refreshed from response');
     }
 
     return response;

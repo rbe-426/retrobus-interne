@@ -32,7 +32,7 @@ export function CacheProvider({ children }) {
       return null;
     }
     
-    console.log(`📦 Cache HIT: ${key}`);
+    logger.cache(`HIT: ${key}`);
     return item.data;
   }, [cache]);
 
@@ -44,7 +44,7 @@ export function CacheProvider({ children }) {
    */
   const set = useCallback((key, data, ttl = DEFAULT_TTL) => {
     const now = Date.now();
-    console.log(`💾 Cache SET: ${key} (TTL: ${ttl / 1000}s)`);
+    logger.cache(`SET: ${key} (TTL: ${ttl / 1000}s)`);
     setCache(prev => ({
       ...prev,
       [key]: {
@@ -60,7 +60,7 @@ export function CacheProvider({ children }) {
    * @param {string} key - Clé à invalider
    */
   const invalidate = useCallback((key) => {
-    console.log(`🗑️ Cache INVALIDATE: ${key}`);
+    logger.cache(`INVALIDATE: ${key}`);
     setCache(prev => {
       const next = { ...prev };
       delete next[key];
@@ -72,7 +72,7 @@ export function CacheProvider({ children }) {
    * Vider tout le cache
    */
   const clear = useCallback(() => {
-    console.log('🗑️ Cache CLEAR ALL');
+    logger.cache('CLEAR ALL');
     setCache({});
   }, []);
 
@@ -91,7 +91,7 @@ export function CacheProvider({ children }) {
     }
     
     // Sinon, fetcher et mettre en cache
-    console.log(`🔄 Cache MISS: ${key} - Fetching...`);
+    logger.cache(`MISS: ${key} - Fetching...`);
     const data = await fetcher();
     set(key, data, ttl);
     return data;

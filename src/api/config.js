@@ -4,6 +4,7 @@ const API_BASE_URL = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
 // Import CSRF client utilities
 import { getStoredCSRFToken } from '../lib/csrfClient.js';
+import logger from '../utils/logger.js';
 
 // Headers par défaut
 const getDefaultHeaders = (options = {}) => ({
@@ -26,7 +27,7 @@ const getMutationHeaders = (token, options = {}) => {
   const csrfToken = getStoredCSRFToken();
   if (csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;
-    console.log('🔐 CSRF token injected in request headers');
+    logger.debug('CSRF token injected in headers');
   } else {
     console.warn('⚠️  No CSRF token available for mutation - server may reject it');
   }
@@ -68,7 +69,7 @@ export const apiClient = {
       ? getAuthHeaders(token, options)
       : getDefaultHeaders(options);
 
-    console.log(`🔗 GET ${API_BASE_URL}${url}`);
+    logger.api(`GET ${API_BASE_URL}${url}`);
     
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -107,7 +108,7 @@ export const apiClient = {
       ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
-    console.log(`🔗 POST ${API_BASE_URL}${url}`, data);
+    logger.api(`POST ${API_BASE_URL}${url}`, data);
     
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -155,7 +156,7 @@ export const apiClient = {
       ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
-    console.log(`🔗 PUT ${API_BASE_URL}${url}`, data);
+    logger.api(`PUT ${API_BASE_URL}${url}`, data);
     
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -202,7 +203,7 @@ export const apiClient = {
       ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
-    console.log(`🔗 PATCH ${API_BASE_URL}${url}`, data);
+    logger.api(`PATCH ${API_BASE_URL}${url}`, data);
     
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -249,7 +250,7 @@ export const apiClient = {
       ? getMutationHeaders(token, options)
       : getDefaultHeaders(options);
 
-    console.log(`🔗 DELETE ${API_BASE_URL}${url}`);
+    logger.api(`DELETE ${API_BASE_URL}${url}`);
     
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {

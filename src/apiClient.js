@@ -71,7 +71,7 @@ export const apiClient = {
   async get(path, options = {}) {
     const url = buildUrl(path);
     const headers = buildHeaders(options.headers);
-    console.log(`🔗 GET ${url}`);
+    logger.api(`GET ${url}`);
     try {
       const response = await fetch(url, { method: 'GET', headers, credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
@@ -85,7 +85,7 @@ export const apiClient = {
   async post(path, body, options = {}) {
     const url = buildUrl(path);
     const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers });
-    console.log(`📤 POST ${url}`, body);
+    logger.api(`POST ${url}`, body);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
@@ -99,7 +99,7 @@ export const apiClient = {
   async patch(path, body, options = {}) {
     const url = buildUrl(path);
     const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers });
-    console.log(`🔄 PATCH ${url}`, body);
+    logger.api(`PATCH ${url}`, body);
     try {
       const response = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body), credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
@@ -113,7 +113,7 @@ export const apiClient = {
   async delete(path, options = {}) {
     const url = buildUrl(path);
     const headers = buildHeaders(options.headers);
-    console.log(`🗑️ DELETE ${url}`);
+    logger.api(`DELETE ${url}`);
     try {
       const response = await fetch(url, { method: 'DELETE', headers, credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
@@ -128,7 +128,7 @@ export const apiClient = {
     const url = buildUrl(path);
     const token = tokenManager.getToken();
     const headers = withAuthHeader({}, token);
-    console.log(`📦 UPLOAD ${url}`);
+    logger.api(`UPLOAD ${url}`);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);

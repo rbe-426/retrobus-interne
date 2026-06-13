@@ -79,7 +79,7 @@ export default function App() {
   const location = useLocation();
   
   // Debug: afficher la route actuelle
-  console.log('🛣️ Current route:', location.pathname);
+  logger.route('Current route:', location.pathname);
   
   const showHeader = isAuthenticated && location.pathname !== '/login';
   
@@ -96,7 +96,7 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && location.pathname !== '/login') {
       fetchCSRFToken()
-        .then(() => console.log('✅ CSRF token fetched after authentication'))
+        .then(() => logger.csrf('Token fetched after authentication'))
         .catch(err => console.error('❌ CSRF token fetch failed (non-blocking):', err.message));
     }
   }, [isAuthenticated, location.pathname]);
