@@ -17,6 +17,7 @@ import {
   FiArrowRight, FiCheck, FiX, FiCopy, FiClock, FiUserCheck
 } from 'react-icons/fi';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
+import UserPermissionsModal from '../components/UserPermissionsModal';
 
 const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const apiUrl = (p) => apiBase ? `${apiBase}${p}` : p;
@@ -49,7 +50,7 @@ const PASSWORD_STATUS = {
 // COMPOSANTS
 // ============================================================================
 
-function AccountCard({ account, onEdit, onResetPassword, onToggleAccess, onLinkMember, onDelete }) {
+function AccountCard({ account, onEdit, onResetPassword, onToggleAccess, onLinkMember, onManagePermissions, onDelete }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const accountType = ACCOUNT_TYPES[account.role] || ACCOUNT_TYPES.MEMBER;
   const accountStatus = ACCOUNT_STATUS[account.status] || ACCOUNT_STATUS.PENDING;
@@ -121,6 +122,10 @@ function AccountCard({ account, onEdit, onResetPassword, onToggleAccess, onLinkM
 
               <MenuItem icon={<FiRotateCcw />} onClick={() => onResetPassword(account)}>
                 Réinitialiser le MDP
+              </MenuItem>
+
+              <MenuItem icon={<FiShield />} onClick={() => onManagePermissions(account)} color="blue.500">
+                Gérer les permissions
               </MenuItem>
 
               {!account.linkedMemberId && (
@@ -779,6 +784,12 @@ export default function AccountsManagement() {
     onClose: onLinkClose
   } = useDisclosure();
 
+  const {
+    isOpen: isPermissionsOpen,
+    onOpen: onPermissionsOpen,
+    onClose: onPermissionsClose
+  } = useDisclosure();
+
   const cardBg = useColorModeValue('white', 'gray.800');
 
   const loadAccounts = useCallback(async () => {
@@ -837,6 +848,11 @@ export default function AccountsManagement() {
   const handleLinkMember = (account) => {
     setSelectedAccount(account);
     onLinkOpen();
+  };
+
+  const handleManagePermissions = (account) => {
+    setSelectedAccount(account);
+    onPermissionsOpen();
   };
 
   const handleToggleAccess = async (account) => {
@@ -987,6 +1003,7 @@ export default function AccountsManagement() {
                   onResetPassword={handleResetPassword}
                   onToggleAccess={handleToggleAccess}
                   onLinkMember={handleLinkMember}
+                  onManagePermissions={handleManagePermissions}
                   onDelete={() => {
                     // À implémenter si nécessaire
                   }}
@@ -1023,6 +1040,13 @@ export default function AccountsManagement() {
         isOpen={isLinkOpen}
         onClose={onLinkClose}
         account={selectedAccount}
+        onSuccess={loadAccounts}
+      />
+
+      <UserPermissionsModal
+        isOpen={isPermissionsOpen}
+        onClose={onPermissionsClose}
+        user={selectedAccount}
         onSuccess={loadAccounts}
       />
     </WorkspaceLayout>
