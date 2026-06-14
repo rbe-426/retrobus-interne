@@ -181,13 +181,17 @@ export const apiClient = {
     const token = tokenManager.getToken();
     const headers = withAuthHeader({}, token);
     
+    console.log('🔐 Auth token présent:', !!token);
+    
     // Ajouter le token CSRF (récupération auto si absent)
     let csrfToken = getStoredCSRFToken();
+    console.log('🛡️ CSRF token initial:', csrfToken ? csrfToken.substring(0, 30) + '...' : 'ABSENT');
+    
     if (!csrfToken) {
       console.warn('⚠️ CSRF token manquant pour upload, récupération automatique...');
       try {
         csrfToken = await fetchCSRFToken(API_BASE_URL);
-        console.log('✅ CSRF token récupéré automatiquement pour upload');
+        console.log('✅ CSRF token récupéré automatiquement pour upload:', csrfToken.substring(0, 30) + '...');
       } catch (error) {
         console.error('❌ Impossible de récupérer le token CSRF pour upload:', error);
       }
@@ -195,12 +199,25 @@ export const apiClient = {
     
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken;
+      console.log('✅ Header X-CSRF-Token ajouté');
+    } else {
+      console.error('❌ Pas de CSRF token à ajouter aux headers!');
     }
+    
+    console.log('📋 Headers pour upload:', Object.keys(headers));
     
     logger.api(`UPLOAD ${url}`);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include', ...options });
-      if (!response.ok) return handleHttpError(response);
+      
+      console.log('📊 Upload response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Upload failed:', response.status, errorText);
+        return handleHttpError(response);
+      }
+      
       updateCSRFTokenFromResponse(response);
       return await parseResponse(response);
     } catch (error) {

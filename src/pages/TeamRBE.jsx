@@ -296,16 +296,23 @@ export default function TeamRBE() {
     try {
       setUploadingAvatar(true);
       
+      console.log('📤 Début upload avatar pour:', memberId);
+      console.log('📎 Fichier:', file.name, file.type, file.size, 'bytes');
+      
       const formData = new FormData();
       formData.append('avatar', file);
 
+      console.log('📡 Envoi vers API...');
       const response = await apiClient.upload(`/team/${memberId}/upload-avatar`, formData);
+      
+      console.log('✅ Réponse API:', response);
       
       // Recharger les données pour afficher la nouvelle photo
       await loadTeamMembers();
       
       toast({ 
         title: 'Photo uploadée', 
+        description: 'La photo de profil a été mise à jour avec succès',
         status: 'success', 
         duration: 2000 
       });
@@ -315,12 +322,30 @@ export default function TeamRBE() {
         setFormData(prev => ({ ...prev, image: response.imageUrl }));
       }
     } catch (error) {
-      console.error('Erreur upload avatar:', error);
+      console.error('❌ Erreur upload avatar:', error);
+      console.error('Stack:', error.stack);
+      
+      // Extraire le message d'erreur détaillé
+      let errorMessage = 'Impossible d\'uploader la photo';
+      
+      if (error.message) {
+        if (error.message.includes('500')) {
+          errorMessage = 'Erreur serveur (HTTP 500). Vérifiez les logs du serveur.';
+        } else if (error.message.includes('403')) {
+          errorMessage = 'Accès refusé. Token CSRF manquant ou invalide.';
+        } else if (error.message.includes('401')) {
+          errorMessage = 'Non authentifié. Veuillez vous reconnecter.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({ 
         title: 'Erreur upload', 
-        description: error.message || 'Impossible d\'uploader la photo', 
+        description: errorMessage, 
         status: 'error', 
-        duration: 3000 
+        duration: 5000,
+        isClosable: true
       });
     } finally {
       setUploadingAvatar(false);
