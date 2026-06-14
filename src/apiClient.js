@@ -1,10 +1,12 @@
 /**
  * apiClient.js - CLIENT HTTP CENTRALISÉ
  * ✅ Utilise authService comme source unique pour le token
+ * ✅ Gère les tokens CSRF automatiquement
  * ✅ Tous les appels API passent par ici
  */
 
 import { tokenManager, withAuthHeader } from './api/authService.js';
+import { getStoredCSRFToken, storeCSRFToken, fetchCSRFToken, updateCSRFTokenFromResponse } from './lib/csrfClient.js';
 import logger from './utils/logger.js';
 
 // ============================================================================
@@ -44,12 +46,22 @@ const buildUrl = (path) => {
   return `${API_BASE_URL}${cleanPath}`;
 };
 
-const buildHeaders = (customHeaders = {}) => {
+const buildHeaders = (customHeaders = {}, includeCSRF = false) => {
   const token = tokenManager.getToken();
-  return withAuthHeader({
+  const headers = withAuthHeader({
     'Accept': 'application/json',
     ...customHeaders
   }, token);
+
+  // Ajouter le token CSRF si demandé (pour mutations)
+  if (includeCSRF) {
+    const csrfToken = getStoredCSRFToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
+  return headers;
 };
 
 const handleHttpError = (response) => {
@@ -85,11 +97,12 @@ export const apiClient = {
 
   async post(path, body, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers });
+    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
     logger.api(`POST ${url}`, body);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
+      updateCSRFTokenFromResponse(response);
       return await parseResponse(response);
     } catch (error) {
       console.error(`❌ POST ${path}:`, error.message);
@@ -99,11 +112,12 @@ export const apiClient = {
 
   async patch(path, body, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers });
+    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
     logger.api(`PATCH ${url}`, body);
     try {
       const response = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body), credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
+      updateCSRFTokenFromResponse(response);
       return await parseResponse(response);
     } catch (error) {
       console.error(`❌ PATCH ${path}:`, error.message);
@@ -113,11 +127,12 @@ export const apiClient = {
 
   async delete(path, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders(options.headers);
+    const headers = buildHeaders(options.headers, true);
     logger.api(`DELETE ${url}`);
     try {
       const response = await fetch(url, { method: 'DELETE', headers, credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
+      updateCSRFTokenFromResponse(response);
       return await parseResponse(response);
     } catch (error) {
       console.error(`❌ DELETE ${path}:`, error.message);
