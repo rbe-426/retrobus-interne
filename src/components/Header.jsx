@@ -362,6 +362,16 @@ export default function Header() {
             >
               MyRBE
             </Text>
+            <Text 
+              fontSize="lg" 
+              color="white"
+              cursor="pointer" 
+              _hover={{ color: 'rbe.500' }} 
+              transition="color 0.2s"
+              onClick={() => navigate('/dashboard/team-rbe')}
+            >
+              Team RBE 🚌 ❤️
+            </Text>
           </HStack>
         )}
 

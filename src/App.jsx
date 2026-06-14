@@ -75,6 +75,9 @@ const EventModeManager = lazy(() => import("./pages/EventModeManager"));
 const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 const RGPD = lazy(() => import("./pages/RGPD"));
 const Changelogs = lazy(() => import("./pages/Changelogs"));
+const TeamManagement = lazy(() => import("./pages/TeamManagement"));
+const TeamRBE = lazy(() => import("./pages/TeamRBE"));
+const TeamRBE = lazy(() => import("./pages/TeamRBE"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -199,7 +202,9 @@ export default function App() {
         <Route path="/rgpd" element={<ProtectedRoute><RGPD /></ProtectedRoute>} />        
         {/* 📝 Historique */}
         <Route path="/changelog" element={<ProtectedRoute><Changelogs /></ProtectedRoute>} />        
-        {/* �📱 Version mobile */}
+        {/* 👥 Gestion de l'équipe */}
+        <Route path="/dashboard/team-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><TeamManagement /></RoleProtectedRoute>} />
+        <Route path="/dashboard/team-rbe" element={<ProtectedRoute><TeamRBE /></ProtectedRoute>} />{/* �📱 Version mobile */}
         <Route path="/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         <Route path="/dashboard/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         <Route path="/dashboard/mobile/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
