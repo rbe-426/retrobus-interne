@@ -29,69 +29,57 @@ function EtatBadge({ etat }) {
   return <Badge colorScheme={colorMap[etat] || "purple"}>{etat || "—"}</Badge>;
 }
 
-// Animation clignotante pour les alertes critiques
-const blinkAnimationRed = keyframes`
-  0%, 100% { 
-    opacity: 1; 
-    background-color: rgba(254, 215, 215, 1);
-  }
-  50% { 
-    opacity: 0.7; 
-    background-color: rgba(252, 165, 165, 1);
-  }
+// Animation clignotante pour l'icône uniquement (Trilogy)
+const blinkIconAnimation = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 `;
 
-const blinkAnimationOrange = keyframes`
-  0%, 100% { 
-    opacity: 1; 
-    background-color: rgba(254, 235, 200, 1);
-  }
-  50% { 
-    opacity: 0.7; 
-    background-color: rgba(251, 211, 141, 1);
-  }
-`;
+// Composant d'alerte critique Trilogy avec icône clignotante
+function CriticalAlert({ vehicle, issues, onDismiss, colorScheme = "red" }) {
+  if (!vehicle || !issues || issues.length === 0) return null;
 
-// Composant d'alerte critique avec animation
-function CriticalAlert({ title, items, onDismiss, colorScheme = "red" }) {
-  if (!items || items.length === 0) return null;
-
-  const animation = colorScheme === "red" 
-    ? `${blinkAnimationRed} 2s ease-in-out infinite`
-    : `${blinkAnimationOrange} 2s ease-in-out infinite`;
+  const iconColor = colorScheme === "red" ? "red.500" : "orange.500";
+  const bgColor = colorScheme === "red" ? "red.50" : "orange.50";
+  const borderColor = colorScheme === "red" ? "red.300" : "orange.300";
 
   return (
     <Alert
       status={colorScheme === "red" ? "error" : "warning"}
       variant="left-accent"
       borderRadius="md"
-      mb={4}
-      sx={{ animation }}
+      mb={2}
+      bg={bgColor}
+      borderColor={borderColor}
+      borderWidth="1px"
       position="relative"
     >
-      <AlertIcon boxSize={6} />
+      {/* Icône clignotante (Trilogy) */}
+      <AlertIcon 
+        boxSize={6} 
+        color={iconColor}
+        sx={{ animation: `${blinkIconAnimation} 2s ease-in-out infinite` }}
+      />
+      
       <Box flex="1">
         <AlertTitle fontSize="md" fontWeight="bold">
-          {title}
+          {vehicle}
         </AlertTitle>
-        <AlertDescription fontSize="sm" mt={2}>
-          <VStack align="start" spacing={1}>
-            {items.slice(0, 5).map((item, idx) => (
-              <Text key={idx}>• {item}</Text>
+        <AlertDescription fontSize="sm" mt={1}>
+          <VStack align="start" spacing={0.5}>
+            {issues.map((issue, idx) => (
+              <Text key={idx} fontSize="sm">• {issue}</Text>
             ))}
-            {items.length > 5 && (
-              <Text fontStyle="italic" color="gray.600">
-                ... et {items.length - 5} autre(s)
-              </Text>
-            )}
           </VStack>
         </AlertDescription>
       </Box>
+      
       {onDismiss && (
         <CloseButton
           position="absolute"
           right={2}
           top={2}
+          size="sm"
           onClick={onDismiss}
         />
       )}
@@ -587,11 +575,10 @@ export default function RetroBus() {
   const [editTechGasoil, setEditTechGasoil] = useState(0);
   const [editTechSaving, setEditTechSaving] = useState(false);
 
-  // Alertes critiques
+  // Alertes critiques - Une alerte par véhicule avec tous ses problèmes
   const [criticalAlerts, setCriticalAlerts] = useState({
-    ctExpired: [],
-    docsMissing: [],
-    dismissed: false
+    vehicleAlerts: [], // [{parc, ctIssues: [], docIssues: []}]
+    dismissed: []
   });
 
   const reloadVehicles = useCallback(async () => {
@@ -624,17 +611,20 @@ export default function RetroBus() {
   }, [toast]);
 
   // Charger les alertes critiques (CT périmés, documents manquants) - OPTIMISÉ
+  // Une alerte par véhicule avec tous ses problèmes regroupés
   const loadCriticalAlerts = useCallback(async (vehicleList) => {
     if (!vehicleList || vehicleList.length === 0) return;
 
-    const ctExpired = [];
-    const docsMissing = [];
+    const vehicleAlerts = [];
 
     try {
       // Limiter à 10 véhicules en parallèle pour ne pas surcharger
       const vehicleCalls = vehicleList.map((v) => async () => {
         const parc = v.parc || v.id || v.slug;
         if (!parc) return null;
+
+        const ctIssues = [];
+        const docIssues = [];
 
         try {
           // Charger les données admin en parallèle avec cache
@@ -653,40 +643,62 @@ export default function RetroBus() {
 
           // Vérifier CT périmé
           if (ctRes?.latestCT) {
-            const ctDate = new Date(ctRes.latestCT.ctDate);
             const now = new Date();
-            const diffMonths = (now - ctDate) / (1000 * 60 * 60 * 24 * 30);
-            
-            if (diffMonths > 24 || ctRes.latestCT.ctStatus === 'failed') {
-              ctExpired.push(`${parc} - CT du ${ctDate.toLocaleDateString('fr-FR')}`);
+            let ctExpired = false;
+            let expirationDate = null;
+
+            // 1. Vérifier si nextCtDate existe et est dépassé
+            if (ctRes.latestCT.nextCtDate) {
+              expirationDate = new Date(ctRes.latestCT.nextCtDate);
+              ctExpired = now > expirationDate;
+              
+              console.log(`🔍 ${parc} - nextCtDate: ${expirationDate.toLocaleDateString('fr-FR')}, expired: ${ctExpired}`);
+            } else {
+              // 2. Sinon, calculer 2 ans après le dernier CT (réglementation française)
+              const ctDate = new Date(ctRes.latestCT.ctDate);
+              expirationDate = new Date(ctDate);
+              expirationDate.setFullYear(expirationDate.getFullYear() + 2);
+              ctExpired = now > expirationDate;
+              
+              console.log(`🔍 ${parc} - ctDate: ${ctDate.toLocaleDateString('fr-FR')}, expiration calculée: ${expirationDate.toLocaleDateString('fr-FR')}, expired: ${ctExpired}`);
+            }
+
+            // Ajouter l'alerte si périmé
+            if (ctExpired) {
+              ctIssues.push(`Contrôle Technique périmé depuis le ${expirationDate.toLocaleDateString('fr-FR')}`);
+            } else if (ctRes.latestCT.ctStatus === 'failed') {
+              ctIssues.push(`Contrôle Technique non conforme`);
             }
           } else {
-            ctExpired.push(`${parc} - Aucun contrôle technique`);
+            ctIssues.push(`Aucun Contrôle Technique enregistré`);
           }
 
           // Vérifier documents manquants
-          const missingDocs = [];
-          if (!cgRes?.newCGPath) missingDocs.push('CG');
-          if (!assRes?.isActive) missingDocs.push('Assurance');
-
-          if (missingDocs.length > 0) {
-            docsMissing.push(`${parc} - ${missingDocs.join(', ')} ABSENT(E)`);
+          if (!cgRes?.newCGPath) {
+            docIssues.push('Carte Grise absente');
+          }
+          if (!assRes?.isActive) {
+            docIssues.push('Assurance non active ou manquante');
           }
 
-          return { parc, ctExpired: ctExpired.length, docsMissing: docsMissing.length };
+          // Ajouter l'alerte seulement si problèmes détectés
+          if (ctIssues.length > 0 || docIssues.length > 0) {
+            vehicleAlerts.push({ parc, ctIssues, docIssues });
+          }
+
         } catch (e) {
           console.warn(`⚠️ Error checking alerts for ${parc}:`, e.message);
-          return null;
         }
+        
+        return null;
       });
 
       // Exécuter en batch avec limite de 10 requêtes simultanées
       await batchAPICall(vehicleCalls, 10);
 
       setCriticalAlerts({
-        ctExpired,
-        docsMissing,
-        dismissed: false
+        vehicleAlerts,
+        dismissed: []
       });
 
     } catch (error) {
@@ -911,27 +923,32 @@ export default function RetroBus() {
         </HStack>
       ) : (
         <>
-          {/* Alertes critiques */}
-          {!criticalAlerts.dismissed && (
-            <>
-              {criticalAlerts.ctExpired.length > 0 && (
-                <CriticalAlert
-                  title={`⚠️ ${criticalAlerts.ctExpired.length} véhicule(s) ont un contrôle technique périmé`}
-                  items={criticalAlerts.ctExpired}
-                  colorScheme="red"
-                  onDismiss={() => setCriticalAlerts(prev => ({ ...prev, dismissed: true }))}
-                />
-              )}
-              
-              {criticalAlerts.docsMissing.length > 0 && (
-                <CriticalAlert
-                  title={`📄 ${criticalAlerts.docsMissing.length} véhicule(s) requiert une attention administrative`}
-                  items={criticalAlerts.docsMissing}
-                  colorScheme="orange"
-                  onDismiss={() => setCriticalAlerts(prev => ({ ...prev, docsMissing: [] }))}
-                />
-              )}
-            </>
+          {/* Alertes critiques - Une par véhicule */}
+          {criticalAlerts.vehicleAlerts && criticalAlerts.vehicleAlerts.length > 0 && (
+            <VStack align="stretch" spacing={2}>
+              {criticalAlerts.vehicleAlerts
+                .filter(alert => !criticalAlerts.dismissed.includes(alert.parc))
+                .map((alert) => {
+                  const allIssues = [...alert.ctIssues, ...alert.docIssues];
+                  const hasCriticalCT = alert.ctIssues.length > 0;
+                  const colorScheme = hasCriticalCT ? "red" : "orange";
+                  
+                  return (
+                    <CriticalAlert
+                      key={alert.parc}
+                      vehicle={alert.parc}
+                      issues={allIssues}
+                      colorScheme={colorScheme}
+                      onDismiss={() => {
+                        setCriticalAlerts(prev => ({
+                          ...prev,
+                          dismissed: [...prev.dismissed, alert.parc]
+                        }));
+                      }}
+                    />
+                  );
+                })}
+            </VStack>
           )}
 
           <Alert status="info">
@@ -1193,7 +1210,7 @@ export default function RetroBus() {
         apiCache.clear();
         
         reloadVehicles();
-        setCriticalAlerts({ ctExpired: [], docsMissing: [], dismissed: false });
+        setCriticalAlerts({ vehicleAlerts: [], dismissed: [] });
       }}
       isLoading={loading}
     >
