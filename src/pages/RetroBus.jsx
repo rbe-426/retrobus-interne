@@ -815,93 +815,192 @@ export default function RetroBus() {
             return null;
           }
           const status = statusByParc[parc] || { active: false };
-          let carac = [];
-          let gasoil = 0;
+          
+          // Parser les caractéristiques depuis l'API
+          let caracteristiques = [];
           try {
-            // ✅ Lire d'abord depuis le nouveau champ fuel
-            if (v.fuel !== undefined && v.fuel !== null) {
-              gasoil = Number(v.fuel) || 0;
-            } else if (v.caracteristiques) {
-              // Fallback : chercher dans les anciennes caracteristiques
-              if (typeof v.caracteristiques === 'string') {
-                carac = JSON.parse(v.caracteristiques);
-              } else if (Array.isArray(v.caracteristiques)) {
-                carac = v.caracteristiques;
-              }
-              const found = carac.find(c => c.label === 'Niveau gasoil');
-              if (found) gasoil = Number(found.value) || 0;
+            if (v.caracteristiques) {
+              caracteristiques = typeof v.caracteristiques === 'string' 
+                ? JSON.parse(v.caracteristiques) 
+                : v.caracteristiques;
             }
           } catch (e) {
-            console.warn('Erreur parsing caractéristiques:', e);
+            console.warn(`Erreur parsing caracteristiques for ${parc}:`, e);
           }
-          const hasCarac = Array.isArray(carac) && carac.length > 0;
+
+          // Extraire infos techniques clés depuis caracteristiques
+          const findCarac = (labels) => {
+            if (!Array.isArray(caracteristiques)) return null;
+            for (const label of labels) {
+              const found = caracteristiques.find(c => 
+                c.label && c.label.toLowerCase().includes(label.toLowerCase())
+              );
+              if (found?.value) return found.value;
+            }
+            return null;
+          };
+
+          // Fallback: si pas dans caracteristiques, utiliser les champs directs du véhicule
+          const constructeur = findCarac(['Constructeur']) || v.marque;
+          const moteur = findCarac(['Moteur', 'Motorisation']);
+          const energie = findCarac(['Énergie', 'Energie', 'Carburant']) || v.energie;
+          const placesAssises = findCarac(['Places assises', 'Places']);
+          const modeleInfo = findCarac(['Modèle']) || v.modele;
+          const immatInfo = findCarac(['Immatriculation', 'Immat']) || v.immat;
+
+          // Construire un objet d'infos techniques même si pas de caracteristiques formelles
+          const infos = [];
+          if (constructeur) infos.push({ label: 'Constructeur', value: constructeur });
+          if (modeleInfo) infos.push({ label: 'Modèle', value: modeleInfo });
+          if (energie) infos.push({ label: 'Énergie', value: energie });
+          if (moteur) infos.push({ label: 'Moteur', value: moteur });
+          if (placesAssises) infos.push({ label: 'Places', value: placesAssises });
+          if (immatInfo) infos.push({ label: 'Immatriculation', value: immatInfo });
+          
+          const hasInfosTech = infos.length > 0 || (Array.isArray(caracteristiques) && caracteristiques.length > 0);
+          const totalInfos = Math.max(infos.length, caracteristiques.length || 0);
+          
+          // Calcul gasoil (priorité: champ fuel > caracteristiques)
+          let gasoil = 0;
+          try {
+            if (v.fuel !== undefined && v.fuel !== null) {
+              gasoil = Number(v.fuel) || 0;
+            } else {
+              const gasoilCarac = findCarac(['Niveau gasoil', 'Gasoil', 'Carburant']);
+              if (gasoilCarac) gasoil = Number(gasoilCarac) || 0;
+            }
+          } catch (e) {
+            console.warn('Erreur parsing fuel:', e);
+          }
+
+          // Couleur jauge gasoil
+          const fuelColor = gasoil > 50 ? 'green' : gasoil > 25 ? 'orange' : 'red';
+          const fuelIcon = gasoil > 50 ? '🟢' : gasoil > 25 ? '🟡' : '🔴';
+
+          // Trouver les alertes pour ce véhicule
+          const vehicleAlert = criticalAlerts.vehicleAlerts?.find(alert => alert.parc === parc);
+          const hasAlerts = vehicleAlert && (vehicleAlert.ctIssues.length > 0 || vehicleAlert.docIssues.length > 0);
+
           return (
-            <Card key={parc} variant="outline" _hover={{ shadow: 'md' }}>
+            <Card 
+              key={parc} 
+              variant="outline" 
+              _hover={{ shadow: 'md' }}
+              borderColor={hasAlerts ? 'red.300' : 'gray.200'}
+              borderWidth={hasAlerts ? '2px' : '1px'}
+            >
               <CardBody>
                 <VStack align="start" spacing={3}>
+                  {/* En-tête */}
                   <HStack justify="space-between" w="full">
                     <VStack align="start" spacing={0}>
                       <Heading size="md">{parc}</Heading>
-                      <Text fontSize="sm" color="gray.600">{[v.marque, v.modele].filter(Boolean).join(' ') || v.titre || 'Véhicule'}</Text>
+                      <Text fontSize="xs" color="gray.600" noOfLines={1}>
+                        {[v.marque, v.modele].filter(Boolean).join(' ') || v.titre || 'Véhicule'}
+                      </Text>
                     </VStack>
                     <EtatBadge etat={v.etat || v.statut} />
                   </HStack>
-                  {hasCarac ? (
-                    <HStack w="full">
-                      <Icon as={FiInfo} color="green.500" />
-                      <Text fontSize="sm" color="green.600">{carac.length} info(s) technique(s)</Text>
-                    </HStack>
-                  ) : (
-                    <HStack w="full">
-                      <Icon as={FiAlertTriangle} color="orange.500" />
-                      <Text fontSize="sm" color="orange.600">Aucune info technique</Text>
-                    </HStack>
+
+                  {/* Alertes critiques intégrées */}
+                  {hasAlerts && !criticalAlerts.dismissed.includes(parc) && (
+                    <Alert status="error" p={2} borderRadius="md" fontSize="xs">
+                      <AlertIcon boxSize={4} />
+                      <VStack align="start" spacing={0} flex={1}>
+                        {vehicleAlert.ctIssues.map((issue, idx) => (
+                          <Text key={idx}>• {issue}</Text>
+                        ))}
+                        {vehicleAlert.docIssues.map((issue, idx) => (
+                          <Text key={idx}>• {issue}</Text>
+                        ))}
+                      </VStack>
+                    </Alert>
                   )}
-                  <HStack w="full" spacing={2}>
-                    <Icon as={FiSliders} color="blue.500" />
-                    <Text fontSize="sm" color="blue.600">Gasoil: {gasoil}%</Text>
-                    <Button size="xs" variant="outline" onClick={() => {
-                      setEditTechVehicle(v);
-                      setEditTechCaracs(carac);
-                      setEditTechGasoil(gasoil);
-                      setEditTechOpen(true);
-                    }}>Infos techniques</Button>
-                  </HStack>
-                  <HStack spacing={2} flexWrap="wrap">
-                    {status.active ? (
-                      <Tag colorScheme="purple" size="sm">
-                        <TagLeftIcon as={FiClock} />
-                        <TagLabel>Pointage en cours</TagLabel>
-                      </Tag>
-                    ) : (
-                      <Tag size="sm" colorScheme="gray" variant="subtle">
-                        <TagLabel>Disponible</TagLabel>
-                      </Tag>
-                    )}
-                    {(v.etat === 'en_panne' || v.statut === 'en_panne') && (
-                      <Tag colorScheme="red" size="sm">
-                        <TagLeftIcon as={FiAlertTriangle} />
-                        <TagLabel>Panne</TagLabel>
-                      </Tag>
-                    )}
-                  </HStack>
+
+                  {/* Infos techniques clés - avec fallback sur champs de base */}
+                  {hasInfosTech ? (
+                    <Box w="full" bg="blue.50" p={2} borderRadius="md">
+                      <VStack align="start" spacing={1} fontSize="xs">
+                        {infos.slice(0, 4).map((info, idx) => (
+                          <HStack key={idx} spacing={1}>
+                            <Text fontWeight="600">{info.label}:</Text>
+                            <Text noOfLines={1}>{info.value}</Text>
+                          </HStack>
+                        ))}
+                        {totalInfos > 0 && (
+                          <Text fontSize="xs" color="blue.700" fontWeight="500">
+                            {totalInfos} info(s) disponible(s)
+                          </Text>
+                        )}
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Box w="full" bg="orange.50" p={2} borderRadius="md">
+                      <HStack>
+                        <Icon as={FiInfo} color="orange.500" />
+                        <Text fontSize="xs" color="orange.700">
+                          Infos techniques à compléter
+                        </Text>
+                      </HStack>
+                    </Box>
+                  )}
+
+                  {/* Jauge gasoil visuelle */}
+                  <Box w="full">
+                    <HStack justify="space-between" mb={1}>
+                      <Text fontSize="xs" fontWeight="600" color="gray.600">Carburant</Text>
+                      <Text fontSize="xs" fontWeight="bold" color={`${fuelColor}.600`}>
+                        {fuelIcon} {gasoil}%
+                      </Text>
+                    </HStack>
+                    <Box w="full" h="6px" bg="gray.200" borderRadius="full" overflow="hidden">
+                      <Box 
+                        h="full" 
+                        w={`${gasoil}%`} 
+                        bg={`${fuelColor}.400`}
+                        transition="all 0.3s"
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Statut pointage */}
+                  {status.active ? (
+                    <Tag colorScheme="purple" size="sm" w="full" justifyContent="center">
+                      <TagLeftIcon as={FiClock} />
+                      <TagLabel>Pointage en cours</TagLabel>
+                    </Tag>
+                  ) : (v.etat === 'en_panne' || v.statut === 'en_panne') ? (
+                    <Tag colorScheme="red" size="sm" w="full" justifyContent="center">
+                      <TagLeftIcon as={FiAlertTriangle} />
+                      <TagLabel>En panne</TagLabel>
+                    </Tag>
+                  ) : null}
+
+                  {/* Actions */}
                   <Divider />
                   <HStack w="full" spacing={2}>
                     <Button 
                       size="sm" 
-                      leftIcon={<FiEdit />}
+                      leftIcon={<FiTool />}
                       onClick={() => navigate(`/dashboard/vehicules/${encodeURIComponent(parc)}`)}
                       flex={1}
+                      colorScheme="blue"
+                      variant="outline"
                     >
-                      Éditer
+                      Gérer
                     </Button>
                     <Button 
                       size="sm" 
-                      variant="outline" 
-                      onClick={() => navigate(`/mobile/v/${encodeURIComponent(parc)}`)}
-                      flex={1}
+                      leftIcon={<FiSliders />}
+                      variant="ghost"
+                      onClick={() => {
+                        setEditTechVehicle(v);
+                        setEditTechCaracs(caracteristiques);
+                        setEditTechGasoil(gasoil);
+                        setEditTechOpen(true);
+                      }}
                     >
-                      Pointage
+                      Modifier
                     </Button>
                   </HStack>
                 </VStack>
@@ -911,7 +1010,7 @@ export default function RetroBus() {
         })}
       </SimpleGrid>
     );
-  }, [vehicles, navigate, statusByParc]);
+  }, [vehicles, navigate, statusByParc, criticalAlerts]);
 
   // Render functions for workspace sections
   const renderVehiclesSection = () => (
@@ -923,43 +1022,21 @@ export default function RetroBus() {
         </HStack>
       ) : (
         <>
-          {/* Alertes critiques - Une par véhicule */}
+          {/* Résumé des alertes globales */}
           {criticalAlerts.vehicleAlerts && criticalAlerts.vehicleAlerts.length > 0 && (
-            <VStack align="stretch" spacing={2}>
-              {criticalAlerts.vehicleAlerts
-                .filter(alert => !criticalAlerts.dismissed.includes(alert.parc))
-                .map((alert) => {
-                  const allIssues = [...alert.ctIssues, ...alert.docIssues];
-                  const hasCriticalCT = alert.ctIssues.length > 0;
-                  const colorScheme = hasCriticalCT ? "red" : "orange";
-                  
-                  return (
-                    <CriticalAlert
-                      key={alert.parc}
-                      vehicle={alert.parc}
-                      issues={allIssues}
-                      colorScheme={colorScheme}
-                      onDismiss={() => {
-                        setCriticalAlerts(prev => ({
-                          ...prev,
-                          dismissed: [...prev.dismissed, alert.parc]
-                        }));
-                      }}
-                    />
-                  );
-                })}
-            </VStack>
+            <Alert status="warning" borderRadius="md">
+              <AlertIcon />
+              <VStack align="start" spacing={0}>
+                <Text fontWeight="600">
+                  ⚠️ {criticalAlerts.vehicleAlerts.length} véhicule(s) nécessite(nt) une attention
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Les alertes sont affichées sur chaque carte concernée ci-dessous
+                </Text>
+              </VStack>
+            </Alert>
           )}
 
-          <Alert status="info">
-            <AlertIcon />
-            <VStack align="start" spacing={1}>
-              <Text fontWeight="600">Infos techniques</Text>
-              <Text fontSize="sm">
-                Utilisez le bouton "Infos techniques" de chaque carte pour mettre à jour le niveau de gasoil et les caractéristiques.
-              </Text>
-            </VStack>
-          </Alert>
           {vehicleCards || <Text mt={2}>Aucun véhicule pour le moment.</Text>}
         </>
       )}
@@ -1163,9 +1240,9 @@ export default function RetroBus() {
   const sections = [
     {
       id: 'vehicles',
-      label: 'Parc véhicules',
+      label: 'Vue d\'ensemble',
       icon: FiTool,
-      description: "Vue d'ensemble",
+      description: "Parc & Alertes",
       render: renderVehiclesSection
     },
     {
