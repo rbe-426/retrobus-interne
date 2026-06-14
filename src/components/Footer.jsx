@@ -16,6 +16,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { FiMail, FiPhone, FiMapPin, FiExternalLink } from 'react-icons/fi';
 import logo from '../assets/rbe_footer.jpg';
+import packageJson from '../../package.json';
 
 export default function Footer() {
   const bgColor = useColorModeValue('gray.900', 'gray.950');
@@ -77,7 +78,7 @@ export default function Footer() {
             objectFit="contain"
           />
           <Text fontSize="xs" color="gray.500">
-            v2.2.0 • Build {new Date().toISOString().split('T')[0]}
+            v{packageJson.version} • Build {new Date().toISOString().split('T')[0]}
           </Text>
         </VStack>
       )}
@@ -94,7 +95,7 @@ export default function Footer() {
               objectFit="contain"
             />
             <Text fontSize="xs" color="gray.500">
-              v2.2.0 • Build {new Date().toISOString().split('T')[0]}
+              v{packageJson.version} • Build {new Date().toISOString().split('T')[0]}
             </Text>
           </VStack>
         )}

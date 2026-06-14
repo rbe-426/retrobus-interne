@@ -40,7 +40,6 @@ export default defineConfig(({ mode }) => {
           '/documents': { ...common },
           '/members': { ...common },
           '/site-users': { ...common },
-          '/changelog': { ...common },
           '/flashes': { ...common },
           '/stocks': { ...common },
           '/public': { ...common },

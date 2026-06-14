@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
 import logoUrbex from '../assets/URBEX.svg';
+import packageJson from '../../package.json';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -185,20 +186,19 @@ export default function Login() {
         </Button>
       </VStack>
 
-      {/* Footer */}
+      {/* Footer pleine largeur */}
       <Box 
         position="absolute" 
-        bottom={8} 
-        left={8} 
+        bottom={0} 
+        left={0}
+        right={0}
+        w="full"
         zIndex={2}
         bg="rbe.500"
-        px={6}
-        py={2}
-        borderRadius="full"
-        border="2px solid"
-        borderColor="rbe.600"
         backdropFilter="blur(10px)"
-        boxShadow="0 4px 12px rgba(211, 12, 76, 0.3)"
+        borderTop="2px solid"
+        borderColor="rbe.600"
+        boxShadow="0 -4px 12px rgba(0, 0, 0, 0.2)"
       >
         <Text 
           fontSize="xs" 
@@ -206,8 +206,9 @@ export default function Login() {
           textAlign="center" 
           fontWeight="600"
           letterSpacing="0.5px"
+          py={3}
         >
-          Version 1.0.0 • © {new Date().getFullYear()} RétroBus Essonne
+          Version {packageJson.version} • © {new Date().getFullYear()} RétroBus Essonne
         </Text>
       </Box>
     </Flex>
