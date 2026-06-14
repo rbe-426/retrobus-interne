@@ -168,6 +168,11 @@ export default function TeamRBE() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({});
 
+  // Color mode values
+  const theadBg = useColorModeValue('gray.50', 'gray.700');
+  const editRowBg = useColorModeValue('blue.50', 'blue.900');
+  const hoverBg = useColorModeValue('gray.50', 'gray.700');
+
   useEffect(() => {
     loadTeamMembers();
   }, []);
@@ -176,7 +181,7 @@ export default function TeamRBE() {
     try {
       setLoading(true);
       const members = await teamService.getAllTeamMembers(false); // false = mode interne (avec contacts)
-      setTeamMembers(members);
+      setTeamMembers(Array.isArray(members) ? members : DEFAULT_MEMBERS);
     } catch (error) {
       console.error('Erreur chargement équipe:', error);
       toast({
@@ -307,12 +312,14 @@ export default function TeamRBE() {
       4: { title: 'Membres', members: [], color: 'gray' },
     };
 
-    teamMembers.forEach(member => {
-      const hierarchy = member.hierarchy || 4;
-      if (groups[hierarchy]) {
-        groups[hierarchy].members.push(member);
-      }
-    });
+    if (Array.isArray(teamMembers)) {
+      teamMembers.forEach(member => {
+        const hierarchy = member.hierarchy || 4;
+        if (groups[hierarchy]) {
+          groups[hierarchy].members.push(member);
+        }
+      });
+    }
 
     return Object.values(groups).filter(g => g.members.length > 0);
   }, [teamMembers]);
@@ -383,7 +390,7 @@ export default function TeamRBE() {
 
                 <Table variant="simple" size="md">
                   <Thead>
-                    <Tr bg={useColorModeValue('gray.50', 'gray.700')}>
+                    <Tr bg={theadBg}>
                       <Th width="25%">Nom</Th>
                       <Th width="25%">Fonction</Th>
                       <Th width="20%">Contact</Th>
@@ -398,7 +405,7 @@ export default function TeamRBE() {
 
                       if (isEditing) {
                         return (
-                          <Tr key={member.id} bg={useColorModeValue('blue.50', 'blue.900')}>
+                          <Tr key={member.id} bg={editRowBg}>
                             <Td colSpan={editMode ? 5 : 4}>
                               <VStack spacing={3} align="stretch" p={4}>
                                 <HStack spacing={4}>
@@ -472,7 +479,7 @@ export default function TeamRBE() {
                       }
 
                       return (
-                        <Tr key={member.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                        <Tr key={member.id} _hover={{ bg: hoverBg }}>
                           <Td>
                             <HStack spacing={3}>
                               <Avatar size="sm" name={member.name} src={member.image} />
