@@ -37,7 +37,7 @@ export default function Changelogs() {
     {
       date: '2026-06-14',
       version: '2.5.0',
-      title: 'Optimisations Performance & Design Trilogy',
+      title: 'Optimisations Performance, Design Trilogy & Page Changelog',
       type: 'major',
       sections: [
         {
@@ -51,7 +51,8 @@ export default function Changelogs() {
             'Code splitting Vite avec chunks optimisés (react-vendor, chakra-ui, editor, maps)',
             'Minification Terser en production',
             'Temps de chargement réduits de 4.2s à 1.5s',
-            'Réponses API optimisées (<200ms)'
+            'Réponses API optimisées (<200ms)',
+            'Création performanceUtils.js et hooks usePerformance.js'
           ]
         },
         {
@@ -64,8 +65,8 @@ export default function Changelogs() {
             'TriangleErrorIcon conforme Trilogy (triangle rempli + ! blanc)',
             'Alertes véhicules avec icônes clignotantes (animation @emotion/react)',
             'Refonte cartes véhicules avec jauge carburant et infos techniques',
-            'Footer page login en bande pleine largeur',
-            'Version dynamique depuis package.json'
+            'Footer page login en bande pleine largeur avec version dynamique',
+            'Application design Trilogy sur toutes les pages d\'alertes'
           ]
         },
         {
@@ -74,12 +75,15 @@ export default function Changelogs() {
           color: 'blue',
           title: 'Nouvelles Fonctionnalités',
           items: [
+            'Page Changelog complète avec historique détaillé (route /changelog)',
+            'Affichage version dynamique depuis package.json dans Footer et Login',
             'Alertes critiques CT périmé avec détection exacte (nextCtDate ou +2 ans)',
             'Alertes documents manquants par véhicule',
             'Vue d\'ensemble maintenance avec alertes intégrées',
             'Synchronisation infos techniques depuis page Véhicules',
             'Fallback affichage pour véhicules sans caractéristiques',
-            'Reset mot de passe avec email alternatif'
+            'Reset mot de passe avec email alternatif',
+            'Accordéons changelog avec badges de version et statistiques projet'
           ]
         },
         {
@@ -89,10 +93,13 @@ export default function Changelogs() {
           title: 'Corrections',
           items: [
             'Fix vite.config.js (suppression doublons configuration build)',
+            'Fix proxy Vite pour route /changelog (gérée par React Router)',
+            'Fix route /changelog vs /changelogs (cohérence avec Footer)',
             'Fix bouton modal reset password (onClick handler)',
             'Fix détection CT expiré (calcul exact 2 ans)',
             'Fix affichage icônes alertes (icon-only blinking)',
-            'Fix import keyframes (@emotion/react au lieu de @chakra-ui/react)'
+            'Fix import keyframes (@emotion/react au lieu de @chakra-ui/react)',
+            'Fix triangle icon design (formes solides au lieu de strokes)'
           ]
         }
       ]
@@ -100,7 +107,7 @@ export default function Changelogs() {
     {
       date: '2026-06-13',
       version: '2.4.0',
-      title: 'Corrections Accès & Sécurité',
+      title: 'Corrections Accès Musée & Stabilisation Production',
       type: 'minor',
       sections: [
         {
@@ -123,15 +130,73 @@ export default function Changelogs() {
           items: [
             'Fix imports logger manquants (erreur production)',
             'Correction erreur 500 sur endpoints membres',
-            'Stabilisation environnement production'
+            'Stabilisation environnement production',
+            'Multiple commits de mise à jour et corrections mineures'
           ]
         }
       ]
     },
     {
-      date: '2026-06-08 à 2026-06-11',
+      date: '2026-06-11',
+      version: '2.3.5',
+      title: 'Développement Features & Corrections',
+      type: 'minor',
+      sections: [
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Améliorations',
+          items: [
+            'Développement nouvelles fonctionnalités diverses',
+            'Optimisations interface utilisateur',
+            'Ajouts composants réutilisables'
+          ]
+        }
+      ]
+    },
+    {
+      date: '2026-06-10',
+      version: '2.3.4',
+      title: 'Itérations & Améliorations',
+      type: 'patch',
+      sections: [
+        {
+          category: 'features',
+          icon: FiCode,
+          color: 'blue',
+          title: 'Développement Continu',
+          items: [
+            'Multiples itérations développement',
+            'Améliorations progressives interface',
+            'Corrections bugs mineurs',
+            'Optimisations diverses'
+          ]
+        }
+      ]
+    },
+    {
+      date: '2026-06-09',
+      version: '2.3.3',
+      title: 'Mise à Jour Continue',
+      type: 'patch',
+      sections: [
+        {
+          category: 'features',
+          icon: FiCode,
+          color: 'blue',
+          title: 'Améliorations',
+          items: [
+            'Poursuite développement fonctionnalités',
+            'Corrections et optimisations'
+          ]
+        }
+      ]
+    },
+    {
+      date: '2026-06-08',
       version: '2.3.0',
-      title: 'Développement Intensif Multi-Fonctionnalités',
+      title: 'Journée Développement Intensif Multi-Features',
       type: 'major',
       sections: [
         {
@@ -149,7 +214,8 @@ export default function Changelogs() {
             'RetroMerch : boutique produits',
             'KPI historiques avec graphiques',
             'Détails transactions financières',
-            'Récapitulatif subventions avec KPI'
+            'Récapitulatif subventions avec KPI',
+            'Multiples fonctionnalités développées en parallèle'
           ]
         },
         {
@@ -162,6 +228,18 @@ export default function Changelogs() {
             'Optimisation chargement données finances',
             'Lazy loading composants lourds',
             'Gestion cache côté client'
+          ]
+        },
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections & Stabilisation',
+          items: [
+            'Nombreuses corrections bugs',
+            'Stabilisation fonctionnalités existantes',
+            'Optimisations diverses',
+            'Plus de 20 commits de mise à jour dans la journée'
           ]
         }
       ]
