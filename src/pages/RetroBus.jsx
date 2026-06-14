@@ -15,6 +15,7 @@ import { cachedAPICall, batchAPICall, debounce } from "../lib/performanceUtils";
 import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
 import VehicleAdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
+import { TriangleErrorIcon } from '../components/icons';
 
 function EtatBadge({ etat }) {
   const colorMap = {
@@ -45,7 +46,6 @@ function CriticalAlert({ vehicle, issues, onDismiss, colorScheme = "red" }) {
 
   return (
     <Alert
-      status={colorScheme === "red" ? "error" : "warning"}
       variant="left-accent"
       borderRadius="md"
       mb={2}
@@ -54,11 +54,13 @@ function CriticalAlert({ vehicle, issues, onDismiss, colorScheme = "red" }) {
       borderWidth="1px"
       position="relative"
     >
-      {/* Icône clignotante (Trilogy) */}
-      <AlertIcon 
+      {/* Icône triangulaire rouge remplie clignotante (Trilogy) */}
+      <TriangleErrorIcon
         boxSize={6} 
         color={iconColor}
         sx={{ animation: `${blinkIconAnimation} 2s ease-in-out infinite` }}
+        mr={3}
+        flexShrink={0}
       />
       
       <Box flex="1">
@@ -904,8 +906,8 @@ export default function RetroBus() {
 
                   {/* Alertes critiques intégrées */}
                   {hasAlerts && !criticalAlerts.dismissed.includes(parc) && (
-                    <Alert status="error" p={2} borderRadius="md" fontSize="xs">
-                      <AlertIcon boxSize={4} />
+                    <Alert p={2} borderRadius="md" fontSize="xs" bg="red.50" borderColor="red.300" borderWidth="1px">
+                      <TriangleErrorIcon boxSize={4} color="red.500" mr={2} flexShrink={0} />
                       <VStack align="start" spacing={0} flex={1}>
                         {vehicleAlert.ctIssues.map((issue, idx) => (
                           <Text key={idx}>• {issue}</Text>

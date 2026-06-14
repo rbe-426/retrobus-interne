@@ -44,6 +44,7 @@ import {
 } from 'react-icons/fi';
 import SidebarLayout from '../components/SidebarLayout';
 import { useSidebar } from '../context/SidebarContext';
+import { TriangleErrorIcon } from '../components/icons';
 
 export default function TrilogyRBE() {
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -568,7 +569,7 @@ export default function TrilogyRBE() {
               </VStack>
             </Alert>
             <Alert status="error" borderRadius="lg">
-              <AlertIcon />
+              <TriangleErrorIcon color="red.500" boxSize={5} />
               <VStack align="start" spacing={0} ml={2}>
                 <Text fontWeight="bold">Erreur</Text>
                 <Text fontSize="sm">Bloquant ou échec d'action. Durée usuelle: 5000-7000ms.</Text>
