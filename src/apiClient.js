@@ -46,7 +46,7 @@ const buildUrl = (path) => {
   return `${API_BASE_URL}${cleanPath}`;
 };
 
-const buildHeaders = (customHeaders = {}, includeCSRF = false) => {
+const buildHeaders = async (customHeaders = {}, includeCSRF = false) => {
   const token = tokenManager.getToken();
   const headers = withAuthHeader({
     'Accept': 'application/json',
@@ -55,7 +55,19 @@ const buildHeaders = (customHeaders = {}, includeCSRF = false) => {
 
   // Ajouter le token CSRF si demandé (pour mutations)
   if (includeCSRF) {
-    const csrfToken = getStoredCSRFToken();
+    let csrfToken = getStoredCSRFToken();
+    
+    // Si pas de token CSRF, essayer d'en récupérer un
+    if (!csrfToken) {
+      console.warn('⚠️ CSRF token manquant, récupération automatique...');
+      try {
+        csrfToken = await fetchCSRFToken(API_BASE_URL);
+        console.log('✅ CSRF token récupéré automatiquement');
+      } catch (error) {
+        console.error('❌ Impossible de récupérer le token CSRF:', error);
+      }
+    }
+    
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken;
     }
@@ -82,8 +94,15 @@ const handleHttpError = (response) => {
 
 export const apiClient = {
   async get(path, options = {}) {
-    const url = buildUrl(path);
-    const headers = buildHeaders(options.headers);
+    let url = buildUrl(path);
+    
+    // Gérer les paramètres query
+    if (options.params) {
+      const searchParams = new URLSearchParams(options.params);
+      url = `${url}?${searchParams.toString()}`;
+    }
+    
+    const headers = await buildHeaders(options.headers);
     logger.api(`GET ${url}`);
     try {
       const response = await fetch(url, { method: 'GET', headers, credentials: 'include', ...options });
@@ -97,7 +116,7 @@ export const apiClient = {
 
   async post(path, body, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
+    const headers = await buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
     logger.api(`POST ${url}`, body);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'include', ...options });
@@ -112,7 +131,7 @@ export const apiClient = {
 
   async patch(path, body, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
+    const headers = await buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
     logger.api(`PATCH ${url}`, body);
     try {
       const response = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body), credentials: 'include', ...options });
@@ -125,9 +144,24 @@ export const apiClient = {
     }
   },
 
+  async put(path, body, options = {}) {
+    const url = buildUrl(path);
+    const headers = await buildHeaders({ 'Content-Type': 'application/json', ...options.headers }, true);
+    logger.api(`PUT ${url}`, body);
+    try {
+      const response = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body), credentials: 'include', ...options });
+      if (!response.ok) return handleHttpError(response);
+      updateCSRFTokenFromResponse(response);
+      return await parseResponse(response);
+    } catch (error) {
+      console.error(`❌ PUT ${path}:`, error.message);
+      throw error;
+    }
+  },
+
   async delete(path, options = {}) {
     const url = buildUrl(path);
-    const headers = buildHeaders(options.headers, true);
+    const headers = await buildHeaders(options.headers, true);
     logger.api(`DELETE ${url}`);
     try {
       const response = await fetch(url, { method: 'DELETE', headers, credentials: 'include', ...options });
@@ -144,10 +178,28 @@ export const apiClient = {
     const url = buildUrl(path);
     const token = tokenManager.getToken();
     const headers = withAuthHeader({}, token);
+    
+    // Ajouter le token CSRF (récupération auto si absent)
+    let csrfToken = getStoredCSRFToken();
+    if (!csrfToken) {
+      console.warn('⚠️ CSRF token manquant pour upload, récupération automatique...');
+      try {
+        csrfToken = await fetchCSRFToken(API_BASE_URL);
+        console.log('✅ CSRF token récupéré automatiquement pour upload');
+      } catch (error) {
+        console.error('❌ Impossible de récupérer le token CSRF pour upload:', error);
+      }
+    }
+    
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+    
     logger.api(`UPLOAD ${url}`);
     try {
       const response = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include', ...options });
       if (!response.ok) return handleHttpError(response);
+      updateCSRFTokenFromResponse(response);
       return await parseResponse(response);
     } catch (error) {
       console.error(`❌ UPLOAD ${path}:`, error.message);

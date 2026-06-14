@@ -43,6 +43,7 @@ import {
 import PageLayout from '../components/Layout/PageLayout';
 import { useUser } from '../context/UserContext';
 import * as teamService from '../services/teamService';
+import { apiClient } from '../apiClient';
 
 const BADGE_COLORS = [
   { value: 'red', label: 'Rouge' },
@@ -167,6 +168,7 @@ export default function TeamRBE() {
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({});
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Color mode values
   const theadBg = useColorModeValue('gray.50', 'gray.700');
@@ -228,6 +230,7 @@ export default function TeamRBE() {
         role: 'Role',
         roleColor: 'blue',
         hierarchy: 4,
+        hierarchy2: 2, // Adhérent simple par défaut
         joinDate: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
         memberType: 'Membre',
         catchphrase: 'Citation...',
@@ -289,6 +292,41 @@ export default function TeamRBE() {
     }
   };
 
+  const handleAvatarUpload = async (memberId, file) => {
+    try {
+      setUploadingAvatar(true);
+      
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await apiClient.upload(`/team/${memberId}/upload-avatar`, formData);
+      
+      // Recharger les données pour afficher la nouvelle photo
+      await loadTeamMembers();
+      
+      toast({ 
+        title: 'Photo uploadée', 
+        status: 'success', 
+        duration: 2000 
+      });
+      
+      // Mettre à jour formData local si on est en édition
+      if (editingId === memberId && response.imageUrl) {
+        setFormData(prev => ({ ...prev, image: response.imageUrl }));
+      }
+    } catch (error) {
+      console.error('Erreur upload avatar:', error);
+      toast({ 
+        title: 'Erreur upload', 
+        description: error.message || 'Impossible d\'uploader la photo', 
+        status: 'error', 
+        duration: 3000 
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleAddExpertise = () => {
     setFormData((prev) => ({ ...prev, expertise: [...(prev.expertise || []), { label: '', color: 'blue' }] }));
   };
@@ -320,6 +358,15 @@ export default function TeamRBE() {
         }
       });
     }
+
+    // Trier les membres dans chaque groupe par hierarchy2 puis order
+    Object.values(groups).forEach(group => {
+      group.members.sort((a, b) => {
+        const h2Diff = (a.hierarchy2 || 2) - (b.hierarchy2 || 2);
+        if (h2Diff !== 0) return h2Diff;
+        return (a.order || 0) - (b.order || 0);
+      });
+    });
 
     return Object.values(groups).filter(g => g.members.length > 0);
   }, [teamMembers]);
@@ -426,6 +473,13 @@ export default function TeamRBE() {
                                       <option value={4}>Membres</option>
                                     </Select>
                                   </FormControl>
+                                  <FormControl w="180px">
+                                    <FormLabel fontSize="xs">Statut</FormLabel>
+                                    <Select size="sm" value={formData.hierarchy2 || 2} onChange={(e) => setFormData((p) => ({ ...p, hierarchy2: parseInt(e.target.value) }))}>
+                                      <option value={1}>Membre du Bureau</option>
+                                      <option value={2}>Adhérent simple</option>
+                                    </Select>
+                                  </FormControl>
                                 </HStack>
 
                                 <HStack spacing={4}>
@@ -438,6 +492,29 @@ export default function TeamRBE() {
                                     <Input size="sm" type="tel" value={formData.phone || ''} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} />
                                   </FormControl>
                                 </HStack>
+
+                                <FormControl>
+                                  <FormLabel fontSize="xs">Photo de profil</FormLabel>
+                                  <HStack spacing={3}>
+                                    {formData.image && (
+                                      <Avatar size="md" src={formData.image} name={formData.name} />
+                                    )}
+                                    <Input 
+                                      type="file" 
+                                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                                      size="sm"
+                                      onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                          handleAvatarUpload(member.id, file);
+                                        }
+                                      }}
+                                      isDisabled={uploadingAvatar}
+                                    />
+                                    {uploadingAvatar && <Text fontSize="xs" color="blue.500">Upload en cours...</Text>}
+                                  </HStack>
+                                  <Text fontSize="2xs" color="gray.500" mt={1}>JPG, PNG ou WebP - Max 5MB</Text>
+                                </FormControl>
 
                                 <FormControl>
                                   <FormLabel fontSize="xs">Citation</FormLabel>
@@ -490,9 +567,18 @@ export default function TeamRBE() {
                             </HStack>
                           </Td>
                           <Td>
-                            <Badge colorScheme={member.roleColor || 'gray'} fontSize="xs">
-                              {member.role}
-                            </Badge>
+                            <VStack align="start" spacing={1}>
+                              <Badge colorScheme={member.roleColor || 'gray'} fontSize="xs">
+                                {member.role}
+                              </Badge>
+                              <Badge 
+                                colorScheme={member.hierarchy2 === 1 ? 'orange' : 'gray'} 
+                                fontSize="2xs" 
+                                variant="subtle"
+                              >
+                                {member.hierarchy2 === 1 ? '★ Bureau' : 'Adhérent'}
+                              </Badge>
+                            </VStack>
                           </Td>
                           <Td>
                             <VStack align="start" spacing={1}>
