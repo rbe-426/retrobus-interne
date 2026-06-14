@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'esnext',
-      minify: 'terser',
+      minify: 'esbuild',
       cssMinify: true,
       reportCompressedSize: false, // Plus rapide en build
       chunkSizeWarningLimit: 1000,
@@ -62,13 +62,6 @@ export default defineConfig(({ mode }) => {
             'maps': ['leaflet', 'react-leaflet'],
             'utils': ['axios', 'react-icons', 'lucide-react', 'qrcode.react', 'html2pdf.js']
           }
-        }
-      },
-      terserOptions: {
-        compress: {
-          drop_console: mode === 'production',
-          drop_debugger: mode === 'production',
-          pure_funcs: mode === 'production' ? ['console.log', 'console.debug'] : []
         }
       }
     },
