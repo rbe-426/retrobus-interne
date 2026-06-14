@@ -19,13 +19,15 @@ const isLocal = typeof window !== 'undefined' && (
   window.location.port === '5173'
 );
 
-// In production, use relative paths (Vercel rewrites /api/* to backend)
-// In dev, use VITE_API_URL for local backend
-const API_BASE_URL = (
-  isLocal
-    ? (import.meta.env?.VITE_API_URL || '')
-    : '' // Empty = relative paths, Vercel handles rewrites
-).replace(/\/$/, '');
+// TOUJOURS utiliser VITE_API_URL (Railway en production, localhost en dev)
+// Ne jamais utiliser de chemins relatifs car Vercel ne sert que le frontend
+const API_BASE_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+
+console.log('🔧 API Client Configuration:', { 
+  isLocal, 
+  API_BASE_URL,
+  env: import.meta.env?.MODE 
+});
 
 // ============================================================================
 // HELPERS

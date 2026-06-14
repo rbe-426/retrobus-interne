@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Debug Team Mutation</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    button { margin: 10px; padding: 10px; font-size: 14px; cursor: pointer; }
+    .success { color: #0f0; }
+    .error { color: #f00; }
+    .warning { color: #ff0; }
+    .info { color: #0af; }
+    pre { background: #000; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h2>🔍 Debug Team Mutations (CSRF)</h2>
+  
+  <div>
+    <button onclick="checkTokens()">1️⃣ Vérifier Tokens</button>
+    <button onclick="testGetTeam()">2️⃣ GET /team (pas de CSRF)</button>
+    <button onclick="testPostTeam()">3️⃣ POST /team (avec CSRF)</button>
+    <button onclick="testUploadAvatar()">4️⃣ Upload Avatar</button>
+  </div>
+  
+  <div id="output" style="margin-top: 20px;"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:8080';
+    const log = (msg, type = 'info') => {
+      const output = document.getElementById('output');
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+      output.innerHTML += `<div class="${className}">${msg}</div>`;
+    };
+
+    function checkTokens() {
+      const authToken = localStorage.getItem('authToken');
+      const csrfToken = localStorage.getItem('X-CSRF-Token');
+      const expiry = localStorage.getItem('CSRF-Token-Expiry');
+      
+      log('🔐 AUTH TOKEN: ' + (authToken ? '✅ Présent' : '❌ Manquant'), authToken ? 'success' : 'error');
+      
+      if (csrfToken) {
+        const expiryDate = new Date(parseInt(expiry));
+        const isExpired = expiryDate < new Date();
+        log('🛡️ CSRF TOKEN: ' + csrfToken.substring(0, 30) + '...', 'success');
+        log('📅 Expire: ' + expiryDate.toLocaleString() + (isExpired ? ' (EXPIRÉ!)' : ''), isExpired ? 'error' : 'success');
+      } else {
+        log('🛡️ CSRF TOKEN: ❌ Manquant', 'error');
+      }
+    }
+
+    async function testGetTeam() {
+      log('📥 GET /api/team (ne nécessite pas de CSRF)...', 'info');
+      
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        log('❌ Pas de authToken - connectez-vous d\'abord', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/team`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          log(`✅ GET réussi: ${data.length} membres`, 'success');
+        } else {
+          const error = await response.text();
+          log(`❌ GET échoué: ${response.status} - ${error}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+
+    async function testPostTeam() {
+      log('📤 POST /api/team (nécessite CSRF)...', 'info');
+      
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        log('❌ Pas de authToken', 'error');
+        return;
+      }
+
+      // Récupérer ou générer le token CSRF
+      let csrfToken = localStorage.getItem('X-CSRF-Token');
+      
+      if (!csrfToken) {
+        log('⚠️ Pas de CSRF token, récupération...', 'warning');
+        
+        const csrfResponse = await fetch(`${API_BASE}/api/csrf-token`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (csrfResponse.ok) {
+          const csrfData = await csrfResponse.json();
+          csrfToken = csrfData.csrfToken;
+          localStorage.setItem('X-CSRF-Token', csrfToken);
+          localStorage.setItem('CSRF-Token-Expiry', Date.now() + 24 * 60 * 60 * 1000);
+          log('✅ CSRF token récupéré: ' + csrfToken.substring(0, 30) + '...', 'success');
+        } else {
+          log('❌ Impossible de récupérer le CSRF token', 'error');
+          return;
+        }
+      }
+
+      log('📤 Envoi POST avec CSRF token...', 'info');
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/team`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-CSRF-Token': csrfToken,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            name: 'Test Member ' + Date.now(),
+            role: 'Test Role',
+            hierarchy: 4,
+            hierarchy2: 2,
+            joinDate: '2026',
+            memberType: 'Test'
+          })
+        });
+
+        log(`📊 Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+        log(`📊 Response Headers:`, 'info');
+        for (const [key, value] of response.headers.entries()) {
+          if (key.toLowerCase().includes('csrf') || key.toLowerCase().includes('token')) {
+            log(`   ${key}: ${value}`, 'info');
+          }
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          log(`✅ POST réussi: ${JSON.stringify(data)}`, 'success');
+        } else {
+          const error = await response.text();
+          log(`❌ POST échoué: ${error}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+
+    async function testUploadAvatar() {
+      log('📤 Test Upload Avatar (nécessite CSRF)...', 'info');
+      
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        log('❌ Pas de authToken', 'error');
+        return;
+      }
+
+      // Récupérer CSRF token
+      let csrfToken = localStorage.getItem('X-CSRF-Token');
+      
+      if (!csrfToken) {
+        log('⚠️ Récupération CSRF token...', 'warning');
+        const csrfResponse = await fetch(`${API_BASE}/api/csrf-token`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (csrfResponse.ok) {
+          const csrfData = await csrfResponse.json();
+          csrfToken = csrfData.csrfToken;
+          localStorage.setItem('X-CSRF-Token', csrfToken);
+          localStorage.setItem('CSRF-Token-Expiry', Date.now() + 24 * 60 * 60 * 1000);
+          log('✅ CSRF token récupéré', 'success');
+        }
+      }
+
+      // Créer un faux fichier pour le test
+      const canvas = document.createElement('canvas');
+      canvas.width = 100;
+      canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(0, 0, 100, 100);
+      
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('avatar', blob, 'test-avatar.png');
+
+        log('📤 Envoi upload avec CSRF token...', 'info');
+        
+        try {
+          const response = await fetch(`${API_BASE}/api/team/team_1/upload-avatar`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'X-CSRF-Token': csrfToken
+            },
+            body: formData
+          });
+
+          log(`📊 Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+          if (response.ok) {
+            const data = await response.json();
+            log(`✅ Upload réussi: ${JSON.stringify(data)}`, 'success');
+          } else {
+            const error = await response.text();
+            log(`❌ Upload échoué: ${error}`, 'error');
+          }
+        } catch (error) {
+          log(`❌ Erreur: ${error.message}`, 'error');
+        }
+      }, 'image/png');
+    }
+
+    // Auto-check au chargement
+    setTimeout(checkTokens, 500);
+  </script>
+</body>
+</html>

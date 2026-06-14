@@ -13,11 +13,14 @@ import logger from '../utils/logger';
 const CSRF_TOKEN_KEY = 'X-CSRF-Token';
 const CSRF_EXPIRY_KEY = 'CSRF-Token-Expiry';
 
+// Utiliser VITE_API_URL par défaut (Railway en production, localhost en dev)
+const DEFAULT_API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
+
 /**
  * Obtenir un token CSRF du serveur
  * Appelé après login
  */
-export const fetchCSRFToken = async (baseURL = '') => {
+export const fetchCSRFToken = async (baseURL = DEFAULT_API_URL) => {
   try {
     const response = await fetch(`${baseURL}/api/csrf-token`, {
       method: 'GET',
