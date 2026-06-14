@@ -19,7 +19,18 @@ const AUTH_CONFIG = {
   TOKEN_KEY: 'token',
   USER_KEY: 'user',
   CACHE_EXPIRY: 5 * 60 * 1000, // 5 minutes
+  REQUEST_TIMEOUT_MS: 10000,
 };
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = AUTH_CONFIG.REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 function decodeJwtPayload(token) {
   try {
@@ -226,7 +237,7 @@ export async function validateSession(token) {
   }
 
   try {
-    const res = await fetch(`${AUTH_CONFIG.API_BASE}/api/me`, {
+    const res = await fetchWithTimeout(`${AUTH_CONFIG.API_BASE}/api/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 

@@ -60,9 +60,6 @@ export default function DashboardHome() {
   const [retroActus, setRetroActus] = useState([]);
   const [currentActuIndex, setCurrentActuIndex] = useState(0);
   
-  // État pour les membres de l'équipe
-  const [teamMembers, setTeamMembers] = useState([]);
-  
   // Hook pour les annonces d'accueil
   const { announcements, removeAnnouncement } = useHomeAnnouncements();
   
@@ -396,19 +393,6 @@ export default function DashboardHome() {
   useEffect(() => {
     setFlashes(loadFlashes());
     loadDashboardData();
-    
-    // Charger les membres de l'équipe depuis localStorage
-    const loadTeam = () => {
-      try {
-        const stored = localStorage.getItem('rbe:team-members');
-        if (stored) {
-          setTeamMembers(JSON.parse(stored));
-        }
-      } catch (error) {
-        console.error('Erreur chargement équipe:', error);
-      }
-    };
-    loadTeam();
     
     // Actualiser les données toutes les 30 minutes (optimisé avec cache)
     const interval = setInterval(loadDashboardData, 30 * 60 * 1000);
@@ -1000,101 +984,6 @@ export default function DashboardHome() {
           </VStack>
         </GridItem>
       </SimpleGrid>
-
-      {/* Section L'équipe RétroBus */}
-      <Box mt={12} mb={8}>
-        <VStack spacing={6} align="stretch">
-          <Box textAlign="center">
-            <Heading size="lg" color="rbe.500" mb={2}>
-              L'équipe RétroBus Essonne
-            </Heading>
-            <Text color="gray.600" fontSize="md">
-              Les passionnés qui font vivre l'association au quotidien
-            </Text>
-          </Box>
-
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {/* Affichage dynamique des membres */}
-            {teamMembers.map((member) => (
-              <Card 
-                key={member.id}
-                bg={cardBg} 
-                border="1px solid" 
-                borderColor={borderColor} 
-                shadow="sm" 
-                _hover={{ shadow: 'md', transform: 'translateY(-2px)', transition: 'all 0.2s' }}
-              >
-                <CardBody>
-                  <VStack spacing={4} align="center">
-                    <Avatar
-                      size="xl"
-                      name={member.name}
-                      src={member.image}
-                      bg={`${member.roleColor || 'rbe'}.500`}
-                    />
-                    <VStack spacing={1} textAlign="center">
-                      <Heading size="md">{member.name}</Heading>
-                      <Badge 
-                        colorScheme={member.roleColor || 'red'} 
-                        fontSize="sm" 
-                        px={3} 
-                        py={1} 
-                        borderRadius="full"
-                      >
-                        {member.role}
-                      </Badge>
-                      {member.expertise && member.expertise.length > 0 && (
-                        <HStack spacing={2} flexWrap="wrap" justify="center" mt={2}>
-                          {member.expertise.map((exp, idx) => (
-                            <Tag key={idx} size="sm" colorScheme={exp.color || 'blue'}>
-                              <TagLabel>{exp.label}</TagLabel>
-                            </Tag>
-                          ))}
-                        </HStack>
-                      )}
-                    </VStack>
-                    {member.catchphrase && (
-                      <Text fontSize="sm" color="gray.600" fontStyle="italic" textAlign="center">
-                        "{member.catchphrase}"
-                      </Text>
-                    )}
-                  </VStack>
-                </CardBody>
-              </Card>
-            ))}
-
-            {/* Gérer l'équipe (Admin uniquement) */}
-            {isAdmin && (
-              <Card 
-                bg={cardBg} 
-                border="2px solid" 
-                borderColor="rbe.200" 
-                shadow="sm" 
-                _hover={{ borderColor: 'rbe.500', shadow: 'lg', transform: 'translateY(-2px)', transition: 'all 0.2s' }}
-                cursor="pointer"
-                as={RouterLink}
-                to="/dashboard/team-management"
-              >
-                <CardBody>
-                  <VStack spacing={4} align="center" justify="center" h="full" py={8}>
-                    <Icon as={FiSettings} boxSize={12} color="rbe.400" />
-                    <VStack spacing={2}>
-                      <Heading size="md" color="rbe.600">Gérer l'équipe</Heading>
-                      <Text fontSize="sm" color="gray.600" textAlign="center">
-                        Modifier les informations<br />
-                        des membres de l'équipe
-                      </Text>
-                    </VStack>
-                    <Button colorScheme="rbe" size="sm" rightIcon={<FiSettings />}>
-                      Administrer
-                    </Button>
-                  </VStack>
-                </CardBody>
-              </Card>
-            )}
-          </SimpleGrid>
-        </VStack>
-      </Box>
     </Container>
   );
 }
