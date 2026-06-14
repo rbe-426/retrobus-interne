@@ -47,7 +47,51 @@ export default defineConfig(({ mode }) => {
         };
       })()
     },
-    build: { 
+    build: {
+      target: 'esnext',
+      minify: 'terser',
+      cssMinify: true,
+      reportCompressedSize: false, // Plus rapide en build
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Vendor chunks séparés pour meilleur caching
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'chakra-ui': ['@chakra-ui/react', '@chakra-ui/icons', '@emotion/react', '@emotion/styled', 'framer-motion'],
+            'editor': ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-color', '@tiptap/extension-highlight', '@tiptap/extension-image', '@tiptap/extension-link', '@tiptap/extension-text-align'],
+            'maps': ['leaflet', 'react-leaflet'],
+            'utils': ['axios', 'react-icons', 'lucide-react', 'qrcode.react', 'html2pdf.js']
+          }
+        }
+      },
+      terserOptions: {
+        compress: {
+          drop_console: mode === 'production',
+          drop_debugger: mode === 'production',
+          pure_funcs: mode === 'production' ? ['console.log', 'console.debug'] : []
+        }
+      }
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        '@chakra-ui/react',
+        '@emotion/react',
+        '@emotion/styled',
+        'framer-motion'
+      ],
+      exclude: []
+    },
+    resolve: {
+      alias: {
+        '@': '/src'
+      }
+    }
+  };
+}); 
       outDir: 'dist',
       // Optimisations pour r\u00e9duire le temps de chargement
       rollupOptions: {

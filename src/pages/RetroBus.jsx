@@ -3,11 +3,15 @@ import {
   Box, Heading, Text, SimpleGrid, Stat, StatLabel, StatNumber, Card, CardBody,
   Tabs, TabList, TabPanels, Tab, TabPanel, useToast, Spinner, HStack, VStack,
   Badge, Tag, TagLabel, TagLeftIcon, Button, Divider, Table, Thead, Tbody, Tr, Th, Td,
-  Icon, Alert, AlertIcon, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Slider, SliderTrack, SliderFilledTrack, SliderThumb, FormLabel
+  Icon, Alert, AlertIcon, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Slider, SliderTrack, SliderFilledTrack, SliderThumb, FormLabel,
+  AlertTitle, AlertDescription, CloseButton
 } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders, FiRefreshCw } from "react-icons/fi";
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
+import { vehicleAdminAPI } from "../api/vehicleAdmin";
+import { cachedAPICall, batchAPICall, debounce } from "../lib/performanceUtils";
 import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
 import VehicleAdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
@@ -23,6 +27,76 @@ function EtatBadge({ etat }) {
     Restauration: "orange",
   };
   return <Badge colorScheme={colorMap[etat] || "purple"}>{etat || "—"}</Badge>;
+}
+
+// Animation clignotante pour les alertes critiques
+const blinkAnimationRed = keyframes`
+  0%, 100% { 
+    opacity: 1; 
+    background-color: rgba(254, 215, 215, 1);
+  }
+  50% { 
+    opacity: 0.7; 
+    background-color: rgba(252, 165, 165, 1);
+  }
+`;
+
+const blinkAnimationOrange = keyframes`
+  0%, 100% { 
+    opacity: 1; 
+    background-color: rgba(254, 235, 200, 1);
+  }
+  50% { 
+    opacity: 0.7; 
+    background-color: rgba(251, 211, 141, 1);
+  }
+`;
+
+// Composant d'alerte critique avec animation
+function CriticalAlert({ title, items, onDismiss, colorScheme = "red" }) {
+  if (!items || items.length === 0) return null;
+
+  const animation = colorScheme === "red" 
+    ? `${blinkAnimationRed} 2s ease-in-out infinite`
+    : `${blinkAnimationOrange} 2s ease-in-out infinite`;
+
+  return (
+    <Alert
+      status={colorScheme === "red" ? "error" : "warning"}
+      variant="left-accent"
+      borderRadius="md"
+      mb={4}
+      sx={{ animation }}
+      position="relative"
+    >
+      <AlertIcon boxSize={6} />
+      <Box flex="1">
+        <AlertTitle fontSize="md" fontWeight="bold">
+          {title}
+        </AlertTitle>
+        <AlertDescription fontSize="sm" mt={2}>
+          <VStack align="start" spacing={1}>
+            {items.slice(0, 5).map((item, idx) => (
+              <Text key={idx}>• {item}</Text>
+            ))}
+            {items.length > 5 && (
+              <Text fontStyle="italic" color="gray.600">
+                ... et {items.length - 5} autre(s)
+              </Text>
+            )}
+          </VStack>
+        </AlertDescription>
+      </Box>
+      {onDismiss && (
+        <CloseButton
+          position="absolute"
+          right={2}
+          top={2}
+          onClick={onDismiss}
+        />
+      )}
+    </Alert>
+  );
 }
 
 // Component: MaintenanceTab - Complete maintenance tracking interface
@@ -513,10 +587,25 @@ export default function RetroBus() {
   const [editTechGasoil, setEditTechGasoil] = useState(0);
   const [editTechSaving, setEditTechSaving] = useState(false);
 
+  // Alertes critiques
+  const [criticalAlerts, setCriticalAlerts] = useState({
+    ctExpired: [],
+    docsMissing: [],
+    dismissed: false
+  });
+
   const reloadVehicles = useCallback(async () => {
     try {
       setLoading(true);
-      const list = await apiClient.get('/vehicles');
+      
+      // Utiliser le cache pour éviter les requêtes répétées
+      const cacheKey = 'vehicles-list';
+      const list = await cachedAPICall(
+        cacheKey, 
+        () => apiClient.get('/vehicles'),
+        2 * 60 * 1000 // Cache 2 minutes
+      );
+      
       const vehicles = Array.isArray(list) ? list : (list?.vehicles || []);
       const validVehicles = vehicles.filter(v => v.parc || v.id || v.slug);
       console.log(`✅ Loaded ${validVehicles.length} valid vehicles`);
@@ -534,48 +623,139 @@ export default function RetroBus() {
     }
   }, [toast]);
 
+  // Charger les alertes critiques (CT périmés, documents manquants) - OPTIMISÉ
+  const loadCriticalAlerts = useCallback(async (vehicleList) => {
+    if (!vehicleList || vehicleList.length === 0) return;
+
+    const ctExpired = [];
+    const docsMissing = [];
+
+    try {
+      // Limiter à 10 véhicules en parallèle pour ne pas surcharger
+      const vehicleCalls = vehicleList.map((v) => async () => {
+        const parc = v.parc || v.id || v.slug;
+        if (!parc) return null;
+
+        try {
+          // Charger les données admin en parallèle avec cache
+          const cacheKey = `admin-${parc}`;
+          const adminData = await cachedAPICall(
+            cacheKey,
+            () => Promise.all([
+              vehicleAdminAPI.getCarteGrise(parc).catch(() => null),
+              vehicleAdminAPI.getAssurance(parc).catch(() => null),
+              vehicleAdminAPI.getControleTechnique(parc).catch(() => null)
+            ]),
+            3 * 60 * 1000 // Cache 3 minutes
+          );
+
+          const [cgRes, assRes, ctRes] = adminData;
+
+          // Vérifier CT périmé
+          if (ctRes?.latestCT) {
+            const ctDate = new Date(ctRes.latestCT.ctDate);
+            const now = new Date();
+            const diffMonths = (now - ctDate) / (1000 * 60 * 60 * 24 * 30);
+            
+            if (diffMonths > 24 || ctRes.latestCT.ctStatus === 'failed') {
+              ctExpired.push(`${parc} - CT du ${ctDate.toLocaleDateString('fr-FR')}`);
+            }
+          } else {
+            ctExpired.push(`${parc} - Aucun contrôle technique`);
+          }
+
+          // Vérifier documents manquants
+          const missingDocs = [];
+          if (!cgRes?.newCGPath) missingDocs.push('CG');
+          if (!assRes?.isActive) missingDocs.push('Assurance');
+
+          if (missingDocs.length > 0) {
+            docsMissing.push(`${parc} - ${missingDocs.join(', ')} ABSENT(E)`);
+          }
+
+          return { parc, ctExpired: ctExpired.length, docsMissing: docsMissing.length };
+        } catch (e) {
+          console.warn(`⚠️ Error checking alerts for ${parc}:`, e.message);
+          return null;
+        }
+      });
+
+      // Exécuter en batch avec limite de 10 requêtes simultanées
+      await batchAPICall(vehicleCalls, 10);
+
+      setCriticalAlerts({
+        ctExpired,
+        docsMissing,
+        dismissed: false
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading critical alerts:', error);
+    }
+  }, []);
+
   useEffect(() => {
     reloadVehicles();
   }, [reloadVehicles]);
 
-  // Charger l'état de pointage (actif) pour chaque véhicule
+  // Charger les alertes critiques après le chargement des véhicules
+  useEffect(() => {
+    if (vehicles && vehicles.length > 0) {
+      loadCriticalAlerts(vehicles);
+    }
+  }, [vehicles, loadCriticalAlerts]);
+
+  // Charger l'état de pointage (actif) pour chaque véhicule - OPTIMISÉ
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) return;
     let cancelled = false;
+    
     const loadStatuses = async () => {
       const slice = vehicles.slice(0, 24);
       const validVehicles = slice.filter(v => v.parc || v.id || v.slug);
       
       try {
-        await Promise.allSettled(
-          validVehicles.map(async (v) => {
-            const parc = v.parc || v.id || v.slug;
-            try {
-              const usages = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`);
-              if (cancelled) return;
-              const active = Array.isArray(usages) ? usages.find(u => !u.endedAt) : null;
-              setStatusByParc(prev => ({
-                ...prev,
-                [parc]: active ? { active: true, startedAt: active.startedAt, conducteur: active.conducteur } : { active: false }
-              }));
-            } catch (e) {
-              if (cancelled) return;
-              console.warn(`⚠️ Error loading status for ${parc}:`, e.message);
-              setStatusByParc(prev => ({ ...prev, [parc]: { active: false } }));
-            }
-          })
-        );
+        // Batch les appels avec limite de concurrence
+        const statusCalls = validVehicles.map((v) => async () => {
+          const parc = v.parc || v.id || v.slug;
+          try {
+            // Utiliser le cache pour les usages
+            const cacheKey = `usages-${parc}`;
+            const usages = await cachedAPICall(
+              cacheKey,
+              () => apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`),
+              1 * 60 * 1000 // Cache 1 minute pour les pointages
+            );
+            
+            if (cancelled) return;
+            
+            const active = Array.isArray(usages) ? usages.find(u => !u.endedAt) : null;
+            setStatusByParc(prev => ({
+              ...prev,
+              [parc]: active ? { active: true, startedAt: active.startedAt, conducteur: active.conducteur } : { active: false }
+            }));
+          } catch (e) {
+            if (cancelled) return;
+            console.warn(`⚠️ Error loading status for ${parc}:`, e.message);
+            setStatusByParc(prev => ({ ...prev, [parc]: { active: false } }));
+          }
+        });
+        
+        // Limiter à 8 requêtes simultanées pour ne pas saturer
+        await batchAPICall(statusCalls, 8);
       } catch (error) {
         console.error('❌ Error in loadStatuses:', error);
       }
     };
+    
     if (!cancelled) {
       loadStatuses();
     }
+    
     return () => { cancelled = true; };
   }, [vehicles]);
 
-  // Charger l'historique des usages pour tous les véhicules
+  // Charger l'historique des usages pour tous les véhicules - OPTIMISÉ
   const loadAllUsages = useCallback(async () => {
     if (!vehicles || vehicles.length === 0) return;
     setLoadingUsages(true);
@@ -583,18 +763,26 @@ export default function RetroBus() {
       const usagesMap = {};
       const validVehicles = vehicles.filter(v => v.parc || v.id || v.slug);
       
-      await Promise.allSettled(
-        validVehicles.map(async (v) => {
-          const parc = v.parc || v.id || v.slug;
-          try {
-            const usages = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`);
-            usagesMap[parc] = Array.isArray(usages) ? usages : [];
-          } catch (e) {
-            console.warn(`⚠️ Error loading usages for ${parc}:`, e.message);
-            usagesMap[parc] = [];
-          }
-        })
-      );
+      // Batch les appels avec limite de concurrence
+      const usageCalls = validVehicles.map((v) => async () => {
+        const parc = v.parc || v.id || v.slug;
+        try {
+          const cacheKey = `usages-history-${parc}`;
+          const usages = await cachedAPICall(
+            cacheKey,
+            () => apiClient.get(`/vehicles/${encodeURIComponent(parc)}/usages`),
+            5 * 60 * 1000 // Cache 5 minutes pour l'historique
+          );
+          usagesMap[parc] = Array.isArray(usages) ? usages : [];
+        } catch (e) {
+          console.warn(`⚠️ Error loading usages for ${parc}:`, e.message);
+          usagesMap[parc] = [];
+        }
+      });
+      
+      // Limiter à 10 requêtes simultanées
+      await batchAPICall(usageCalls, 10);
+      
       setUsagesData(usagesMap);
     } catch (error) {
       console.error('❌ Erreur chargement usages global:', error);
@@ -723,6 +911,29 @@ export default function RetroBus() {
         </HStack>
       ) : (
         <>
+          {/* Alertes critiques */}
+          {!criticalAlerts.dismissed && (
+            <>
+              {criticalAlerts.ctExpired.length > 0 && (
+                <CriticalAlert
+                  title={`⚠️ ${criticalAlerts.ctExpired.length} véhicule(s) ont un contrôle technique périmé`}
+                  items={criticalAlerts.ctExpired}
+                  colorScheme="red"
+                  onDismiss={() => setCriticalAlerts(prev => ({ ...prev, dismissed: true }))}
+                />
+              )}
+              
+              {criticalAlerts.docsMissing.length > 0 && (
+                <CriticalAlert
+                  title={`📄 ${criticalAlerts.docsMissing.length} véhicule(s) requiert une attention administrative`}
+                  items={criticalAlerts.docsMissing}
+                  colorScheme="orange"
+                  onDismiss={() => setCriticalAlerts(prev => ({ ...prev, docsMissing: [] }))}
+                />
+              )}
+            </>
+          )}
+
           <Alert status="info">
             <AlertIcon />
             <VStack align="start" spacing={1}>
@@ -976,7 +1187,14 @@ export default function RetroBus() {
       leftIcon={<FiRefreshCw />}
       variant="outline"
       size="sm"
-      onClick={reloadVehicles}
+      onClick={() => {
+        // Nettoyer le cache avant d'actualiser
+        const { apiCache } = require('../lib/performanceUtils');
+        apiCache.clear();
+        
+        reloadVehicles();
+        setCriticalAlerts({ ctExpired: [], docsMissing: [], dismissed: false });
+      }}
       isLoading={loading}
     >
       Actualiser
