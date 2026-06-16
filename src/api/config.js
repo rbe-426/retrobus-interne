@@ -294,6 +294,77 @@ export const apiClient = {
       console.error(`❌ Erreur DELETE ${url}:`, error.message);
       throw error;
     }
+  },
+
+  /**
+   * Upload multipart/form-data (fichiers)
+   * @param {string} url - L'URL relative (ex: /team/:id/upload-avatar)
+   * @param {FormData} formData - FormData contenant les fichiers
+   * @param {object} options - Options supplémentaires
+   */
+  upload: async (url, formData, options = {}) => {
+    const token = localStorage.getItem('token');
+    
+    // Pour les uploads multipart, ne pas définir Content-Type (navigateur le fait automatiquement avec boundary)
+    const headers = {
+      'Authorization': token ? `Bearer ${token}` : undefined,
+      ...options.headers,
+    };
+
+    // Ajouter le token CSRF pour sécurité
+    const csrfToken = getStoredCSRFToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+      logger.debug('CSRF token injected in upload headers');
+    } else {
+      console.warn('⚠️  No CSRF token available for upload - server may reject it');
+    }
+
+    // Retirer les clés undefined
+    Object.keys(headers).forEach(key => {
+      if (headers[key] === undefined) delete headers[key];
+    });
+
+    logger.api(`UPLOAD ${API_BASE_URL}${url}`);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        ...options,
+      });
+      
+      console.log(`📡 Upload response status: ${response.status}`);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('🔒 Token expiré, redirection vers login');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          return;
+        }
+        
+        if (response.status === 403) {
+          const errorData = await parseResponse(response);
+          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
+            console.error('🔐 CSRF validation failed:', errorData.error);
+            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
+          }
+        }
+        
+        // Essayer de récupérer le message d'erreur du serveur
+        const errorData = await parseResponse(response);
+        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      
+      return await parseResponse(response);
+    } catch (error) {
+      console.error(`❌ Erreur UPLOAD ${url}:`, error.message);
+      throw error;
+    }
   }
 };
 
