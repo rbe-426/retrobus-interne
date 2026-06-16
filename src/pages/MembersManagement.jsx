@@ -244,6 +244,9 @@ export default function MembersManagement() {
   
   const [selectedMember, setSelectedMember] = useState(null);
   const [stats, setStats] = useState({});
+  const [bulletinStats, setBulletinStats] = useState({ active: 0, pending: 0, in_progress: 0, completed: 0 });
+  const [recentCompletions, setRecentCompletions] = useState([]);
+  const [loadingBulletinStats, setLoadingBulletinStats] = useState(false);
   
   const { 
     isOpen: isCreateOpen, 
@@ -309,6 +312,14 @@ export default function MembersManagement() {
   // === CHARGEMENT DES DONNÉES ===
   useEffect(() => {
     loadMembers();
+    loadBulletinStats();
+    
+    // Rafraîchir les stats de bulletin toutes les 30 secondes
+    const interval = setInterval(() => {
+      loadBulletinStats();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const loadMembers = async () => {
@@ -348,6 +359,49 @@ export default function MembersManagement() {
       active,
       recentlyActive: lastMonth
     });
+  };
+
+  const loadBulletinStats = async () => {
+    try {
+      setLoadingBulletinStats(true);
+      
+      // Charger les statistiques
+      const statsRes = await fetchWithCSRF(apiUrl('/api/bulletin-stats/stats'));
+      const statsData = await statsRes.json().catch(() => ({ stats: {} }));
+      
+      if (statsData.success) {
+        setBulletinStats(statsData.stats);
+      }
+      
+      // Charger les complétions récentes (dernières 24h)
+      const completionsRes = await fetchWithCSRF(apiUrl('/api/bulletin-stats/recent-completions'));
+      const completionsData = await completionsRes.json().catch(() => ({ completions: [] }));
+      
+      if (completionsData.success) {
+        // Vérifier s'il y a de nouveaux bulletins signés
+        const newCompletions = completionsData.completions.filter(c => {
+          return !recentCompletions.find(rc => rc.token === c.token);
+        });
+        
+        // Afficher une notification pour chaque nouveau bulletin signé
+        newCompletions.forEach(completion => {
+          toast({
+            title: '✅ Bulletin signé et complété',
+            description: `Le Bulletin de l'adhérent(e) ${completion.memberName} est signé et complété.`,
+            status: 'success',
+            duration: 10000,
+            isClosable: true,
+            position: 'top-right'
+          });
+        });
+        
+        setRecentCompletions(completionsData.completions);
+      }
+    } catch (error) {
+      console.error('Erreur chargement stats bulletins:', error);
+    } finally {
+      setLoadingBulletinStats(false);
+    }
   };
 
   // === FILTRAGE ===
@@ -691,8 +745,15 @@ export default function MembersManagement() {
       toast({
         title: 'Bulletin signé renvoyé',
         description: `Envoyé à ${data.sentTo}`,
-        status: 'success'
+        status: 'success',
+        duration: 3000
       });
+      
+      // Fermer automatiquement la modale après 2 secondes
+      setTimeout(() => {
+        onBulletinClose();
+        setResendState({ recipientEmail: '' });
+      }, 2000);
     } catch (e) {
       toast({ title: 'Erreur', description: e.message, status: 'error' });
     } finally {
@@ -776,6 +837,87 @@ export default function MembersManagement() {
             </CardBody>
           </Card>
         </SimpleGrid>
+
+        {/* Section statistiques bulletins */}
+        <Box>
+          <HStack mb={4} justify="space-between">
+            <Heading size="md">📝 Bulletins d'adhésion</Heading>
+            {loadingBulletinStats && <Spinner size="sm" color="purple.500" />}
+          </HStack>
+          
+          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+            <Card bg={cardBg} borderWidth={2} borderColor="orange.300">
+              <CardBody>
+                <Stat>
+                  <StatLabel>En cours d'édition</StatLabel>
+                  <StatNumber color="orange.500" fontSize="3xl">
+                    {bulletinStats.active || 0}
+                  </StatNumber>
+                  <StatHelpText>
+                    {bulletinStats.pending || 0} non commencés, {bulletinStats.in_progress || 0} en cours
+                  </StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+            
+            <Card bg={cardBg}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>✅ Complétés</StatLabel>
+                  <StatNumber color="green.500">{bulletinStats.completed || 0}</StatNumber>
+                  <StatHelpText>Signés et validés</StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+            
+            <Card bg={cardBg}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>⏱️ En attente</StatLabel>
+                  <StatNumber color="yellow.600">{bulletinStats.pending || 0}</StatNumber>
+                  <StatHelpText>Pas encore commencés</StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+            
+            <Card bg={cardBg}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>🚀 En progression</StatLabel>
+                  <StatNumber color="blue.500">{bulletinStats.in_progress || 0}</StatNumber>
+                  <StatHelpText>Étapes en cours</StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+
+          {/* Liste des bulletins récemment complétés */}
+          {recentCompletions.length > 0 && (
+            <Box mt={4}>
+              <Heading size="sm" mb={2} color="gray.600">
+                Derniers bulletins signés (24h)
+              </Heading>
+              <VStack spacing={2} align="stretch">
+                {recentCompletions.slice(0, 5).map((completion, idx) => (
+                  <Card key={idx} size="sm" bg="green.50">
+                    <CardBody>
+                      <HStack justify="space-between">
+                        <HStack>
+                          <Text fontWeight="bold">✅ {completion.memberName}</Text>
+                          <Badge colorScheme="green" size="sm">Signé</Badge>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.600">
+                          {new Date(completion.signedAt).toLocaleString('fr-FR')}
+                          {completion.duration && ` (${completion.duration}min)`}
+                        </Text>
+                      </HStack>
+                    </CardBody>
+                  </Card>
+                ))}
+              </VStack>
+            </Box>
+          )}
+        </Box>
       </VStack>
     );
   };
