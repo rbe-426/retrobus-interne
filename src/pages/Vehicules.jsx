@@ -14,7 +14,6 @@ import { apiClient } from '../api/config.js'; // Import direct du client API
 const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE || window.location.origin;
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
 const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
-const VEHICLES_REQUEST_TIMEOUT_MS = 12000;
 
 const Vehicules = () => {
   const [data, setData] = useState([]);
@@ -55,12 +54,6 @@ const Vehicules = () => {
           title: "Impossible de charger la liste",
           description: e.message
         });
-      } else if (data.length === 0) {
-        toast({
-          status: 'warning',
-          title: 'Délai de chargement dépassé',
-          description: 'Le serveur met trop de temps à répondre. Réessayez dans quelques secondes.',
-        });
       }
     } finally {
       setLoading(false);
@@ -88,13 +81,8 @@ const Vehicules = () => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, VEHICLES_REQUEST_TIMEOUT_MS);
-
     fetchList(controller.signal, { showLoading: !hasFreshCache });
     return () => {
-      clearTimeout(timeoutId);
       controller.abort();
     };
   }, [fetchList]);
