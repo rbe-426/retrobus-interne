@@ -1,5 +1,5 @@
 // src/pages/Vehicules.jsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   Box, Heading, Input, SimpleGrid, Card, CardHeader, CardBody,
   Text, Badge, HStack, Spinner, Center, Button, Flex, useToast,
@@ -12,6 +12,8 @@ import { FiEdit, FiPlus, FiGrid } from 'react-icons/fi';
 import { apiClient } from '../api/config.js'; // Import direct du client API
 
 const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE || window.location.origin;
+const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
+const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const Vehicules = () => {
   const [data, setData] = useState([]);
@@ -24,11 +26,23 @@ const Vehicules = () => {
 
   const fetchList = useCallback(async (signal) => {
     try {
-      setLoading(true);
+      if (data.length === 0) {
+        setLoading(true);
+      }
       const response = await apiClient.get('/vehicles');
       // L'endpoint retourne { vehicles: [...] }, on déstructure
       const vehicles = response.vehicles || response || [];
-      setData(Array.isArray(vehicles) ? vehicles : []);
+      const normalizedVehicles = Array.isArray(vehicles) ? vehicles : [];
+      setData(normalizedVehicles);
+
+      try {
+        sessionStorage.setItem(
+          VEHICLES_CACHE_KEY,
+          JSON.stringify({ timestamp: Date.now(), data: normalizedVehicles })
+        );
+      } catch {
+        // Ignore cache write errors
+      }
     } catch (e) {
       if (e.name !== "AbortError") {
         console.error(e);
@@ -42,21 +56,37 @@ const Vehicules = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, data.length]);
 
   useEffect(() => {
+    try {
+      const cachedRaw = sessionStorage.getItem(VEHICLES_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        const isFresh = cached?.timestamp && (Date.now() - cached.timestamp < VEHICLES_CACHE_TTL_MS);
+        if (isFresh && Array.isArray(cached?.data) && cached.data.length > 0) {
+          setData(cached.data);
+          setLoading(false);
+        }
+      }
+    } catch {
+      // Ignore cache read errors
+    }
+
     const controller = new AbortController();
     fetchList(controller.signal);
     return () => controller.abort();
   }, [fetchList]);
 
-  const filtered = data.filter(v => {
-    if (!q.trim()) return true;
-    const needle = q.toLowerCase();
-    return [v.parc, v.modele, v.marque, v.immat]
-      .filter(Boolean)
-      .some(field => field.toLowerCase().includes(needle));
-  });
+  const filtered = useMemo(() => {
+    return data.filter(v => {
+      if (!q.trim()) return true;
+      const needle = q.toLowerCase();
+      return [v.parc, v.modele, v.marque, v.immat]
+        .filter(Boolean)
+        .some(field => field.toLowerCase().includes(needle));
+    });
+  }, [data, q]);
 
   const handleQRShow = (vehicle) => {
     setSelectedVehicle(vehicle);
@@ -141,6 +171,10 @@ const Vehicules = () => {
                   <Image
                     src={vehicle.thumbnailImage}
                     alt={vehicle.modele}
+                    loading="lazy"
+                    decoding="async"
+                    htmlWidth={960}
+                    htmlHeight={640}
                     w="100%"
                     h={{ base: "100px", md: "120px" }}
                     objectFit="cover"
