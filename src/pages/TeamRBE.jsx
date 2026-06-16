@@ -299,11 +299,17 @@ export default function TeamRBE() {
       console.log('📤 Début upload avatar pour:', memberId);
       console.log('📎 Fichier:', file.name, file.type, file.size, 'bytes');
       
+      // Vérifier la taille du fichier (max 20MB)
+      const maxSize = 20 * 1024 * 1024; // 20 MB
+      if (file.size > maxSize) {
+        throw new Error(`Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(2)} MB). Taille max: 20 MB`);
+      }
+      
       const formData = new FormData();
       formData.append('avatar', file);
 
-      console.log('📡 Envoi vers API...');
-      const response = await apiClient.upload(`/team/${memberId}/upload-avatar`, formData);
+      console.log('📡 Envoi vers API /api/team/' + memberId + '/upload-avatar');
+      const response = await apiClient.upload(`/api/team/${memberId}/upload-avatar`, formData);
       
       console.log('✅ Réponse API:', response);
       
@@ -329,12 +335,16 @@ export default function TeamRBE() {
       let errorMessage = 'Impossible d\'uploader la photo';
       
       if (error.message) {
-        if (error.message.includes('500')) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Upload timeout - fichier trop volumineux ou connexion lente';
+        } else if (error.message.includes('500')) {
           errorMessage = 'Erreur serveur (HTTP 500). Vérifiez les logs du serveur.';
         } else if (error.message.includes('403')) {
           errorMessage = 'Accès refusé. Token CSRF manquant ou invalide.';
         } else if (error.message.includes('401')) {
           errorMessage = 'Non authentifié. Veuillez vous reconnecter.';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Endpoint non trouvé. Vérifiez l\'URL de l\'API.';
         } else {
           errorMessage = error.message;
         }
@@ -538,7 +548,7 @@ export default function TeamRBE() {
                                     />
                                     {uploadingAvatar && <Text fontSize="xs" color="blue.500">Upload en cours...</Text>}
                                   </HStack>
-                                  <Text fontSize="2xs" color="gray.500" mt={1}>JPG, PNG ou WebP - Max 5MB</Text>
+                                  <Text fontSize="2xs" color="gray.500" mt={1}>JPG, PNG ou WebP - Max 20MB</Text>
                                 </FormControl>
 
                                 <FormControl>
@@ -676,4 +686,3 @@ export default function TeamRBE() {
       </VStack>
     </PageLayout>
   );
-}

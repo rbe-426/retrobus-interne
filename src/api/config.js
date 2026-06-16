@@ -328,13 +328,21 @@ export const apiClient = {
     logger.api(`UPLOAD ${API_BASE_URL}${url}`);
     
     try {
+      // Créer un AbortController pour gérer le timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, 60000); // Timeout de 60 secondes pour les uploads
+
       const response = await fetch(`${API_BASE_URL}${url}`, {
         method: 'POST',
         headers,
         body: formData,
+        signal: controller.signal,
         ...options,
       });
       
+      clearTimeout(timeout);
       console.log(`📡 Upload response status: ${response.status}`);
       
       if (!response.ok) {
@@ -356,12 +364,16 @@ export const apiClient = {
         
         // Essayer de récupérer le message d'erreur du serveur
         const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
+        const errorMessage = errorData?.error || errorData?.details || errorData?.message || `HTTP ${response.status}`;
         throw new Error(errorMessage);
       }
       
       return await parseResponse(response);
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('❌ Upload timeout après 60 secondes');
+        throw new Error('Upload timeout - le fichier est peut-être trop volumineux ou la connexion trop lente');
+      }
       console.error(`❌ Erreur UPLOAD ${url}:`, error.message);
       throw error;
     }
