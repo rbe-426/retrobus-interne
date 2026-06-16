@@ -14,7 +14,7 @@ import {
   FiEdit, FiTrash2, FiPlus, FiUsers, FiSettings, FiGlobe, FiMail,
   FiShare, FiChevronLeft, FiChevronRight, FiArrowUpRight, FiSearch,
   FiRefreshCw, FiShield, FiLock, FiUnlock, FiActivity, FiEdit2,
-  FiAlertCircle, FiBell
+  FiAlertCircle, FiBell, FiTrendingUp, FiMonitor
 } from 'react-icons/fi';
 import { FaEdit, FaTrash, FaPlus, FaEye } from 'react-icons/fa';
 
@@ -1599,11 +1599,363 @@ const DocumentsManagement = () => {
   );
 };
 
+const SiteLogsManagement = () => {
+  const userRolesHook = useUserRoles();
+  const canReadLogs = userRolesHook.hasRole('ADMIN');
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [summary, setSummary] = useState({ total: 0, byStatus: {}, topActions: [], lastEventAt: null });
+  const [limit, setLimit] = useState(200);
+  const [status, setStatus] = useState('');
+  const [search, setSearch] = useState('');
+
+  const loadLogs = async () => {
+    if (!canReadLogs) return;
+
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('limit', String(limit));
+      if (status) params.set('status', status);
+      if (search.trim()) params.set('search', search.trim());
+
+      const response = await apiClient.get(`/api/admin/site-logs?${params.toString()}`);
+      setLogs(Array.isArray(response?.logs) ? response.logs : []);
+      setSummary(response?.summary || { total: 0, byStatus: {}, topActions: [], lastEventAt: null });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de charger les logs',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, [canReadLogs]);
+
+  if (!canReadLogs) {
+    return (
+      <Alert status="error">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Accès réservé aux administrateurs</Text>
+          <Text fontSize="sm">La consultation des journaux d'actions est strictement limitée au rôle ADMIN.</Text>
+        </Box>
+      </Alert>
+    );
+  }
+
+  return (
+    <VStack spacing={6} align="stretch">
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Journal d'actions MyRBE</Text>
+          <Text fontSize="sm">Suivi des actions sensibles (authentification, sécurité, opérations critiques).</Text>
+        </Box>
+      </Alert>
+
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Total logs</Text><Heading size="md">{summary.total || 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Succès</Text><Heading size="md" color="green.500">{summary?.byStatus?.success || 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Échecs</Text><Heading size="md" color="red.500">{summary?.byStatus?.failed || 0}</Heading></CardBody></Card>
+      </SimpleGrid>
+
+      <Card variant="outline">
+        <CardBody>
+          <SimpleGrid columns={{ base: 1, md: 4 }} spacing={3}>
+            <FormControl>
+              <FormLabel>Recherche</FormLabel>
+              <Input placeholder="action, utilisateur, détail" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Statut</FormLabel>
+              <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">Tous</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Limite</FormLabel>
+              <Select value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>&nbsp;</FormLabel>
+              <Button leftIcon={<FiRefreshCw />} colorScheme="blue" onClick={loadLogs} isLoading={loading} w="full">
+                Actualiser
+              </Button>
+            </FormControl>
+          </SimpleGrid>
+        </CardBody>
+      </Card>
+
+      <Card variant="outline">
+        <CardHeader>
+          <Heading size="sm">Top actions</Heading>
+        </CardHeader>
+        <CardBody>
+          {Array.isArray(summary?.topActions) && summary.topActions.length > 0 ? (
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3}>
+              {summary.topActions.map((entry) => (
+                <Box key={entry.action} p={3} borderWidth="1px" borderRadius="md">
+                  <Text fontWeight="600" fontSize="sm">{entry.action}</Text>
+                  <Badge mt={1} colorScheme="blue">{entry.count} occurrences</Badge>
+                </Box>
+              ))}
+            </SimpleGrid>
+          ) : (
+            <Text color="gray.500">Aucune action enregistrée.</Text>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card variant="outline">
+        <CardHeader>
+          <HStack justify="space-between">
+            <Heading size="sm">Détail des logs</Heading>
+            <Text fontSize="xs" color="gray.500">
+              Dernier événement: {summary?.lastEventAt ? new Date(summary.lastEventAt).toLocaleString('fr-FR') : 'n/a'}
+            </Text>
+          </HStack>
+        </CardHeader>
+        <CardBody>
+          {loading ? (
+            <Center py={8}><Spinner /></Center>
+          ) : logs.length === 0 ? (
+            <Text color="gray.500">Aucun log trouvé pour ce filtre.</Text>
+          ) : (
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr bg="gray.50">
+                  <Th>Date</Th>
+                  <Th>Statut</Th>
+                  <Th>Action</Th>
+                  <Th>Utilisateur</Th>
+                  <Th>Détails</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {logs.map((entry, idx) => (
+                  <Tr key={`${entry.timestamp}-${entry.action}-${idx}`}>
+                    <Td fontSize="xs">{entry.timestamp ? new Date(entry.timestamp).toLocaleString('fr-FR') : '-'}</Td>
+                    <Td>
+                      <Badge colorScheme={String(entry.status).toLowerCase() === 'success' ? 'green' : 'red'}>
+                        {entry.status || 'unknown'}
+                      </Badge>
+                    </Td>
+                    <Td fontWeight="600" fontSize="xs">{entry.action || '-'}</Td>
+                    <Td fontSize="xs">{entry.user || '-'}</Td>
+                    <Td fontSize="xs" maxW="520px" whiteSpace="normal">{entry.details || '-'}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
+        </CardBody>
+      </Card>
+    </VStack>
+  );
+};
+
+const TrafficContextManagement = () => {
+  const userRolesHook = useUserRoles();
+  const canReadTraffic = userRolesHook.hasRole('ADMIN');
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+
+  const loadTrafficContext = async () => {
+    if (!canReadTraffic) return;
+
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/api/admin/site-traffic-context');
+      setData(response);
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de charger les données de trafic/contexte',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTrafficContext();
+  }, [canReadTraffic]);
+
+  if (!canReadTraffic) {
+    return (
+      <Alert status="error">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Accès réservé aux administrateurs</Text>
+          <Text fontSize="sm">La page Trafic et contexte est strictement limitée au rôle ADMIN.</Text>
+        </Box>
+      </Alert>
+    );
+  }
+
+  const traffic = data?.trafficContext;
+  const pagespeedMobile = data?.pagespeed?.mobile;
+  const pagespeedDesktop = data?.pagespeed?.desktop;
+  const serverContext = data?.serverContext;
+
+  return (
+    <VStack spacing={6} align="stretch">
+      <Alert status="info">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Trafic et contexte du site externe</Text>
+          <Text fontSize="sm">Vue consolidée: disponibilité, temps de réponse, ressources SEO, contexte serveur et score PageSpeed.</Text>
+        </Box>
+      </Alert>
+
+      <HStack justify="space-between" align="center">
+        <VStack align="start" spacing={0}>
+          <Heading size="sm">Cible: {data?.externalSite || '-'}</Heading>
+          <Text fontSize="xs" color="gray.500">Dernière collecte: {data?.generatedAt ? new Date(data.generatedAt).toLocaleString('fr-FR') : 'n/a'}</Text>
+        </VStack>
+        <Button leftIcon={<FiRefreshCw />} colorScheme="blue" onClick={loadTrafficContext} isLoading={loading}>
+          Recharger
+        </Button>
+      </HStack>
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+        <Card><CardBody><HStack><FiMonitor /><Text fontSize="sm">Uptime API</Text></HStack><Heading size="md">{serverContext?.uptimeSeconds || 0}s</Heading></CardBody></Card>
+        <Card><CardBody><HStack><FiTrendingUp /><Text fontSize="sm">Latence moyenne</Text></HStack><Heading size="md">{traffic?.averageResponseTimeMs ?? '-'} ms</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm">PageSpeed Mobile</Text><Heading size="md">{pagespeedMobile?.score ?? '-'}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm">PageSpeed Desktop</Text><Heading size="md">{pagespeedDesktop?.score ?? '-'}</Heading></CardBody></Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Pages surveillées</Heading></CardHeader>
+          <CardBody>
+            {!traffic?.pages ? (
+              <Text color="gray.500">Aucune donnée.</Text>
+            ) : (
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr bg="gray.50">
+                    <Th>URL</Th>
+                    <Th>Statut</Th>
+                    <Th>Temps</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {traffic.pages.map((probe) => (
+                    <Tr key={probe.url}>
+                      <Td fontSize="xs">{probe.url}</Td>
+                      <Td>
+                        <Badge colorScheme={probe.ok ? 'green' : 'red'}>
+                          {probe.status || 'ERR'}
+                        </Badge>
+                      </Td>
+                      <Td fontSize="xs">{probe.responseTimeMs ?? '-'} ms</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Ressources SEO/Contexte</Heading></CardHeader>
+          <CardBody>
+            {!traffic?.resources ? (
+              <Text color="gray.500">Aucune donnée.</Text>
+            ) : (
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr bg="gray.50">
+                    <Th>Ressource</Th>
+                    <Th>Statut</Th>
+                    <Th>Temps</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {traffic.resources.map((probe) => (
+                    <Tr key={probe.url}>
+                      <Td fontSize="xs">{probe.url}</Td>
+                      <Td>
+                        <Badge colorScheme={probe.ok ? 'green' : 'red'}>
+                          {probe.status || 'ERR'}
+                        </Badge>
+                      </Td>
+                      <Td fontSize="xs">{probe.responseTimeMs ?? '-'} ms</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Détail PageSpeed Mobile</Heading></CardHeader>
+          <CardBody>
+            {pagespeedMobile?.enabled === false ? (
+              <Text color="orange.500">PageSpeed indisponible: configurez PAGESPEED_API_KEY côté serveur.</Text>
+            ) : (
+              <VStack align="start" spacing={1} fontSize="sm">
+                <Text>Score: {pagespeedMobile?.score ?? '-'}</Text>
+                <Text>LCP: {pagespeedMobile?.lcpMs ?? '-'} ms</Text>
+                <Text>FCP: {pagespeedMobile?.fcpMs ?? '-'} ms</Text>
+                <Text>CLS: {pagespeedMobile?.cls ?? '-'}</Text>
+                <Text>TBT: {pagespeedMobile?.tbtMs ?? '-'} ms</Text>
+                <Text>Speed Index: {pagespeedMobile?.speedIndexMs ?? '-'} ms</Text>
+              </VStack>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Détail PageSpeed Desktop</Heading></CardHeader>
+          <CardBody>
+            {pagespeedDesktop?.enabled === false ? (
+              <Text color="orange.500">PageSpeed indisponible: configurez PAGESPEED_API_KEY côté serveur.</Text>
+            ) : (
+              <VStack align="start" spacing={1} fontSize="sm">
+                <Text>Score: {pagespeedDesktop?.score ?? '-'}</Text>
+                <Text>LCP: {pagespeedDesktop?.lcpMs ?? '-'} ms</Text>
+                <Text>FCP: {pagespeedDesktop?.fcpMs ?? '-'} ms</Text>
+                <Text>CLS: {pagespeedDesktop?.cls ?? '-'}</Text>
+                <Text>TBT: {pagespeedDesktop?.tbtMs ?? '-'} ms</Text>
+                <Text>Speed Index: {pagespeedDesktop?.speedIndexMs ?? '-'} ms</Text>
+              </VStack>
+            )}
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+    </VStack>
+  );
+};
+
 /**
  * ============= Page Principale SiteManagement =============
  */
 const SiteManagement = () => {
-  const { user } = useUser();
+  const userRolesHook = useUserRoles();
+  const isStrictAdmin = userRolesHook.hasRole('ADMIN');
 
   const sections = [
     {
@@ -1654,6 +2006,22 @@ const SiteManagement = () => {
       icon: FiActivity,
       render: () => <DocumentsManagement />,
     },
+    ...(isStrictAdmin
+      ? [
+          {
+            id: 'logs',
+            label: '🧾 Logs',
+            icon: FiActivity,
+            render: () => <SiteLogsManagement />,
+          },
+          {
+            id: 'traffic-context',
+            label: '📈 Trafic et contexte',
+            icon: FiTrendingUp,
+            render: () => <TrafficContextManagement />,
+          },
+        ]
+      : []),
   ];
 
   return (
