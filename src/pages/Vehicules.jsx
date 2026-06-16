@@ -14,22 +14,25 @@ import { apiClient } from '../api/config.js'; // Import direct du client API
 const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE || window.location.origin;
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
 const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
+const VEHICLES_REQUEST_TIMEOUT_MS = 12000;
 
 const Vehicules = () => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [q, setQ] = useState("");
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const toast = useToast();
   const qrCanvasRef = useRef(null);
 
-  const fetchList = useCallback(async (signal) => {
+  const fetchList = useCallback(async (signal, options = {}) => {
+    const { showLoading = true } = options;
     try {
-      if (data.length === 0) {
+      if (showLoading) {
         setLoading(true);
       }
-      const response = await apiClient.get('/vehicles');
+      const response = await apiClient.get('/vehicles', { signal });
       // L'endpoint retourne { vehicles: [...] }, on déstructure
       const vehicles = response.vehicles || response || [];
       const normalizedVehicles = Array.isArray(vehicles) ? vehicles : [];
@@ -52,21 +55,32 @@ const Vehicules = () => {
           title: "Impossible de charger la liste",
           description: e.message
         });
+      } else if (data.length === 0) {
+        toast({
+          status: 'warning',
+          title: 'Délai de chargement dépassé',
+          description: 'Le serveur met trop de temps à répondre. Réessayez dans quelques secondes.',
+        });
       }
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   }, [toast, data.length]);
 
   useEffect(() => {
+    let hasFreshCache = false;
+
     try {
       const cachedRaw = sessionStorage.getItem(VEHICLES_CACHE_KEY);
       if (cachedRaw) {
         const cached = JSON.parse(cachedRaw);
         const isFresh = cached?.timestamp && (Date.now() - cached.timestamp < VEHICLES_CACHE_TTL_MS);
         if (isFresh && Array.isArray(cached?.data) && cached.data.length > 0) {
+          hasFreshCache = true;
           setData(cached.data);
           setLoading(false);
+          setHasLoadedOnce(true);
         }
       }
     } catch {
@@ -74,8 +88,15 @@ const Vehicules = () => {
     }
 
     const controller = new AbortController();
-    fetchList(controller.signal);
-    return () => controller.abort();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, VEHICLES_REQUEST_TIMEOUT_MS);
+
+    fetchList(controller.signal, { showLoading: !hasFreshCache });
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [fetchList]);
 
   const filtered = useMemo(() => {
@@ -222,7 +243,7 @@ const Vehicules = () => {
         </SimpleGrid>
       )}
 
-      {filtered.length === 0 && !loading && (
+      {filtered.length === 0 && !loading && hasLoadedOnce && (
         <Center py={20}>
           <Text color="gray.500">Aucun véhicule trouvé</Text>
         </Center>

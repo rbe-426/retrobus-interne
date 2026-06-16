@@ -15,6 +15,30 @@ import PrestataireLimitedRoute from "./components/PrestataireLimitedRoute";
 import RequireCreator from "./components/RequireCreator";
 import { RESOURCES } from "./lib/permissions";
 
+const lazyWithRetry = (factory, cacheKey) =>
+  lazy(async () => {
+    const shouldRetry = !sessionStorage.getItem(cacheKey);
+    try {
+      const module = await factory();
+      sessionStorage.removeItem(cacheKey);
+      return module;
+    } catch (error) {
+      const message = String(error?.message || '');
+      const isChunkLoadIssue =
+        message.includes('Failed to fetch dynamically imported module') ||
+        message.includes('Importing a module script failed') ||
+        message.includes('Loading chunk');
+
+      if (isChunkLoadIssue && shouldRetry) {
+        sessionStorage.setItem(cacheKey, '1');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+
+      throw error;
+    }
+  });
+
 // Composant de chargement réutilisable
 const PageLoader = () => (
   <Center h="100vh">
@@ -33,7 +57,7 @@ const MyRBE = lazy(() => import("./pages/MyRBE"));
 const MyRBEActions = lazy(() => import("./pages/MyRBEActions"));
 const AdminFinance = lazy(() => import("./pages/AdminFinance"));
 const FinanceNew = lazy(() => import("./pages/FinanceNew"));
-const Vehicules = lazy(() => import("./pages/Vehicules"));
+const Vehicules = lazyWithRetry(() => import("./pages/Vehicules"), 'retry:vehicules:chunk');
 const VehiculeShow = lazy(() => import("./pages/VehiculeShow"));
 const VehiculeCreate = lazy(() => import("./pages/VehiculeCreate"));
 const VehiculeEdit = lazy(() => import("./pages/VehiculeEdit"));
