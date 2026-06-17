@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, VStack, HStack, Text, Button, Card, CardBody, CardHeader,
   Heading, Input, Textarea, FormControl, FormLabel, useToast,
@@ -1775,14 +1775,35 @@ const TrafficContextManagement = () => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
+  const [hoverIndex, setHoverIndex] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [comparisonTraffic, setComparisonTraffic] = useState(null);
 
-  const loadTrafficContext = async () => {
+  const getPreviousMonthValue = (monthValue) => {
+    if (!/^\d{4}-\d{2}$/.test(String(monthValue || ''))) return monthValue;
+    const [yearStr, monthStr] = String(monthValue).split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const date = new Date(Date.UTC(year, month - 1, 1));
+    date.setUTCMonth(date.getUTCMonth() - 1);
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const loadTrafficContext = async (monthValue = selectedMonth) => {
     if (!canReadTraffic) return;
 
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/admin/site-traffic-context');
-      setData(response);
+      const previousMonth = getPreviousMonthValue(monthValue);
+      const [currentResponse, previousResponse] = await Promise.all([
+        apiClient.get(`/api/admin/site-traffic-context?month=${encodeURIComponent(monthValue)}`),
+        apiClient.get(`/api/admin/site-traffic-context?month=${encodeURIComponent(previousMonth)}`),
+      ]);
+      setData(currentResponse);
+      setComparisonTraffic(previousResponse?.trafficContext?.monthlyTraffic || null);
     } catch (error) {
       toast({
         title: 'Erreur',
@@ -1796,8 +1817,8 @@ const TrafficContextManagement = () => {
   };
 
   useEffect(() => {
-    loadTrafficContext();
-  }, [canReadTraffic]);
+    loadTrafficContext(selectedMonth);
+  }, [canReadTraffic, selectedMonth]);
 
   if (!canReadTraffic) {
     return (
@@ -1815,8 +1836,10 @@ const TrafficContextManagement = () => {
   const pagespeedMobile = data?.pagespeed?.mobile;
   const pagespeedDesktop = data?.pagespeed?.desktop;
   const serverContext = data?.serverContext;
-  const monthlyVisitsSeries = Array.isArray(traffic?.monthlyVisits?.series) ? traffic.monthlyVisits.series : [];
-  const daysInMonth = Number(traffic?.monthlyVisits?.daysInMonth || 31);
+  const monthlyTraffic = traffic?.monthlyTraffic;
+  const monthlySeries = Array.isArray(monthlyTraffic?.series) ? monthlyTraffic.series : [];
+  const daysInMonth = Number(monthlyTraffic?.daysInMonth || 31);
+  const currentDay = Number(monthlyTraffic?.currentDay || 1);
 
   const buildLinePath = (series, min, max, width = 1200, height = 220) => {
     if (!Array.isArray(series) || series.length === 0) return '';
@@ -1825,22 +1848,88 @@ const TrafficContextManagement = () => {
     const safeMax = Number.isFinite(max) && max > safeMin ? max : safeMin + 1;
     const stepX = series.length > 1 ? width / (series.length - 1) : width;
 
-    return series
-      .map((value, index) => {
+    const segments = [];
+    let penDown = false;
+
+    series.forEach((value, index) => {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        penDown = false;
+        return;
+      }
+
         const normalized = (Number(value || 0) - safeMin) / (safeMax - safeMin);
         const y = height - normalized * height;
         const x = index * stepX;
-        return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${Math.max(0, Math.min(height, y)).toFixed(2)}`;
-      })
-      .join(' ');
+        const cmd = penDown ? 'L' : 'M';
+        segments.push(`${cmd} ${x.toFixed(2)} ${Math.max(0, Math.min(height, y)).toFixed(2)}`);
+        penDown = true;
+      });
+
+    return segments.join(' ');
   };
 
-  const visitsSeries = monthlyVisitsSeries.map((point) => Number(point.visits || 0));
-  const visitsMax = visitsSeries.length > 0 ? Math.max(...visitsSeries, 10) : 10;
-  const visitsMin = visitsSeries.length > 0 ? Math.min(...visitsSeries, 0) : 0;
+  const visitsSeries = monthlySeries.map((point) => (point?.visits ?? null));
+  const nonNullVisits = visitsSeries.filter((v) => v !== null && v !== undefined);
+  const visitsMax = nonNullVisits.length > 0 ? Math.max(...nonNullVisits, 10) : 10;
+  const visitsMin = 0;
   const visitsPath = buildLinePath(visitsSeries, visitsMin, visitsMax);
-  const lastDayVisits = visitsSeries.length > 0 ? visitsSeries[visitsSeries.length - 1] : 0;
-  const monthLabel = traffic?.monthlyVisits?.month || '-';
+  const searchImpressionsSeries = monthlySeries.map((point) => (point?.searchImpressions ?? null));
+  const searchClicksSeries = monthlySeries.map((point) => (point?.searchClicks ?? null));
+  const nonNullSearchImpressions = searchImpressionsSeries.filter((v) => v !== null && v !== undefined);
+  const nonNullSearchClicks = searchClicksSeries.filter((v) => v !== null && v !== undefined);
+  const searchMax = Math.max(
+    10,
+    nonNullSearchImpressions.length > 0 ? Math.max(...nonNullSearchImpressions) : 0,
+    nonNullSearchClicks.length > 0 ? Math.max(...nonNullSearchClicks) : 0,
+  );
+  const searchImpressionsPath = buildLinePath(searchImpressionsSeries, 0, searchMax);
+  const searchClicksPath = buildLinePath(searchClicksSeries, 0, searchMax);
+  const lastExistingVisit = nonNullVisits.length > 0 ? nonNullVisits[nonNullVisits.length - 1] : 0;
+  const monthLabel = monthlyTraffic?.month || '-';
+  const searchConsole = monthlyTraffic?.totals?.searchConsole || {};
+  const adsense = monthlyTraffic?.totals?.adsense || {};
+  const searchConsoleApi = data?.searchConsoleApi;
+  const effectiveSearch = searchConsoleApi?.enabled
+    ? {
+        impressions: Number(searchConsoleApi.impressions || 0),
+        clicks: Number(searchConsoleApi.clicks || 0),
+        ctr: Number(searchConsoleApi.ctr || 0),
+        topQueries: Array.isArray(searchConsoleApi.topQueries) ? searchConsoleApi.topQueries : [],
+        avgPosition: Number(searchConsoleApi.avgPosition || 0),
+      }
+    : {
+        impressions: Number(searchConsole?.impressions || 0),
+        clicks: Number(searchConsole?.clicks || 0),
+        ctr: Number(searchConsole?.ctr || 0),
+        topQueries: Array.isArray(searchConsole?.topQueries) ? searchConsole.topQueries : [],
+        avgPosition: 0,
+      };
+  const topQueries = effectiveSearch.topQueries;
+  const topPages = Array.isArray(monthlyTraffic?.totals?.topPages) ? monthlyTraffic.totals.topPages : [];
+  const compareTotals = comparisonTraffic?.totals || {};
+  const compareVisits = Number(compareTotals?.visits || 0);
+  const comparePageViews = Number(compareTotals?.pageViews || 0);
+  const compareSearchClicks = Number(compareTotals?.searchConsole?.clicks || 0);
+  const compareRevenue = Number(compareTotals?.adsense?.estimatedRevenue || 0);
+  const deltaText = (current, previous, suffix = '') => {
+    const delta = Number(current || 0) - Number(previous || 0);
+    const sign = delta > 0 ? '+' : '';
+    return `${sign}${delta.toFixed(2)}${suffix}`;
+  };
+
+  const yTicks = useMemo(() => {
+    const step = Math.max(1, Math.ceil(visitsMax / 4));
+    return [0, step, step * 2, step * 3, step * 4];
+  }, [visitsMax]);
+
+  const xTicks = useMemo(() => {
+    const base = [1, 5, 10, 15, 20, 25, 31];
+    return base.filter((day) => day <= daysInMonth);
+  }, [daysInMonth]);
+
+  const hoveredPoint = hoverIndex !== null ? monthlySeries[hoverIndex] : null;
+  const chartWidth = 1200;
+  const chartHeight = 220;
 
   return (
     <VStack spacing={6} align="stretch">
@@ -1857,9 +1946,15 @@ const TrafficContextManagement = () => {
           <Heading size="sm">Cible: {data?.externalSite || '-'}</Heading>
           <Text fontSize="xs" color="gray.500">Dernière collecte: {data?.generatedAt ? new Date(data.generatedAt).toLocaleString('fr-FR') : 'n/a'}</Text>
         </VStack>
-        <Button leftIcon={<FiRefreshCw />} colorScheme="blue" onClick={loadTrafficContext} isLoading={loading}>
-          Recharger
-        </Button>
+        <HStack>
+          <FormControl maxW="170px">
+            <FormLabel fontSize="xs" mb={1}>Période</FormLabel>
+            <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+          </FormControl>
+          <Button leftIcon={<FiRefreshCw />} colorScheme="blue" onClick={() => loadTrafficContext(selectedMonth)} isLoading={loading}>
+            Recharger
+          </Button>
+        </HStack>
       </HStack>
 
       <Card variant="outline" w="100%" minH="320px">
@@ -1867,11 +1962,11 @@ const TrafficContextManagement = () => {
           <HStack justify="space-between" align="start" wrap="wrap">
             <Box>
               <Heading size="md">Courbe visites & interactions (site externe)</Heading>
-              <Text fontSize="sm" color="gray.600">Visites journalières du mois (jour 1 à jour {daysInMonth})</Text>
+              <Text fontSize="sm" color="gray.600">Visites journalières du mois en cours (jour 1 à {currentDay}) avec graduation lisible</Text>
             </Box>
             <VStack align="end" spacing={0}>
               <Text fontSize="xs" color="gray.500">Dernier point</Text>
-              <Heading size="sm">{lastDayVisits}</Heading>
+              <Heading size="sm">{lastExistingVisit}</Heading>
               <Text fontSize="xs" color="gray.500">Mois: {monthLabel}</Text>
             </VStack>
           </HStack>
@@ -1880,27 +1975,269 @@ const TrafficContextManagement = () => {
           {visitsSeries.length < 2 ? (
             <Center h="220px"><Text color="gray.500">Collecte en cours... Rechargez pour enrichir la courbe.</Text></Center>
           ) : (
-            <Box h="240px" w="100%" borderRadius="md" bg="gray.50" p={3}>
-              <svg viewBox="0 0 1200 220" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Courbe visites interactions trafic externe">
+            <Box h="280px" w="100%" borderRadius="md" bg="gray.50" p={3}>
+              <svg
+                viewBox="0 0 1200 260"
+                width="100%"
+                height="100%"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Courbe visites interactions trafic externe"
+                onMouseMove={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const ratio = (event.clientX - rect.left) / rect.width;
+                  const clampedRatio = Math.max(0, Math.min(1, ratio));
+                  const idx = Math.round(clampedRatio * (Math.max(1, monthlySeries.length) - 1));
+                  setHoverIndex(idx);
+                }}
+                onMouseLeave={() => setHoverIndex(null)}
+              >
                 <defs>
                   <filter id="trilogyGreenHalo" x="-30%" y="-30%" width="160%" height="160%">
                     <feGaussianBlur stdDeviation="2.4" result="blur" />
                   </filter>
                 </defs>
-                <line x1="0" y1="220" x2="1200" y2="220" stroke="#CBD5E0" strokeWidth="1" />
-                <line x1="0" y1="0" x2="0" y2="220" stroke="#CBD5E0" strokeWidth="1" />
+                {yTicks.map((tick) => {
+                  const y = chartHeight - ((tick - visitsMin) / Math.max(1, visitsMax - visitsMin)) * chartHeight;
+                  return (
+                    <g key={`y-${tick}`}>
+                      <line x1="0" y1={y} x2={chartWidth} y2={y} stroke="#E2E8F0" strokeWidth="1" />
+                      <text x="6" y={Math.max(10, y - 4)} fontSize="12" fill="#718096">{tick}</text>
+                    </g>
+                  );
+                })}
+                {xTicks.map((day) => {
+                  const x = ((day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth;
+                  return (
+                    <g key={`x-${day}`}>
+                      <line x1={x} y1="0" x2={x} y2={chartHeight} stroke="#EDF2F7" strokeWidth="1" />
+                      <text x={x} y="252" textAnchor="middle" fontSize="12" fill="#718096">{day}</text>
+                    </g>
+                  );
+                })}
+                <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
+                <line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
                 <path d={visitsPath} fill="none" stroke="#2f9e44" strokeWidth="2" opacity="0.65" filter="url(#trilogyGreenHalo)" strokeLinecap="round" strokeLinejoin="round" />
                 <path d={visitsPath} fill="none" stroke="#2f9e44" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+
+                {hoveredPoint && hoveredPoint.visits !== null && hoveredPoint.visits !== undefined && (
+                  <g>
+                    <line
+                      x1={((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                      y1="0"
+                      x2={((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                      y2={chartHeight}
+                      stroke="#2F855A"
+                      strokeDasharray="4 4"
+                      strokeWidth="1"
+                    />
+                    <circle
+                      cx={((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                      cy={chartHeight - ((hoveredPoint.visits - visitsMin) / Math.max(1, visitsMax - visitsMin)) * chartHeight}
+                      r="5"
+                      fill="#2F855A"
+                    />
+                    <rect
+                      x={Math.min(chartWidth - 170, ((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 10)}
+                      y="10"
+                      rx="6"
+                      ry="6"
+                      width="160"
+                      height="48"
+                      fill="#1A202C"
+                      opacity="0.92"
+                    />
+                    <text
+                      x={Math.min(chartWidth - 162, ((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 18)}
+                      y="30"
+                      fill="#F7FAFC"
+                      fontSize="12"
+                    >
+                      Jour {hoveredPoint.day}
+                    </text>
+                    <text
+                      x={Math.min(chartWidth - 162, ((hoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 18)}
+                      y="47"
+                      fill="#9AE6B4"
+                      fontSize="13"
+                    >
+                      {hoveredPoint.visits} visites
+                    </text>
+                  </g>
+                )}
               </svg>
             </Box>
           )}
           <HStack justify="space-between" mt={2} fontSize="xs" color="gray.500">
             <Text>Min: {visitsMin}</Text>
             <Text>Max: {visitsMax}</Text>
-            <Text>Points: {daysInMonth}</Text>
+            <Text>Points: {currentDay}/{daysInMonth}</Text>
           </HStack>
         </CardBody>
       </Card>
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Visites (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.visits ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Pages vues (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.pageViews ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Clics (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.clicks ?? 0}</Heading></CardBody></Card>
+        <Card>
+          <CardBody>
+            <Text fontSize="sm" color="gray.600">Accès (Google / Site / Partages / Direct)</Text>
+            <Text fontSize="sm" mt={1}>
+              {monthlyTraffic?.totals?.sources?.google ?? 0} / {monthlyTraffic?.totals?.sources?.site ?? 0} / {monthlyTraffic?.totals?.sources?.share ?? 0} / {monthlyTraffic?.totals?.sources?.direct ?? 0}
+            </Text>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+
+      <Alert status="success" borderRadius="md">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Pilotage Search Console & AdSense (estimations internes)</Text>
+          <Text fontSize="sm">Suivi impressions, clics, CTR, CPC estimé et revenus à partir des événements réels du site.</Text>
+        </Box>
+      </Alert>
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Search Impressions</Text><Heading size="md">{effectiveSearch?.impressions ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Search Clicks</Text><Heading size="md">{effectiveSearch?.clicks ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Search CTR</Text><Heading size="md">{effectiveSearch?.ctr ?? 0}%</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Ad Revenue Estimé</Text><Heading size="md">{Number(adsense?.estimatedRevenue || 0).toFixed(2)} €</Heading></CardBody></Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif visites (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.visits ?? 0, compareVisits)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif pages vues (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.pageViews ?? 0, comparePageViews)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif Search Clicks (N-1)</Text><Heading size="md">{deltaText(effectiveSearch?.clicks ?? 0, compareSearchClicks)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif revenus pub (N-1)</Text><Heading size="md">{deltaText(Number(adsense?.estimatedRevenue || 0), compareRevenue, ' €')}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+      </SimpleGrid>
+
+      {searchConsoleApi?.enabled ? (
+        <Alert status="success" borderRadius="md">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">Google Search Console connecté</Text>
+            <Text fontSize="sm">Site: {searchConsoleApi.siteUrl} | Position moyenne: {effectiveSearch.avgPosition}</Text>
+          </Box>
+        </Alert>
+      ) : (
+        <Alert status="warning" borderRadius="md">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">API Search Console non configurée</Text>
+            <Text fontSize="sm">Ajoute SEARCH_CONSOLE_SITE_URL et SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON (ou BASE64) côté API.</Text>
+          </Box>
+        </Alert>
+      )}
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads Impressions</Text><Heading size="md">{adsense?.impressions ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads Clicks</Text><Heading size="md">{adsense?.clicks ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads CTR</Text><Heading size="md">{adsense?.ctr ?? 0}%</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600">RPM</Text><Heading size="md">{adsense?.rpm ?? 0} €</Heading><Text fontSize="xs" color="gray.500">par 1000 pages vues</Text></CardBody></Card>
+      </SimpleGrid>
+
+      <Card variant="outline" w="100%" minH="280px">
+        <CardHeader pb={2}>
+          <HStack justify="space-between" align="start" wrap="wrap">
+            <Box>
+              <Heading size="md">Courbe Search Console (impressions vs clics)</Heading>
+              <Text fontSize="sm" color="gray.600">Suivi journalier du mois en cours avec axes gradués</Text>
+            </Box>
+            <VStack align="end" spacing={0}>
+              <Text fontSize="xs" color="gray.500">CPC estimé</Text>
+              <Heading size="sm">{adsense?.estimatedCpc ?? 0} €</Heading>
+            </VStack>
+          </HStack>
+        </CardHeader>
+        <CardBody pt={2}>
+          <Box h="260px" w="100%" borderRadius="md" bg="gray.50" p={3}>
+            <svg viewBox="0 0 1200 240" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Courbe search impressions et clicks">
+              {yTicks.map((tick) => {
+                const y = chartHeight - ((tick - 0) / Math.max(1, searchMax)) * chartHeight;
+                return (
+                  <g key={`search-y-${tick}`}>
+                    <line x1="0" y1={y} x2={chartWidth} y2={y} stroke="#E2E8F0" strokeWidth="1" />
+                    <text x="6" y={Math.max(10, y - 4)} fontSize="12" fill="#718096">{tick}</text>
+                  </g>
+                );
+              })}
+              {xTicks.map((day) => {
+                const x = ((day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth;
+                return (
+                  <g key={`search-x-${day}`}>
+                    <line x1={x} y1="0" x2={x} y2={chartHeight} stroke="#EDF2F7" strokeWidth="1" />
+                    <text x={x} y="236" textAnchor="middle" fontSize="12" fill="#718096">{day}</text>
+                  </g>
+                );
+              })}
+              <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
+              <line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
+              <path d={searchImpressionsPath} fill="none" stroke="#2B6CB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={searchClicksPath} fill="none" stroke="#2F855A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Box>
+          <HStack justify="space-between" mt={2} fontSize="xs" color="gray.500">
+            <Text>Bleu: impressions</Text>
+            <Text>Vert: clics</Text>
+            <Text>Mois: {monthLabel}</Text>
+          </HStack>
+        </CardBody>
+      </Card>
+
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Top requêtes (Search)</Heading></CardHeader>
+          <CardBody>
+            {topQueries.length === 0 ? (
+              <Text color="gray.500">Aucune requête remontée pour le moment.</Text>
+            ) : (
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr bg="gray.50">
+                    <Th>Requête</Th>
+                    <Th isNumeric>Clics</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {topQueries.map((entry) => (
+                    <Tr key={entry.query}>
+                      <Td fontSize="xs">{entry.query}</Td>
+                      <Td isNumeric fontSize="xs">{entry.clicks}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card variant="outline">
+          <CardHeader><Heading size="sm">Top pages (trafic)</Heading></CardHeader>
+          <CardBody>
+            {topPages.length === 0 ? (
+              <Text color="gray.500">Aucune page significative sur la période.</Text>
+            ) : (
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr bg="gray.50">
+                    <Th>Page</Th>
+                    <Th isNumeric>Visites</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {topPages.map((entry) => (
+                    <Tr key={entry.path}>
+                      <Td fontSize="xs">{entry.path}</Td>
+                      <Td isNumeric fontSize="xs">{entry.visits}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+      </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
         <Card><CardBody><HStack><FiMonitor /><Text fontSize="sm">Uptime API</Text></HStack><Heading size="md">{serverContext?.uptimeSeconds || 0}s</Heading></CardBody></Card>
