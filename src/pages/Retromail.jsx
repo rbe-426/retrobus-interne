@@ -10,7 +10,8 @@ import {
   Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, 
   ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  useColorModeValue
+  useColorModeValue, useBreakpointValue, Drawer, DrawerOverlay,
+  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
@@ -40,6 +41,7 @@ export default function Retromail() {
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const selectedBg = useColorModeValue('rbe.50', 'rbe.900');
+  const isMobile = useBreakpointValue({ base: true, md: false }) || false;
 
   // États
   const [isConnected, setIsConnected] = useState(false);
@@ -50,6 +52,7 @@ export default function Retromail() {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
+  const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
   const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
   const [drafts, setDrafts] = useState(() => {
     // Charger les brouillons depuis localStorage
@@ -61,6 +64,17 @@ export default function Retromail() {
     }
   });
   const [currentDraftId, setCurrentDraftId] = useState(null);
+
+  const folderOptions = useMemo(() => ([
+    { key: 'INBOX', label: 'Boite de reception', icon: FiInbox },
+    { key: 'SENT', label: 'Envoyes', icon: FiSend },
+    { key: 'DRAFTS', label: 'Brouillons', icon: FiEdit },
+    { key: 'TRASH', label: 'Corbeille', icon: FiTrash2 }
+  ]), []);
+
+  const activeFolderLabel = useMemo(() => {
+    return folderOptions.find((f) => f.key === activeFolder)?.label || activeFolder;
+  }, [activeFolder, folderOptions]);
 
   // Formulaire de connexion Infomaniak
   const [emailAccount, setEmailAccount] = useState("");
@@ -1018,6 +1032,55 @@ export default function Retromail() {
     }
   };
 
+  const openReply = useCallback(() => {
+    if (!selectedEmail) return;
+    setComposeTo(selectedEmail.from);
+    setComposeSubject(`Re: ${selectedEmail.subject}`);
+
+    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    }) : '';
+    const fromName = selectedEmail.fromName || selectedEmail.from;
+
+    const quotedBody = String(selectedEmail.body || '')
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+
+    setComposeBody(`\n\nLe ${dateStr}, ${fromName} a ecrit :\n\n${quotedBody}`);
+    onComposeOpen();
+  }, [selectedEmail, onComposeOpen]);
+
+  const openForward = useCallback(() => {
+    if (!selectedEmail) return;
+    setComposeTo('');
+    setComposeSubject(`Fwd: ${selectedEmail.subject}`);
+
+    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    }) : '';
+    const fromName = selectedEmail.fromName || selectedEmail.from;
+
+    const quotedBody = String(selectedEmail.body || '')
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+
+    setComposeBody(`\n\n---------- Message transfere ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${selectedEmail.subject}\nA : ${selectedEmail.to || ''}\n\n${quotedBody}`);
+    onComposeOpen();
+  }, [selectedEmail, onComposeOpen]);
+
+  const notifyComingSoon = useCallback((featureName) => {
+    toast({
+      title: featureName,
+      description: 'Fonctionnalite en developpement',
+      status: 'info',
+      duration: 1800
+    });
+  }, [toast]);
+
   // Filtrer les emails par recherche
   const sourceEmails = activeFolder === 'DRAFTS' ? drafts : emails;
   
@@ -1167,6 +1230,16 @@ export default function Retromail() {
       >
         <Heading size={{ base: "md", md: "lg" }}>📧 RétroMail</Heading>
         <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap">
+          {isMobile && (
+            <Button
+              leftIcon={<FiFolder />}
+              size="xs"
+              variant="outline"
+              onClick={() => setMobileFoldersOpen(true)}
+            >
+              {activeFolderLabel}
+            </Button>
+          )}
           <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" display={{ base: 'none', sm: 'block' }}>
             Connecté : <Badge colorScheme="green" fontSize={{ base: "2xs", md: "xs" }}>{emailAccount}</Badge>
           </Text>
@@ -1203,13 +1276,13 @@ export default function Retromail() {
       <Flex 
         gap={{ base: 2, md: 4 }} 
         align="stretch" 
-        minH="70vh"
+        minH={{ base: 'calc(100vh - 180px)', md: '70vh' }}
         direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
       >
         {/* Sidebar - Dossiers */}
         <Box 
-          w={{ base: 'full', md: '200px' }}
-          display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
+          w={{ base: 'full', md: '220px' }}
+          display={{ base: 'none', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
           borderRadius="md" 
@@ -1282,15 +1355,23 @@ export default function Retromail() {
           p={{ base: 2, md: 3 }}
           bg={cardBg}
           overflowY="auto"
-          maxH="70vh"
+          h={{ base: 'calc(100vh - 230px)', md: '70vh' }}
+          maxH={{ base: 'none', md: '70vh' }}
         >
-          <Input 
-            placeholder="Rechercher..." 
-            mb={3}
-            size={{ base: 'sm', md: 'md' }}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <Box position="sticky" top={0} zIndex={2} bg={cardBg} pb={2}>
+            <Input 
+              placeholder="Rechercher..." 
+              mb={1}
+              size={{ base: 'sm', md: 'md' }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {isMobile && (
+              <Text fontSize="xs" color="gray.500">
+                {filteredEmails.length} message(s)
+              </Text>
+            )}
+          </Box>
 
           {loading ? (
             <Center p={6}>
@@ -1331,7 +1412,7 @@ export default function Retromail() {
                   borderColor={selectedEmail?.id === email.id ? 'rbe.500' : borderColor}
                   _hover={{ borderColor: 'rbe.300' }}
                 >
-                  <CardBody>
+                  <CardBody py={{ base: 3, md: 2 }}>
                     <Flex justify="space-between" align="start" mb={1}>
                       <HStack spacing={2} flex="1" minW="0">
                         <Avatar size="xs" name={displayName} />
@@ -1377,7 +1458,8 @@ export default function Retromail() {
           p={{ base: 2, md: 4 }}
           bg={cardBg}
           overflowY="auto"
-          maxH="70vh"
+          h={{ base: 'calc(100vh - 230px)', md: '70vh' }}
+          maxH={{ base: 'none', md: '70vh' }}
         >
           {!selectedEmail ? (
             <Center h="100%">
@@ -1433,29 +1515,52 @@ export default function Retromail() {
                 borderRadius="md"
                 wrap="wrap"
               >
+                {isMobile ? (
+                  <>
+                    <Button
+                      leftIcon={<FiChevronLeft />}
+                      size="xs"
+                      variant="outline"
+                      colorScheme="rbe"
+                      onClick={openReply}
+                    >
+                      Repondre
+                    </Button>
+                    <Button
+                      leftIcon={<FiCornerUpRight />}
+                      size="xs"
+                      variant="outline"
+                      onClick={openForward}
+                    >
+                      Transferer
+                    </Button>
+                    <Button
+                      leftIcon={<FiTrash2 />}
+                      size="xs"
+                      variant="outline"
+                      colorScheme="red"
+                      onClick={() => handleDeleteEmail(selectedEmail.id)}
+                    >
+                      Supprimer
+                    </Button>
+                    <Menu>
+                      <MenuButton as={Button} size="xs" variant="ghost" leftIcon={<FiSettings />}>
+                        Plus
+                      </MenuButton>
+                      <MenuList>
+                        <MenuItem icon={<FiArchive />} onClick={() => notifyComingSoon('Archivage')}>Archiver</MenuItem>
+                        <MenuItem icon={<FiFolder />} onClick={() => notifyComingSoon('Classement')}>Classer</MenuItem>
+                      </MenuList>
+                    </Menu>
+                  </>
+                ) : (
+                  <>
                 <Button
                   leftIcon={<FiChevronLeft />}
                   size={{ base: "xs", md: "sm" }}
                   variant="outline"
                   colorScheme="rbe"
-                  onClick={() => {
-                    setComposeTo(selectedEmail.from);
-                    setComposeSubject(`Re: ${selectedEmail.subject}`);
-                    // Format standard de réponse compatible Gmail/Outlook
-                    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', { 
-                      dateStyle: 'long', 
-                      timeStyle: 'short' 
-                    }) : '';
-                    const fromName = selectedEmail.fromName || selectedEmail.from;
-                    
-                    const quotedBody = selectedEmail.body
-                      .split('\n')
-                      .map(line => '> ' + line)
-                      .join('\n');
-                    
-                    setComposeBody(`\n\nLe ${dateStr}, ${fromName} a écrit :\n\n${quotedBody}`);
-                    onComposeOpen();
-                  }}
+                  onClick={openReply}
                 >
                   Répondre
                 </Button>
@@ -1463,14 +1568,7 @@ export default function Retromail() {
                   leftIcon={<FiArchive />}
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    toast({
-                      title: "Archivage",
-                      description: "Fonctionnalité en développement",
-                      status: "info",
-                      duration: 2000
-                    });
-                  }}
+                  onClick={() => notifyComingSoon('Archivage')}
                 >
                   Archiver
                 </Button>
@@ -1478,14 +1576,7 @@ export default function Retromail() {
                   leftIcon={<FiFolder />}
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    toast({
-                      title: "Classement",
-                      description: "Fonctionnalité en développement",
-                      status: "info",
-                      duration: 2000
-                    });
-                  }}
+                  onClick={() => notifyComingSoon('Classement')}
                 >
                   Classer
                 </Button>
@@ -1493,24 +1584,7 @@ export default function Retromail() {
                   leftIcon={<FiCornerUpRight />}
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    setComposeTo("");
-                    setComposeSubject(`Fwd: ${selectedEmail.subject}`);
-                    // Format standard de transfert compatible Gmail/Outlook
-                    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', { 
-                      dateStyle: 'long', 
-                      timeStyle: 'short' 
-                    }) : '';
-                    const fromName = selectedEmail.fromName || selectedEmail.from;
-                    
-                    const quotedBody = selectedEmail.body
-                      .split('\n')
-                      .map(line => '> ' + line)
-                      .join('\n');
-                    
-                    setComposeBody(`\n\n---------- Message transféré ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${selectedEmail.subject}\nA : ${selectedEmail.to || ''}\n\n${quotedBody}`);
-                    onComposeOpen();
-                  }}
+                  onClick={openForward}
                 >
                   Transférer
                 </Button>
@@ -1523,6 +1597,8 @@ export default function Retromail() {
                 >
                   Supprimer
                 </Button>
+                  </>
+                )}
               </Flex>
 
               <Divider />
@@ -1534,7 +1610,7 @@ export default function Retromail() {
                     srcDoc={selectedEmail.html}
                     style={{
                       width: '100%',
-                      minHeight: '400px',
+                      minHeight: isMobile ? '55vh' : '400px',
                       border: 'none',
                       backgroundColor: 'white'
                     }}
@@ -2402,6 +2478,39 @@ export default function Retromail() {
           });
         }}
       />
+
+      <Drawer isOpen={mobileFoldersOpen} placement="left" onClose={() => setMobileFoldersOpen(false)} size="xs">
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>Mes dossiers</DrawerHeader>
+          <DrawerBody>
+            <VStack align="stretch" spacing={2}>
+              {folderOptions.map((folder) => (
+                <Button
+                  key={folder.key}
+                  variant={activeFolder === folder.key ? 'solid' : 'ghost'}
+                  colorScheme={activeFolder === folder.key ? 'rbe' : 'gray'}
+                  justifyContent="flex-start"
+                  leftIcon={<folder.icon />}
+                  onClick={() => {
+                    setActiveFolder(folder.key);
+                    setSelectedEmail(null);
+                    setMobileFoldersOpen(false);
+                  }}
+                >
+                  {folder.label}
+                  {folder.key === 'DRAFTS' && drafts.length > 0 && (
+                    <Badge ml={2} colorScheme="purple" borderRadius="full" px={2} fontSize="xs">
+                      {drafts.length}
+                    </Badge>
+                  )}
+                </Button>
+              ))}
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </Box>
   );
 }
