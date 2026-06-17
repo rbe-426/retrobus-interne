@@ -247,6 +247,15 @@ export default function MembersManagement() {
   const [bulletinStats, setBulletinStats] = useState({ active: 0, pending: 0, in_progress: 0, completed: 0 });
   const [recentCompletions, setRecentCompletions] = useState([]);
   const [loadingBulletinStats, setLoadingBulletinStats] = useState(false);
+  const [adhesionRequests, setAdhesionRequests] = useState([]);
+  const [adhesionRequestsStats, setAdhesionRequestsStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [loadingAdhesionRequests, setLoadingAdhesionRequests] = useState(false);
+  const [adhesionSearchTerm, setAdhesionSearchTerm] = useState('');
+  const [adhesionStatusFilter, setAdhesionStatusFilter] = useState('PENDING');
+  const [selectedAdhesionRequest, setSelectedAdhesionRequest] = useState(null);
+  const [adhesionDecision, setAdhesionDecision] = useState('APPROVED');
+  const [adhesionDecisionReason, setAdhesionDecisionReason] = useState('');
+  const [adhesionDecisionBusy, setAdhesionDecisionBusy] = useState(false);
   
   const { 
     isOpen: isCreateOpen, 
@@ -297,6 +306,11 @@ export default function MembersManagement() {
     onOpen: onBulletinOpen,
     onClose: onBulletinClose
   } = useDisclosure();
+  const {
+    isOpen: isAdhesionDecisionOpen,
+    onOpen: onAdhesionDecisionOpen,
+    onClose: onAdhesionDecisionClose
+  } = useDisclosure();
   const [linkForm, setLinkForm] = useState({ username: '', email: '' });
   const [bulletinMember, setBulletinMember] = useState(null);
   const [renewFlowState, setRenewFlowState] = useState({
@@ -313,10 +327,13 @@ export default function MembersManagement() {
   useEffect(() => {
     loadMembers();
     loadBulletinStats();
+    loadAdhesionRequests();
+    loadAdhesionRequestStats();
     
     // Rafraîchir les stats de bulletin toutes les 30 secondes
     const interval = setInterval(() => {
       loadBulletinStats();
+      loadAdhesionRequestStats();
     }, 30000);
     
     return () => clearInterval(interval);
@@ -401,6 +418,94 @@ export default function MembersManagement() {
       console.error('Erreur chargement stats bulletins:', error);
     } finally {
       setLoadingBulletinStats(false);
+    }
+  };
+
+  const loadAdhesionRequests = async () => {
+    try {
+      setLoadingAdhesionRequests(true);
+      const query = new URLSearchParams();
+      if (adhesionStatusFilter && adhesionStatusFilter !== 'ALL') query.set('status', adhesionStatusFilter);
+      if (adhesionSearchTerm.trim()) query.set('search', adhesionSearchTerm.trim());
+      const url = `/api/adhesion-requests${query.toString() ? `?${query.toString()}` : ''}`;
+      const response = await fetchWithCSRF(apiUrl(url));
+      const data = await response.json().catch(() => ({ requests: [] }));
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || 'Impossible de charger les demandes');
+      }
+      setAdhesionRequests(Array.isArray(data.requests) ? data.requests : []);
+    } catch (error) {
+      console.error('Erreur chargement demandes adhesion:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de charger les demandes d\'adhésion',
+        status: 'error',
+        duration: 4000
+      });
+    } finally {
+      setLoadingAdhesionRequests(false);
+    }
+  };
+
+  const loadAdhesionRequestStats = async () => {
+    try {
+      const response = await fetchWithCSRF(apiUrl('/api/adhesion-requests/stats'));
+      const data = await response.json().catch(() => ({ stats: {} }));
+      if (!response.ok || !data.success) return;
+      setAdhesionRequestsStats({
+        pending: data.stats?.pending || 0,
+        approved: data.stats?.approved || 0,
+        rejected: data.stats?.rejected || 0,
+        total: data.stats?.total || 0
+      });
+    } catch (error) {
+      console.error('Erreur chargement stats demandes adhesion:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadAdhesionRequests();
+  }, [adhesionStatusFilter]);
+
+  const openDecisionModal = (request, decision) => {
+    setSelectedAdhesionRequest(request);
+    setAdhesionDecision(decision);
+    setAdhesionDecisionReason('');
+    onAdhesionDecisionOpen();
+  };
+
+  const submitAdhesionDecision = async () => {
+    try {
+      if (!selectedAdhesionRequest) return;
+      setAdhesionDecisionBusy(true);
+      const response = await fetchWithCSRF(apiUrl(`/api/adhesion-requests/${selectedAdhesionRequest.id}/decision`), {
+        method: 'POST',
+        body: JSON.stringify({
+          decision: adhesionDecision,
+          reason: adhesionDecisionReason
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || 'Impossible de traiter cette demande');
+      }
+      toast({
+        title: 'Demande traitée',
+        description: adhesionDecision === 'APPROVED' ? 'Adhésion acceptée.' : 'Adhésion refusée.',
+        status: 'success',
+        duration: 4000
+      });
+      onAdhesionDecisionClose();
+      await Promise.all([loadAdhesionRequests(), loadAdhesionRequestStats(), loadMembers()]);
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Traitement impossible',
+        status: 'error',
+        duration: 5000
+      });
+    } finally {
+      setAdhesionDecisionBusy(false);
     }
   };
 
@@ -836,6 +941,18 @@ export default function MembersManagement() {
               </Stat>
             </CardBody>
           </Card>
+
+          <Card bg={cardBg} borderWidth={2} borderColor={adhesionRequestsStats.pending > 0 ? 'red.300' : 'gray.200'}>
+            <CardBody>
+              <Stat>
+                <StatLabel>Une adhésion est demandée</StatLabel>
+                <StatNumber color={adhesionRequestsStats.pending > 0 ? 'red.500' : 'gray.500'}>
+                  {adhesionRequestsStats.pending || 0}
+                </StatNumber>
+                <StatHelpText>Onglet: Bulletins en demandes</StatHelpText>
+              </Stat>
+            </CardBody>
+          </Card>
         </SimpleGrid>
 
         {/* Section statistiques bulletins */}
@@ -1080,6 +1197,137 @@ export default function MembersManagement() {
     </Box>
   );
 
+  const renderAdhesionRequestsTab = () => (
+    <VStack spacing={6} align="stretch">
+      <Card bg={cardBg}>
+        <CardBody>
+          <VStack spacing={4} align="stretch">
+            <HStack w="full" spacing={4} align={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
+              <InputGroup flex={2}>
+                <InputLeftElement>
+                  <FiSearch />
+                </InputLeftElement>
+                <Input
+                  placeholder="Rechercher par nom, email, telephone, candidature..."
+                  value={adhesionSearchTerm}
+                  onChange={(e) => setAdhesionSearchTerm(e.target.value)}
+                />
+              </InputGroup>
+
+              <Select
+                value={adhesionStatusFilter}
+                onChange={(e) => setAdhesionStatusFilter(e.target.value)}
+                maxW="220px"
+              >
+                <option value="ALL">Tous statuts</option>
+                <option value="PENDING">En attente</option>
+                <option value="APPROVED">Acceptées</option>
+                <option value="REJECTED">Refusées</option>
+              </Select>
+
+              <Button leftIcon={<FiSearch />} onClick={loadAdhesionRequests}>
+                Rechercher
+              </Button>
+
+              <Button leftIcon={<FiRefreshCw />} variant="outline" onClick={() => { loadAdhesionRequests(); loadAdhesionRequestStats(); }}>
+                Actualiser
+              </Button>
+            </HStack>
+
+            <HStack spacing={6}>
+              <Text fontSize="sm" color="gray.600">En attente: <strong>{adhesionRequestsStats.pending || 0}</strong></Text>
+              <Text fontSize="sm" color="gray.600">Acceptées: <strong>{adhesionRequestsStats.approved || 0}</strong></Text>
+              <Text fontSize="sm" color="gray.600">Refusées: <strong>{adhesionRequestsStats.rejected || 0}</strong></Text>
+              <Text fontSize="sm" color="gray.600">Total: <strong>{adhesionRequestsStats.total || 0}</strong></Text>
+            </HStack>
+          </VStack>
+        </CardBody>
+      </Card>
+
+      {loadingAdhesionRequests ? (
+        <Center py={10}>
+          <VStack spacing={3}>
+            <Spinner size="lg" color="blue.500" />
+            <Text>Chargement des demandes d'adhésion...</Text>
+          </VStack>
+        </Center>
+      ) : adhesionRequests.length === 0 ? (
+        <Alert status="info">
+          <AlertIcon />
+          Aucune demande d'adhésion trouvée.
+        </Alert>
+      ) : (
+        <Card bg={cardBg}>
+          <CardBody>
+            <Table size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Date</Th>
+                  <Th>Candidat</Th>
+                  <Th>Contact</Th>
+                  <Th>Candidature</Th>
+                  <Th>Statut</Th>
+                  <Th>Decision RH</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {adhesionRequests.map((request) => (
+                  <Tr key={request.id}>
+                    <Td>{new Date(request.createdAt).toLocaleString('fr-FR')}</Td>
+                    <Td>
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="600">{request.firstName} {request.lastName}</Text>
+                        <Text fontSize="xs" color="gray.500">ID: {request.id.slice(0, 8)}</Text>
+                      </VStack>
+                    </Td>
+                    <Td>
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="sm">{request.email}</Text>
+                        <Text fontSize="xs" color="gray.500">{request.phone || 'Telephone non renseigne'}</Text>
+                      </VStack>
+                    </Td>
+                    <Td maxW="420px">
+                      <Text noOfLines={3} whiteSpace="pre-wrap">{request.candidature}</Text>
+                    </Td>
+                    <Td>
+                      <Badge
+                        colorScheme={request.status === 'PENDING' ? 'yellow' : request.status === 'APPROVED' ? 'green' : 'red'}
+                      >
+                        {request.status === 'PENDING' ? 'En attente' : request.status === 'APPROVED' ? 'Acceptee' : 'Refusee'}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      {request.status === 'PENDING' ? (
+                        <HStack>
+                          <Button size="xs" colorScheme="green" onClick={() => openDecisionModal(request, 'APPROVED')}>
+                            Donner suite (accepter)
+                          </Button>
+                          <Button size="xs" colorScheme="red" variant="outline" onClick={() => openDecisionModal(request, 'REJECTED')}>
+                            Donner suite (refuser)
+                          </Button>
+                        </HStack>
+                      ) : (
+                        <VStack align="start" spacing={1}>
+                          <Text fontSize="xs" color="gray.600">Traité par: {request.processedBy || '-'}</Text>
+                          <Text fontSize="xs" color="gray.600">
+                            {request.processedAt ? new Date(request.processedAt).toLocaleString('fr-FR') : '-'}
+                          </Text>
+                          <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                            Motif: {request.decisionReason || 'Sans motif'}
+                          </Text>
+                        </VStack>
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </CardBody>
+        </Card>
+      )}
+    </VStack>
+  );
+
   const renderSettingsTab = () => (
     <Box>
       <Heading size="md" mb={4}>⚙️ Paramètres</Heading>
@@ -1119,6 +1367,13 @@ export default function MembersManagement() {
       icon: FiSettings,
       description: 'Champs affichables',
       render: renderLayoutTab
+    },
+    {
+      id: 'adhesion-requests',
+      label: 'Bulletins en demandes',
+      icon: FiMail,
+      description: 'Demandes d\'adhesion',
+      render: renderAdhesionRequestsTab
     },
     {
       id: 'settings',
@@ -1534,6 +1789,53 @@ export default function MembersManagement() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" onClick={onBulletinClose}>Fermer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isAdhesionDecisionOpen} onClose={onAdhesionDecisionClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Donner suite a la demande d'adhesion
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              {selectedAdhesionRequest && (
+                <Alert status="info">
+                  <AlertIcon />
+                  {selectedAdhesionRequest.firstName} {selectedAdhesionRequest.lastName} - {selectedAdhesionRequest.email}
+                </Alert>
+              )}
+
+              <FormControl>
+                <FormLabel>Decision</FormLabel>
+                <Select value={adhesionDecision} onChange={(e) => setAdhesionDecision(e.target.value)}>
+                  <option value="APPROVED">Accepter</option>
+                  <option value="REJECTED">Refuser</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Motif (optionnel)</FormLabel>
+                <Textarea
+                  value={adhesionDecisionReason}
+                  onChange={(e) => setAdhesionDecisionReason(e.target.value)}
+                  placeholder="Motif libre (peut rester vide)"
+                />
+              </FormControl>
+
+              <Text fontSize="sm" color="gray.600">
+                Un email sera envoye au candidat depuis le noreply avec le template mailback candidat.
+              </Text>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onAdhesionDecisionClose}>Annuler</Button>
+            <Button colorScheme={adhesionDecision === 'APPROVED' ? 'green' : 'red'} onClick={submitAdhesionDecision} isLoading={adhesionDecisionBusy}>
+              Valider la decision
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
