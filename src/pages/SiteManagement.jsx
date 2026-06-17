@@ -1815,6 +1815,32 @@ const TrafficContextManagement = () => {
   const pagespeedMobile = data?.pagespeed?.mobile;
   const pagespeedDesktop = data?.pagespeed?.desktop;
   const serverContext = data?.serverContext;
+  const monthlyVisitsSeries = Array.isArray(traffic?.monthlyVisits?.series) ? traffic.monthlyVisits.series : [];
+  const daysInMonth = Number(traffic?.monthlyVisits?.daysInMonth || 31);
+
+  const buildLinePath = (series, min, max, width = 1200, height = 220) => {
+    if (!Array.isArray(series) || series.length === 0) return '';
+
+    const safeMin = Number.isFinite(min) ? min : 0;
+    const safeMax = Number.isFinite(max) && max > safeMin ? max : safeMin + 1;
+    const stepX = series.length > 1 ? width / (series.length - 1) : width;
+
+    return series
+      .map((value, index) => {
+        const normalized = (Number(value || 0) - safeMin) / (safeMax - safeMin);
+        const y = height - normalized * height;
+        const x = index * stepX;
+        return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${Math.max(0, Math.min(height, y)).toFixed(2)}`;
+      })
+      .join(' ');
+  };
+
+  const visitsSeries = monthlyVisitsSeries.map((point) => Number(point.visits || 0));
+  const visitsMax = visitsSeries.length > 0 ? Math.max(...visitsSeries, 10) : 10;
+  const visitsMin = visitsSeries.length > 0 ? Math.min(...visitsSeries, 0) : 0;
+  const visitsPath = buildLinePath(visitsSeries, visitsMin, visitsMax);
+  const lastDayVisits = visitsSeries.length > 0 ? visitsSeries[visitsSeries.length - 1] : 0;
+  const monthLabel = traffic?.monthlyVisits?.month || '-';
 
   return (
     <VStack spacing={6} align="stretch">
@@ -1835,6 +1861,46 @@ const TrafficContextManagement = () => {
           Recharger
         </Button>
       </HStack>
+
+      <Card variant="outline" w="100%" minH="320px">
+        <CardHeader pb={2}>
+          <HStack justify="space-between" align="start" wrap="wrap">
+            <Box>
+              <Heading size="md">Courbe visites & interactions (site externe)</Heading>
+              <Text fontSize="sm" color="gray.600">Visites journalières du mois (jour 1 à jour {daysInMonth})</Text>
+            </Box>
+            <VStack align="end" spacing={0}>
+              <Text fontSize="xs" color="gray.500">Dernier point</Text>
+              <Heading size="sm">{lastDayVisits}</Heading>
+              <Text fontSize="xs" color="gray.500">Mois: {monthLabel}</Text>
+            </VStack>
+          </HStack>
+        </CardHeader>
+        <CardBody pt={2}>
+          {visitsSeries.length < 2 ? (
+            <Center h="220px"><Text color="gray.500">Collecte en cours... Rechargez pour enrichir la courbe.</Text></Center>
+          ) : (
+            <Box h="240px" w="100%" borderRadius="md" bg="gray.50" p={3}>
+              <svg viewBox="0 0 1200 220" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Courbe visites interactions trafic externe">
+                <defs>
+                  <filter id="trilogyGreenHalo" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="2.4" result="blur" />
+                  </filter>
+                </defs>
+                <line x1="0" y1="220" x2="1200" y2="220" stroke="#CBD5E0" strokeWidth="1" />
+                <line x1="0" y1="0" x2="0" y2="220" stroke="#CBD5E0" strokeWidth="1" />
+                <path d={visitsPath} fill="none" stroke="#2f9e44" strokeWidth="2" opacity="0.65" filter="url(#trilogyGreenHalo)" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={visitsPath} fill="none" stroke="#2f9e44" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Box>
+          )}
+          <HStack justify="space-between" mt={2} fontSize="xs" color="gray.500">
+            <Text>Min: {visitsMin}</Text>
+            <Text>Max: {visitsMax}</Text>
+            <Text>Points: {daysInMonth}</Text>
+          </HStack>
+        </CardBody>
+      </Card>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
         <Card><CardBody><HStack><FiMonitor /><Text fontSize="sm">Uptime API</Text></HStack><Heading size="md">{serverContext?.uptimeSeconds || 0}s</Heading></CardBody></Card>
