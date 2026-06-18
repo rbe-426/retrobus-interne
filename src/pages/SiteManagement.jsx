@@ -2090,13 +2090,16 @@ const TrafficContextManagement = () => {
         </Card>
       </SimpleGrid>
 
-      <Alert status="success" borderRadius="md">
-        <AlertIcon />
-        <Box>
-          <Text fontWeight="bold">Pilotage Search Console & AdSense (estimations internes)</Text>
-          <Text fontSize="sm">Suivi impressions, clics, CTR, CPC estimé et revenus à partir des événements réels du site.</Text>
-        </Box>
-      </Alert>
+      <Box mb={6}>
+        <HStack spacing={3} mb={2}>
+          <Box as={FiActivity} size="20px" color="blue.500" />
+          <Heading size="md">Pilotage Search Console & AdSense</Heading>
+        </HStack>
+        <Text fontSize="sm" color="gray.600" mb={3}>
+          Suivi impressions, clics, CTR, CPC estimé et revenus à partir des événements réels du site.
+        </Text>
+        <Divider />
+      </Box>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
         <Card><CardBody><Text fontSize="sm" color="gray.600">Search Impressions</Text><Heading size="md">{effectiveSearch?.impressions ?? 0}</Heading></CardBody></Card>
@@ -2121,11 +2124,27 @@ const TrafficContextManagement = () => {
           </Box>
         </Alert>
       ) : (
-        <Alert status="warning" borderRadius="md">
+        <Alert status="info" borderRadius="md">
           <AlertIcon />
-          <Box>
-            <Text fontWeight="bold">API Search Console non configurée</Text>
-            <Text fontSize="sm">Ajoute SEARCH_CONSOLE_SITE_URL et SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON (ou BASE64) côté API.</Text>
+          <Box flex="1">
+            <Text fontWeight="bold">API Search Console</Text>
+            <Text fontSize="sm" mb={2}>
+              Connectez Google Search Console pour obtenir des données de performance SEO en temps réel.
+            </Text>
+            <Text fontSize="xs" color="gray.600" fontWeight="semibold" mb={1}>Configuration requise :</Text>
+            <VStack align="start" spacing={1} fontSize="xs" color="gray.700" pl={3}>
+              <Text>• Créer un Service Account dans Google Cloud Console</Text>
+              <Text>• Télécharger le fichier JSON des credentials</Text>
+              <Text>• Ajouter les variables d'environnement dans le fichier .env de l'API :</Text>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" fontSize="xs">
+                SEARCH_CONSOLE_SITE_URL=https://votre-site.com
+              </Box>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" fontSize="xs">
+                SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON=&#123;...contenu JSON...&#125;
+              </Box>
+              <Text>• Ou utiliser SEARCH_CONSOLE_SERVICE_ACCOUNT_BASE64 pour encoder en Base64</Text>
+              <Text>• Redémarrer le serveur API</Text>
+            </VStack>
           </Box>
         </Alert>
       )}
