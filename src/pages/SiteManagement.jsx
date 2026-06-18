@@ -1940,15 +1940,18 @@ const TrafficContextManagement = () => {
 
   return (
     <VStack spacing={6} align="stretch">
-      <Alert status="info">
-        <AlertIcon />
-        <Box>
-          <Text fontWeight="bold">Trafic et contexte du site externe</Text>
-          <Text fontSize="sm">Vue consolidée: disponibilité, temps de réponse, ressources SEO, contexte serveur et score PageSpeed.</Text>
-        </Box>
-      </Alert>
+      <Box mb={6}>
+        <HStack spacing={3} mb={2}>
+          <Box as={FiTrendingUp} size="20px" color="blue.500" />
+          <Heading size="md">Trafic et contexte du site externe</Heading>
+        </HStack>
+        <Text fontSize="sm" color="gray.600" mb={3}>
+          Vue consolidée: disponibilité, temps de réponse, ressources SEO, contexte serveur et score PageSpeed.
+        </Text>
+        <Divider />
+      </Box>
 
-      <HStack justify="space-between" align="center">
+      <HStack justify="space-between" align="center" mt={4}>
         <VStack align="start" spacing={0}>
           <Heading size="sm">Cible: {data?.externalSite || '-'}</Heading>
           <Text fontSize="xs" color="gray.500">Dernière collecte: {data?.generatedAt ? new Date(data.generatedAt).toLocaleString('fr-FR') : 'n/a'}</Text>
@@ -1964,7 +1967,7 @@ const TrafficContextManagement = () => {
         </HStack>
       </HStack>
 
-      <Card variant="outline" w="100%" minH="320px">
+      <Card variant="outline" w="100%" minH="320px" mt={6}>
         <CardHeader pb={2}>
           <HStack justify="space-between" align="start" wrap="wrap">
             <Box>
@@ -2076,20 +2079,20 @@ const TrafficContextManagement = () => {
             </Box>
           )}
           <HStack justify="space-between" mt={2} fontSize="xs" color="gray.500">
-            <Text>Min: {visitsMin}</Text>
-            <Text>Max: {visitsMax}</Text>
-            <Text>Points: {currentDay}/{daysInMonth}</Text>
+            <Text>Vert: visites</Text>
+            <Text>Points collectés: {currentDay}/{daysInMonth} jours</Text>
+            <Text>Mois: {monthLabel}</Text>
           </HStack>
         </CardBody>
       </Card>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Visites (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.visits ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Pages vues (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.pageViews ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Clics (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.clicks ?? 0}</Heading></CardBody></Card>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mt={6}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Visites (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.visits ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Pages vues (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.pageViews ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Clics (mois)</Text><Heading size="md">{monthlyTraffic?.totals?.clicks ?? 0}</Heading></CardBody></Card>
         <Card>
           <CardBody>
-            <Text fontSize="sm" color="gray.600">Accès (Google / Site / Partages / Direct)</Text>
+            <Text fontSize="sm" color="gray.600" mb={2}>Accès (Google / Site / Partages / Direct)</Text>
             <Text fontSize="sm" mt={1}>
               {monthlyTraffic?.totals?.sources?.google ?? 0} / {monthlyTraffic?.totals?.sources?.site ?? 0} / {monthlyTraffic?.totals?.sources?.share ?? 0} / {monthlyTraffic?.totals?.sources?.direct ?? 0}
             </Text>
@@ -2097,7 +2100,7 @@ const TrafficContextManagement = () => {
         </Card>
       </SimpleGrid>
 
-      <Box mb={6}>
+      <Box mb={6} mt={8}>
         <HStack spacing={3} mb={2}>
           <Box as={FiActivity} size="20px" color="blue.500" />
           <Heading size="md">Pilotage Search Console & AdSense</Heading>
@@ -2109,17 +2112,17 @@ const TrafficContextManagement = () => {
       </Box>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Search Impressions</Text><Heading size="md">{effectiveSearch?.impressions ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Search Clicks</Text><Heading size="md">{effectiveSearch?.clicks ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Search CTR</Text><Heading size="md">{effectiveSearch?.ctr ?? 0}%</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Ad Revenue Estimé</Text><Heading size="md">{Number(adsense?.estimatedRevenue || 0).toFixed(2)} €</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Search Impressions</Text><Heading size="md">{effectiveSearch?.impressions ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Search Clicks</Text><Heading size="md">{effectiveSearch?.clicks ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Search CTR</Text><Heading size="md">{effectiveSearch?.ctr ?? 0}%</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Ad Revenue Estimé</Text><Heading size="md">{Number(adsense?.estimatedRevenue || 0).toFixed(2)} €</Heading></CardBody></Card>
       </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif visites (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.visits ?? 0, compareVisits)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif pages vues (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.pageViews ?? 0, comparePageViews)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif Search Clicks (N-1)</Text><Heading size="md">{deltaText(effectiveSearch?.clicks ?? 0, compareSearchClicks)}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Comparatif revenus pub (N-1)</Text><Heading size="md">{deltaText(Number(adsense?.estimatedRevenue || 0), compareRevenue, ' €')}</Heading><Text fontSize="xs" color="gray.500">vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mt={6}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Comparatif visites (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.visits ?? 0, compareVisits)}</Heading><Text fontSize="xs" color="gray.500" mt={1}>vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Comparatif pages vues (N-1)</Text><Heading size="md">{deltaText(monthlyTraffic?.totals?.pageViews ?? 0, comparePageViews)}</Heading><Text fontSize="xs" color="gray.500" mt={1}>vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Comparatif Search Clicks (N-1)</Text><Heading size="md">{deltaText(effectiveSearch?.clicks ?? 0, compareSearchClicks)}</Heading><Text fontSize="xs" color="gray.500" mt={1}>vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Comparatif revenus pub (N-1)</Text><Heading size="md">{deltaText(Number(adsense?.estimatedRevenue || 0), compareRevenue, ' €')}</Heading><Text fontSize="xs" color="gray.500" mt={1}>vs {comparisonTraffic?.month || '-'}</Text></CardBody></Card>
       </SimpleGrid>
 
       {searchConsoleApi?.enabled ? (
@@ -2156,14 +2159,14 @@ const TrafficContextManagement = () => {
         </Alert>
       )}
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads Impressions</Text><Heading size="md">{adsense?.impressions ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads Clicks</Text><Heading size="md">{adsense?.clicks ?? 0}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">Ads CTR</Text><Heading size="md">{adsense?.ctr ?? 0}%</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm" color="gray.600">RPM</Text><Heading size="md">{adsense?.rpm ?? 0} €</Heading><Text fontSize="xs" color="gray.500">par 1000 pages vues</Text></CardBody></Card>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mt={6}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Ads Impressions</Text><Heading size="md">{adsense?.impressions ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Ads Clicks</Text><Heading size="md">{adsense?.clicks ?? 0}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Ads CTR</Text><Heading size="md">{adsense?.ctr ?? 0}%</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>RPM</Text><Heading size="md">{adsense?.rpm ?? 0} €</Heading><Text fontSize="xs" color="gray.500" mt={1}>par 1000 pages vues</Text></CardBody></Card>
       </SimpleGrid>
 
-      <Card variant="outline" w="100%" minH="280px">
+      <Card variant="outline" w="100%" minH="280px" mt={6}>
         <CardHeader pb={2}>
           <HStack justify="space-between" align="start" wrap="wrap">
             <Box>
@@ -2296,7 +2299,7 @@ const TrafficContextManagement = () => {
         </CardBody>
       </Card>
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} mt={6}>
         <Card variant="outline">
           <CardHeader><Heading size="sm">Top requêtes (Search)</Heading></CardHeader>
           <CardBody>
@@ -2350,14 +2353,14 @@ const TrafficContextManagement = () => {
         </Card>
       </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-        <Card><CardBody><HStack><FiMonitor /><Text fontSize="sm">Uptime API</Text></HStack><Heading size="md">{serverContext?.uptimeSeconds || 0}s</Heading></CardBody></Card>
-        <Card><CardBody><HStack><FiTrendingUp /><Text fontSize="sm">Latence moyenne</Text></HStack><Heading size="md">{traffic?.averageResponseTimeMs ?? '-'} ms</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm">PageSpeed Mobile</Text><Heading size="md">{pagespeedMobile?.score ?? '-'}</Heading></CardBody></Card>
-        <Card><CardBody><Text fontSize="sm">PageSpeed Desktop</Text><Heading size="md">{pagespeedDesktop?.score ?? '-'}</Heading></CardBody></Card>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mt={6}>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Uptime API</Text><Heading size="md">{serverContext?.uptimeSeconds || 0}s</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Latence moyenne</Text><Heading size="md">{traffic?.averageResponseTimeMs ?? '-'} ms</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>PageSpeed Mobile</Text><Heading size="md">{pagespeedMobile?.score ?? '-'}</Heading></CardBody></Card>
+        <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>PageSpeed Desktop</Text><Heading size="md">{pagespeedDesktop?.score ?? '-'}</Heading></CardBody></Card>
       </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} mt={6}>
         <Card variant="outline">
           <CardHeader><Heading size="sm">Pages surveillées</Heading></CardHeader>
           <CardBody>
@@ -2423,7 +2426,7 @@ const TrafficContextManagement = () => {
         </Card>
       </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={6}>
         <Card variant="outline">
           <CardHeader><Heading size="sm">Détail PageSpeed Mobile</Heading></CardHeader>
           <CardBody>
