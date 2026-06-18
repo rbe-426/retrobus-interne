@@ -8,12 +8,13 @@
  * - critical: Rouge (informations critiques)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, HStack, VStack, Text, Button, CloseButton,
   useColorModeValue, Icon, Container, Flex
 } from '@chakra-ui/react';
 import { FiInfo, FiAlertTriangle, FiAlertCircle, FiX } from 'react-icons/fi';
+import { homeAnnouncementsAPI } from '../api/homeAnnouncements';
 
 /**
  * Gravité des annonces avec couleurs thémées
@@ -153,77 +154,102 @@ function AnnouncementBanner({ announcement, onClose }) {
 }
 
 /**
- * Hook pour gérer les annonces d'accueil
+ * Hook pour gérer les annonces d'accueil (persistées côté serveur)
  */
 export function useHomeAnnouncements() {
-  const [announcements, setAnnouncements] = useState(() => {
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Charger les annonces au montage du composant
+  useEffect(() => {
+    loadAnnouncements();
+  }, []);
+
+  const loadAnnouncements = async () => {
     try {
-      const stored = localStorage.getItem('rbe:home-announcements');
-      if (!stored) return [];
-      const arr = JSON.parse(stored);
-      if (!Array.isArray(arr)) return [];
-      const now = Date.now();
-      // Filtrer les annonces actives et non expirées
-      return arr.filter(
-        a => a && a.active && (!a.expiresAt || new Date(a.expiresAt).getTime() > now)
-      );
-    } catch (e) {
-      console.warn('Erreur chargement annonces:', e);
-      return [];
-    }
-  });
-
-  const addAnnouncement = (announcement) => {
-    const newAnnouncement = {
-      id: 'ann_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      severity: announcement.severity || 'info', // info, warning, critical
-      title: announcement.title,
-      message: announcement.message,
-      active: true,
-      dismissible: announcement.dismissible !== false,
-      expiresAt: announcement.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24h par défaut
-      actions: announcement.actions || [],
-      createdAt: new Date().toISOString()
-    };
-
-    const updated = [...announcements, newAnnouncement];
-    setAnnouncements(updated);
-    
-    // Sauvegarder en localStorage
-    try {
-      localStorage.setItem('rbe:home-announcements', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Erreur sauvegarde annonces:', e);
-    }
-
-    return newAnnouncement;
-  };
-
-  const removeAnnouncement = (id) => {
-    const updated = announcements.filter(a => a.id !== id);
-    setAnnouncements(updated);
-    
-    try {
-      localStorage.setItem('rbe:home-announcements', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Erreur sauvegarde annonces:', e);
+      setLoading(true);
+      setError(null);
+      const data = await homeAnnouncementsAPI.getAll();
+      setAnnouncements(data);
+    } catch (err) {
+      console.error('❌ Erreur chargement annonces:', err);
+      setError(err.message);
+      // Fallback: essayer de charger depuis localStorage en cas d'erreur
+      try {
+        const stored = localStorage.getItem('rbe:home-announcements');
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) {
+            const now = Date.now();
+            const filtered = arr.filter(
+              a => a && a.active && (!a.expiresAt || new Date(a.expiresAt).getTime() > now)
+            );
+            setAnnouncements(filtered);
+          }
+        }
+      } catch (localErr) {
+        console.warn('⚠️ Erreur fallback localStorage:', localErr);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const clearAll = () => {
-    setAnnouncements([]);
+  const addAnnouncement = async (announcement) => {
     try {
-      localStorage.removeItem('rbe:home-announcements');
-    } catch (e) {
-      console.warn('Erreur suppression annonces:', e);
+      const created = await homeAnnouncementsAPI.create({
+        severity: announcement.severity || 'INFO',
+        title: announcement.title,
+        message: announcement.message,
+        dismissible: announcement.dismissible !== false,
+        expiresAt: announcement.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        actions: announcement.actions || null
+      });
+
+      // Recharger la liste après création
+      await loadAnnouncements();
+      return created;
+    } catch (err) {
+      console.error('❌ Erreur création annonce:', err);
+      throw err;
+    }
+  };
+
+  const removeAnnouncement = async (id) => {
+    try {
+      await homeAnnouncementsAPI.delete(id);
+      // Mise à jour optimiste de l'UI
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error('❌ Erreur suppression annonce:', err);
+      // Recharger en cas d'erreur
+      await loadAnnouncements();
+      throw err;
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      // Supprimer toutes les annonces une par une
+      const deletePromises = announcements.map(a => homeAnnouncementsAPI.delete(a.id));
+      await Promise.all(deletePromises);
+      setAnnouncements([]);
+    } catch (err) {
+      console.error('❌ Erreur suppression toutes annonces:', err);
+      await loadAnnouncements();
+      throw err;
     }
   };
 
   return {
     announcements,
+    loading,
+    error,
     addAnnouncement,
     removeAnnouncement,
-    clearAll
+    clearAll,
+    refresh: loadAnnouncements
   };
 }
 
