@@ -10,7 +10,7 @@ export const homeAnnouncementsAPI = {
    * Récupérer toutes les annonces actives
    */
   getAll: async () => {
-    const response = await apiClient.get('/home-announcements');
+    const response = await apiClient.get('/api/home-announcements');
     return response.data;
   },
 
@@ -25,7 +25,7 @@ export const homeAnnouncementsAPI = {
    * @param {Array} announcement.actions - Actions optionnelles
    */
   create: async (announcement) => {
-    const response = await apiClient.post('/home-announcements', announcement);
+    const response = await apiClient.post('/api/home-announcements', announcement);
     return response.data;
   },
 
@@ -34,7 +34,7 @@ export const homeAnnouncementsAPI = {
    * @param {string} id - ID de l'annonce
    */
   delete: async (id) => {
-    const response = await apiClient.delete(`/home-announcements/${id}`);
+    const response = await apiClient.delete(`/api/home-announcements/${id}`);
     return response.data;
   },
 
@@ -44,7 +44,7 @@ export const homeAnnouncementsAPI = {
    * @param {Object} updates - Champs à mettre à jour
    */
   update: async (id, updates) => {
-    const response = await apiClient.patch(`/home-announcements/${id}`, updates);
+    const response = await apiClient.patch(`/api/home-announcements/${id}`, updates);
     return response.data;
   }
 };
