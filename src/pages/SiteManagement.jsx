@@ -2129,7 +2129,7 @@ const TrafficContextManagement = () => {
         <Alert status="success" borderRadius="md">
           <AlertIcon />
           <Box>
-            <Text fontWeight="bold">Google Search Console connecté</Text>
+            <Text fontWeight="bold">✅ Google Search Console connecté</Text>
             <Text fontSize="sm">Site: {searchConsoleApi.siteUrl} | Position moyenne: {effectiveSearch.avgPosition}</Text>
           </Box>
         </Alert>
@@ -2137,24 +2137,47 @@ const TrafficContextManagement = () => {
         <Alert status="info" borderRadius="md">
           <AlertIcon />
           <Box flex="1">
-            <Text fontWeight="bold">API Search Console</Text>
-            <Text fontSize="sm" mb={2}>
-              Connectez Google Search Console pour obtenir des données de performance SEO en temps réel.
+            <Text fontWeight="bold">API Google Search Console non configurée</Text>
+            <Text fontSize="sm" mb={3}>
+              Connectez Google Search Console via OAuth 2.0 pour obtenir des données SEO en temps réel.
             </Text>
-            <Text fontSize="xs" color="gray.600" fontWeight="semibold" mb={1}>Configuration requise :</Text>
-            <VStack align="start" spacing={1} fontSize="xs" color="gray.700" pl={3}>
-              <Text>• Créer un Service Account dans Google Cloud Console</Text>
-              <Text>• Télécharger le fichier JSON des credentials</Text>
-              <Text>• Ajouter les variables d'environnement dans le fichier .env de l'API :</Text>
-              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" fontSize="xs">
-                SEARCH_CONSOLE_SITE_URL=https://votre-site.com
-              </Box>
-              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" fontSize="xs">
-                SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON=&#123;...contenu JSON...&#125;
-              </Box>
-              <Text>• Ou utiliser SEARCH_CONSOLE_SERVICE_ACCOUNT_BASE64 pour encoder en Base64</Text>
-              <Text>• Redémarrer le serveur API</Text>
+            
+            <Text fontSize="xs" color="gray.600" fontWeight="semibold" mb={2}>🔐 Configuration OAuth 2.0 (recommandée) :</Text>
+            <VStack align="start" spacing={1} fontSize="xs" color="gray.700" pl={3} mb={3}>
+              <Text>1. Créer un projet dans Google Cloud Console</Text>
+              <Text>2. Activer l'API Search Console</Text>
+              <Text>3. Créer des identifiants OAuth 2.0 (Application Web)</Text>
+              <Text>4. Générer un Refresh Token avec le script get-oauth-token.mjs</Text>
+              <Text>5. Ajouter la propriété dans Search Console et vérifier le domaine</Text>
             </VStack>
+
+            <Text fontSize="xs" color="gray.600" fontWeight="semibold" mb={1}>📋 Variables d'environnement requises :</Text>
+            <VStack align="start" spacing={1} fontSize="xs" pl={3} mb={3}>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" w="full">
+                SEARCH_CONSOLE_SITE_URL=https://www.association-rbe.fr/
+              </Box>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" w="full">
+                SEARCH_CONSOLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+              </Box>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" w="full">
+                SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-xxxxx
+              </Box>
+              <Box as="code" bg="gray.100" px={2} py={1} borderRadius="md" fontFamily="mono" w="full">
+                SEARCH_CONSOLE_REFRESH_TOKEN=1//03xxxxxxxxx
+              </Box>
+            </VStack>
+
+            <Text fontSize="xs" color="blue.600" fontWeight="semibold" mb={1}>🚀 Déploiement en production (Railway) :</Text>
+            <VStack align="start" spacing={1} fontSize="xs" color="gray.700" pl={3}>
+              <Text>• Aller dans Railway → Projet → Variables</Text>
+              <Text>• Ajouter les 4 variables ci-dessus (sans guillemets)</Text>
+              <Text>• Redémarrer le service API</Text>
+              <Text>• Vérifier les logs : "🔐 Using OAuth 2.0 for Search Console API"</Text>
+            </VStack>
+
+            <Text fontSize="xs" color="gray.500" mt={2} fontStyle="italic">
+              📖 Guide complet disponible dans GUIDE_SEARCH_CONSOLE_API.md
+            </Text>
           </Box>
         </Alert>
       )}
