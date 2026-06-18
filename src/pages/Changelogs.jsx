@@ -35,6 +35,92 @@ export default function Changelogs() {
 
   const changelogs = [
     {
+      date: '2026-06-19',
+      version: '2.6.0',
+      title: 'OAuth Search Console, Uploads Médias & Annonces Persistantes',
+      type: 'major',
+      sections: [
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Nouvelles Fonctionnalités',
+          items: [
+            'API Google Search Console via OAuth 2.0 (impressions, clics, CTR, position)',
+            'Configuration OAuth déployable Railway sans Service Account',
+            'Annonces d\'accueil persistantes côté serveur (Prisma + PostgreSQL)',
+            'Interface admin complète pour gérer les annonces (INFO/WARNING/CRITICAL)',
+            'Upload photos RétroActus avec URLs absolues (fix production)',
+            'Reset compteurs analytics à zéro avec script dédié',
+            'Graphiques Search Console interactifs avec hover tooltips',
+            'Guide complet OAuth Search Console (GUIDE_SEARCH_CONSOLE_API.md)',
+            'Harmonisation espacement dashboard (mt={4}, mt={6}, mt={8})',
+            'Scripts check-production-traffic.mjs et reset-traffic-analytics.mjs'
+          ]
+        },
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections',
+          items: [
+            'Fix duplication composant HomeAnnouncementsManagement (erreur build Vercel)',
+            'Fix URLs relatives → absolues pour uploads RétroActus (Railway/Vercel)',
+            'Fix token CSRF pour uploads médias (getStoredCSRFToken)',
+            'Fix endpoint analytics exempt CSRF (/api/public/traffic-event)',
+            'Fix message OAuth Search Console en production (plus Service Account)',
+            'Fix redéploiement Vercel forcé avec commit vide',
+            'Fix normalizeRetroNewsForPrisma (champs media et polls)',
+            'Fix CORS pour site externe www.association-rbe.fr'
+          ]
+        },
+        {
+          category: 'security',
+          icon: FiShield,
+          color: 'orange',
+          title: 'Sécurité',
+          items: [
+            'OAuth 2.0 Search Console (plus sécurisé que Service Account)',
+            'Credentials OAuth ajoutés à .gitignore (oauth_credentials.json)',
+            'Variables Railway sécurisées (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)',
+            'Vérification propriété Search Console avec fichier googleaaa88f684a803b21.html',
+            'Protection GitHub Push (secrets détectés et exclus automatiquement)',
+            'Guide déploiement production sans exposer les tokens'
+          ]
+        },
+        {
+          category: 'performance',
+          icon: FiZap,
+          color: 'purple',
+          title: 'Performance & Infrastructure',
+          items: [
+            'Prisma HomeAnnouncement model avec indexes (active, expiresAt, createdAt)',
+            'API endpoints persistants (GET, POST, DELETE, PATCH annonces)',
+            'Hook useHomeAnnouncements avec fallback localStorage sur erreur',
+            'formatRetroNewsForFrontend transforme URLs relatives en absolues',
+            'Logs détaillés OAuth "🔐 Using OAuth 2.0 for Search Console API"',
+            'Traffic analytics 27 événements enregistrés avant reset',
+            'Multer diskStorage avec 50MB max pour médias RétroActus'
+          ]
+        },
+        {
+          category: 'docs',
+          icon: FiCode,
+          color: 'pink',
+          title: 'Documentation',
+          items: [
+            'GUIDE_SEARCH_CONSOLE_API.md complet (376 lignes)',
+            'Instructions OAuth 2.0 avec troubleshooting org_internal',
+            'Documentation Railway deployment dans alert SiteManagement.jsx',
+            'Variables d\'environnement documentées (.env.search-console)',
+            'Scripts get-oauth-token.mjs pour générer refresh token',
+            'Vérification fichier googleaaa88f684a803b21.html pour Search Console',
+            'Alert production avec 4 variables requises + logs à vérifier'
+          ]
+        }
+      ]
+    },
+    {
       date: '2026-06-14',
       version: '2.5.0',
       title: 'Optimisations Performance, Design Trilogy & Page Changelog',
