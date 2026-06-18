@@ -436,20 +436,6 @@ export default function HomeAnnouncementsManagement() {
   );
 }
 
-export default function HomeAnnouncementsManagement() {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [announcements, setAnnouncements] = useState(getHomeAnnouncements());
-  const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
-
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-
-  // Form state
-  const [formData, setFormData] = useState({
-    severity: 'info',
-    title: '',
-    message: ''
   });
 
   const handleInputChange = (e) => {
