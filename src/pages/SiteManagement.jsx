@@ -1776,6 +1776,7 @@ const TrafficContextManagement = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [searchHoverIndex, setSearchHoverIndex] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1922,12 +1923,18 @@ const TrafficContextManagement = () => {
     return [0, step, step * 2, step * 3, step * 4];
   }, [visitsMax]);
 
+  const searchYTicks = useMemo(() => {
+    const step = Math.max(1, Math.ceil(searchMax / 4));
+    return [0, step, step * 2, step * 3, step * 4];
+  }, [searchMax]);
+
   const xTicks = useMemo(() => {
     const base = [1, 5, 10, 15, 20, 25, 31];
     return base.filter((day) => day <= daysInMonth);
   }, [daysInMonth]);
 
   const hoveredPoint = hoverIndex !== null ? monthlySeries[hoverIndex] : null;
+  const searchHoveredPoint = searchHoverIndex !== null ? monthlySeries[searchHoverIndex] : null;
   const chartWidth = 1200;
   const chartHeight = 220;
 
@@ -2161,18 +2168,38 @@ const TrafficContextManagement = () => {
           <HStack justify="space-between" align="start" wrap="wrap">
             <Box>
               <Heading size="md">Courbe Search Console (impressions vs clics)</Heading>
-              <Text fontSize="sm" color="gray.600">Suivi journalier du mois en cours avec axes gradués</Text>
+              <Text fontSize="sm" color="gray.600">Suivi journalier du mois en cours avec axes gradués - Survolez pour voir les détails</Text>
             </Box>
             <VStack align="end" spacing={0}>
-              <Text fontSize="xs" color="gray.500">CPC estimé</Text>
-              <Heading size="sm">{adsense?.estimatedCpc ?? 0} €</Heading>
+              <Text fontSize="xs" color="gray.500">Mois</Text>
+              <Heading size="sm">{monthLabel}</Heading>
             </VStack>
           </HStack>
         </CardHeader>
         <CardBody pt={2}>
-          <Box h="260px" w="100%" borderRadius="md" bg="gray.50" p={3}>
-            <svg viewBox="0 0 1200 240" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Courbe search impressions et clicks">
-              {yTicks.map((tick) => {
+          <Box h="280px" w="100%" borderRadius="md" bg="gray.50" p={3}>
+            <svg
+              viewBox="0 0 1200 260"
+              width="100%"
+              height="100%"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Courbe search impressions et clicks"
+              onMouseMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const ratio = (event.clientX - rect.left) / rect.width;
+                const clampedRatio = Math.max(0, Math.min(1, ratio));
+                const idx = Math.round(clampedRatio * (Math.max(1, monthlySeries.length) - 1));
+                setSearchHoverIndex(idx);
+              }}
+              onMouseLeave={() => setSearchHoverIndex(null)}
+            >
+              <defs>
+                <filter id="searchBlueHalo" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="2.4" result="blur" />
+                </filter>
+              </defs>
+              {searchYTicks.map((tick) => {
                 const y = chartHeight - ((tick - 0) / Math.max(1, searchMax)) * chartHeight;
                 return (
                   <g key={`search-y-${tick}`}>
@@ -2186,14 +2213,79 @@ const TrafficContextManagement = () => {
                 return (
                   <g key={`search-x-${day}`}>
                     <line x1={x} y1="0" x2={x} y2={chartHeight} stroke="#EDF2F7" strokeWidth="1" />
-                    <text x={x} y="236" textAnchor="middle" fontSize="12" fill="#718096">{day}</text>
+                    <text x={x} y="252" textAnchor="middle" fontSize="12" fill="#718096">{day}</text>
                   </g>
                 );
               })}
               <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
               <line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#CBD5E0" strokeWidth="1" />
-              <path d={searchImpressionsPath} fill="none" stroke="#2B6CB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={searchImpressionsPath} fill="none" stroke="#2B6CB0" strokeWidth="2" opacity="0.65" filter="url(#searchBlueHalo)" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={searchImpressionsPath} fill="none" stroke="#2B6CB0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               <path d={searchClicksPath} fill="none" stroke="#2F855A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+
+              {searchHoveredPoint && (searchHoveredPoint.searchImpressions !== null || searchHoveredPoint.searchClicks !== null) && (
+                <g>
+                  <line
+                    x1={((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                    y1="0"
+                    x2={((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                    y2={chartHeight}
+                    stroke="#2B6CB0"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                  />
+                  {searchHoveredPoint.searchImpressions !== null && (
+                    <circle
+                      cx={((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                      cy={chartHeight - ((searchHoveredPoint.searchImpressions - 0) / Math.max(1, searchMax)) * chartHeight}
+                      r="5"
+                      fill="#2B6CB0"
+                    />
+                  )}
+                  {searchHoveredPoint.searchClicks !== null && (
+                    <circle
+                      cx={((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth}
+                      cy={chartHeight - ((searchHoveredPoint.searchClicks - 0) / Math.max(1, searchMax)) * chartHeight}
+                      r="5"
+                      fill="#2F855A"
+                    />
+                  )}
+                  <rect
+                    x={Math.min(chartWidth - 200, ((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 10)}
+                    y="10"
+                    rx="6"
+                    ry="6"
+                    width="190"
+                    height="68"
+                    fill="#1A202C"
+                    opacity="0.92"
+                  />
+                  <text
+                    x={Math.min(chartWidth - 192, ((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 18)}
+                    y="30"
+                    fill="#F7FAFC"
+                    fontSize="12"
+                  >
+                    Jour {searchHoveredPoint.day}
+                  </text>
+                  <text
+                    x={Math.min(chartWidth - 192, ((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 18)}
+                    y="47"
+                    fill="#90CDF4"
+                    fontSize="13"
+                  >
+                    {searchHoveredPoint.searchImpressions ?? 0} impressions
+                  </text>
+                  <text
+                    x={Math.min(chartWidth - 192, ((searchHoveredPoint.day - 1) / Math.max(1, daysInMonth - 1)) * chartWidth + 18)}
+                    y="64"
+                    fill="#9AE6B4"
+                    fontSize="13"
+                  >
+                    {searchHoveredPoint.searchClicks ?? 0} clics
+                  </text>
+                </g>
+              )}
             </svg>
           </Box>
           <HStack justify="space-between" mt={2} fontSize="xs" color="gray.500">
