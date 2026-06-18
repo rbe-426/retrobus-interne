@@ -29,6 +29,7 @@ import {
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiImage, FiVideo, FiTrash2 } from 'react-icons/fi';
 import { apiClient } from '../api/config';
+import { getStoredCSRFToken } from '../lib/csrfClient';
 
 export default function MediaUploader({ media = [], onChange }) {
   const [uploading, setUploading] = useState(false);
@@ -74,12 +75,19 @@ export default function MediaUploader({ media = [], onChange }) {
       formData.append('media', file);
       formData.append('caption', currentCaption);
 
+      // Get CSRF token
+      const csrfToken = getStoredCSRFToken();
+      const headers = {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      };
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+
       // Upload with progress tracking
-      const response = await fetch(`${apiClient.baseURL}/retro-news/media/upload`, {
+      const response = await fetch(`${apiClient.baseURL}/api/retro-news/media/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers,
         body: formData
       });
 

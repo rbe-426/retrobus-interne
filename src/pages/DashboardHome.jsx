@@ -4,7 +4,8 @@ import {
   Stack, Stat, StatLabel, StatNumber, HStack, VStack, Badge, useColorModeValue,
   Container, Flex, Card, CardBody, CardHeader, Icon, Progress, Avatar,
   Divider, Center, Spinner, Alert, AlertIcon, Tag, TagLabel, TagLeftIcon,
-  useToast, IconButton, Image, useMediaQuery
+  useToast, IconButton, Image, useMediaQuery, Modal, ModalOverlay, ModalContent,
+  ModalBody, ModalCloseButton, useDisclosure
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 // Lazy load ReactMarkdown pour réduire le bundle initial
@@ -59,6 +60,8 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [retroActus, setRetroActus] = useState([]);
   const [currentActuIndex, setCurrentActuIndex] = useState(0);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const { isOpen: isImageOpen, onOpen: onImageOpen, onClose: onImageClose } = useDisclosure();
   
   // Hook pour les annonces d'accueil
   const { announcements, removeAnnouncement } = useHomeAnnouncements();
@@ -681,9 +684,9 @@ export default function DashboardHome() {
                     </HStack>
                   </HStack>
                 </CardHeader>
-                <CardBody p={isMobile ? 4 : 6}>
+                <CardBody p={isMobile ? 4 : 6} pt={0}>
                   <VStack align="start" spacing={isMobile ? 2 : 3}>
-                    <Heading size={isMobile ? "xs" : "sm"} color="blue.600">
+                    <Heading size={isMobile ? "sm" : "md"} color="blue.600" fontWeight="600">
                       {retroActus[currentActuIndex]?.title || 'Sans titre'}
                     </Heading>
                     {retroActus[currentActuIndex]?.publishedAt && (
@@ -747,37 +750,60 @@ export default function DashboardHome() {
                         if (!Array.isArray(mediaArray) || mediaArray.length === 0) return null;
                         
                         return (
-                          <VStack align="stretch" spacing={3} w="100%">
+                          <SimpleGrid columns={{ base: 2, md: 3 }} spacing={2} w="100%">
                             {mediaArray.map((media, idx) => (
                               <Box key={idx}>
                                 {media.type === 'image' ? (
-                                  <Image
-                                    src={media.url}
-                                    alt={media.caption || `Media ${idx + 1}`}
-                                    maxH="300px"
-                                    w="100%"
-                                    objectFit="cover"
-                                    borderRadius="md"
-                                  />
+                                  <Box
+                                    position="relative"
+                                    cursor="pointer"
+                                    onClick={() => {
+                                      setSelectedImage(media);
+                                      onImageOpen();
+                                    }}
+                                    _hover={{ transform: 'scale(1.02)', transition: 'all 0.2s' }}
+                                  >
+                                    <Image
+                                      src={media.url}
+                                      alt={media.caption || `Media ${idx + 1}`}
+                                      h={isMobile ? "100px" : "120px"}
+                                      w="100%"
+                                      objectFit="cover"
+                                      borderRadius="md"
+                                    />
+                                    {media.caption && (
+                                      <Text
+                                        fontSize="xs"
+                                        color="white"
+                                        bg="blackAlpha.700"
+                                        px={2}
+                                        py={1}
+                                        position="absolute"
+                                        bottom={0}
+                                        left={0}
+                                        right={0}
+                                        borderBottomRadius="md"
+                                        noOfLines={1}
+                                      >
+                                        {media.caption}
+                                      </Text>
+                                    )}
+                                  </Box>
                                 ) : media.type === 'video' ? (
                                   <Box
                                     as="video"
                                     controls
                                     src={media.url}
-                                    maxH="300px"
+                                    h={isMobile ? "100px" : "120px"}
                                     w="100%"
                                     borderRadius="md"
                                     bg="black"
+                                    objectFit="cover"
                                   />
                                 ) : null}
-                                {media.caption && (
-                                  <Text fontSize="xs" color="gray.500" mt={1} textAlign="center">
-                                    {media.caption}
-                                  </Text>
-                                )}
                               </Box>
                             ))}
-                          </VStack>
+                          </SimpleGrid>
                         );
                       } catch (e) {
                         console.error('Error parsing media:', e);
@@ -833,32 +859,6 @@ export default function DashboardHome() {
                         borderRadius="md"
                       />
                     )}
-                    <HStack spacing={2} pt={isMobile ? 2 : 4} w="100%" flexWrap="wrap">
-                      <Button
-                        size={isMobile ? "md" : "sm"}
-                        leftIcon={<FiShare2 />}
-                        colorScheme="rbe"
-                        variant="outline"
-                        flex={1}
-                        onClick={() => shareOnWeb(retroActus[currentActuIndex])}
-                        minH={isMobile ? "44px" : "auto"}
-                        fontSize={isMobile ? "sm" : "md"}
-                      >
-                        Partager
-                      </Button>
-                      <Button
-                        size={isMobile ? "md" : "sm"}
-                        leftIcon={<FiMail />}
-                        colorScheme="green"
-                        variant="outline"
-                        flex={1}
-                        onClick={() => shareRetroActu(retroActus[currentActuIndex])}
-                        minH={isMobile ? "44px" : "auto"}
-                        fontSize={isMobile ? "sm" : "md"}
-                      >
-                        Email
-                      </Button>
-                    </HStack>
                   </VStack>
                 </CardBody>
               </Card>
@@ -984,6 +984,47 @@ export default function DashboardHome() {
           </VStack>
         </GridItem>
       </SimpleGrid>
+
+      {/* Modal pour agrandir l'image */}
+      <Modal isOpen={isImageOpen} onClose={onImageClose} size="full" isCentered>
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg="transparent" boxShadow="none">
+          <ModalCloseButton
+            color="white"
+            bg="blackAlpha.600"
+            _hover={{ bg: "blackAlpha.800" }}
+            size="lg"
+            zIndex={2}
+          />
+          <ModalBody display="flex" alignItems="center" justifyContent="center" p={4}>
+            {selectedImage && (
+              <VStack spacing={4} maxW="90vw" maxH="90vh">
+                <Image
+                  src={selectedImage.url}
+                  alt={selectedImage.caption || 'Image'}
+                  maxH="80vh"
+                  maxW="100%"
+                  objectFit="contain"
+                  borderRadius="md"
+                />
+                {selectedImage.caption && (
+                  <Text
+                    color="white"
+                    fontSize="md"
+                    textAlign="center"
+                    bg="blackAlpha.700"
+                    px={4}
+                    py={2}
+                    borderRadius="md"
+                  >
+                    {selectedImage.caption}
+                  </Text>
+                )}
+              </VStack>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Container>
   );
 }

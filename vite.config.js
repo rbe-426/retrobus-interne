@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
           '/flashes': { ...common },
           '/stocks': { ...common },
           '/public': { ...common },
+          '/uploads': { ...common },
         };
       })()
     },
