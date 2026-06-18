@@ -62,16 +62,21 @@ export default function Changelogs() {
           category: 'fixes',
           icon: FiCheck,
           color: 'green',
-          title: 'Corrections',
+          title: 'Corrections Production Critiques',
           items: [
+            'Fix préfixe /api/ manquant endpoints home-announcements (erreur HTML au lieu de JSON)',
             'Fix duplication composant HomeAnnouncementsManagement (erreur build Vercel)',
-            'Fix URLs relatives → absolues pour uploads RétroActus (Railway/Vercel)',
-            'Fix token CSRF pour uploads médias (getStoredCSRFToken)',
+            'Fix URLs relatives → absolues uploads RétroActus (images cassées en prod)',
+            'Fix formatRetroNewsForFrontend transforme /uploads/ en URLs absolues Railway',
+            'Fix mediaUrl construction avec apiBaseUrl depuis env Railway',
+            'Fix token CSRF pour uploads médias (getStoredCSRFToken dans MediaUploader)',
             'Fix endpoint analytics exempt CSRF (/api/public/traffic-event)',
             'Fix message OAuth Search Console en production (plus Service Account)',
             'Fix redéploiement Vercel forcé avec commit vide',
             'Fix normalizeRetroNewsForPrisma (champs media et polls)',
-            'Fix CORS pour site externe www.association-rbe.fr'
+            'Fix CORS pour site externe www.association-rbe.fr',
+            'Fix Prisma schema sync production (table HomeAnnouncement)',
+            'Fix client API endpoints cohérence avec serveur (/api/ prefix)'
           ]
         },
         {
@@ -110,12 +115,16 @@ export default function Changelogs() {
           title: 'Documentation',
           items: [
             'GUIDE_SEARCH_CONSOLE_API.md complet (376 lignes)',
+            'GUIDE_DEPLOIEMENT_FIXES_PRODUCTION.md avec checklist Railway',
             'Instructions OAuth 2.0 avec troubleshooting org_internal',
             'Documentation Railway deployment dans alert SiteManagement.jsx',
             'Variables d\'environnement documentées (.env.search-console)',
             'Scripts get-oauth-token.mjs pour générer refresh token',
+            'Scripts deploy-schema.sh pour appliquer Prisma en production',
             'Vérification fichier googleaaa88f684a803b21.html pour Search Console',
-            'Alert production avec 4 variables requises + logs à vérifier'
+            'Alert production avec 4 variables requises + logs à vérifier',
+            'Guide diagnostic endpoints (erreur HTML vs JSON)',
+            'Checklist vérification post-déploiement complète'
           ]
         }
       ]
