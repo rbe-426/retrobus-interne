@@ -48,6 +48,18 @@ export default function NotificationCenter() {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
+  // Supprimer une notification
+  const handleDeleteNotification = async (notifId, e) => {
+    e.stopPropagation(); // Empêcher la fermeture du popup
+    try {
+      await notificationsAPI.delete(notifId);
+      // Rafraîchir la liste
+      await fetchNotifications();
+    } catch (error) {
+      console.error('❌ Erreur suppression notification:', error);
+    }
+  };
+
   // Icône en fonction du type de notification
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -216,6 +228,23 @@ export default function NotificationCenter() {
                           {formatTime(new Date(notif.createdAt))}
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => handleDeleteNotification(notif.id, e)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          color: '#a0aec0',
+                          flexShrink: 0,
+                          transition: 'color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#f56565'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#a0aec0'}
+                        title="Supprimer la notification"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
                 ))}
