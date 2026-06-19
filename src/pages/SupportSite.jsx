@@ -199,8 +199,8 @@ export default function SupportSite() {
   const formattedActorName = useMemo(() => {
     const firstName = String(prenom || user?.firstName || '').trim();
     const explicitLastName = String(nom || user?.lastName || '').trim();
-    const matriculeRaw = String(matricule || user?.username || user?.matricule || user?.email || '').trim();
-    const id = matriculeRaw.includes('@') ? matriculeRaw.split('@')[0].toLowerCase() : matriculeRaw.toLowerCase();
+    const matriculeRaw = String(matricule || user?.username || user?.matricule || user?.id || '').trim();
+    const id = matriculeRaw.toLowerCase();
 
     let lastName = explicitLastName;
     if (!lastName && user?.name) {
