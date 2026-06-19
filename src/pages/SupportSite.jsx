@@ -173,12 +173,41 @@ export default function SupportSite() {
   const fetchReports = async () => {
     try {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-      const res = await fetch(`${base}/api/retro-reports`, {
+      const isAdminLike = ['ADMIN', 'PRESIDENT', 'VICE_PRESIDENT', 'TRESORIER', 'SECRETAIRE_GENERAL'].includes(String(user?.role || '').toUpperCase());
+      const adminUrl = `${base}/api/retro-requests/admin/all`;
+      const userUrl = `${base}/api/retro-requests`;
+
+      let res = await fetch(isAdminLike ? adminUrl : userUrl, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
+      if (!res.ok && isAdminLike) {
+        // Fallback to personal scope if admin/all is not available for this account
+        res = await fetch(userUrl, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+      }
       if (!res.ok) throw new Error('load failed');
       const data = await res.json();
-      setReports(data.reports || []);
+      const rawRequests = Array.isArray(data?.requests) ? data.requests : [];
+      const normalized = rawRequests.map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        category: r.category || 'GENERAL',
+        priority: String(r.priority || 'NORMAL').toLowerCase() === 'normal' ? 'medium' : String(r.priority || 'medium').toLowerCase(),
+        status: String(r.status || 'PENDING').toLowerCase()
+          .replace('pending', 'open')
+          .replace('in_progress', 'in_progress')
+          .replace('resolved', 'resolved')
+          .replace('closed', 'closed'),
+        createdBy: r.userName || r.userEmail || 'Utilisateur',
+        assignedTo: r.assignedTo || null,
+        comments: Array.isArray(r.comments) ? r.comments : [],
+        notes: r.notes || '',
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt
+      }));
+      setReports(normalized);
     } catch (e) {
       console.error('Erreur chargement rétroreports:', e);
     }
@@ -494,20 +523,24 @@ export default function SupportSite() {
     }
     try {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-      const fd = new FormData();
-      fd.append('title', reportFormData.title);
-      fd.append('description', reportFormData.description);
-      fd.append('category', reportFormData.category || '');
-      fd.append('priority', reportFormData.priority || 'medium');
-      fd.append('type', reportFormData.type || 'bug');
-      if (reportScreenshots && reportScreenshots.length > 0) {
-        reportScreenshots.forEach(f => fd.append('screenshots', f, f.name));
-      }
+      const payload = {
+        title: reportFormData.title,
+        description: reportFormData.description,
+        category: reportFormData.category || 'GENERAL',
+        priority: (reportFormData.priority || 'medium').toUpperCase() === 'MEDIUM' ? 'NORMAL' : (reportFormData.priority || 'medium').toUpperCase(),
+        details: {
+          type: reportFormData.type || 'bug',
+          screenshots: (reportScreenshots || []).map(f => ({ name: f.name, size: f.size, type: f.type }))
+        }
+      };
 
-      const res = await fetch(`${base}/api/retro-reports`, {
+      const res = await fetch(`${base}/api/retro-requests`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: fd
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
         const err = await res.json().catch(()=>({error:'create failed'}));
@@ -578,22 +611,16 @@ export default function SupportSite() {
         status: commentFormData.status || undefined
       };
 
-      let res = await fetch(`${base}/api/retro-reports/${selectedReport.id}/comments`, {
-        method: 'POST',
+      const notes = `${selectedReport?.notes || ''}\n[${new Date().toISOString()}] ${payload.author}: ${payload.message}`.trim();
+      const res = await fetch(`${base}/api/retro-requests/${selectedReport.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          notes,
+          status: payload.status || undefined
+        })
       });
-      if (!res.ok) {
-        res = await fetch(`${base}/api/retro-reports/${selectedReport.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-          body: JSON.stringify({
-            appendComment: { message: payload.message, author: payload.author },
-            status: payload.status
-          })
-        });
-        if (!res.ok) throw new Error('Impossible de persister le commentaire');
-      }
+      if (!res.ok) throw new Error('Impossible de persister le commentaire');
 
       await fetchReports();
       setCommentFormData({ message: '', status: '' });
@@ -608,16 +635,16 @@ export default function SupportSite() {
   const handleStatusChange = async (reportId, newStatus) => {
     try {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-      let res = await fetch(`${base}/api/retro-reports/${reportId}/status`, {
+      let res = await fetch(`${base}/api/retro-requests/${reportId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus.toUpperCase() })
       });
       if (!res.ok) {
-        res = await fetch(`${base}/api/retro-reports/${reportId}`, {
-          method: 'PATCH',
+        res = await fetch(`${base}/api/retro-requests/${reportId}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify({ status: newStatus.toUpperCase() })
         });
         if (!res.ok) throw new Error('status failed');
       }
@@ -638,7 +665,7 @@ export default function SupportSite() {
         toast({ title: 'Erreur', description: 'Token non trouvé', status: 'error', duration: 3000 });
         return;
       }
-      const url = `${base}/api/retro-reports/${reportId}`;
+      const url = `${base}/api/retro-requests/${reportId}`;
       console.log('🗑️ Suppression ticket:', url);
       const res = await fetch(url, { 
         method: 'DELETE', 
@@ -682,14 +709,14 @@ export default function SupportSite() {
     }
     try {
       const base = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${base}/api/retro-reports/${selectedReport.id}`, {
-        method: 'PATCH',
+      const res = await fetch(`${base}/api/retro-requests/${selectedReport.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
           title: editFormData.title,
           description: editFormData.description,
-          category: editFormData.category || '',
-          priority: editFormData.priority || 'medium',
+          category: editFormData.category || 'GENERAL',
+          priority: (editFormData.priority || 'medium').toUpperCase() === 'MEDIUM' ? 'NORMAL' : (editFormData.priority || 'medium').toUpperCase(),
           type: editFormData.type || 'bug'
         })
       });
