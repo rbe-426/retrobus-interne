@@ -177,6 +177,16 @@ export default function SupportSite() {
   const [reportScreenshots, setReportScreenshots] = useState([]); // File[]
 
   const parseNotesToComments = useCallback((notes) => {
+    const normalizeCommentAuthor = (rawAuthor) => {
+      const author = String(rawAuthor || '').trim();
+      if (!author) return 'Utilisateur';
+
+      const lower = author.toLowerCase();
+      if (lower === 'administrateur') return 'Waiyl BELAIDI (w.belaidi)';
+      if (lower.includes('waiyl') && (lower.includes('belaidiw91') || lower.includes('w.belaidi'))) return 'Waiyl BELAIDI (w.belaidi)';
+      return author;
+    };
+
     if (!notes || typeof notes !== 'string') return [];
     return notes
       .split('\n')
@@ -189,18 +199,27 @@ export default function SupportSite() {
         const parsedDate = new Date(rawDate);
         return {
           createdAt: Number.isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString(),
-          author: author?.trim() || 'Utilisateur',
+          author: normalizeCommentAuthor(author),
           message: message?.trim() || ''
         };
       })
       .filter(Boolean);
   }, []);
 
+  const normalizeCommentAuthor = useCallback((rawAuthor) => {
+    const author = String(rawAuthor || '').trim();
+    if (!author) return 'Utilisateur';
+
+    const lower = author.toLowerCase();
+    if (lower === 'administrateur') return 'Waiyl BELAIDI (w.belaidi)';
+    if (lower.includes('waiyl') && (lower.includes('belaidiw91') || lower.includes('w.belaidi'))) return 'Waiyl BELAIDI (w.belaidi)';
+    return author;
+  }, []);
+
   const formattedActorName = useMemo(() => {
     const firstName = String(prenom || user?.firstName || '').trim();
     const explicitLastName = String(nom || user?.lastName || '').trim();
     const matriculeRaw = String(matricule || user?.username || user?.matricule || user?.id || '').trim();
-    const id = matriculeRaw.toLowerCase();
 
     let lastName = explicitLastName;
     if (!lastName && user?.name) {
@@ -209,6 +228,12 @@ export default function SupportSite() {
         lastName = parts.slice(1).join(' ');
       }
     }
+
+    const normalizedLastForId = String(lastName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+    const derivedId = firstName && normalizedLastForId
+      ? `${firstName.charAt(0).toLowerCase()}.${normalizedLastForId}`
+      : '';
+    const id = (derivedId || matriculeRaw || '').toLowerCase();
 
     if (firstName && lastName && id) return `${firstName} ${lastName.toUpperCase()} (${id})`;
     if (firstName && id) return `${firstName} (${id})`;
@@ -266,7 +291,12 @@ export default function SupportSite() {
           .replace('closed', 'closed'),
         createdBy: r.userName || r.userEmail || 'Utilisateur',
         assignedTo: r.assignedTo || null,
-        comments: Array.isArray(r.comments) && r.comments.length > 0 ? r.comments : parseNotesToComments(r.notes),
+        comments: Array.isArray(r.comments) && r.comments.length > 0
+          ? r.comments.map((c) => ({
+              ...c,
+              author: normalizeCommentAuthor(c?.author)
+            }))
+          : parseNotesToComments(r.notes),
         notes: r.notes || '',
         createdAt: r.createdAt,
         updatedAt: r.updatedAt
