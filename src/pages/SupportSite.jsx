@@ -13,11 +13,11 @@ import { useUser } from '../context/UserContext';
 import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 
-function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDelete }) {
+function TicketCard({ report, isAdminLike, onView, onUpdate, onComment, onStatusChange, onArchive, onDelete }) {
   const cardBg = useColorModeValue('white', 'gray.800');
 
   const priorityColors = { low: 'green', medium: 'yellow', high: 'orange', critical: 'red' };
-  const statusColors = { open: 'blue', in_progress: 'orange', resolved: 'green', closed: 'gray' };
+  const statusColors = { open: 'blue', in_progress: 'orange', resolved: 'green', closed: 'gray', archived: 'purple' };
 
   const priorityLabel = useMemo(() => {
     switch (report.priority) {
@@ -33,6 +33,7 @@ function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDel
       case 'open': return 'Ouvert';
       case 'in_progress': return 'En cours';
       case 'resolved': return 'Résolu';
+      case 'archived': return 'Archivé';
       default: return 'Fermé';
     }
   }, [report.status]);
@@ -86,6 +87,9 @@ function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDel
               {report.status === 'closed' && (
                 <MenuItem icon={<FiRefreshCw />} onClick={(e) => { e.stopPropagation(); onStatusChange(report.id, 'open'); }}>Rouvrir</MenuItem>
               )}
+              {isAdminLike && report.status === 'closed' && (
+                <MenuItem icon={<FiCheck />} onClick={(e) => { e.stopPropagation(); onArchive(report.id); }}>Archiver</MenuItem>
+              )}
               <MenuDivider />
               <MenuItem icon={<FiTrash2 />} onClick={(e) => { e.stopPropagation(); onDelete(report.id); }} color="red.500">Supprimer</MenuItem>
             </MenuList>
@@ -133,6 +137,12 @@ function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDel
 export default function SupportSite() {
   const { user, prenom, nom, matricule } = useUser();
   const toast = useToast();
+
+  const isAdminLike = useMemo(
+    () => ['ADMIN', 'PRESIDENT', 'VICE_PRESIDENT', 'TRESORIER', 'SECRETAIRE_GENERAL']
+      .includes(String(user?.role || '').toUpperCase()),
+    [user?.role]
+  );
 
   // Navigation state
   const [activeSection, setActiveSection] = useState('tickets'); // 'tickets' | 'knowledge'
@@ -262,7 +272,6 @@ export default function SupportSite() {
   const fetchReports = async () => {
     try {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-      const isAdminLike = ['ADMIN', 'PRESIDENT', 'VICE_PRESIDENT', 'TRESORIER', 'SECRETAIRE_GENERAL'].includes(String(user?.role || '').toUpperCase());
       const adminUrl = `${base}/api/retro-requests/admin/all`;
       const userUrl = `${base}/api/retro-requests`;
 
@@ -701,7 +710,9 @@ export default function SupportSite() {
       const payload = {
         message: commentFormData.message,
         author: formattedActorName,
-        status: commentFormData.status || undefined
+        status: commentFormData.status === 'resolved_closed'
+          ? 'closed'
+          : (commentFormData.status || undefined)
       };
 
       const notes = `${selectedReport?.notes || ''}\n[${new Date().toISOString()}] ${payload.author}: ${payload.message}`.trim();
@@ -742,10 +753,17 @@ export default function SupportSite() {
         if (!res.ok) throw new Error('status failed');
       }
       await fetchReports();
-      const labels = { open: 'Ouvert', in_progress: 'En cours', resolved: 'Résolu', closed: 'Fermé' };
+      const labels = { open: 'Ouvert', in_progress: 'En cours', resolved: 'Résolu', closed: 'Fermé', archived: 'Archivé' };
       toast({ title: 'Statut mis à jour', description: `RétroReport marqué comme ${labels[newStatus]?.toLowerCase() || newStatus}`, status: 'success', duration: 3000 });
     } catch (e) {
       toast({ title: 'Erreur', description: 'Impossible de changer le statut', status: 'error', duration: 3000 });
+    }
+  };
+
+  const handleArchiveReport = async (reportId) => {
+    await handleStatusChange(reportId, 'archived');
+    if (selectedReport?.id === reportId) {
+      setSelectedReport((prev) => prev ? { ...prev, status: 'archived' } : prev);
     }
   };
 
@@ -834,6 +852,7 @@ export default function SupportSite() {
       case 'open': return 'Ouvert';
       case 'in_progress': return 'En cours';
       case 'resolved': return 'Résolu';
+      case 'archived': return 'Archivé';
       default: return 'Fermé';
     }
   }, [selectedReport]);
@@ -847,6 +866,9 @@ export default function SupportSite() {
       default: return '🔴 Critique';
     }
   }, [selectedReport]);
+
+  const activeReports = useMemo(() => reports.filter((r) => r.status !== 'archived'), [reports]);
+  const archivedReports = useMemo(() => reports.filter((r) => r.status === 'archived'), [reports]);
 
   if (loading) {
     return (
@@ -862,6 +884,7 @@ export default function SupportSite() {
   // Sections de navigation
   const sections = [
     { id: 'tickets', label: 'Tickets Support', icon: FiLifeBuoy, description: 'Gestion des tickets' },
+    ...(isAdminLike ? [{ id: 'archives', label: 'Archives des tickets', icon: FiBook, description: 'Tickets archivés (admin)' }] : []),
     { id: 'knowledge', label: 'Knowledge Base', icon: FiBook, description: 'Documentation & processus' }
   ];
 
@@ -877,14 +900,14 @@ export default function SupportSite() {
       </HStack>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{reports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{reports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{reports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
-        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total</StatLabel><StatNumber color="blue.500" fontSize="lg">{reports.length}</StatNumber></Stat></CardBody></Card>
+        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Ouverts</StatLabel><StatNumber color="red.500" fontSize="lg">{activeReports.filter(r => r.status === 'open').length}</StatNumber></Stat></CardBody></Card>
+        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">En cours</StatLabel><StatNumber color="orange.500" fontSize="lg">{activeReports.filter(r => r.status === 'in_progress').length}</StatNumber></Stat></CardBody></Card>
+        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Résolus</StatLabel><StatNumber color="green.500" fontSize="lg">{activeReports.filter(r => r.status === 'resolved').length}</StatNumber></Stat></CardBody></Card>
+        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Total actifs</StatLabel><StatNumber color="blue.500" fontSize="lg">{activeReports.length}</StatNumber></Stat></CardBody></Card>
       </SimpleGrid>
 
       <VStack spacing={4} align="stretch">
-        {reports.length === 0 ? (
+        {activeReports.length === 0 ? (
           <Alert status="info">
             <AlertIcon />
             <VStack align="start" spacing={1}>
@@ -893,14 +916,54 @@ export default function SupportSite() {
             </VStack>
           </Alert>
         ) : (
-          reports.map((report) => (
+          activeReports.map((report) => (
             <TicketCard
               key={report.id}
               report={report}
+              isAdminLike={isAdminLike}
               onView={openTicketDetails}
               onUpdate={handleEditReport}
               onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
               onStatusChange={handleStatusChange}
+              onArchive={handleArchiveReport}
+              onDelete={handleDeleteReport}
+            />
+          ))
+        )}
+      </VStack>
+    </VStack>
+  );
+
+  const ArchivesContent = () => (
+    <VStack spacing={6} align="stretch">
+      <HStack justify="space-between">
+        <VStack align="start" spacing={1}>
+          <Heading size="sm">Archives des tickets</Heading>
+          <Text fontSize="sm" color="gray.600">Tickets fermés puis archivés (visible admins uniquement)</Text>
+        </VStack>
+      </HStack>
+
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+        <Card bg={cardBg}><CardBody><Stat><StatLabel fontSize="xs">Tickets archivés</StatLabel><StatNumber color="purple.500" fontSize="lg">{archivedReports.length}</StatNumber></Stat></CardBody></Card>
+      </SimpleGrid>
+
+      <VStack spacing={4} align="stretch">
+        {archivedReports.length === 0 ? (
+          <Alert status="info">
+            <AlertIcon />
+            Aucun ticket archivé pour le moment.
+          </Alert>
+        ) : (
+          archivedReports.map((report) => (
+            <TicketCard
+              key={report.id}
+              report={report}
+              isAdminLike={isAdminLike}
+              onView={openTicketDetails}
+              onUpdate={handleEditReport}
+              onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
+              onStatusChange={handleStatusChange}
+              onArchive={handleArchiveReport}
               onDelete={handleDeleteReport}
             />
           ))
@@ -1123,6 +1186,8 @@ export default function SupportSite() {
     switch (activeSection) {
       case 'tickets':
         return <TicketsContent />;
+      case 'archives':
+        return <ArchivesContent />;
       case 'knowledge':
         return <KnowledgeContent />;
       default:
@@ -1211,10 +1276,12 @@ export default function SupportSite() {
             <Box>
               <Heading size="lg">
                 {activeSection === 'tickets' && '🎫 Tickets Support'}
+                {activeSection === 'archives' && '🗂️ Archives des tickets'}
                 {activeSection === 'knowledge' && '📚 Base de connaissances'}
               </Heading>
               <Text fontSize="sm" color="gray.500">
                 {activeSection === 'tickets' && 'Signalez et suivez les incidents, bugs et demandes'}
+                {activeSection === 'archives' && 'Historique des tickets archivés'}
                 {activeSection === 'knowledge' && 'Documentation des processus, guides et procédures'}
               </Text>
             </Box>
@@ -1349,6 +1416,14 @@ export default function SupportSite() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onDetailClose}>Fermer</Button>
+            {selectedReport?.status === 'closed' && isAdminLike && (
+              <Button colorScheme="purple" mr={3} onClick={async () => {
+                await handleArchiveReport(selectedReport.id);
+                onDetailClose();
+              }}>
+                Archiver
+              </Button>
+            )}
             {selectedReport && (
               <Button colorScheme="blue" onClick={() => { onDetailClose(); handleEditReport(selectedReport); }}>
                 Modifier le ticket
@@ -1377,6 +1452,7 @@ export default function SupportSite() {
                   <option value="open">Ouvert</option>
                   <option value="in_progress">En cours</option>
                   <option value="resolved">Résolu</option>
+                  <option value="resolved_closed">Résolu + Fermé</option>
                   <option value="closed">Fermé</option>
                 </Select>
               </FormControl>
