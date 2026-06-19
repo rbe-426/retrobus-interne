@@ -11,7 +11,6 @@ import {
   Divider,
   FormControl,
   FormLabel,
-  FormHelperText,
   Heading,
   HStack,
   IconButton,
@@ -637,9 +636,9 @@ export default function TeamRBE() {
                                     />
                                   </FormControl>
                                 </HStack>
-                                <FormHelperText mt={-1}>
+                                <Text fontSize="xs" color="gray.500" mt={-1}>
                                   Ajustez le cadrage pour la page publique /team (localhost:3000 et production).
-                                </FormHelperText>
+                                </Text>
 
                                 <FormControl>
                                   <FormLabel fontSize="xs">Citation</FormLabel>
