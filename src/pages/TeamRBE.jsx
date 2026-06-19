@@ -11,6 +11,7 @@ import {
   Divider,
   FormControl,
   FormLabel,
+  FormHelperText,
   Heading,
   HStack,
   IconButton,
@@ -67,6 +68,28 @@ const TAG_COLORS = [
   { value: 'orange', label: 'Orange' },
   { value: 'green', label: 'Vert' },
 ];
+
+const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 50));
+
+const parseImagePosition = (image) => {
+  const raw = String(image || '');
+  const [base] = raw.split('#');
+  const match = raw.match(/#xy=(\d{1,3}),(\d{1,3})$/);
+  if (!match) {
+    return { imageBase: base, imagePosX: 50, imagePosY: 50 };
+  }
+  return {
+    imageBase: base,
+    imagePosX: clampPercent(match[1]),
+    imagePosY: clampPercent(match[2])
+  };
+};
+
+const buildImageWithPosition = (imageBase, x, y) => {
+  const base = String(imageBase || '').split('#')[0];
+  if (!base) return '';
+  return `${base}#xy=${clampPercent(x)},${clampPercent(y)}`;
+};
 
 const DEFAULT_MEMBERS = [
   {
@@ -201,8 +224,16 @@ export default function TeamRBE() {
 
 
   const handleStartEdit = (member) => {
+    const pos = parseImagePosition(member.image);
     setEditingId(member.id);
-    setFormData({ ...member, expertise: member.expertise || [] });
+    setFormData({
+      ...member,
+      image: buildImageWithPosition(pos.imageBase, pos.imagePosX, pos.imagePosY),
+      imageBase: pos.imageBase,
+      imagePosX: pos.imagePosX,
+      imagePosY: pos.imagePosY,
+      expertise: member.expertise || []
+    });
   };
 
   const handleCancelEdit = () => {
@@ -212,7 +243,11 @@ export default function TeamRBE() {
 
   const handleSaveEdit = async (memberId) => {
     try {
-      await teamService.updateTeamMember(memberId, formData);
+      const payload = {
+        ...formData,
+        image: buildImageWithPosition(formData.imageBase || formData.image, formData.imagePosX, formData.imagePosY)
+      };
+      await teamService.updateTeamMember(memberId, payload);
       await loadTeamMembers();
       setEditingId(null);
       setFormData({});
@@ -325,7 +360,15 @@ export default function TeamRBE() {
       
       // Mettre à jour formData local si on est en édition
       if (editingId === memberId && response.imageUrl) {
-        setFormData(prev => ({ ...prev, image: response.imageUrl }));
+        setFormData(prev => {
+          const x = prev.imagePosX ?? 50;
+          const y = prev.imagePosY ?? 50;
+          return {
+            ...prev,
+            imageBase: response.imageUrl,
+            image: buildImageWithPosition(response.imageUrl, x, y)
+          };
+        });
       }
     } catch (error) {
       console.error('❌ Erreur upload avatar:', error);
@@ -531,8 +574,19 @@ export default function TeamRBE() {
                                 <FormControl>
                                   <FormLabel fontSize="xs">Photo de profil</FormLabel>
                                   <HStack spacing={3}>
-                                    {formData.image && (
-                                      <Avatar size="md" src={formData.image} name={formData.name} />
+                                    {(formData.imageBase || formData.image) && (
+                                      <Box
+                                        as="img"
+                                        src={(formData.imageBase || formData.image || '').split('#')[0]}
+                                        alt={formData.name || 'Apercu'}
+                                        w="90px"
+                                        h="90px"
+                                        borderRadius="md"
+                                        objectFit="cover"
+                                        objectPosition={`${formData.imagePosX ?? 50}% ${formData.imagePosY ?? 50}%`}
+                                        border="1px solid"
+                                        borderColor="gray.200"
+                                      />
                                     )}
                                     <Input 
                                       type="file" 
@@ -550,6 +604,42 @@ export default function TeamRBE() {
                                   </HStack>
                                   <Text fontSize="2xs" color="gray.500" mt={1}>JPG, PNG ou WebP - Max 20MB</Text>
                                 </FormControl>
+
+                                <HStack spacing={4}>
+                                  <FormControl flex={1}>
+                                    <FormLabel fontSize="xs">Position horizontale ({Math.round(formData.imagePosX ?? 50)}%)</FormLabel>
+                                    <Input
+                                      size="sm"
+                                      type="range"
+                                      min={0}
+                                      max={100}
+                                      value={formData.imagePosX ?? 50}
+                                      onChange={(e) => setFormData((p) => ({
+                                        ...p,
+                                        imagePosX: Number(e.target.value),
+                                        image: buildImageWithPosition(p.imageBase || p.image, Number(e.target.value), p.imagePosY ?? 50)
+                                      }))}
+                                    />
+                                  </FormControl>
+                                  <FormControl flex={1}>
+                                    <FormLabel fontSize="xs">Position verticale ({Math.round(formData.imagePosY ?? 50)}%)</FormLabel>
+                                    <Input
+                                      size="sm"
+                                      type="range"
+                                      min={0}
+                                      max={100}
+                                      value={formData.imagePosY ?? 50}
+                                      onChange={(e) => setFormData((p) => ({
+                                        ...p,
+                                        imagePosY: Number(e.target.value),
+                                        image: buildImageWithPosition(p.imageBase || p.image, p.imagePosX ?? 50, Number(e.target.value))
+                                      }))}
+                                    />
+                                  </FormControl>
+                                </HStack>
+                                <FormHelperText mt={-1}>
+                                  Ajustez le cadrage pour la page publique /team (localhost:3000 et production).
+                                </FormHelperText>
 
                                 <FormControl>
                                   <FormLabel fontSize="xs">Citation</FormLabel>
