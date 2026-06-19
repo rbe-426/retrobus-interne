@@ -44,7 +44,7 @@ const parseResponse = async (response) => {
       return await response.json();
     } catch (error) {
       console.error('❌ Erreur parsing JSON:', error);
-      throw new Error('Réponse JSON invalide du serveur');
+      throw new Error('[RBE-API-JSON-001] Réponse JSON invalide du serveur. Signification: la réponse API est corrompue ou tronquée.');
     }
   } else {
     // Si ce n'est pas du JSON, récupérer le texte pour débogage
@@ -52,11 +52,61 @@ const parseResponse = async (response) => {
     console.error('❌ Réponse non-JSON reçue:', text.substring(0, 200) + '...');
     
     if (text.includes('<!DOCTYPE')) {
-      throw new Error('Le serveur a renvoyé une page HTML au lieu de JSON. Vérifiez l\'URL de l\'API.');
+      throw new Error('[RBE-API-HTML-001] Réponse HTML au lieu de JSON. Signification: route API invalide ou rewrite/proxy incorrect.');
     } else {
-      throw new Error(`Réponse inattendue du serveur (${response.status}): ${text.substring(0, 100)}`);
+      throw new Error(`[RBE-API-RAW-001] Réponse inattendue du serveur (${response.status}). Signification: format de réponse non géré.`);
     }
   }
+};
+
+// Mappage Trilogy des erreurs API vers des codes explicites utilisables dans les popups
+const buildTrilogyErrorMessage = ({ status, errorData, method, url }) => {
+  const serverCode = String(errorData?.code || '').toUpperCase();
+  const serverMessage = errorData?.error || errorData?.details || errorData?.message || '';
+
+  if (serverCode === 'CSRF_MISSING') {
+    return '[RBE-SEC-403-CSRF-MISSING] Jeton CSRF manquant. Signification: la session de securite n\'est pas initialisee. Action: se reconnecter.';
+  }
+  if (serverCode === 'CSRF_INVALID') {
+    return '[RBE-SEC-403-CSRF-INVALID] Jeton CSRF invalide. Signification: le token est expire ou incoherent. Action: se reconnecter.';
+  }
+
+  switch (status) {
+    case 400:
+      return `[RBE-REQ-400] Requete invalide (${method} ${url}). Signification: donnees manquantes ou mal formees. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+    case 401:
+      return '[RBE-AUTH-401] Authentification invalide ou expiree. Signification: token absent/expire.';
+    case 403:
+      return `[RBE-AUTH-403] Acces refuse (${method} ${url}). Signification: permissions insuffisantes ou regle de securite. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+    case 404:
+      return `[RBE-API-404] Ressource introuvable (${method} ${url}). Signification: endpoint ou identifiant absent. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+    case 409:
+      return `[RBE-DATA-409] Conflit de donnees (${method} ${url}). Signification: doublon ou contrainte metier. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+    case 422:
+      return `[RBE-VAL-422] Validation echouee (${method} ${url}). Signification: donnees invalides selon les regles metier. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+    case 429:
+      return '[RBE-RATE-429] Trop de requetes. Signification: limite anti-abus active. Action: patienter puis reessayer.';
+    default:
+      if (status >= 500) {
+        return `[RBE-SRV-${status}] Erreur interne serveur (${method} ${url}). Signification: incident backend. Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+      }
+      return `[RBE-API-${status || '000'}] Erreur API (${method} ${url}). Detail: ${serverMessage || 'Aucun detail serveur.'}`;
+  }
+};
+
+const normalizeCaughtError = (error, method, url) => {
+  const message = String(error?.message || 'Erreur inconnue');
+  if (message.startsWith('[RBE-')) return error;
+
+  if (error?.name === 'AbortError') {
+    return new Error('[RBE-NET-408] Delai depasse. Signification: la requete a depasse le timeout configure.');
+  }
+
+  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(message)) {
+    return new Error(`[RBE-NET-000] Incident reseau (${method} ${url}). Signification: API inaccessible, CORS, DNS ou connexion interrompue.`);
+  }
+
+  return new Error(`[RBE-CLI-000] Erreur client (${method} ${url}). Detail: ${message}`);
 };
 
 // Instance API client avec support JWT et gestion d'erreur améliorée
@@ -88,17 +138,16 @@ export const apiClient = {
           window.location.href = '/login';
           return;
         }
-        
-        // Essayer de récupérer le message d'erreur du serveur
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'GET', url }));
       }
       
       return await parseResponse(response);
     } catch (error) {
-      console.error(`❌ Erreur GET ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'GET', url);
+      console.error(`❌ Erreur GET ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   },
   
@@ -129,24 +178,15 @@ export const apiClient = {
           return;
         }
         
-        if (response.status === 403) {
-          const errorData = await parseResponse(response);
-          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
-            console.error('🔐 CSRF validation failed:', errorData.error);
-            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
-          }
-        }
-        
-        // Essayer de récupérer le message d'erreur du serveur
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'POST', url }));
       }
       
       return await parseResponse(response);
     } catch (error) {
-      console.error(`❌ Erreur POST ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'POST', url);
+      console.error(`❌ Erreur POST ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   },
   
@@ -177,23 +217,15 @@ export const apiClient = {
           return;
         }
         
-        if (response.status === 403) {
-          const errorData = await parseResponse(response);
-          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
-            console.error('🔐 CSRF validation failed:', errorData.error);
-            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
-          }
-        }
-
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'PUT', url }));
       }
       
       return await parseResponse(response);
     } catch (error) {
-      console.error(`❌ Erreur PUT ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'PUT', url);
+      console.error(`❌ Erreur PUT ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   },
 
@@ -224,23 +256,15 @@ export const apiClient = {
           return;
         }
         
-        if (response.status === 403) {
-          const errorData = await parseResponse(response);
-          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
-            console.error('🔐 CSRF validation failed:', errorData.error);
-            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
-          }
-        }
-        
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'PATCH', url }));
       }
       
       return await parseResponse(response);
     } catch (error) {
-      console.error(`❌ Erreur PATCH ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'PATCH', url);
+      console.error(`❌ Erreur PATCH ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   },
 
@@ -270,17 +294,8 @@ export const apiClient = {
           return;
         }
         
-        if (response.status === 403) {
-          const errorData = await parseResponse(response);
-          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
-            console.error('🔐 CSRF validation failed:', errorData.error);
-            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
-          }
-        }
-        
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'DELETE', url }));
       }
       
       // DELETE peut retourner du contenu ou être vide
@@ -291,8 +306,9 @@ export const apiClient = {
       
       return await parseResponse(response);
     } catch (error) {
-      console.error(`❌ Erreur DELETE ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'DELETE', url);
+      console.error(`❌ Erreur DELETE ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   },
 
@@ -354,28 +370,19 @@ export const apiClient = {
           return;
         }
         
-        if (response.status === 403) {
-          const errorData = await parseResponse(response);
-          if (errorData?.code === 'CSRF_MISSING' || errorData?.code === 'CSRF_INVALID') {
-            console.error('🔐 CSRF validation failed:', errorData.error);
-            throw new Error('Erreur de sécurité CSRF - Veuillez vous reconnecter');
-          }
-        }
-        
-        // Essayer de récupérer le message d'erreur du serveur
-        const errorData = await parseResponse(response);
-        const errorMessage = errorData?.error || errorData?.details || errorData?.message || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const errorData = await parseResponse(response).catch(() => ({}));
+        throw new Error(buildTrilogyErrorMessage({ status: response.status, errorData, method: 'UPLOAD', url }));
       }
       
       return await parseResponse(response);
     } catch (error) {
       if (error.name === 'AbortError') {
         console.error('❌ Upload timeout après 60 secondes');
-        throw new Error('Upload timeout - le fichier est peut-être trop volumineux ou la connexion trop lente');
+        throw new Error('[RBE-UPL-408] Upload timeout. Signification: fichier trop volumineux ou connexion trop lente.');
       }
-      console.error(`❌ Erreur UPLOAD ${url}:`, error.message);
-      throw error;
+      const normalizedError = normalizeCaughtError(error, 'UPLOAD', url);
+      console.error(`❌ Erreur UPLOAD ${url}:`, normalizedError.message);
+      throw normalizedError;
     }
   }
 };
