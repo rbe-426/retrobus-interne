@@ -798,6 +798,26 @@ export default function SupportSite() {
     }, init);
   }, [knowledgeDocs]);
 
+  const selectedStatusLabel = useMemo(() => {
+    if (!selectedReport) return '';
+    switch (selectedReport.status) {
+      case 'open': return 'Ouvert';
+      case 'in_progress': return 'En cours';
+      case 'resolved': return 'Résolu';
+      default: return 'Fermé';
+    }
+  }, [selectedReport]);
+
+  const selectedPriorityLabel = useMemo(() => {
+    if (!selectedReport) return '';
+    switch (selectedReport.priority) {
+      case 'low': return '🟢 Faible';
+      case 'medium': return '🟡 Moyen';
+      case 'high': return '🟠 Élevé';
+      default: return '🔴 Critique';
+    }
+  }, [selectedReport]);
+
   if (loading) {
     return (
       <Box p={6}>
@@ -1245,10 +1265,10 @@ export default function SupportSite() {
                   <HStack>
                     <Badge>{selectedReport.category || 'GENERAL'}</Badge>
                     <Badge colorScheme={selectedReport.status === 'resolved' ? 'green' : selectedReport.status === 'in_progress' ? 'orange' : selectedReport.status === 'closed' ? 'gray' : 'blue'}>
-                      {selectedReport.status}
+                      {selectedStatusLabel}
                     </Badge>
                     <Badge colorScheme={selectedReport.priority === 'critical' ? 'red' : selectedReport.priority === 'high' ? 'orange' : selectedReport.priority === 'medium' ? 'yellow' : 'green'}>
-                      {selectedReport.priority}
+                      {selectedPriorityLabel}
                     </Badge>
                   </HStack>
                   <Text fontSize="sm" color="gray.500">
