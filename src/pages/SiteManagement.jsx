@@ -1265,8 +1265,13 @@ const PermissionsManagement = () => {
   const loadUserPermissions = async (userId) => {
     try {
       const response = await apiClient.get(`/api/admin/users/${userId}/permissions`);
-      if (Array.isArray(response)) {
-        setUserPermissions(response);
+      if (response && typeof response === 'object') {
+        const permissionsMap = response.permissions && typeof response.permissions === 'object'
+          ? response.permissions
+          : response;
+        setUserPermissions(permissionsMap || {});
+      } else {
+        setUserPermissions({});
       }
     } catch (error) {
       console.error('Erreur chargement permissions:', error);
