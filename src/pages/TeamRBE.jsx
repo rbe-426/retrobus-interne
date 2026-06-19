@@ -191,6 +191,7 @@ export default function TeamRBE() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({});
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingPhotoPosition, setSavingPhotoPosition] = useState(false);
 
   // Color mode values
   const theadBg = useColorModeValue('gray.50', 'gray.700');
@@ -401,6 +402,43 @@ export default function TeamRBE() {
       });
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleSavePhotoPosition = async (memberId) => {
+    try {
+      setSavingPhotoPosition(true);
+      const imageWithPosition = buildImageWithPosition(formData.imageBase || formData.image, formData.imagePosX, formData.imagePosY);
+      if (!imageWithPosition) {
+        toast({
+          title: 'Aucune image',
+          description: 'Ajoutez ou conservez une photo avant de sauvegarder le cadrage.',
+          status: 'warning',
+          duration: 2500
+        });
+        return;
+      }
+
+      await teamService.updateTeamMember(memberId, { image: imageWithPosition });
+      setFormData((prev) => ({ ...prev, image: imageWithPosition }));
+      await loadTeamMembers();
+
+      toast({
+        title: 'Cadrage sauvegardé',
+        description: 'La position de la photo est enregistrée côté serveur.',
+        status: 'success',
+        duration: 2200
+      });
+    } catch (error) {
+      console.error('Erreur sauvegarde cadrage:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de sauvegarder le cadrage',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setSavingPhotoPosition(false);
     }
   };
 
@@ -639,6 +677,17 @@ export default function TeamRBE() {
                                 <Text fontSize="xs" color="gray.500" mt={-1}>
                                   Ajustez le cadrage pour la page publique /team (localhost:3000 et production).
                                 </Text>
+                                <HStack>
+                                  <Button
+                                    size="sm"
+                                    colorScheme="blue"
+                                    onClick={() => handleSavePhotoPosition(member.id)}
+                                    isLoading={savingPhotoPosition}
+                                    isDisabled={!(formData.imageBase || formData.image)}
+                                  >
+                                    Enregistrer le cadrage serveur
+                                  </Button>
+                                </HStack>
 
                                 <FormControl>
                                   <FormLabel fontSize="xs">Citation</FormLabel>
