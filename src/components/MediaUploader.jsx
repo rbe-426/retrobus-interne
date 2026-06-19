@@ -27,7 +27,7 @@ import {
   ModalFooter,
   useDisclosure
 } from '@chakra-ui/react';
-import { FiUpload, FiX, FiImage, FiVideo, FiTrash2 } from 'react-icons/fi';
+import { FiUpload, FiVideo, FiTrash2, FiFileText } from 'react-icons/fi';
 import { apiClient } from '../api/config';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 
@@ -40,16 +40,54 @@ export default function MediaUploader({ media = [], onChange }) {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed'
+  ];
+
+  const acceptString = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'application/pdf',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.ppt',
+    '.pptx',
+    '.txt',
+    '.zip'
+  ].join(',');
+
   const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: 'Type de fichier non supporté',
-        description: 'Utilisez JPG, PNG, GIF, WEBP, MP4 ou WEBM',
+        description: 'Utilisez image, vidéo ou document (PDF/Office/TXT/ZIP)',
         status: 'error',
         duration: 3000
       });
@@ -187,7 +225,7 @@ export default function MediaUploader({ media = [], onChange }) {
                     h="150px"
                     w="100%"
                   />
-                ) : (
+                ) : item.type === 'video' ? (
                   <Box
                     bg="gray.800"
                     h="150px"
@@ -196,6 +234,22 @@ export default function MediaUploader({ media = [], onChange }) {
                     justifyContent="center"
                   >
                     <FiVideo size={40} color="white" />
+                  </Box>
+                ) : (
+                  <Box
+                    bg="gray.100"
+                    h="150px"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    flexDirection="column"
+                    px={2}
+                    textAlign="center"
+                  >
+                    <FiFileText size={36} />
+                    <Text fontSize="xs" mt={2} noOfLines={2}>
+                      {item.originalName || item.filename || 'Document'}
+                    </Text>
                   </Box>
                 )}
 
@@ -237,12 +291,12 @@ export default function MediaUploader({ media = [], onChange }) {
                 <Input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,video/mp4,video/webm"
+                  accept={acceptString}
                   onChange={handleFileSelect}
                   disabled={uploading}
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
-                  Formats : JPG, PNG, GIF, WEBP, MP4, WEBM (max 50 MB)
+                  Formats : images, vidéos, PDF, Office, TXT, ZIP (max 50 MB)
                 </Text>
               </FormControl>
 

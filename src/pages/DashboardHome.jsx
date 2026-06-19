@@ -800,6 +800,36 @@ export default function DashboardHome() {
                                     bg="black"
                                     objectFit="cover"
                                   />
+                                ) : media.type === 'file' ? (
+                                  <Box
+                                    p={3}
+                                    borderWidth="1px"
+                                    borderColor="gray.200"
+                                    borderRadius="md"
+                                    h={isMobile ? "100px" : "120px"}
+                                    display="flex"
+                                    flexDirection="column"
+                                    justifyContent="space-between"
+                                    bg="gray.50"
+                                  >
+                                    <HStack spacing={2} align="start">
+                                      <Icon as={FiFileText} color="blue.500" boxSize={5} mt={0.5} />
+                                      <Text fontSize="xs" noOfLines={2}>
+                                        {media.originalName || media.filename || media.caption || 'Document'}
+                                      </Text>
+                                    </HStack>
+                                    <Button
+                                      as="a"
+                                      href={media.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      size="xs"
+                                      variant="outline"
+                                      colorScheme="blue"
+                                    >
+                                      Ouvrir
+                                    </Button>
+                                  </Box>
                                 ) : null}
                               </Box>
                             ))}
