@@ -1771,7 +1771,14 @@ const SiteLogsManagement = () => {
 
 const TrafficContextManagement = () => {
   const userRolesHook = useUserRoles();
-  const canReadTraffic = userRolesHook.hasRole('ADMIN');
+  const userIdentity = String(
+    userRolesHook?.user?.matricule ||
+    userRolesHook?.user?.username ||
+    userRolesHook?.user?.email ||
+    ''
+  ).toLowerCase();
+  const isCMarcy = userIdentity === 'c.marcy' || userIdentity === 'clement.marcypro@gmail.com';
+  const canReadTraffic = userRolesHook.hasRole(ADMIN_ROLES) || isCMarcy;
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
@@ -1827,7 +1834,7 @@ const TrafficContextManagement = () => {
         <AlertIcon />
         <Box>
           <Text fontWeight="bold">Accès réservé aux administrateurs</Text>
-          <Text fontSize="sm">La page Trafic et contexte est strictement limitée au rôle ADMIN.</Text>
+          <Text fontSize="sm">La page Trafic et contexte est limitée aux profils administration.</Text>
         </Box>
       </Alert>
     );
