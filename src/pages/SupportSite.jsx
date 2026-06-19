@@ -11,6 +11,7 @@ import {
 import { FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, FiRefreshCw, FiMessageSquare, FiPlus, FiBook, FiLifeBuoy, FiEye } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
+import { getStoredCSRFToken } from '../lib/csrfClient';
 
 function TicketCard({ report, onUpdate, onComment, onStatusChange, onDelete }) {
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -170,6 +171,20 @@ export default function SupportSite() {
   const sidebarBg = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
+  const getAuthHeaders = (includeJson = false) => {
+    const headers = {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    };
+    if (includeJson) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const csrfToken = getStoredCSRFToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+    return headers;
+  };
+
   const fetchReports = async () => {
     try {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -178,12 +193,12 @@ export default function SupportSite() {
       const userUrl = `${base}/api/retro-requests`;
 
       let res = await fetch(isAdminLike ? adminUrl : userUrl, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: getAuthHeaders(false)
       });
       if (!res.ok && isAdminLike) {
         // Fallback to personal scope if admin/all is not available for this account
         res = await fetch(userUrl, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: getAuthHeaders(false)
         });
       }
       if (!res.ok) throw new Error('load failed');
@@ -536,10 +551,7 @@ export default function SupportSite() {
 
       const res = await fetch(`${base}/api/retro-requests`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(true),
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
@@ -570,10 +582,7 @@ export default function SupportSite() {
         const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
         await fetch(`${base}/api/notifications`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({
             title: `🎫 Nouveau ticket: ${reportFormData.title}`,
             message: `Priorité: ${priorityLabel}\nDéposé par: ${user?.prenom || 'Utilisateur'}\n${reportFormData.description.substring(0, 150)}...`,
@@ -614,7 +623,7 @@ export default function SupportSite() {
       const notes = `${selectedReport?.notes || ''}\n[${new Date().toISOString()}] ${payload.author}: ${payload.message}`.trim();
       const res = await fetch(`${base}/api/retro-requests/${selectedReport.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           notes,
           status: payload.status || undefined
@@ -637,13 +646,13 @@ export default function SupportSite() {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
       let res = await fetch(`${base}/api/retro-requests/${reportId}/status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ status: newStatus.toUpperCase() })
       });
       if (!res.ok) {
         res = await fetch(`${base}/api/retro-requests/${reportId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({ status: newStatus.toUpperCase() })
         });
         if (!res.ok) throw new Error('status failed');
@@ -669,10 +678,7 @@ export default function SupportSite() {
       console.log('🗑️ Suppression ticket:', url);
       const res = await fetch(url, { 
         method: 'DELETE', 
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } 
+        headers: getAuthHeaders(true)
       });
       console.log('Delete response status:', res.status);
       if (!res.ok) {
@@ -711,7 +717,7 @@ export default function SupportSite() {
       const base = import.meta.env.VITE_API_URL || 'http://localhost:4000';
       const res = await fetch(`${base}/api/retro-requests/${selectedReport.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${localStorage.getItem('token')}` },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           title: editFormData.title,
           description: editFormData.description,
