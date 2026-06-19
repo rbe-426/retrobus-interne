@@ -478,7 +478,7 @@ function ResetPasswordModal({ isOpen, onClose, account, onSuccess }) {
 
       if (response.ok) {
         const data = await response.json();
-        setTempPassword(data.temporaryPassword || '');
+        setTempPassword(data.temporaryPassword || data.tempPassword || '');
         toast({
           title: 'Succès',
           description: 'Mot de passe réinitialisé',
