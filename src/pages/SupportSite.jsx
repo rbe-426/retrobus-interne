@@ -131,7 +131,7 @@ function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDel
 }
 
 export default function SupportSite() {
-  const { user } = useUser();
+  const { user, prenom, nom, matricule } = useUser();
   const toast = useToast();
 
   // Navigation state
@@ -195,6 +195,26 @@ export default function SupportSite() {
       })
       .filter(Boolean);
   }, []);
+
+  const formattedActorName = useMemo(() => {
+    const firstName = String(prenom || user?.firstName || '').trim();
+    const explicitLastName = String(nom || user?.lastName || '').trim();
+    const matriculeRaw = String(matricule || user?.username || user?.matricule || user?.email || '').trim();
+    const id = matriculeRaw.includes('@') ? matriculeRaw.split('@')[0].toLowerCase() : matriculeRaw.toLowerCase();
+
+    let lastName = explicitLastName;
+    if (!lastName && user?.name) {
+      const parts = String(user.name).trim().split(/\s+/);
+      if (parts.length > 1) {
+        lastName = parts.slice(1).join(' ');
+      }
+    }
+
+    if (firstName && lastName && id) return `${firstName} ${lastName.toUpperCase()} (${id})`;
+    if (firstName && id) return `${firstName} (${id})`;
+    if (user?.name && id) return `${String(user.name).trim()} (${id})`;
+    return user?.name || id || 'Utilisateur';
+  }, [matricule, nom, prenom, user]);
 
   const cardBg = useColorModeValue('white', 'gray.800');
   const sidebarBg = useColorModeValue('gray.50', 'gray.800');
@@ -650,7 +670,7 @@ export default function SupportSite() {
       const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
       const payload = {
         message: commentFormData.message,
-        author: user?.name || 'Administrateur',
+        author: formattedActorName,
         status: commentFormData.status || undefined
       };
 
