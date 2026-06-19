@@ -13,7 +13,7 @@ import { useUser } from '../context/UserContext';
 import { addHomeAnnouncement } from '../utils/homeAnnouncementUtils';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 
-function TicketCard({ report, onUpdate, onComment, onStatusChange, onDelete }) {
+function TicketCard({ report, onView, onUpdate, onComment, onStatusChange, onDelete }) {
   const cardBg = useColorModeValue('white', 'gray.800');
 
   const priorityColors = { low: 'green', medium: 'yellow', high: 'orange', critical: 'red' };
@@ -40,7 +40,14 @@ function TicketCard({ report, onUpdate, onComment, onStatusChange, onDelete }) {
   const createdAt = report.createdAt ? new Date(report.createdAt) : null;
 
   return (
-    <Card bg={cardBg} borderLeftWidth={4} borderLeftColor={`${priorityColors[report.priority] || 'gray'}.500`}>
+    <Card
+      bg={cardBg}
+      borderLeftWidth={4}
+      borderLeftColor={`${priorityColors[report.priority] || 'gray'}.500`}
+      cursor="pointer"
+      onClick={() => onView(report)}
+      _hover={{ shadow: 'md' }}
+    >
       <CardHeader pb={3}>
         <Flex justify="space-between" align="start">
           <VStack align="start" spacing={2}>
@@ -64,22 +71,23 @@ function TicketCard({ report, onUpdate, onComment, onStatusChange, onDelete }) {
           <Menu>
             <MenuButton as={IconButton} icon={<FiMoreHorizontal />} variant="ghost" size="sm" />
             <MenuList zIndex={10} position="relative">
-              <MenuItem icon={<FiEdit3 />} onClick={() => onUpdate(report)}>Modifier</MenuItem>
-              <MenuItem icon={<FiMessageSquare />} onClick={() => onComment(report)}>Commenter</MenuItem>
+              <MenuItem icon={<FiEye />} onClick={(e) => { e.stopPropagation(); onView(report); }}>Voir le détail</MenuItem>
+              <MenuItem icon={<FiEdit3 />} onClick={(e) => { e.stopPropagation(); onUpdate(report); }}>Modifier</MenuItem>
+              <MenuItem icon={<FiMessageSquare />} onClick={(e) => { e.stopPropagation(); onComment(report); }}>Commenter</MenuItem>
               {report.status === 'open' && (
-                <MenuItem icon={<FiRefreshCw />} onClick={() => onStatusChange(report.id, 'in_progress')}>Marquer en cours</MenuItem>
+                <MenuItem icon={<FiRefreshCw />} onClick={(e) => { e.stopPropagation(); onStatusChange(report.id, 'in_progress'); }}>Marquer en cours</MenuItem>
               )}
               {(report.status === 'open' || report.status === 'in_progress') && (
-                <MenuItem icon={<FiCheck />} onClick={() => onStatusChange(report.id, 'resolved')}>Marquer comme résolu</MenuItem>
+                <MenuItem icon={<FiCheck />} onClick={(e) => { e.stopPropagation(); onStatusChange(report.id, 'resolved'); }}>Marquer comme résolu</MenuItem>
               )}
               {report.status === 'resolved' && (
-                <MenuItem icon={<FiX />} onClick={() => onStatusChange(report.id, 'closed')}>Fermer définitivement</MenuItem>
+                <MenuItem icon={<FiX />} onClick={(e) => { e.stopPropagation(); onStatusChange(report.id, 'closed'); }}>Fermer définitivement</MenuItem>
               )}
               {report.status === 'closed' && (
-                <MenuItem icon={<FiRefreshCw />} onClick={() => onStatusChange(report.id, 'open')}>Rouvrir</MenuItem>
+                <MenuItem icon={<FiRefreshCw />} onClick={(e) => { e.stopPropagation(); onStatusChange(report.id, 'open'); }}>Rouvrir</MenuItem>
               )}
               <MenuDivider />
-              <MenuItem icon={<FiTrash2 />} onClick={() => onDelete(report.id)} color="red.500">Supprimer</MenuItem>
+              <MenuItem icon={<FiTrash2 />} onClick={(e) => { e.stopPropagation(); onDelete(report.id); }} color="red.500">Supprimer</MenuItem>
             </MenuList>
           </Menu>
         </Flex>
@@ -136,6 +144,7 @@ export default function SupportSite() {
     isOpen: isCommentOpen, onOpen: onCommentOpen, onClose: onCommentClose
   } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
   const { isOpen: isKnowledgeOpen, onOpen: onKnowledgeOpen, onClose: onKnowledgeClose } = useDisclosure();
   const { isOpen: isKnowledgeViewOpen, onOpen: onKnowledgeViewOpen, onClose: onKnowledgeViewClose } = useDisclosure();
 
@@ -166,6 +175,26 @@ export default function SupportSite() {
     jobTools: ''
   });
   const [reportScreenshots, setReportScreenshots] = useState([]); // File[]
+
+  const parseNotesToComments = useCallback((notes) => {
+    if (!notes || typeof notes !== 'string') return [];
+    return notes
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^\[([^\]]+)\]\s+([^:]+):\s*(.*)$/);
+        if (!match) return null;
+        const [, rawDate, author, message] = match;
+        const parsedDate = new Date(rawDate);
+        return {
+          createdAt: Number.isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString(),
+          author: author?.trim() || 'Utilisateur',
+          message: message?.trim() || ''
+        };
+      })
+      .filter(Boolean);
+  }, []);
 
   const cardBg = useColorModeValue('white', 'gray.800');
   const sidebarBg = useColorModeValue('gray.50', 'gray.800');
@@ -217,7 +246,7 @@ export default function SupportSite() {
           .replace('closed', 'closed'),
         createdBy: r.userName || r.userEmail || 'Utilisateur',
         assignedTo: r.assignedTo || null,
-        comments: Array.isArray(r.comments) ? r.comments : [],
+        comments: Array.isArray(r.comments) && r.comments.length > 0 ? r.comments : parseNotesToComments(r.notes),
         notes: r.notes || '',
         createdAt: r.createdAt,
         updatedAt: r.updatedAt
@@ -226,6 +255,11 @@ export default function SupportSite() {
     } catch (e) {
       console.error('Erreur chargement rétroreports:', e);
     }
+  };
+
+  const openTicketDetails = (report) => {
+    setSelectedReport(report);
+    onDetailOpen();
   };
 
   const KB_STORAGE_KEY = 'rbe_knowledge_base_docs_v1';
@@ -793,6 +827,7 @@ export default function SupportSite() {
             <TicketCard
               key={report.id}
               report={report}
+              onView={openTicketDetails}
               onUpdate={handleEditReport}
               onComment={(r) => { setSelectedReport(r); onCommentOpen(); }}
               onStatusChange={handleStatusChange}
@@ -1172,6 +1207,83 @@ export default function SupportSite() {
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onReportClose}>Annuler</Button>
             <Button colorScheme="red" onClick={handleReportSubmit} leftIcon={<FiPlus />}>Créer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal détail ticket */}
+      <Modal isOpen={isDetailOpen} onClose={onDetailClose} size="2xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>🔎 Détail du ticket</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {selectedReport ? (
+              <VStack align="stretch" spacing={4}>
+                <VStack align="start" spacing={1}>
+                  <Heading size="md">{selectedReport.title}</Heading>
+                  <HStack>
+                    <Badge>{selectedReport.category || 'GENERAL'}</Badge>
+                    <Badge colorScheme={selectedReport.status === 'resolved' ? 'green' : selectedReport.status === 'in_progress' ? 'orange' : selectedReport.status === 'closed' ? 'gray' : 'blue'}>
+                      {selectedReport.status}
+                    </Badge>
+                    <Badge colorScheme={selectedReport.priority === 'critical' ? 'red' : selectedReport.priority === 'high' ? 'orange' : selectedReport.priority === 'medium' ? 'yellow' : 'green'}>
+                      {selectedReport.priority}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="gray.500">
+                    Créé par {selectedReport.createdBy} le {selectedReport.createdAt ? new Date(selectedReport.createdAt).toLocaleString('fr-FR') : 'N/A'}
+                  </Text>
+                </VStack>
+
+                <Box p={3} borderWidth="1px" borderRadius="md" bg="gray.50">
+                  <Text whiteSpace="pre-line">{selectedReport.description || 'Aucune description.'}</Text>
+                </Box>
+
+                <VStack align="stretch" spacing={2}>
+                  <HStack justify="space-between">
+                    <Heading size="sm">Suivi / Commentaires</Heading>
+                    <Button size="sm" leftIcon={<FiMessageSquare />} onClick={() => { onDetailClose(); onCommentOpen(); }}>
+                      Ajouter un commentaire
+                    </Button>
+                  </HStack>
+
+                  {Array.isArray(selectedReport.comments) && selectedReport.comments.length > 0 ? (
+                    <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto" pr={1}>
+                      {selectedReport.comments.map((comment, idx) => (
+                        <Box key={`${selectedReport.id}_comment_${idx}`} p={3} borderWidth="1px" borderRadius="md">
+                          <HStack justify="space-between" mb={1}>
+                            <Text fontWeight="bold" fontSize="sm">{comment.author || 'Utilisateur'}</Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleString('fr-FR') : ''}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="sm" whiteSpace="pre-line">{comment.message || ''}</Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  ) : (
+                    <Alert status="info">
+                      <AlertIcon />
+                      Aucun commentaire pour le moment.
+                    </Alert>
+                  )}
+                </VStack>
+              </VStack>
+            ) : (
+              <Alert status="info">
+                <AlertIcon />
+                Aucun ticket sélectionné.
+              </Alert>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onDetailClose}>Fermer</Button>
+            {selectedReport && (
+              <Button colorScheme="blue" onClick={() => { onDetailClose(); handleEditReport(selectedReport); }}>
+                Modifier le ticket
+              </Button>
+            )}
           </ModalFooter>
         </ModalContent>
       </Modal>

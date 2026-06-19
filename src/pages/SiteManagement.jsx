@@ -24,6 +24,7 @@ import { API_BASE_URL } from '../api/config';
 import { displayNameFromUser, formatMemberLabel } from '../lib/names';
 import { useUser } from '../context/UserContext';
 import { useUserRoles, ADMIN_ROLES } from '../hooks/useUserRoles';
+import { useUserPermissions } from '../hooks/useUserPermissions';
 import EmailTemplateManager from '../components/EmailTemplateManager';
 import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
@@ -2506,8 +2507,16 @@ const TrafficContextManagement = () => {
  * ============= Page Principale SiteManagement =============
  */
 const SiteManagement = () => {
+  const { user } = useUser();
   const userRolesHook = useUserRoles();
+  const { permissions } = useUserPermissions(user?.id);
   const isStrictAdmin = userRolesHook.hasRole('ADMIN');
+
+  const hasAction = (resource, action) => {
+    const perm = (permissions || []).find((p) => p.resource === resource);
+    if (!perm || !Array.isArray(perm.actions)) return false;
+    return perm.actions.includes(action);
+  };
 
   const sections = [
     {
@@ -2526,18 +2535,21 @@ const SiteManagement = () => {
       id: 'notifications',
       label: '🔔 Notifications',
       icon: FiBell,
+      accessResource: 'SITE_SECTION_NOTIFICATIONS',
       render: () => <NotificationsManagement />,
     },
     {
       id: 'announcements',
       label: '📢 Annonces d\'Accueil',
       icon: FiBell,
+      accessResource: 'SITE_SECTION_ANNOUNCEMENTS',
       render: () => <HomeAnnouncementsManagement />,
     },
     {
       id: 'news',
       label: '📰 Actualités',
       icon: FiGlobe,
+      accessResource: 'SITE_SECTION_NEWS',
       render: () => <NewsManagement />,
     },
     {
@@ -2576,12 +2588,31 @@ const SiteManagement = () => {
       : []),
   ];
 
+  const sectionScopedResources = [
+    'SITE_SECTION_NOTIFICATIONS',
+    'SITE_SECTION_ANNOUNCEMENTS',
+    'SITE_SECTION_NEWS'
+  ];
+
+  const hasScopedOverrides = sectionScopedResources.some((resource) =>
+    hasAction(resource, 'GRANT') || hasAction(resource, 'DENY')
+  );
+
+  const filteredSections = hasScopedOverrides
+    ? sections.filter((section) => {
+        if (!section.accessResource) {
+          return isStrictAdmin;
+        }
+        return hasAction(section.accessResource, 'GRANT') && !hasAction(section.accessResource, 'DENY');
+      })
+    : sections;
+
   return (
     <WorkspaceLayout
       title="Gestion du Site Web"
       subtitle="Accès, permissions, actualités, templates et configuration"
-      sections={sections}
-      defaultSectionId="access"
+      sections={filteredSections}
+      defaultSectionId={filteredSections[0]?.id || 'news'}
       sidebarTitle="Site Web"
       sidebarSubtitle="Administration"
       sidebarTitleIcon={FiGlobe}
