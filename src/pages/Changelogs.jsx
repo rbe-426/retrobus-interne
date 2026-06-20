@@ -35,6 +35,69 @@ export default function Changelogs() {
 
   const changelogs = [
     {
+      date: '2026-06-20',
+      version: '2.6.2',
+      title: 'Stabilisation Support + Annonces (runtime & exports)',
+      type: 'patch',
+      sections: [
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections Critiques',
+          items: [
+            'Fix React hooks order sur SupportSite (Rendered more hooks than during the previous render)',
+            'Fix crash Site Management annonces (.length sur valeur non tableau)',
+            'Fix exports runtime Vite (hook useHomeAnnouncements extrait dans un module dédié)',
+            'Fix import Dashboard avec composant d\'affichage annonces dédié',
+            'Fix robustesse client API annonces pour plusieurs formats de réponse'
+          ]
+        },
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Évolutions UX',
+          items: [
+            'Labels annonces harmonisés: INFO=Annonce, WARNING=Attention, CRITICAL=Alerte majeure',
+            'Affichage critique renforcé conservé sur les annonces prioritaires',
+            'Préparation release journalière avec checklist de validation finale'
+          ]
+        }
+      ]
+    },
+    {
+      date: '2026-06-19',
+      version: '2.6.1',
+      title: 'Support Tickets: statut combiné, archivage et notifications ciblées',
+      type: 'minor',
+      sections: [
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Nouvelles Fonctionnalités Support',
+          items: [
+            'Ouverture détaillée des tickets avec timeline de suivi',
+            'Option de sélecteur Résolu + Fermé en une action',
+            'Action Archiver disponible pour les tickets fermés',
+            'Onglet Archives des tickets visible uniquement pour les admins'
+          ]
+        },
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections & Cohérence',
+          items: [
+            'Harmonisation des labels entre miniature ticket et modal détail',
+            'Normalisation de l\'affichage auteur des commentaires historiques',
+            'Notifications au créateur de ticket via ciblage user:<email> / user:<id>'
+          ]
+        }
+      ]
+    },
+    {
       date: '2026-06-19',
       version: '2.6.0',
       title: 'OAuth Search Console, Uploads Médias & Annonces Persistantes',
