@@ -14,7 +14,7 @@ import {
   useColorModeValue, Card, CardBody, SimpleGrid, Text, Spinner, Alert, AlertIcon
 } from '@chakra-ui/react';
 import { FiTrash2, FiRefreshCw, FiPlus } from 'react-icons/fi';
-import { useHomeAnnouncements } from './HomeAnnouncement';
+import { useHomeAnnouncements } from '../hooks/useHomeAnnouncements';
 
 export default function HomeAnnouncementsManagement() {
   const { isOpen, onOpen, onClose } = useDisclosure();

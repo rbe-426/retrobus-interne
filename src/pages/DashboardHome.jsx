@@ -27,7 +27,8 @@ import { membersAPI } from '../api/members';
 import { apiClient } from '../api/config';
 
 // Import annonces d'accueil
-import HomeAnnouncements, { useHomeAnnouncements } from '../components/HomeAnnouncement';
+import HomeAnnouncements from '../components/HomeAnnouncementsDisplay.jsx';
+import { useHomeAnnouncements } from '../hooks/useHomeAnnouncements';
 import PollDisplay from '../components/PollDisplay';
 
 const ANN_KEY = "rbe:announcements";
