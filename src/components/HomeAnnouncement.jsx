@@ -41,14 +41,15 @@ const SEVERITY_LEVELS = {
     iconColor: 'orange.500'
   },
   critical: {
-    bg: 'red.50',
-    bgDark: 'red.900',
+    bg: 'linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%)',
+    bgDark: 'linear-gradient(135deg, #63171b 0%, #3b0b0d 100%)',
     border: 'red.200',
     borderDark: 'red.700',
     text: 'red.800',
     textDark: 'red.100',
     icon: FiAlertCircle,
-    iconColor: 'red.500'
+    iconColor: 'red.500',
+    ringColor: 'rgba(229, 62, 62, 0.35)'
   }
 };
 
@@ -58,6 +59,7 @@ const SEVERITY_LEVELS = {
 function AnnouncementBanner({ announcement, onClose }) {
   const severityKey = String(announcement?.severity || 'info').toLowerCase();
   const severity = SEVERITY_LEVELS[severityKey] || SEVERITY_LEVELS.info;
+  const isCritical = severityKey === 'critical';
   
   const bgColor = useColorModeValue(severity.bg, severity.bgDark);
   const borderColor = useColorModeValue(severity.border, severity.borderDark);
@@ -72,9 +74,28 @@ function AnnouncementBanner({ announcement, onClose }) {
       padding="16px"
       marginY="12px"
       borderRadius="md"
-      boxShadow="sm"
+      boxShadow={isCritical ? '0 0 0 2px rgba(229, 62, 62, 0.18), 0 10px 24px rgba(229, 62, 62, 0.22)' : 'sm'}
       animation="slideDown 0.3s ease-out"
+      position="relative"
+      overflow="hidden"
     >
+      {isCritical && (
+        <Box
+          position="absolute"
+          top="0"
+          right="0"
+          px="10px"
+          py="4px"
+          bg="red.600"
+          color="white"
+          fontSize="10px"
+          fontWeight="800"
+          letterSpacing="0.6px"
+          borderBottomLeftRadius="md"
+        >
+          ALERTE MAJEURE
+        </Box>
+      )}
       <Flex align="flex-start" gap="12px">
         {/* Icône */}
         <Icon
@@ -83,6 +104,10 @@ function AnnouncementBanner({ announcement, onClose }) {
           color={severity.iconColor}
           marginTop="2px"
           flexShrink={0}
+          sx={isCritical ? {
+            filter: `drop-shadow(0 0 6px ${severity.ringColor})`,
+            animation: 'criticalPulse 1.4s ease-in-out infinite'
+          } : {}}
         />
 
         {/* Contenu */}
@@ -147,6 +172,17 @@ function AnnouncementBanner({ announcement, onClose }) {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @keyframes criticalPulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.08);
+            opacity: 0.88;
           }
         }
       `}</style>
