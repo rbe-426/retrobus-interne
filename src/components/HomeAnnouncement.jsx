@@ -171,7 +171,7 @@ export function useHomeAnnouncements() {
       setLoading(true);
       setError(null);
       const data = await homeAnnouncementsAPI.getAll();
-      setAnnouncements(data);
+      setAnnouncements(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('❌ Erreur chargement annonces:', err);
       setError(err.message);
@@ -232,7 +232,8 @@ export function useHomeAnnouncements() {
   const clearAll = async () => {
     try {
       // Supprimer toutes les annonces une par une
-      const deletePromises = announcements.map(a => homeAnnouncementsAPI.delete(a.id));
+      const safeAnnouncements = Array.isArray(announcements) ? announcements : [];
+      const deletePromises = safeAnnouncements.map(a => homeAnnouncementsAPI.delete(a.id));
       await Promise.all(deletePromises);
       setAnnouncements([]);
     } catch (err) {

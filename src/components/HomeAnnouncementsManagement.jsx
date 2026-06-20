@@ -19,6 +19,7 @@ import { useHomeAnnouncements } from './HomeAnnouncement';
 export default function HomeAnnouncementsManagement() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { announcements, loading, error, addAnnouncement, removeAnnouncement, clearAll, refresh } = useHomeAnnouncements();
+  const safeAnnouncements = Array.isArray(announcements) ? announcements : [];
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
 
@@ -274,7 +275,7 @@ export default function HomeAnnouncementsManagement() {
           >
             Actualiser
           </Button>
-          {announcements.length > 0 && (
+          {safeAnnouncements.length > 0 && (
             <Button
               colorScheme="red"
               variant="outline"
@@ -291,15 +292,15 @@ export default function HomeAnnouncementsManagement() {
           <CardBody>
             <VStack align="stretch" spacing={3}>
               <Heading size="sm">
-                Annonces actuelles ({announcements.length})
+                Annonces actuelles ({safeAnnouncements.length})
               </Heading>
 
-              {loading && announcements.length === 0 ? (
+              {loading && safeAnnouncements.length === 0 ? (
                 <HStack justify="center" py={6}>
                   <Spinner />
                   <Text color="gray.500">Chargement...</Text>
                 </HStack>
-              ) : announcements.length === 0 ? (
+              ) : safeAnnouncements.length === 0 ? (
                 <Text color="gray.500" py={6} textAlign="center">
                   Aucune annonce active. Créez-en une pour commencer.
                 </Text>
@@ -316,7 +317,7 @@ export default function HomeAnnouncementsManagement() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {announcements.map(ann => (
+                      {safeAnnouncements.map(ann => (
                         <Tr key={ann.id} borderBottom="1px" borderColor={borderColor}>
                           <Td>
                             <Badge colorScheme={getSeverityColor(ann.severity)}>

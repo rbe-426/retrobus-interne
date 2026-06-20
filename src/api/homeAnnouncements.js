@@ -11,7 +11,10 @@ export const homeAnnouncementsAPI = {
    */
   getAll: async () => {
     const response = await apiClient.get('/api/home-announcements');
-    return response.data;
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.announcements)) return response.announcements;
+    if (Array.isArray(response?.data)) return response.data;
+    return [];
   },
 
   /**
@@ -26,7 +29,7 @@ export const homeAnnouncementsAPI = {
    */
   create: async (announcement) => {
     const response = await apiClient.post('/api/home-announcements', announcement);
-    return response.data;
+    return response?.data ?? response;
   },
 
   /**
@@ -35,7 +38,7 @@ export const homeAnnouncementsAPI = {
    */
   delete: async (id) => {
     const response = await apiClient.delete(`/api/home-announcements/${id}`);
-    return response.data;
+    return response?.data ?? response;
   },
 
   /**
@@ -45,6 +48,6 @@ export const homeAnnouncementsAPI = {
    */
   update: async (id, updates) => {
     const response = await apiClient.patch(`/api/home-announcements/${id}`, updates);
-    return response.data;
+    return response?.data ?? response;
   }
 };
