@@ -56,7 +56,8 @@ const SEVERITY_LEVELS = {
  * Composant pour afficher une bande d'annonce
  */
 function AnnouncementBanner({ announcement, onClose }) {
-  const severity = SEVERITY_LEVELS[announcement.severity] || SEVERITY_LEVELS.info;
+  const severityKey = String(announcement?.severity || 'info').toLowerCase();
+  const severity = SEVERITY_LEVELS[severityKey] || SEVERITY_LEVELS.info;
   
   const bgColor = useColorModeValue(severity.bg, severity.bgDark);
   const borderColor = useColorModeValue(severity.border, severity.borderDark);
@@ -114,7 +115,7 @@ function AnnouncementBanner({ announcement, onClose }) {
                   key={idx}
                   size="sm"
                   variant="outline"
-                  colorScheme={announcement.severity === 'critical' ? 'red' : announcement.severity === 'warning' ? 'orange' : 'blue'}
+                  colorScheme={severityKey === 'critical' ? 'red' : severityKey === 'warning' ? 'orange' : 'blue'}
                   onClick={() => {
                     if (action.onClick) action.onClick();
                     if (action.dismissAfter) onClose();

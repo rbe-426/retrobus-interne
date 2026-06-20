@@ -151,12 +151,12 @@ export default function HomeAnnouncementsManagement() {
   const getSeverityLabel = (severity) => {
     switch (severity) {
       case 'CRITICAL':
-        return '🚨 Critique';
+        return '🚨 Alerte majeure';
       case 'WARNING':
-        return '⚠️ Avertissement';
+        return '⚠️ Attention';
       case 'INFO':
       default:
-        return 'ℹ️ Information';
+        return 'ℹ️ Annonce';
     }
   };
 
@@ -375,9 +375,9 @@ export default function HomeAnnouncementsManagement() {
                   value={formData.severity}
                   onChange={handleInputChange}
                 >
-                  <option value="INFO">ℹ️ Information (Bleu)</option>
-                  <option value="WARNING">⚠️ Avertissement (Orange)</option>
-                  <option value="CRITICAL">🚨 Critique (Rouge)</option>
+                  <option value="INFO">ℹ️ Annonce (Bleu)</option>
+                  <option value="WARNING">⚠️ Attention (Orange)</option>
+                  <option value="CRITICAL">🚨 Alerte majeure (Rouge)</option>
                 </Select>
               </FormControl>
 
