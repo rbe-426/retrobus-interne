@@ -69,8 +69,8 @@ export default function Changelogs() {
     {
       date: '2026-06-19',
       version: '2.6.1',
-      title: 'Support Tickets: statut combiné, archivage et notifications ciblées',
-      type: 'minor',
+      title: 'Support Tickets, OAuth Search Console & Annonces Persistantes',
+      type: 'major',
       sections: [
         {
           category: 'features',
@@ -94,20 +94,12 @@ export default function Changelogs() {
             'Normalisation de l\'affichage auteur des commentaires historiques',
             'Notifications au créateur de ticket via ciblage user:<email> / user:<id>'
           ]
-        }
-      ]
-    },
-    {
-      date: '2026-06-19',
-      version: '2.6.0',
-      title: 'OAuth Search Console, Uploads Médias & Annonces Persistantes',
-      type: 'major',
-      sections: [
+        },
         {
           category: 'features',
           icon: FiTrendingUp,
           color: 'blue',
-          title: 'Nouvelles Fonctionnalités',
+          title: 'Nouvelles Fonctionnalités Plateforme',
           items: [
             'API Google Search Console via OAuth 2.0 (impressions, clics, CTR, position)',
             'Configuration OAuth déployable Railway sans Service Account',
