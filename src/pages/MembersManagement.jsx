@@ -42,11 +42,206 @@ const MEMBER_ROLES = {
   ADMIN: { label: 'Administrateur', color: 'red', permissions: ['FULL_ACCESS'] }
 };
 
+const OCCUPIED_POSITION_PREFIX = '[POSTE_OCCUPE]';
+
+const extractOccupiedPosition = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(OCCUPIED_POSITION_PREFIX));
+  return line ? line.slice(OCCUPIED_POSITION_PREFIX.length).trim() : '';
+};
+
+const stripOccupiedPositionFromNotes = (notes) => {
+  const text = String(notes || '');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !String(line || '').trim().startsWith(OCCUPIED_POSITION_PREFIX))
+    .join('\n')
+    .trim();
+};
+
+const mergeOccupiedPositionIntoNotes = (notes, occupiedPosition) => {
+  const cleanNotes = stripOccupiedPositionFromNotes(notes);
+  const cleanPosition = String(occupiedPosition || '').trim();
+  if (!cleanPosition) return cleanNotes || null;
+  return cleanNotes
+    ? `${OCCUPIED_POSITION_PREFIX}${cleanPosition}\n${cleanNotes}`
+    : `${OCCUPIED_POSITION_PREFIX}${cleanPosition}`;
+};
+
+const TRAINEE_SCHOOL_PREFIX = '[STAGIAIRE_SCOLAIRE]';
+const EXEMPTION_PREFIX = '[EXONERATION]';
+const EXEMPTION_REASON_OPTIONS = [
+  { value: 'ARTICLE_4_CSAR', label: 'Article 4 du CSAR' },
+  { value: 'ADHERENT_AVANT_2027', label: 'Adherent avant 2027' },
+  { value: 'BUREAU_ASSOCIATIF', label: 'Bureau Associatif' },
+  { value: 'AUTRE', label: 'Autre' }
+];
+
+const defaultTraineeSchoolData = {
+  schoolName: '',
+  className: '',
+  tutorName: '',
+  tutorPhone: '',
+  internshipStartDate: '',
+  internshipEndDate: ''
+};
+
+const defaultExemptionData = {
+  isExempted: false,
+  exemptionReason: '',
+  exemptionCategory: '',
+  exemptionOtherDetails: ''
+};
+
+const deriveExemptionConfig = (reason = '') => {
+  const normalized = String(reason || '').trim();
+  if (!normalized) {
+    return { exemptionCategory: '', exemptionOtherDetails: '' };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.startsWith('autre')) {
+    const details = normalized.replace(/^autre\s*:?\s*/i, '').trim();
+    return {
+      exemptionCategory: 'AUTRE',
+      exemptionOtherDetails: details
+    };
+  }
+
+  const byLabel = EXEMPTION_REASON_OPTIONS.find((opt) => opt.label.toLowerCase() === lower);
+  if (byLabel) {
+    return {
+      exemptionCategory: byLabel.value,
+      exemptionOtherDetails: ''
+    };
+  }
+
+  return {
+    exemptionCategory: 'AUTRE',
+    exemptionOtherDetails: normalized
+  };
+};
+
+const buildExemptionReason = (exemptionData = {}) => {
+  if (exemptionData?.isExempted !== true) return '';
+
+  const category = String(exemptionData?.exemptionCategory || '').trim();
+  const otherDetails = String(exemptionData?.exemptionOtherDetails || '').trim();
+
+  if (category === 'AUTRE') {
+    return otherDetails ? `Autre : ${otherDetails}` : 'Autre';
+  }
+
+  const option = EXEMPTION_REASON_OPTIONS.find((opt) => opt.value === category);
+  if (option) return option.label;
+
+  return String(exemptionData?.exemptionReason || '').trim();
+};
+
+const hasTraineeSchoolData = (data = {}) => {
+  return Object.values({ ...defaultTraineeSchoolData, ...(data || {}) }).some((v) => String(v || '').trim() !== '');
+};
+
+const extractTraineeSchoolData = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(TRAINEE_SCHOOL_PREFIX));
+  if (!line) return { ...defaultTraineeSchoolData };
+
+  const raw = line.slice(TRAINEE_SCHOOL_PREFIX.length).trim();
+  if (!raw) return { ...defaultTraineeSchoolData };
+
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaultTraineeSchoolData,
+      ...(parsed || {})
+    };
+  } catch {
+    return { ...defaultTraineeSchoolData };
+  }
+};
+
+const stripTraineeSchoolDataFromNotes = (notes) => {
+  const text = String(notes || '');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !String(line || '').trim().startsWith(TRAINEE_SCHOOL_PREFIX))
+    .join('\n')
+    .trim();
+};
+
+const extractExemptionData = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(EXEMPTION_PREFIX));
+  if (!line) return { ...defaultExemptionData };
+  const raw = line.slice(EXEMPTION_PREFIX.length).trim();
+  if (!raw) return { ...defaultExemptionData };
+  try {
+    const parsed = JSON.parse(raw);
+    const parsedReason = String(parsed?.exemptionReason || '').trim();
+    const normalized = deriveExemptionConfig(parsedReason);
+    return {
+      ...defaultExemptionData,
+      ...(parsed || {}),
+      ...normalized,
+      isExempted: (parsed?.isExempted === true)
+    };
+  } catch {
+    return { ...defaultExemptionData };
+  }
+};
+
+const stripExemptionDataFromNotes = (notes) => {
+  const text = String(notes || '');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !String(line || '').trim().startsWith(EXEMPTION_PREFIX))
+    .join('\n')
+    .trim();
+};
+
+const mergeFormalitiesIntoNotes = (notes, occupiedPosition, traineeSchoolData, exemptionData) => {
+  const cleanNotes = stripExemptionDataFromNotes(stripTraineeSchoolDataFromNotes(stripOccupiedPositionFromNotes(notes)));
+  const blocks = [];
+  const cleanPosition = String(occupiedPosition || '').trim();
+  if (cleanPosition) {
+    blocks.push(`${OCCUPIED_POSITION_PREFIX}${cleanPosition}`);
+  }
+  if (hasTraineeSchoolData(traineeSchoolData)) {
+    blocks.push(`${TRAINEE_SCHOOL_PREFIX}${JSON.stringify({ ...defaultTraineeSchoolData, ...(traineeSchoolData || {}) })}`);
+  }
+  if (exemptionData?.isExempted === true) {
+    blocks.push(`${EXEMPTION_PREFIX}${JSON.stringify({
+      isExempted: true,
+      exemptionReason: buildExemptionReason(exemptionData)
+    })}`);
+  }
+  if (cleanNotes) {
+    blocks.push(cleanNotes);
+  }
+  return blocks.length > 0 ? blocks.join('\n') : null;
+};
+
 // === COMPOSANTS MODERNES ===
 function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const statusConfig = MEMBERSHIP_STATUS[member.membershipStatus] || MEMBERSHIP_STATUS.PENDING;
   const roleConfig = MEMBER_ROLES[member.role] || MEMBER_ROLES.MEMBER;
+  const occupiedPosition = extractOccupiedPosition(member?.notes);
+  const profileLabel = occupiedPosition
+    || (member?.membershipType === 'STAGIAIRE' ? 'Stagiaire' : roleConfig.label);
+  const profileColorScheme = occupiedPosition
+    ? 'purple'
+    : (member?.membershipType === 'STAGIAIRE' ? 'orange' : roleConfig.color);
 
   return (
     <Card bg={cardBg} borderWidth={1} borderColor="gray.200">
@@ -60,8 +255,8 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
               <Badge colorScheme={statusConfig.color} size="sm">
                 {statusConfig.label}
               </Badge>
-              <Badge colorScheme={roleConfig.color} variant="outline" size="sm">
-                {roleConfig.label}
+              <Badge colorScheme={profileColorScheme} variant="outline" size="sm" maxW="220px" noOfLines={1}>
+                {profileLabel}
               </Badge>
             </HStack>
             
@@ -612,7 +807,13 @@ export default function MembersManagement() {
 
   const handleEdit = (member) => {
     setSelectedMember(member);
-    setEditData({ ...member });
+    setEditData({
+      ...member,
+      occupiedPosition: extractOccupiedPosition(member?.notes),
+      traineeSchoolData: extractTraineeSchoolData(member?.notes),
+      exemptionData: extractExemptionData(member?.notes),
+      notes: stripExemptionDataFromNotes(stripTraineeSchoolDataFromNotes(stripOccupiedPositionFromNotes(member?.notes)))
+    });
     onEditOpen();
 
     // Charger les détails complets (incluant signature/historique) pour la vue d'édition
@@ -627,7 +828,14 @@ export default function MembersManagement() {
       })
       .then((details) => {
         if (details) {
-          setEditData((prev) => ({ ...prev, ...details }));
+          setEditData((prev) => ({
+            ...prev,
+            ...details,
+            occupiedPosition: extractOccupiedPosition(details?.notes),
+            traineeSchoolData: extractTraineeSchoolData(details?.notes),
+            exemptionData: extractExemptionData(details?.notes),
+            notes: stripExemptionDataFromNotes(stripTraineeSchoolDataFromNotes(stripOccupiedPositionFromNotes(details?.notes)))
+          }));
         }
       })
       .catch(() => {});
@@ -652,9 +860,34 @@ export default function MembersManagement() {
   const saveEdit = async () => {
     try {
       if (!selectedMember) return;
-      const allowed = ['firstName','lastName','email','phone','address','city','postalCode','membershipType','membershipStatus','paymentAmount','paymentMethod','newsletter','notes'];
+      const allowed = [
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'address',
+        'city',
+        'postalCode',
+        'birthDate',
+        'matricule',
+        'memberNumber',
+        'role',
+        'membershipType',
+        'membershipStatus',
+        'membershipStartDate',
+        'membershipEndDate',
+        'paymentAmount',
+        'paymentMethod',
+        'newsletter',
+        'notes'
+      ];
       const payload = {};
       for (const k of allowed) if (k in editData) payload[k] = editData[k];
+      payload.notes = mergeFormalitiesIntoNotes(editData.notes, editData.occupiedPosition, editData.traineeSchoolData, editData.exemptionData);
+      if (editData?.exemptionData?.isExempted === true) {
+        payload.paymentAmount = null;
+        payload.paymentMethod = null;
+      }
       const resp = await fetchWithCSRF(apiUrl(`/api/members/${selectedMember.id}`), {
         method: 'PUT',
         body: JSON.stringify(payload)
@@ -795,6 +1028,10 @@ export default function MembersManagement() {
             address: bulletinMember.address,
             city: bulletinMember.city,
             postalCode: bulletinMember.postalCode,
+            role: bulletinMember.role,
+            occupiedPosition: extractOccupiedPosition(bulletinMember?.notes),
+            ...extractTraineeSchoolData(bulletinMember?.notes),
+            ...extractExemptionData(bulletinMember?.notes),
             membershipType: bulletinMember.membershipType,
             paymentAmount: bulletinMember.paymentAmount,
             paymentMethod: bulletinMember.paymentMethod
@@ -1529,16 +1766,27 @@ export default function MembersManagement() {
                         <option value="STANDARD">Standard</option>
                         <option value="FAMILY">Famille</option>
                         <option value="STUDENT">Étudiant</option>
+                        <option value="STAGIAIRE">Stagiaire</option>
                         <option value="HONORARY">Honneur</option>
                       </Select>
                     </FormControl>
                     <FormControl>
                       <FormLabel>Montant payé (€)</FormLabel>
-                      <Input type="number" step="0.01" value={editData.paymentAmount || ''} onChange={(e)=>setEditData(p=>({...p, paymentAmount: e.target.value ? parseFloat(e.target.value) : null}))} />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editData.paymentAmount || ''}
+                        isDisabled={editData?.exemptionData?.isExempted === true}
+                        onChange={(e)=>setEditData(p=>({...p, paymentAmount: e.target.value ? parseFloat(e.target.value) : null}))}
+                      />
                     </FormControl>
                     <FormControl>
                       <FormLabel>Méthode de paiement</FormLabel>
-                      <Select value={editData.paymentMethod || ''} onChange={(e)=>setEditData(p=>({...p, paymentMethod: e.target.value}))}>
+                      <Select
+                        value={editData.paymentMethod || ''}
+                        isDisabled={editData?.exemptionData?.isExempted === true}
+                        onChange={(e)=>setEditData(p=>({...p, paymentMethod: e.target.value}))}
+                      >
                         <option value="">Non définie</option>
                         <option value="CASH">Espèces</option>
                         <option value="CHECK">Chèque</option>
@@ -1548,6 +1796,144 @@ export default function MembersManagement() {
                       </Select>
                     </FormControl>
                   </SimpleGrid>
+
+                  <Box mt={4} p={4} borderWidth="1px" borderRadius="md" bg="orange.50">
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel htmlFor="isExempted" mb="0">Exonéré de cotisation</FormLabel>
+                      <Switch
+                        id="isExempted"
+                        isChecked={editData?.exemptionData?.isExempted === true}
+                        onChange={(e)=>setEditData(p=>({
+                          ...p,
+                          exemptionData: {
+                            ...(p.exemptionData || defaultExemptionData),
+                            isExempted: e.target.checked
+                          }
+                        }))}
+                        ml={4}
+                      />
+                    </FormControl>
+                    {editData?.exemptionData?.isExempted === true && (
+                      <>
+                        <FormControl mt={3}>
+                          <FormLabel>Motif de l'exonération</FormLabel>
+                          <Select
+                            value={editData?.exemptionData?.exemptionCategory || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              exemptionData: {
+                                ...(p.exemptionData || defaultExemptionData),
+                                exemptionCategory: e.target.value,
+                                exemptionReason: buildExemptionReason({
+                                  ...(p.exemptionData || defaultExemptionData),
+                                  exemptionCategory: e.target.value
+                                })
+                              }
+                            }))}
+                          >
+                            <option value="">Selectionner un motif</option>
+                            {EXEMPTION_REASON_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        {editData?.exemptionData?.exemptionCategory === 'AUTRE' && (
+                          <FormControl mt={3}>
+                            <FormLabel>Précision du motif</FormLabel>
+                            <Input
+                              placeholder="Preciser le motif"
+                              value={editData?.exemptionData?.exemptionOtherDetails || ''}
+                              onChange={(e)=>setEditData(p=>({
+                                ...p,
+                                exemptionData: {
+                                  ...(p.exemptionData || defaultExemptionData),
+                                  exemptionOtherDetails: e.target.value,
+                                  exemptionReason: buildExemptionReason({
+                                    ...(p.exemptionData || defaultExemptionData),
+                                    exemptionOtherDetails: e.target.value
+                                  })
+                                }
+                              }))}
+                            />
+                          </FormControl>
+                        )}
+                      </>
+                    )}
+                  </Box>
+
+                  {editData.membershipType === 'STAGIAIRE' && (
+                    <Box mt={4} p={4} borderWidth="1px" borderRadius="md" bg="blue.50">
+                      <Heading size="xs" mb={3} color="blue.700">🎓 Informations stagiaire (scolaire)</Heading>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                        <FormControl>
+                          <FormLabel>Établissement scolaire</FormLabel>
+                          <Input
+                            placeholder="Nom de l'établissement"
+                            value={editData.traineeSchoolData?.schoolName || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), schoolName: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                        <FormControl>
+                          <FormLabel>Classe / Formation</FormLabel>
+                          <Input
+                            placeholder="Ex: 1ère BAC PRO"
+                            value={editData.traineeSchoolData?.className || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), className: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                        <FormControl>
+                          <FormLabel>Nom du tuteur pédagogique</FormLabel>
+                          <Input
+                            placeholder="Nom du tuteur"
+                            value={editData.traineeSchoolData?.tutorName || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), tutorName: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                        <FormControl>
+                          <FormLabel>Téléphone du tuteur</FormLabel>
+                          <Input
+                            placeholder="Téléphone du tuteur"
+                            value={editData.traineeSchoolData?.tutorPhone || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), tutorPhone: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                        <FormControl>
+                          <FormLabel>Début du stage</FormLabel>
+                          <Input
+                            type="date"
+                            value={editData.traineeSchoolData?.internshipStartDate || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), internshipStartDate: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                        <FormControl>
+                          <FormLabel>Fin du stage</FormLabel>
+                          <Input
+                            type="date"
+                            value={editData.traineeSchoolData?.internshipEndDate || ''}
+                            onChange={(e)=>setEditData(p=>({
+                              ...p,
+                              traineeSchoolData: { ...(p.traineeSchoolData || defaultTraineeSchoolData), internshipEndDate: e.target.value }
+                            }))}
+                          />
+                        </FormControl>
+                      </SimpleGrid>
+                    </Box>
+                  )}
                 </Box>
 
                 <Divider />
@@ -1640,6 +2026,14 @@ export default function MembersManagement() {
                       />
                     </FormControl>
                   </SimpleGrid>
+                  <FormControl mt={4}>
+                    <FormLabel>Poste occupé (formalité)</FormLabel>
+                    <Input
+                      placeholder="Ex: Président 2026-2027"
+                      value={editData.occupiedPosition || ''}
+                      onChange={(e)=>setEditData(p=>({...p, occupiedPosition: e.target.value}))}
+                    />
+                  </FormControl>
                   <Alert status="info" mt={4}>
                     <AlertIcon />
                     <VStack align="start" spacing={1}>

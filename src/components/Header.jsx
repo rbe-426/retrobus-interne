@@ -317,6 +317,8 @@ export default function Header() {
           objectFit="contain"
           flexShrink={0}
           display="block"
+          cursor="pointer"
+          onClick={() => navigate('/dashboard')}
         />
 
         {/* Navigation - cachée sur mobile */}

@@ -44,6 +44,29 @@ const PAYMENT_METHODS = {
   HELLOASSO: 'HelloAsso'
 };
 
+const OCCUPIED_POSITION_PREFIX = '[POSTE_OCCUPE]';
+const EXEMPTION_PREFIX = '[EXONERATION]';
+
+const extractExemptionDataFromNotes = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(EXEMPTION_PREFIX));
+  if (!line) return { isExempted: false, exemptionReason: '' };
+  const raw = line.slice(EXEMPTION_PREFIX.length).trim();
+  if (!raw) return { isExempted: false, exemptionReason: '' };
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      isExempted: parsed?.isExempted === true,
+      exemptionReason: String(parsed?.exemptionReason || '')
+    };
+  } catch {
+    return { isExempted: false, exemptionReason: '' };
+  }
+};
+
 export default function MyMembership() {
   const { user, member: ctxMember, memberLoading: ctxMemberLoading, memberError: ctxMemberError, memberApiBase: ctxApiBase, memberDataReady, refreshMember } = useUser();
   const [memberData, setMemberData] = useState(null);
@@ -55,11 +78,7 @@ export default function MyMembership() {
   // Le profil ne se crée pas côté utilisateur: pas de mode création
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const { isOpen: isPasswordModalOpen, onOpen: onPasswordModalOpen, onClose: onPasswordModalClose } = useDisclosure();
-  const { isOpen: isTerminateOpen, onOpen: onTerminateOpen, onClose: onTerminateClose } = useDisclosure();
   const { isOpen: isLinkOpen, onOpen: onLinkOpen, onClose: onLinkClose } = useDisclosure();
-  const [terminateForm, setTerminateForm] = useState({ reason: '', notes: '', pv: null, resignation: null });
   const [linking, setLinking] = useState(false);
   const [linkMembers, setLinkMembers] = useState([]);
   const [linkSelectedId, setLinkSelectedId] = useState('');
@@ -116,11 +135,12 @@ export default function MyMembership() {
         `/api/members/me`
       ];
       
+
       let response = null;
       for (const endpoint of endpoints) {
         try {
-          const r = await fetch(endpoint, {
-            headers: { 'Authorization': `Bearer ${token}` }
+          const r = await fetchWithCSRF(endpoint, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
           if (r.ok) {
             response = r;
@@ -134,15 +154,13 @@ export default function MyMembership() {
 
       if (response) {
         const apiData = await response.json();
-        const loadedData = apiData.data || apiData;
+        const loadedData = apiData?.member || apiData?.data || apiData;
         console.log('✅ Données Prisma reçues:', loadedData);
 
-        // Mettre à jour DIRECTEMENT avec les données Prisma
-        setMemberData(prev => {
-          if (!prev) return loadedData;
-          // Fusionner données Prisma + infos statut du contexte
-          return { ...loadedData, id: prev.id, membershipStatus: prev.membershipStatus };
-        });
+        if (loadedData && typeof loadedData === 'object') {
+          // Conserver les infos déjà présentes et appliquer les données member corrigées.
+          setMemberData(prev => ({ ...(prev || {}), ...loadedData }));
+        }
       } else {
         console.log('⚠️ Impossible de charger depuis Prisma, données du contexte uniquement');
       }
@@ -180,7 +198,8 @@ export default function MyMembership() {
       }
 
       const updatedData = await response.json();
-      setMemberData(updatedData);
+      const updatedMember = updatedData?.member || updatedData?.data || updatedData;
+      setMemberData(updatedMember);
       setEditMode(false);
       toast({ status: 'success', title: 'Profil mis à jour', description: 'Vos informations ont été sauvegardées', duration: 3000 });
       
@@ -253,61 +272,6 @@ export default function MyMembership() {
     setEditData({ ...memberData });
   };
 
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({
-        status: 'error',
-        title: 'Erreur',
-        description: 'Les mots de passe ne correspondent pas',
-        duration: 3000
-      });
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      toast({
-        status: 'error',
-        title: 'Erreur',
-        description: 'Le mot de passe doit faire au moins 6 caractères',
-        duration: 3000
-      });
-      return;
-    }
-
-    try {
-      const response = await fetchWithCSRF(`${API_BASE_URL}/api/members/change-password`, {
-        method: 'POST',
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur de changement de mot de passe');
-      }
-
-      toast({
-        status: 'success',
-        title: 'Mot de passe modifié',
-        description: 'Votre mot de passe a été mis à jour avec succès',
-        duration: 3000
-      });
-
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      onPasswordModalClose();
-      
-    } catch (error) {
-      toast({
-        status: 'error',
-        title: 'Erreur',
-        description: error.message,
-        duration: 5000
-      });
-    }
-  };
-
   if (loading) {
     return (
       <Center h="400px">
@@ -332,9 +296,10 @@ export default function MyMembership() {
   };
   const daysBetween = (a, b) => Math.ceil((b.getTime() - a.getTime()) / (1000*60*60*24));
 
-  const startDate = memberData?.membershipStartDate ? new Date(memberData.membershipStartDate) : null;
+  const defaultStartDate = new Date('2026-01-01T00:00:00');
+  const startDate = memberData?.membershipStartDate ? new Date(memberData.membershipStartDate) : defaultStartDate;
   const endDate = memberData?.membershipEndDate ? new Date(memberData.membershipEndDate) : null;
-  const computedRenewal = startDate ? addYears(startDate, 1) : null;
+  const computedRenewal = addYears(startDate, 1);
   const effectiveExpiry = endDate || computedRenewal;
   const today = new Date();
   const isExpired = effectiveExpiry ? effectiveExpiry < today : false;
@@ -357,6 +322,19 @@ export default function MyMembership() {
     : [];
   const latestSignature = memberData?.latestSignature || signatureHistory[0] || null;
   const latestSignatureSnapshot = latestSignature?.memberSnapshot || {};
+  const exemptionFromNotes = extractExemptionDataFromNotes(memberData?.notes);
+  const paymentAmount = latestSignatureSnapshot?.paymentAmount ?? memberData?.paymentAmount ?? null;
+  const paymentMethod = memberData?.paymentMethod || latestSignatureSnapshot?.paymentMethod || null;
+  const isExempted = latestSignatureSnapshot?.isExempted === true || memberData?.isExempted === true || exemptionFromNotes.isExempted === true;
+  const exemptionReason = latestSignatureSnapshot?.exemptionReason || memberData?.exemptionReason || exemptionFromNotes.exemptionReason || '';
+  const lastPaymentPrimaryText = isExempted
+    ? 'Exonération'
+    : (paymentAmount !== null && paymentAmount !== undefined && String(paymentAmount) !== '' ? `${paymentAmount}€` : '-');
+  const lastPaymentSecondaryText = isExempted
+    ? (exemptionReason ? `Motif: ${exemptionReason}` : 'Motif non renseigné')
+    : (paymentAmount !== null && paymentAmount !== undefined && String(paymentAmount) !== ''
+      ? (paymentMethod ? `${PAYMENT_METHODS[paymentMethod] || paymentMethod}` : null)
+      : null);
 
   const formatDateTime = (d) => {
     try {
@@ -377,6 +355,35 @@ export default function MyMembership() {
     if (c.includes('web') || c.includes('digital') || c.includes('dematerial')) return 'Dématérialisé';
     return channel;
   };
+
+  const getRoleLabel = (role) => {
+    const key = String(role || '').toUpperCase();
+    const map = {
+      PRESIDENT: 'Président',
+      VICE_PRESIDENT: 'Vice-président',
+      TRESORIER: 'Trésorier',
+      SECRETAIRE_GENERAL: 'Secrétaire général',
+      ADMIN: 'Administrateur',
+      MEMBER: 'Adhérent',
+      VOLUNTEER: 'Bénévole',
+      DRIVER: 'Conducteur'
+    };
+    return map[key] || (role ? String(role) : 'Non renseigné');
+  };
+
+  const extractOccupiedPosition = (notes) => {
+    const text = String(notes || '');
+    const line = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.startsWith(OCCUPIED_POSITION_PREFIX));
+    return line ? line.slice(OCCUPIED_POSITION_PREFIX.length).trim() : '';
+  };
+
+  const occupiedPosition =
+    latestSignatureSnapshot?.occupiedPosition ||
+    extractOccupiedPosition(memberData?.notes) ||
+    getRoleLabel(latestSignatureSnapshot?.role || memberData?.role);
 
   return (
     <Box p={6} maxW="4xl" mx="auto">
@@ -622,22 +629,17 @@ export default function MyMembership() {
                             <Text fontWeight="bold" color="blue.600">{memberData.matricule}</Text>
                             <Text fontSize="xs" color="gray.500">Utilisé pour se connecter au site</Text>
                           </Box>
-                          <Box>
-                            <Text fontSize="sm" color="gray.600" mb={2}>Numéro d'adhérent</Text>
-                            <Text fontWeight="bold" color="purple.600">{memberData.memberNumber}</Text>
-                            <Text fontSize="xs" color="gray.500">Numéro unique d'adhésion</Text>
-                          </Box>
                         </SimpleGrid>
 
                         {/* Validité & Renouvellement */}
                         <Divider my={4} />
                         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={{ base: 4, md: 6 }}>
                           <Box>
-                            <Text fontSize="sm" color="gray.600" mb={1}>Début d'adhésion</Text>
-                            <Text fontWeight="bold">{startDate ? formatDate(startDate) : '-'}</Text>
+                            <Text fontSize="sm" color="gray.600" mb={1}>Date d'adhésion</Text>
+                            <Text fontWeight="bold">{formatDate(startDate)}</Text>
                           </Box>
                           <Box>
-                            <Text fontSize="sm" color="gray.600" mb={1}>Expiration prévue</Text>
+                            <Text fontSize="sm" color="gray.600" mb={1}>Expiration (date de renouvellement)</Text>
                             <Text fontWeight="bold" color={isExpired ? 'red.600' : 'gray.800'}>
                               {effectiveExpiry ? formatDate(effectiveExpiry) : '-'}
                             </Text>
@@ -649,9 +651,9 @@ export default function MyMembership() {
                           </Box>
                           <Box>
                             <Text fontSize="sm" color="gray.600" mb={1}>Dernier paiement</Text>
-                            <Text fontWeight="bold">{startDate ? formatDate(startDate) : '-'}</Text>
-                            {memberData?.paymentAmount && (
-                              <Text fontSize="xs" color="gray.600">{memberData.paymentAmount}€ ({PAYMENT_METHODS[memberData.paymentMethod] || memberData.paymentMethod})</Text>
+                            <Text fontWeight="bold">{lastPaymentPrimaryText}</Text>
+                            {lastPaymentSecondaryText && (
+                              <Text fontSize="xs" color="gray.600">{lastPaymentSecondaryText}</Text>
                             )}
                           </Box>
                         </SimpleGrid>
@@ -773,6 +775,10 @@ export default function MyMembership() {
                                       : 'Non renseigné'}
                                   </Text>
                                 </Box>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500">Poste occupé</Text>
+                                  <Text fontWeight="600">{latestSignatureSnapshot?.occupiedPosition || occupiedPosition}</Text>
+                                </Box>
                               </SimpleGrid>
                             </Box>
 
@@ -874,15 +880,13 @@ export default function MyMembership() {
                                   <Text fontWeight="bold">{MEMBERSHIP_TYPES[memberData.membershipType] || memberData.membershipType}</Text>
                                 </Box>
                               </HStack>
-                              {startDate && (
-                                <HStack mb={4}>
-                                  <FiCalendar />
-                                  <Box>
-                                    <Text fontSize="sm" color="gray.600">Début d'adhésion</Text>
-                                    <Text fontWeight="bold">{formatDate(startDate)}</Text>
-                                  </Box>
-                                </HStack>
-                              )}
+                              <HStack mb={4}>
+                                <FiCalendar />
+                                <Box>
+                                  <Text fontSize="sm" color="gray.600">Date d'adhésion</Text>
+                                  <Text fontWeight="bold">{formatDate(startDate)}</Text>
+                                </Box>
+                              </HStack>
                             </Box>
                             <Box>
                               <HStack mb={4}>
@@ -892,18 +896,11 @@ export default function MyMembership() {
                                   <Text fontWeight="bold" color="blue.600">{memberData.matricule}</Text>
                                 </Box>
                               </HStack>
-                              <HStack mb={4}>
-                                <FiKey />
-                                <Box>
-                                  <Text fontSize="sm" color="gray.600">Numéro d'adhérent</Text>
-                                  <Text fontWeight="bold" color="purple.600">{memberData.memberNumber}</Text>
-                                </Box>
-                              </HStack>
                               {effectiveExpiry && (
                                 <HStack mb={4}>
                                   <FiCalendar />
                                   <Box>
-                                    <Text fontSize="sm" color="gray.600">Expiration prévue</Text>
+                                    <Text fontSize="sm" color="gray.600">Expiration (date de renouvellement)</Text>
                                     <Text fontWeight="bold" color={isExpired ? 'red.600' : 'gray.800'}>{formatDate(effectiveExpiry)}</Text>
                                   </Box>
                                 </HStack>
@@ -914,52 +911,6 @@ export default function MyMembership() {
                       </CardBody>
                     </Card>
 
-                    {/* New Card: Informations complétées par l'admin */}
-                    <Card borderLeft="4px solid" borderColor="blue.500">
-                      <CardHeader>
-                        <Heading size="md">📋 Informations complémentaires (complétées par l'admin)</Heading>
-                      </CardHeader>
-                      <CardBody>
-                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 4, md: 6 }}>
-                          {memberData.birthDate && (
-                            <Box>
-                              <HStack mb={4}>
-                                <FiCalendar color="blue" />
-                                <Box>
-                                  <Text fontSize="sm" color="gray.600">Date de naissance</Text>
-                                  <Text fontWeight="bold">{new Date(memberData.birthDate).toLocaleDateString('fr-FR')}</Text>
-                                </Box>
-                              </HStack>
-                            </Box>
-                          )}
-                          {(memberData.address || memberData.city) && (
-                            <Box>
-                              <HStack mb={4}>
-                                <FiMapPin color="blue" />
-                                <Box>
-                                  <Text fontSize="sm" color="gray.600">Adresse</Text>
-                                  <Text fontWeight="bold">
-                                    {memberData.address && `${memberData.address}`}
-                                    {memberData.address && memberData.city && ', '}
-                                    {memberData.postalCode && `${memberData.postalCode} `}
-                                    {memberData.city}
-                                  </Text>
-                                </Box>
-                              </HStack>
-                            </Box>
-                          )}
-                        </SimpleGrid>
-                        {memberData.notes && (
-                          <Box mt={4} p={3} bg="blue.50" borderRadius="md" borderLeft="3px solid" borderColor="blue.200">
-                            <Text fontSize="sm" color="gray.600" mb={1}>📝 Notes</Text>
-                            <Text fontSize="sm">{memberData.notes}</Text>
-                          </Box>
-                        )}
-                        {!memberData.birthDate && !(memberData.address || memberData.city) && !memberData.notes && (
-                          <Text color="gray.500" fontSize="sm">Aucune information complémentaire pour le moment.</Text>
-                        )}
-                      </CardBody>
-                    </Card>
                   </VStack>
                 </TabPanel>
 
@@ -1008,172 +959,20 @@ export default function MyMembership() {
               </TabPanels>
             </Tabs>
 
-            {/* Actions */}
+            {/* Poste occupé */}
             {!editMode && (
               <Card>
                 <CardHeader>
-                  <Heading size="md">Actions</Heading>
+                  <Heading size="md">Poste occupé</Heading>
                 </CardHeader>
                 <CardBody>
-                  <HStack spacing={4} wrap="wrap">
-                    <Button leftIcon={<FiKey />} onClick={onPasswordModalOpen}>
-                      Changer le mot de passe
-                    </Button>
-                    <Button leftIcon={<FiDownload />} variant="outline">
-                      Télécharger mon Bulletin d'adhésion
-                    </Button>
-                    {(() => {
-                      const roles = (user?.roles || []).map(r => String(r).toUpperCase());
-                      const hasBureauRole = roles.some(r => ['PRESIDENT','VICE_PRESIDENT','TRESORIER','SECRETAIRE_GENERAL'].includes(r));
-                      return hasBureauRole;
-                    })() && (
-                      <Button colorScheme="red" variant="outline" onClick={onTerminateOpen}>
-                        Supprimer l'adhésion
-                      </Button>
-                    )}
-                  </HStack>
-                </CardBody>
-              </Card>
-            )}
-
-            {/* Notes si présentes */}
-            {memberData.notes && !editMode && (
-              <Card>
-                <CardHeader>
-                  <Heading size="md">Notes</Heading>
-                </CardHeader>
-                <CardBody>
-                  <Text>{memberData.notes}</Text>
+                  <Text fontWeight="bold">{occupiedPosition}</Text>
                 </CardBody>
               </Card>
             )}
           </>
         )}
       </VStack>
-
-      {/* Modal de changement de mot de passe */}
-      <Modal isOpen={isPasswordModalOpen} onClose={onPasswordModalClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Changer le mot de passe</ModalHeader>
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>Mot de passe actuel</FormLabel>
-                <Input
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData(prev => ({...prev, currentPassword: e.target.value}))}
-                />
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Nouveau mot de passe</FormLabel>
-                <Input
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData(prev => ({...prev, newPassword: e.target.value}))}
-                />
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Confirmer le nouveau mot de passe</FormLabel>
-                <Input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData(prev => ({...prev, confirmPassword: e.target.value}))}
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onPasswordModalClose}>
-              Annuler
-            </Button>
-            <Button colorScheme="blue" onClick={handlePasswordChange}>
-              Modifier
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Modal suppression/fin d'adhésion */}
-      <Modal isOpen={isTerminateOpen} onClose={onTerminateClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Supprimer l'adhésion</ModalHeader>
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              <Alert status="warning">
-                <AlertIcon />
-                Cette action met fin à l'adhésion. L'accès site associé sera désactivé.
-              </Alert>
-              <FormControl isRequired>
-                <FormLabel>Motif</FormLabel>
-                <Select value={terminateForm.reason} onChange={(e)=>setTerminateForm(p=>({...p, reason:e.target.value}))}>
-                  <option value="">Choisir un motif...</option>
-                  <option value="FIN">Fin d'adhésion</option>
-                  <option value="NON_RECONDUITE">Non reconduite</option>
-                  <option value="EXCLUSION">Exclusion votée (joindre le PV)</option>
-                  <option value="DEMISSION">Démission (joindre PV et lettre de démission)</option>
-                  <option value="INFORMATIQUE">INFORMATIQUE</option>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Notes (optionnel)</FormLabel>
-                <Textarea value={terminateForm.notes} onChange={(e)=>setTerminateForm(p=>({...p, notes:e.target.value}))} />
-              </FormControl>
-              {terminateForm.reason === 'EXCLUSION' || terminateForm.reason === 'DEMISSION' ? (
-                <FormControl isRequired>
-                  <FormLabel>Procès-verbal (PDF/Image)</FormLabel>
-                  <Input type="file" accept="application/pdf,image/*" onChange={(e)=>setTerminateForm(p=>({...p, pv: e.target.files?.[0]||null}))} />
-                </FormControl>
-              ) : null}
-              {terminateForm.reason === 'DEMISSION' ? (
-                <FormControl isRequired>
-                  <FormLabel>Lettre de démission (PDF/Image)</FormLabel>
-                  <Input type="file" accept="application/pdf,image/*" onChange={(e)=>setTerminateForm(p=>({...p, resignation: e.target.files?.[0]||null}))} />
-                </FormControl>
-              ) : null}
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <HStack>
-              <Button variant="ghost" onClick={onTerminateClose}>Annuler</Button>
-              <Button colorScheme="red" onClick={async()=>{
-                try {
-                  if (!terminateForm.reason) { toast({title:'Motif requis', status:'error'}); return; }
-                  if (terminateForm.reason==='EXCLUSION' && !terminateForm.pv) { toast({title:'PV obligatoire', status:'error'}); return; }
-                  if (terminateForm.reason==='DEMISSION' && (!terminateForm.pv || !terminateForm.resignation)) { toast({title:'PV et lettre requis', status:'error'}); return; }
-                  const fd = new FormData();
-                  fd.append('reason', terminateForm.reason);
-                  if (terminateForm.notes) fd.append('notes', terminateForm.notes);
-                  if (terminateForm.pv) fd.append('pv', terminateForm.pv);
-                  if (terminateForm.resignation) fd.append('resignation', terminateForm.resignation);
-                  let resp = null; let data = null;
-                  for (const b of [apiBase ?? '', API_BASE_URL || '']) {
-                    try {
-                      const r = await fetchWithCSRF(`${b}/api/members/${memberData?.id}/terminate`, {
-                        method: 'POST',
-                        body: fd
-                      });
-                      if (r.ok) { resp = r; data = await r.json(); break; }
-                      else { data = await r.json().catch(()=>({})); }
-                    } catch {}
-                  }
-                  if (!resp) throw new Error(data?.error || 'Erreur de suppression');
-                  toast({ title:'Adhésion supprimée', status:'success', duration:3000 });
-                  onTerminateClose();
-                  // recharger les données adhérent
-                  fetchMemberData();
-                } catch (e) {
-                  toast({ title:'Erreur', description: e.message, status:'error' });
-                }
-              }}>Confirmer</Button>
-            </HStack>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
 
       {/* Modal: Associer mon compte admin à un adhérent */}
       <Modal isOpen={isLinkOpen} onClose={onLinkClose} size="lg">
@@ -1187,7 +986,7 @@ export default function MyMembership() {
                 <FormLabel>Adhérent</FormLabel>
                 <Select value={linkSelectedId} onChange={(e)=>setLinkSelectedId(e.target.value)} placeholder="Choisir…">
                   {linkMembers.map(m => (
-                    <option key={m.id} value={m.id}>{m.lastName?.toUpperCase()} {m.firstName} — {m.email} {m.memberNumber ? `(${m.memberNumber})` : ''}</option>
+                    <option key={m.id} value={m.id}>{m.lastName?.toUpperCase()} {m.firstName} — {m.email}</option>
                   ))}
                 </Select>
               </FormControl>

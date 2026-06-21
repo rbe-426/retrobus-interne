@@ -8,7 +8,7 @@ import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   InputGroup, InputRightElement, Center
 } from '@chakra-ui/react';
-import { FiDownload, FiRefreshCw, FiSave, FiTrash2, FiUpload, FiX } from 'react-icons/fi';
+import { FiRefreshCw, FiSave, FiTrash2, FiUpload } from 'react-icons/fi';
 import { membersAPI } from '../api/members';
 import { fetchWithCSRF, fetchCSRFToken, getStoredCSRFToken, updateCSRFTokenFromResponse } from '../lib/csrfClient';
 
@@ -40,7 +40,169 @@ const DOCUMENT_TYPES = [
   'Autre'
 ];
 
+const OCCUPIED_POSITION_PREFIX = '[POSTE_OCCUPE]';
+const EXEMPTION_PREFIX = '[EXONERATION]';
+const EXEMPTION_REASON_OPTIONS = [
+  { value: 'ARTICLE_4_CSAR', label: 'Article 4 du CSAR' },
+  { value: 'ADHERENT_AVANT_2027', label: 'Adherent avant 2027' },
+  { value: 'BUREAU_ASSOCIATIF', label: 'Bureau Associatif' },
+  { value: 'AUTRE', label: 'Autre' }
+];
+
+const extractOccupiedPosition = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(OCCUPIED_POSITION_PREFIX));
+  return line ? line.slice(OCCUPIED_POSITION_PREFIX.length).trim() : '';
+};
+
+const stripOccupiedPositionFromNotes = (notes) => {
+  const text = String(notes || '');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !String(line || '').trim().startsWith(OCCUPIED_POSITION_PREFIX))
+    .join('\n')
+    .trim();
+};
+
+const mergeOccupiedPositionIntoNotes = (notes, occupiedPosition) => {
+  const cleanNotes = stripOccupiedPositionFromNotes(notes);
+  const cleanPosition = String(occupiedPosition || '').trim();
+  if (!cleanPosition) return cleanNotes || null;
+  return cleanNotes
+    ? `${OCCUPIED_POSITION_PREFIX}${cleanPosition}\n${cleanNotes}`
+    : `${OCCUPIED_POSITION_PREFIX}${cleanPosition}`;
+};
+
+const defaultExemptionData = {
+  isExempted: false,
+  exemptionReason: '',
+  exemptionCategory: '',
+  exemptionOtherDetails: ''
+};
+
+const deriveExemptionConfig = (reason = '') => {
+  const normalized = String(reason || '').trim();
+  if (!normalized) {
+    return { exemptionCategory: '', exemptionOtherDetails: '' };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.startsWith('autre')) {
+    const details = normalized.replace(/^autre\s*:?\s*/i, '').trim();
+    return {
+      exemptionCategory: 'AUTRE',
+      exemptionOtherDetails: details
+    };
+  }
+
+  const byLabel = EXEMPTION_REASON_OPTIONS.find((opt) => opt.label.toLowerCase() === lower);
+  if (byLabel) {
+    return {
+      exemptionCategory: byLabel.value,
+      exemptionOtherDetails: ''
+    };
+  }
+
+  return {
+    exemptionCategory: 'AUTRE',
+    exemptionOtherDetails: normalized
+  };
+};
+
+const buildExemptionReason = (exemptionData = {}) => {
+  if (exemptionData?.isExempted !== true) return '';
+
+  const category = String(exemptionData?.exemptionCategory || '').trim();
+  const otherDetails = String(exemptionData?.exemptionOtherDetails || '').trim();
+
+  if (category === 'AUTRE') {
+    return otherDetails ? `Autre : ${otherDetails}` : 'Autre';
+  }
+
+  const option = EXEMPTION_REASON_OPTIONS.find((opt) => opt.value === category);
+  if (option) return option.label;
+
+  return String(exemptionData?.exemptionReason || '').trim();
+};
+
+const extractExemptionData = (notes) => {
+  const text = String(notes || '');
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(EXEMPTION_PREFIX));
+  if (!line) return { ...defaultExemptionData };
+
+  const raw = line.slice(EXEMPTION_PREFIX.length).trim();
+  if (!raw) return { ...defaultExemptionData };
+  try {
+    const parsed = JSON.parse(raw);
+    const parsedReason = String(parsed?.exemptionReason || '').trim();
+    const normalized = deriveExemptionConfig(parsedReason);
+    return {
+      ...defaultExemptionData,
+      ...(parsed || {}),
+      ...normalized,
+      isExempted: parsed?.isExempted === true
+    };
+  } catch {
+    return { ...defaultExemptionData };
+  }
+};
+
+const stripExemptionDataFromNotes = (notes) => {
+  const text = String(notes || '');
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !String(line || '').trim().startsWith(EXEMPTION_PREFIX))
+    .join('\n')
+    .trim();
+};
+
+const mergeFormalitiesIntoNotes = (notes, occupiedPosition, exemptionData) => {
+  const cleanNotes = stripExemptionDataFromNotes(stripOccupiedPositionFromNotes(notes));
+  const blocks = [];
+  const cleanPosition = String(occupiedPosition || '').trim();
+  if (cleanPosition) {
+    blocks.push(`${OCCUPIED_POSITION_PREFIX}${cleanPosition}`);
+  }
+  if (exemptionData?.isExempted === true) {
+    blocks.push(`${EXEMPTION_PREFIX}${JSON.stringify({
+      isExempted: true,
+      exemptionReason: buildExemptionReason(exemptionData)
+    })}`);
+  }
+  if (cleanNotes) {
+    blocks.push(cleanNotes);
+  }
+  return blocks.length > 0 ? blocks.join('\n') : null;
+};
+
 export default function MemberProfilesManager() {
+  const createDefaultFormData = () => ({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    birthDate: '',
+    membershipType: 'STANDARD',
+    membershipStatus: 'ACTIVE',
+    membershipStartDate: '',
+    membershipEndDate: '',
+    paymentAmount: '',
+    paymentMethod: 'CASH',
+    newsletter: false,
+    exemptionData: { ...defaultExemptionData },
+    occupiedPosition: '',
+    notes: ''
+  });
+
   const [formData, setFormData] = useState({
     // Infos personnelles
     firstName: '',
@@ -54,9 +216,14 @@ export default function MemberProfilesManager() {
     
     // Infos d'adhésion
     membershipType: 'STANDARD',
+    membershipStatus: 'ACTIVE',
+    membershipStartDate: '',
+    membershipEndDate: '',
     paymentAmount: '',
     paymentMethod: 'CASH',
     newsletter: false,
+    exemptionData: { ...defaultExemptionData },
+    occupiedPosition: '',
     notes: '',
     
     // Infos conducteur
@@ -108,35 +275,17 @@ export default function MemberProfilesManager() {
         }
         return;
       }
-
-      // Fallback avec données mockées
-      const mockMembers = [
-        { id: '1', firstName: 'Jean', lastName: 'Dupont', matricule: 'MAT001', memberNumber: 'ADH001' },
-        { id: '2', firstName: 'Marie', lastName: 'Martin', matricule: 'MAT002', memberNumber: 'ADH002' },
-        { id: '3', firstName: 'Pierre', lastName: 'Bernard', matricule: 'MAT003', memberNumber: 'ADH003' }
-      ];
-      setMembers(mockMembers);
-      if (!selectedMemberId) {
-        setSelectedMemberId(mockMembers[0].id);
-      }
+      setMembers([]);
+      setSelectedMemberId('');
     } catch (error) {
       console.error('Erreur chargement membres:', error);
-      
-      // Fallback avec données mockées même en cas d'erreur
-      const mockMembers = [
-        { id: '1', firstName: 'Jean', lastName: 'Dupont', matricule: 'MAT001', memberNumber: 'ADH001' },
-        { id: '2', firstName: 'Marie', lastName: 'Martin', matricule: 'MAT002', memberNumber: 'ADH002' },
-        { id: '3', firstName: 'Pierre', lastName: 'Bernard', matricule: 'MAT003', memberNumber: 'ADH003' }
-      ];
-      setMembers(mockMembers);
-      if (!selectedMemberId) {
-        setSelectedMemberId(mockMembers[0].id);
-      }
+      setMembers([]);
+      setSelectedMemberId('');
       
       toast({
-        status: 'info',
-        title: 'Mode hors ligne',
-        description: 'Utilisation des données d\'exemple'
+        status: 'error',
+        title: 'Erreur',
+        description: 'Impossible de charger les adhérents depuis l\'API'
       });
     } finally {
       setLoadingMembers(false);
@@ -147,71 +296,50 @@ export default function MemberProfilesManager() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
-      try {
-        const response = await fetch(`/api/members/${memberId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const memberData = await response.json();
-          setFormData(prev => ({ ...prev, ...memberData }));
-
-          const docsResponse = await fetch(`/api/members/${memberId}/documents`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (docsResponse.ok) {
-            const docsData = await docsResponse.json();
-            setDocuments(Array.isArray(docsData?.documents) ? docsData.documents : []);
-          } else {
-            setDocuments([]);
-          }
-          return;
+      const response = await fetch(`/api/members/${memberId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      } catch (apiError) {
-        console.log('API non disponible');
+      });
+
+      if (!response.ok) {
+        throw new Error('Impossible de charger le profil adhérent');
       }
 
-      // Fallback localStorage
-      const stored = localStorage.getItem(`memberProfile_${memberId}`);
-      if (stored) {
-        setFormData(prev => ({ ...prev, ...JSON.parse(stored) }));
+      const rawData = await response.json();
+      const memberData = rawData?.member || rawData?.data || rawData;
+      const defaults = createDefaultFormData();
+
+      setFormData({
+        ...defaults,
+        ...memberData,
+        birthDate: memberData?.birthDate ? String(memberData.birthDate).split('T')[0] : '',
+        membershipStartDate: memberData?.membershipStartDate ? String(memberData.membershipStartDate).split('T')[0] : '',
+        membershipEndDate: memberData?.membershipEndDate ? String(memberData.membershipEndDate).split('T')[0] : '',
+        occupiedPosition: extractOccupiedPosition(memberData?.notes),
+        exemptionData: extractExemptionData(memberData?.notes),
+        notes: stripExemptionDataFromNotes(stripOccupiedPositionFromNotes(memberData?.notes))
+      });
+
+      const docsResponse = await fetch(`/api/members/${memberId}/documents`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (docsResponse.ok) {
+        const docsData = await docsResponse.json();
+        setDocuments(Array.isArray(docsData?.documents) ? docsData.documents : []);
       } else {
-        // Réinitialiser le formulaire pour le nouveau membre
-        setFormData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          address: '',
-          postalCode: '',
-          city: '',
-          birthDate: '',
-          membershipType: 'STANDARD',
-          paymentAmount: '',
-          paymentMethod: 'CASH',
-          newsletter: false,
-          notes: '',
-          licenseNumber: '',
-          licenseCategory: '',
-          medicalCertificate: '',
-          drivingAuthorization: '',
-          insurancePolicy: '',
-          emergencyContact: '',
-          emergencyPhone: ''
-        });
+        setDocuments([]);
       }
-      setDocuments([]);
     } catch (error) {
       console.error('Erreur chargement:', error);
+      setFormData(createDefaultFormData());
+      setDocuments([]);
       toast({
-        status: 'warning',
-        title: 'Avertissement',
-        description: 'Impossible de charger le profil (utilisation du stockage local)'
+        status: 'error',
+        title: 'Erreur',
+        description: 'Impossible de charger le profil adhérent depuis l\'API'
       });
     } finally {
       setLoading(false);
@@ -241,13 +369,19 @@ export default function MemberProfilesManager() {
         city: formData.city,
         birthDate: formData.birthDate ? new Date(formData.birthDate).toISOString() : null,
         membershipType: formData.membershipType,
+        membershipStatus: formData.membershipStatus,
+        membershipStartDate: formData.membershipStartDate || null,
+        membershipEndDate: formData.membershipEndDate || null,
         paymentAmount: formData.paymentAmount ? parseFloat(formData.paymentAmount) : null,
         paymentMethod: formData.paymentMethod,
         newsletter: formData.newsletter,
-        notes: formData.notes
-        // ⚠️ licenseNumber, medicalCertificate, etc. ne sont pas dans la BD
-        // Ils seront ignorés/stockés dans notes si critiques
+        notes: mergeFormalitiesIntoNotes(formData.notes, formData.occupiedPosition, formData.exemptionData)
       };
+
+      if (formData?.exemptionData?.isExempted === true) {
+        payload.paymentAmount = null;
+        payload.paymentMethod = null;
+      }
 
       // ✅ Essayer avec le bon endpoint Prisma
       let success = false;
@@ -269,6 +403,7 @@ export default function MemberProfilesManager() {
               title: 'Sauvegardé ✅',
               description: 'Profil adhérent synchronisé avec la base de données'
             });
+            await loadProfileData(selectedMemberId);
             success = true;
             break;
           }
@@ -336,23 +471,8 @@ export default function MemberProfilesManager() {
           return;
         }
       } catch (apiError) {
-        console.log('API non disponible');
+        throw apiError;
       }
-
-      // Fallback localStorage
-      const docId = Date.now().toString();
-      const newDoc = {
-        id: docId,
-        fileName: newDocument.file.name,
-        documentType: newDocument.documentType,
-        expiryDate: newDocument.expiryDate || null,
-        uploadedAt: new Date().toISOString(),
-        status: 'PENDING'
-      };
-      setDocuments(prev => [...prev, newDoc]);
-      onUploadClose();
-      setNewDocument({ file: null, documentType: 'Pièce d\'identité', expiryDate: '' });
-      toast({ status: 'success', title: 'Document ajouté', description: '(Local)' });
     } catch (error) {
       toast({
         status: 'error',
@@ -381,13 +501,8 @@ export default function MemberProfilesManager() {
           return;
         }
       } catch (apiError) {
-        console.log('API non disponible');
+        throw apiError;
       }
-
-      // Fallback localStorage
-      setDocuments(prev => prev.filter(d => d.id !== selectedDocument.id));
-      onDeleteClose();
-      toast({ status: 'success', title: 'Document supprimé', description: '(Local)' });
     } catch (error) {
       toast({
         status: 'error',
@@ -411,10 +526,7 @@ export default function MemberProfilesManager() {
           <Text fontWeight="bold">✅ Champs synchronisés avec "Mon Adhésion":</Text>
           <Text fontSize="sm">
             Prénom, Nom, Email, Téléphone, Adresse, Code postal, Ville, Date de naissance, 
-            Type d'adhésion, Montant, Méthode de paiement, Newsletter, Notes
-          </Text>
-          <Text fontSize="xs" mt={2} color="orange.600" fontWeight="bold">
-            ⚠️ Les champs "Conducteur" et "Urgence" sont informatifs seulement
+            Type d'adhésion, Statut, Dates d'adhésion, Montant, Méthode de paiement, Newsletter, Notes
           </Text>
         </Box>
       </Alert>
@@ -453,8 +565,6 @@ export default function MemberProfilesManager() {
         <TabList>
           <Tab>👤 Infos personnelles</Tab>
           <Tab>🎫 Adhésion</Tab>
-          <Tab>🚗 Conducteur</Tab>
-          <Tab>🆘 Urgence</Tab>
           <Tab>📄 Documents</Tab>
         </TabList>
 
@@ -556,12 +666,44 @@ export default function MemberProfilesManager() {
                   </Select>
                 </FormControl>
                 <FormControl>
+                  <FormLabel>Statut d'adhésion</FormLabel>
+                  <Select
+                    value={formData.membershipStatus}
+                    onChange={(e) => handleInputChange('membershipStatus', e.target.value)}
+                  >
+                    <option value="ACTIVE">Actif</option>
+                    <option value="PENDING">En attente</option>
+                    <option value="EXPIRED">Expiré</option>
+                    <option value="SUSPENDED">Suspendu</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
                   <FormLabel>Montant cotisation (€)</FormLabel>
                   <Input
                     type="number"
                     placeholder="50"
                     value={formData.paymentAmount}
+                    isDisabled={formData?.exemptionData?.isExempted === true}
                     onChange={(e) => handleInputChange('paymentAmount', e.target.value)}
+                  />
+                </FormControl>
+              </SimpleGrid>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Date d'adhésion</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.membershipStartDate}
+                    onChange={(e) => handleInputChange('membershipStartDate', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Date de renouvellement / expiration</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.membershipEndDate}
+                    onChange={(e) => handleInputChange('membershipEndDate', e.target.value)}
                   />
                 </FormControl>
               </SimpleGrid>
@@ -570,6 +712,7 @@ export default function MemberProfilesManager() {
                 <FormLabel>Mode de paiement</FormLabel>
                 <Select
                   value={formData.paymentMethod}
+                  isDisabled={formData?.exemptionData?.isExempted === true}
                   onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
                 >
                   {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
@@ -577,6 +720,60 @@ export default function MemberProfilesManager() {
                   ))}
                 </Select>
               </FormControl>
+
+              <Box p={4} borderWidth="1px" borderRadius="md" bg="orange.50">
+                <FormControl display="flex" alignItems="center">
+                  <FormLabel htmlFor="isExemptedProfile" mb="0">Exonéré de cotisation</FormLabel>
+                  <Switch
+                    id="isExemptedProfile"
+                    isChecked={formData?.exemptionData?.isExempted === true}
+                    onChange={(e) => handleInputChange('exemptionData', {
+                      ...(formData.exemptionData || defaultExemptionData),
+                      isExempted: e.target.checked
+                    })}
+                  />
+                </FormControl>
+                {formData?.exemptionData?.isExempted === true && (
+                  <>
+                    <FormControl mt={3}>
+                      <FormLabel>Motif de l'exonération</FormLabel>
+                      <Select
+                        value={formData?.exemptionData?.exemptionCategory || ''}
+                        onChange={(e) => handleInputChange('exemptionData', {
+                          ...(formData.exemptionData || defaultExemptionData),
+                          exemptionCategory: e.target.value,
+                          exemptionReason: buildExemptionReason({
+                            ...(formData.exemptionData || defaultExemptionData),
+                            exemptionCategory: e.target.value
+                          })
+                        })}
+                      >
+                        <option value="">Selectionner un motif</option>
+                        {EXEMPTION_REASON_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    {formData?.exemptionData?.exemptionCategory === 'AUTRE' && (
+                      <FormControl mt={3}>
+                        <FormLabel>Précision du motif</FormLabel>
+                        <Input
+                          placeholder="Preciser le motif"
+                          value={formData?.exemptionData?.exemptionOtherDetails || ''}
+                          onChange={(e) => handleInputChange('exemptionData', {
+                            ...(formData.exemptionData || defaultExemptionData),
+                            exemptionOtherDetails: e.target.value,
+                            exemptionReason: buildExemptionReason({
+                              ...(formData.exemptionData || defaultExemptionData),
+                              exemptionOtherDetails: e.target.value
+                            })
+                          })}
+                        />
+                      </FormControl>
+                    )}
+                  </>
+                )}
+              </Box>
 
               <HStack>
                 <FormControl display="flex" alignItems="center" width="auto">
@@ -598,83 +795,19 @@ export default function MemberProfilesManager() {
                   rows={4}
                 />
               </FormControl>
-            </VStack>
-          </TabPanel>
-
-          {/* Tab 3: Conducteur */}
-          <TabPanel>
-            <VStack spacing={4} align="stretch">
-              <FormControl>
-                <FormLabel>Numéro de permis</FormLabel>
-                <Input
-                  placeholder="XXXXXXXXXXXX"
-                  value={formData.licenseNumber}
-                  onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
-                />
-              </FormControl>
 
               <FormControl>
-                <FormLabel>Catégorie de permis</FormLabel>
+                <FormLabel>Poste occupé (formalité)</FormLabel>
                 <Input
-                  placeholder="A, B, C, D..."
-                  value={formData.licenseCategory}
-                  onChange={(e) => handleInputChange('licenseCategory', e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Certificat médical</FormLabel>
-                <Input
-                  placeholder="Détails du certificat..."
-                  value={formData.medicalCertificate}
-                  onChange={(e) => handleInputChange('medicalCertificate', e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Autorisation de conduite</FormLabel>
-                <Input
-                  placeholder="Détails de l'autorisation..."
-                  value={formData.drivingAuthorization}
-                  onChange={(e) => handleInputChange('drivingAuthorization', e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Numéro d'assurance</FormLabel>
-                <Input
-                  placeholder="Numéro de police..."
-                  value={formData.insurancePolicy}
-                  onChange={(e) => handleInputChange('insurancePolicy', e.target.value)}
+                  placeholder="Ex: Président 2026-2027"
+                  value={formData.occupiedPosition || ''}
+                  onChange={(e) => handleInputChange('occupiedPosition', e.target.value)}
                 />
               </FormControl>
             </VStack>
           </TabPanel>
 
-          {/* Tab 4: Urgence */}
-          <TabPanel>
-            <VStack spacing={4} align="stretch">
-              <FormControl>
-                <FormLabel>Personne à contacter en cas d'urgence</FormLabel>
-                <Input
-                  placeholder="Nom et prénom"
-                  value={formData.emergencyContact}
-                  onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Téléphone d'urgence</FormLabel>
-                <Input
-                  placeholder="06 xx xx xx xx"
-                  value={formData.emergencyPhone}
-                  onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
-                />
-              </FormControl>
-            </VStack>
-          </TabPanel>
-
-          {/* Tab 5: Documents */}
+          {/* Tab 3: Documents */}
           <TabPanel>
             <VStack spacing={4} align="stretch">
               <Button
@@ -744,7 +877,7 @@ export default function MemberProfilesManager() {
             <Button
               leftIcon={<FiRefreshCw />}
               variant="outline"
-              onClick={loadProfileData}
+              onClick={() => loadProfileData(selectedMemberId)}
             >
               Réinitialiser
             </Button>
