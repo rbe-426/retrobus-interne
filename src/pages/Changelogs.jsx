@@ -35,6 +35,39 @@ export default function Changelogs() {
 
   const changelogs = [
     {
+      date: '2026-06-21',
+      version: '2.6.3',
+      title: 'Cohérence Adhésion/RH + Navigation & UX globale',
+      type: 'patch',
+      sections: [
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections Critiques',
+          items: [
+            'Fix erreur Babel dans Mon Adhésion (structure try/catch restaurée)',
+            'Fix synchronisation du statut exonéré avec fallback notes [EXONERATION] dans Mon Adhésion',
+            'Fix retour haut de page global sur toutes les redirections/navigation interne',
+            'Fix cohérence de rendu des informations d\'adhésion entre RH et espace Mon Adhésion'
+          ]
+        },
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Évolutions Métier RH/Adhésion',
+          items: [
+            'Ajout de la formalité [EXONERATION] persistée dans notes (sans migration DB)',
+            'Formulaire Modifier le membre: bascule Exonéré + motif avec liste déroulante',
+            'Profils Adhérents: mêmes règles d\'exonération que le parcours dématérialisé',
+            'Mode Autre pris en charge avec précision du motif et normalisation rétrocompatible',
+            'Quand exonéré: montant/mode de paiement désactivés puis sauvegardés à null'
+          ]
+        }
+      ]
+    },
+    {
       date: '2026-06-20',
       version: '2.6.2',
       title: 'Stabilisation Support + Annonces (runtime & exports)',
