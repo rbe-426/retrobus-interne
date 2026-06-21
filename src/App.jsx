@@ -105,6 +105,12 @@ const TeamRBE = lazy(() => import("./pages/TeamRBE"));
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
   const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname, location.search]);
   
   // Debug: afficher la route actuelle
   logger.route('Current route:', location.pathname);
