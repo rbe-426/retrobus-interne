@@ -10,8 +10,7 @@ import GalleryManager from '../components/vehicle/GalleryManager.jsx';
 import CaracteristiquesForm from '../components/vehicle/CaracteristiquesForm.jsx';
 import VehicleTechnicalInfoEditor from '../components/vehicle/VehicleTechnicalInfoEditor.jsx';
 import { vehicleSchema, showValidationErrors } from '../lib/validation.js';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { fetchWithCSRF } from '../lib/csrfClient.js';
 
 export default function VehiculeCreate() {
   const navigate = useNavigate();
@@ -65,11 +64,10 @@ export default function VehiculeCreate() {
 
     setSaving(true);
     try {
-      const response = await fetch(`${API_BASE}/vehicles`, {
+      const response = await fetchWithCSRF('/vehicles', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           parc: data.parc.trim(),
@@ -92,8 +90,8 @@ export default function VehiculeCreate() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Erreur création');
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.message || 'Erreur création');
       }
 
       const created = await response.json();
