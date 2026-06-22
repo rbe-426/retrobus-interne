@@ -84,7 +84,7 @@ export function Navigation() {
       {canAccessHome && <TopNavLink to="/dashboard">🏠 Accueil</TopNavLink>}
       {canAccessVehicles && <TopNavLink to="/dashboard/vehicules">🚗 Véhicules</TopNavLink>}
       {canAccessEvents && <TopNavLink to="/dashboard/evenements">📋 Événements</TopNavLink>}
-      {canAccessMyRBE && <TopNavLink to="/dashboard/myrbe">📊 RétroBus</TopNavLink>}
+      {canAccessMyRBE && <TopNavLink to="/dashboard/myrbe">📊 MyRBE</TopNavLink>}
       <TopNavLink to="/dashboard/team-rbe">Team RBE 🚌 ❤️</TopNavLink>
       {canAccessRetroMerch && <TopNavLink to="/dashboard/retromerch">🛍️ RétroMerch</TopNavLink>}
     </Flex>
