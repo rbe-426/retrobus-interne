@@ -564,6 +564,7 @@ function MaintenanceTab({ vehicles, apiClient }) {
 export default function RetroBus() {
   const toast = useToast();
   const navigate = useNavigate();
+  const [isLaunchingLumistudio, setIsLaunchingLumistudio] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusByParc, setStatusByParc] = useState({});
@@ -1242,8 +1243,26 @@ export default function RetroBus() {
   const renderLumistudioSection = () => (
     <VStack align="start" spacing={4} py={2}>
       <Button
+        onClick={async () => {
+          try {
+            setIsLaunchingLumistudio(true);
+            const response = await apiClient.get('/lumistudio/launch');
+            const launchUrl = response?.launchUrl || 'https://www.retrobus-interne.fr/myrbe/lumistudio';
+            window.location.assign(launchUrl);
+          } catch (error) {
+            toast({
+              status: 'warning',
+              title: 'Lumistudio indisponible',
+              description: 'Redirection vers le lien de secours.'
+            });
+            window.location.assign('https://www.retrobus-interne.fr/myrbe/lumistudio');
+          } finally {
+            setIsLaunchingLumistudio(false);
+          }
+        }}
         colorScheme="purple"
-        onClick={() => window.open('https://retrobus-interne.fr/myrbe/lumistudio', '_blank', 'noopener,noreferrer')}
+        isLoading={isLaunchingLumistudio}
+        loadingText="Ouverture..."
       >
         Utiliser lumistudio
       </Button>
