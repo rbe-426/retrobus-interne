@@ -1239,6 +1239,17 @@ export default function RetroBus() {
     </VStack>
   );
 
+  const renderLumistudioSection = () => (
+    <VStack align="start" spacing={4} py={2}>
+      <Button
+        colorScheme="purple"
+        onClick={() => window.open('https://retrobus-interne.fr/myrbe/lumistudio', '_blank', 'noopener,noreferrer')}
+      >
+        Utiliser lumistudio
+      </Button>
+    </VStack>
+  );
+
   const sections = [
     {
       id: 'vehicles',
@@ -1274,6 +1285,13 @@ export default function RetroBus() {
       icon: FiClock,
       description: 'Sessions actives',
       render: renderCheckinsSection
+    },
+    {
+      id: 'lumistudio',
+      label: 'Lumistudio',
+      icon: FiSliders,
+      description: 'Atelier visuel',
+      render: renderLumistudioSection
     }
   ];
 

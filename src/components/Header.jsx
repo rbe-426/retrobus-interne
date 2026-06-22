@@ -362,7 +362,7 @@ export default function Header() {
               transition="color 0.2s"
               onClick={() => navigate('/dashboard/myrbe')}
             >
-              MyRBE
+              RétroBus
             </Text>
             <Text 
               fontSize="lg" 
@@ -566,7 +566,7 @@ export default function Header() {
                 _hover={{ bg: "gray.100" }}
                 _active={{ bg: "gray.200" }}
               >
-                👤 MyRBE
+                👤 RétroBus
               </Button>
               <Button 
                 as={RouterLink} 
