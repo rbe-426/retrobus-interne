@@ -7,6 +7,11 @@ import logger from '../utils/logger';
 
 const UserContext = createContext(null);
 
+const configuredSessionTimeout = Number.parseInt(import.meta?.env?.VITE_SESSION_TIMEOUT_MINUTES || '60', 10);
+const SESSION_TIMEOUT_MINUTES = Number.isFinite(configuredSessionTimeout) && configuredSessionTimeout > 0
+  ? configuredSessionTimeout
+  : 60;
+
 export function UserProvider({ children }) {
   // Hydrate depuis authService qui lui-même lit depuis localStorage
   const [token, setToken] = useState(() => {
@@ -251,7 +256,7 @@ export function UserProvider({ children }) {
   }, [token]);
 
   // ✅ Gérer la déconnexion par inactivité et fermeture d'onglet (seulement si authentifié)
-  useSessionTimeout(logout, { inactivityMinutes: 15, enabled: isAuthenticated });
+  useSessionTimeout(logout, { inactivityMinutes: SESSION_TIMEOUT_MINUTES, enabled: isAuthenticated });
 
   const username = user?.username || '';
   const prenom = user?.prenom || user?.firstName || '';
