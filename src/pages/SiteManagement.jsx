@@ -2511,6 +2511,14 @@ const SiteManagement = () => {
   const userRolesHook = useUserRoles();
   const { permissions } = useUserPermissions(user?.id);
   const isStrictAdmin = userRolesHook.hasRole('ADMIN');
+  const userIdentity = String(
+    user?.matricule ||
+    user?.username ||
+    user?.email ||
+    ''
+  ).toLowerCase();
+  const isCMarcy = userIdentity === 'c.marcy' || userIdentity === 'clement.marcypro@gmail.com';
+  const canAccessTrafficContext = userRolesHook.hasRole(ADMIN_ROLES) || isCMarcy;
 
   const hasAction = (resource, action) => {
     const perm = (permissions || []).find((p) => p.resource === resource);
@@ -2578,6 +2586,10 @@ const SiteManagement = () => {
             icon: FiActivity,
             render: () => <SiteLogsManagement />,
           },
+        ]
+      : []),
+    ...(canAccessTrafficContext
+      ? [
           {
             id: 'traffic-context',
             label: '📈 Trafic et contexte',
@@ -2600,6 +2612,9 @@ const SiteManagement = () => {
 
   const filteredSections = hasScopedOverrides
     ? sections.filter((section) => {
+        if (section.id === 'traffic-context') {
+          return canAccessTrafficContext;
+        }
         if (!section.accessResource) {
           return isStrictAdmin;
         }
