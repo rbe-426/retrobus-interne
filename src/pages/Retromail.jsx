@@ -16,7 +16,7 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiEye, FiDownload, FiShare2, FiX, FiFileText
+  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiDownload, FiShare2, FiX, FiFileText
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -25,6 +25,19 @@ import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+
+const parseMailRecipients = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => parseMailRecipients(item))
+      .filter(Boolean);
+  }
+
+  return String(value || '')
+    .split(/[;,\n\r]+/)
+    .map((recipient) => recipient.trim())
+    .filter(Boolean);
+};
 
 export default function Retromail() {
   const { user, matricule } = useUser();
@@ -41,6 +54,8 @@ export default function Retromail() {
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const selectedBg = useColorModeValue('rbe.50', 'rbe.900');
+  const readerActionBg = useColorModeValue('gray.50', 'gray.700');
+  const mobileSurfaceBg = useColorModeValue('gray.50', 'gray.900');
   const isMobile = useBreakpointValue({ base: true, md: false }) || false;
 
   // États
@@ -76,35 +91,48 @@ export default function Retromail() {
     return folderOptions.find((f) => f.key === activeFolder)?.label || activeFolder;
   }, [activeFolder, folderOptions]);
 
+  const changeFolder = useCallback((folderKey) => {
+    setActiveFolder(folderKey);
+    setSelectedEmail(null);
+    setSearchQuery('');
+  }, []);
+
   // Formulaire de connexion Infomaniak
   const [emailAccount, setEmailAccount] = useState("");
   const [password, setPassword] = useState("");
   
   // Détecter et construire l'email automatiquement
   const deducedEmail = useMemo(() => {
+    const typedLogin = String(emailAccount || '').trim().toLowerCase();
+
     // Si déjà un email complet dans le champ, utiliser tel quel
-    if (emailAccount.includes('@')) return emailAccount;
+    if (typedLogin.includes('@')) return typedLogin;
     
     // Identifier l'identifiant de connexion (username)
     let username = '';
     
-    // Priorité 1: user.username (ex: w.belaidi)
-    if (user?.username && !user.username.includes('@')) {
-      username = user.username;
+    // Priorité 1: saisie manuelle du login (ex: w.belaidi)
+    if (typedLogin) {
+      username = typedLogin;
     }
-    // Priorité 2: Si user.email est un email externe, extraire la partie avant @
+    // Priorité 2: matricule interne (ex: w.belaidi)
+    else if (matricule && !String(matricule).includes('@')) {
+      username = String(matricule).trim().toLowerCase();
+    }
+    // Priorité 3: user.username (ex: w.belaidi)
+    else if (user?.username && !user.username.includes('@')) {
+      username = String(user.username).trim().toLowerCase();
+    }
+    // Priorité 4: Si user.email est un email externe, extraire la partie avant @
     else if (user?.email && user.email.includes('@')) {
-      if (user.email.endsWith('@association-rbe.fr')) {
+      const userEmail = String(user.email).trim().toLowerCase();
+      if (userEmail.endsWith('@association-rbe.fr')) {
         // Déjà le bon format
-        return user.email;
+        return userEmail;
       } else {
         // Email externe : extraire la partie avant @
-        username = user.email.split('@')[0];
+        username = userEmail.split('@')[0];
       }
-    }
-    // Priorité 3: matricule
-    else if (matricule) {
-      username = matricule;
     }
     
     if (!username) return '';
@@ -754,7 +782,11 @@ export default function Retromail() {
 
   // Envoyer un email
   const handleSendEmail = useCallback(async () => {
-    if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) {
+    const toRecipients = parseMailRecipients(composeTo);
+    const ccRecipients = parseMailRecipients(composeCc);
+    const bccRecipients = parseMailRecipients(composeBcc);
+
+    if (toRecipients.length === 0 || !composeSubject.trim() || !composeBody.trim()) {
       toast({
         title: "Champs requis",
         description: "Veuillez remplir tous les champs",
@@ -920,9 +952,9 @@ export default function Retromail() {
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {
         method: 'POST',
         body: JSON.stringify({
-          to: composeTo,
-          cc: composeCc || undefined,
-          bcc: composeBcc || undefined,
+          to: toRecipients,
+          cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+          bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: composeSubject,
           body: finalBody,  // Texte brut pour fallback
           html: finalHtml,  // Version HTML
@@ -932,7 +964,7 @@ export default function Retromail() {
       });
 
       if (res.ok) {
-        const recipients = [composeTo, composeCc, composeBcc].filter(Boolean).join(', ');
+        const recipients = [...toRecipients, ...ccRecipients, ...bccRecipients].join(', ');
         toast({
           title: "Email envoyé ! 📨",
           description: `Message envoyé à ${recipients}`,
@@ -1103,6 +1135,9 @@ export default function Retromail() {
       email.body?.toLowerCase().includes(q)
     );
   });
+  const unreadCount = activeFolder === 'DRAFTS' ? 0 : emails.filter((email) => !email.read).length;
+  const folderCount = activeFolder === 'DRAFTS' ? drafts.length : emails.length;
+  const listHeight = selectedEmail ? 'calc(100dvh - 180px)' : 'calc(100dvh - 210px)';
 
   // Écran de chargement initial
   if (connectionLoading) {
@@ -1134,27 +1169,6 @@ export default function Retromail() {
             </CardHeader>
             <CardBody>
               <VStack spacing={{ base: 3, md: 4 }} align="stretch">
-                {/* Suggestion intelligente */}
-                {showAutoConnectSuggest && deducedEmail && (
-                  <Card bg="rbe.50" borderColor="rbe.500" borderWidth="1px">
-                    <CardBody>
-                      <VStack spacing={3} align="stretch">
-                        <HStack>
-                          <FiMail color="var(--chakra-colors-rbe-500)" />
-                          <Text fontWeight="600" fontSize="sm">Connexion rapide détectée</Text>
-                        </HStack>
-                        <Text fontSize="sm" color="gray.700">
-                          Votre login correspond à l'adresse email :<br />
-                          <strong>{deducedEmail}</strong>
-                        </Text>
-                        <Text fontSize="xs" color="gray.600">
-                          Entrez simplement votre mot de passe Infomaniak pour vous connecter
-                        </Text>
-                      </VStack>
-                    </CardBody>
-                  </Card>
-                )}
-
                 <FormControl>
                   <FormLabel>Adresse email</FormLabel>
                   <Input 
@@ -1219,7 +1233,7 @@ export default function Retromail() {
 
   // Interface mail principale
   return (
-    <Box p={{ base: 3, md: 4, lg: 6 }}>
+    <Box p={{ base: 2, md: 4, lg: 6 }} bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
       {/* Header */}
       <Flex 
         direction={{ base: 'column', md: 'row' }}
@@ -1228,12 +1242,21 @@ export default function Retromail() {
         mb={{ base: 4, md: 6 }}
         gap={{ base: 3, md: 0 }}
       >
-        <Heading size={{ base: "md", md: "lg" }}>📧 RétroMail</Heading>
-        <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap">
+        <VStack align="start" spacing={1}>
+          <Heading size={{ base: "md", md: "lg" }}>📧 RétroMail</Heading>
+          <HStack display={{ base: 'flex', md: 'none' }} spacing={2} color="gray.600" fontSize="xs">
+            <Badge colorScheme="green" fontSize="2xs" maxW="180px" overflow="hidden" textOverflow="ellipsis">
+              {emailAccount}
+            </Badge>
+            <Text>{folderCount} message(s)</Text>
+            {unreadCount > 0 && <Badge colorScheme="rbe" fontSize="2xs">{unreadCount} non lu(s)</Badge>}
+          </HStack>
+        </VStack>
+        <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap" justify={{ base: 'space-between', md: 'flex-end' }}>
           {isMobile && (
             <Button
               leftIcon={<FiFolder />}
-              size="xs"
+              size="sm"
               variant="outline"
               onClick={() => setMobileFoldersOpen(true)}
             >
@@ -1245,7 +1268,7 @@ export default function Retromail() {
           </Text>
           <Button 
             leftIcon={<FiRefreshCw />} 
-            size={{ base: "xs", md: "sm" }}
+            size={{ base: "sm", md: "sm" }}
             variant="outline"
             onClick={loadEmails}
             isLoading={loading}
@@ -1255,13 +1278,13 @@ export default function Retromail() {
           <Button 
             leftIcon={<FiEdit />}
             colorScheme="rbe"
-            size={{ base: "xs", md: "sm" }}
+            size={{ base: "sm", md: "sm" }}
             onClick={onComposeOpen}
           >
             Nouveau
           </Button>
           <Menu>
-            <MenuButton as={IconButton} icon={<FiSettings />} size={{ base: "xs", md: "sm" }} variant="ghost" />
+            <MenuButton as={IconButton} icon={<FiSettings />} size={{ base: "sm", md: "sm" }} variant="ghost" aria-label="Parametres RétroMail" />
             <MenuList>
               <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
               <MenuItem onClick={handleDisconnect} color="red.500">
@@ -1295,7 +1318,7 @@ export default function Retromail() {
               colorScheme={activeFolder === 'INBOX' ? 'rbe' : 'gray'}
               justifyContent="flex-start"
               leftIcon={<FiInbox />}
-              onClick={() => setActiveFolder('INBOX')}
+              onClick={() => changeFolder('INBOX')}
               size={{ base: 'sm', md: 'md' }}
             >
               Boîte de réception
@@ -1305,7 +1328,7 @@ export default function Retromail() {
               colorScheme={activeFolder === 'SENT' ? 'rbe' : 'gray'}
               justifyContent="flex-start"
               leftIcon={<FiSend />}
-              onClick={() => setActiveFolder('SENT')}
+              onClick={() => changeFolder('SENT')}
               size={{ base: 'sm', md: 'md' }}
             >
               Envoyés
@@ -1315,7 +1338,7 @@ export default function Retromail() {
               colorScheme={activeFolder === 'DRAFTS' ? 'rbe' : 'gray'}
               justifyContent="flex-start"
               leftIcon={<FiEdit />}
-              onClick={() => setActiveFolder('DRAFTS')}
+              onClick={() => changeFolder('DRAFTS')}
               size={{ base: 'sm', md: 'md' }}
               position="relative"
             >
@@ -1337,7 +1360,7 @@ export default function Retromail() {
               colorScheme={activeFolder === 'TRASH' ? 'rbe' : 'gray'}
               justifyContent="flex-start"
               leftIcon={<FiTrash2 />}
-              onClick={() => setActiveFolder('TRASH')}
+              onClick={() => changeFolder('TRASH')}
               size={{ base: 'sm', md: 'md' }}
             >
               Corbeille
@@ -1355,22 +1378,31 @@ export default function Retromail() {
           p={{ base: 2, md: 3 }}
           bg={cardBg}
           overflowY="auto"
-          h={{ base: 'calc(100vh - 230px)', md: '70vh' }}
+          h={{ base: listHeight, md: '70vh' }}
           maxH={{ base: 'none', md: '70vh' }}
         >
           <Box position="sticky" top={0} zIndex={2} bg={cardBg} pb={2}>
-            <Input 
-              placeholder="Rechercher..." 
-              mb={1}
-              size={{ base: 'sm', md: 'md' }}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {isMobile && (
-              <Text fontSize="xs" color="gray.500">
-                {filteredEmails.length} message(s)
-              </Text>
-            )}
+            <HStack align="center" mb={1}>
+              <Input 
+                placeholder="Rechercher..." 
+                size={{ base: 'sm', md: 'md' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <IconButton
+                  icon={<FiX />}
+                  aria-label="Effacer la recherche"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSearchQuery('')}
+                />
+              )}
+            </HStack>
+            <HStack justify="space-between" fontSize="xs" color="gray.500">
+              <Text>{filteredEmails.length} / {folderCount} message(s)</Text>
+              <Text display={{ base: 'block', md: 'none' }}>{activeFolderLabel}</Text>
+            </HStack>
           </Box>
 
           {loading ? (
@@ -1411,8 +1443,9 @@ export default function Retromail() {
                   borderWidth="1px"
                   borderColor={selectedEmail?.id === email.id ? 'rbe.500' : borderColor}
                   _hover={{ borderColor: 'rbe.300' }}
+                  borderRadius="md"
                 >
-                  <CardBody py={{ base: 3, md: 2 }}>
+                  <CardBody py={{ base: 3, md: 2 }} px={{ base: 3, md: 3 }}>
                     <Flex justify="space-between" align="start" mb={1}>
                       <HStack spacing={2} flex="1" minW="0">
                         <Avatar size="xs" name={displayName} />
@@ -1427,8 +1460,8 @@ export default function Retromail() {
                           )}
                         </VStack>
                       </HStack>
-                      {!email.read && !isDraft && <Badge colorScheme="rbe" fontSize="xs">Nouveau</Badge>}
-                      {isDraft && <Badge colorScheme="purple" fontSize="xs">Brouillon</Badge>}
+                      {!email.read && !isDraft && <Badge colorScheme="rbe" fontSize="2xs">Nouveau</Badge>}
+                      {isDraft && <Badge colorScheme="purple" fontSize="2xs">Brouillon</Badge>}
                     </Flex>
                     <Text fontWeight="600" fontSize="sm" noOfLines={1} mb={1}>
                       {email.subject || "(Sans objet)"}
@@ -1436,9 +1469,17 @@ export default function Retromail() {
                     <Text fontSize="xs" color="gray.600" noOfLines={2}>
                       {email.preview || email.body?.substring(0, 80) || ""}
                     </Text>
-                    <Text fontSize="xs" color="gray.500" mt={1}>
+                    <HStack justify="space-between" mt={1} color="gray.500">
+                    <Text fontSize="xs" noOfLines={1}>
                       {email.date ? new Date(email.date).toLocaleString('fr-FR') : (email.savedAt ? new Date(email.savedAt).toLocaleString('fr-FR') : '')}
                     </Text>
+                    {email.attachments?.length > 0 && (
+                      <HStack spacing={1} fontSize="xs">
+                        <FiPaperclip />
+                        <Text>{email.attachments.length}</Text>
+                      </HStack>
+                    )}
+                    </HStack>
                   </CardBody>
                 </Card>
                 );
@@ -1458,8 +1499,9 @@ export default function Retromail() {
           p={{ base: 2, md: 4 }}
           bg={cardBg}
           overflowY="auto"
-          h={{ base: 'calc(100vh - 230px)', md: '70vh' }}
+          h={{ base: 'calc(100dvh - 150px)', md: '70vh' }}
           maxH={{ base: 'none', md: '70vh' }}
+          sx={{ overscrollBehavior: 'contain' }}
         >
           {!selectedEmail ? (
             <Center h="100%">
@@ -1470,26 +1512,22 @@ export default function Retromail() {
             </Center>
           ) : (
             <VStack align="stretch" spacing={{ base: 2, md: 4 }}>
-              {/* Bouton retour mobile */}
-              <Button
-                display={{ base: 'flex', md: 'none' }}
-                leftIcon={<FiChevronLeft />}
-                size="sm"
-                variant="ghost"
-                onClick={() => setSelectedEmail(null)}
-                alignSelf="flex-start"
-              >
-                Retour
-              </Button>
-              
               {/* En-tête de l'email */}
-              <Box>
-                <Flex justify="space-between" align="start" mb={3}>
-                  <Heading size={{ base: "sm", md: "md" }} flex="1">{selectedEmail.subject || "(Sans objet)"}</Heading>
+              <Box position={{ base: 'sticky', md: 'static' }} top={0} zIndex={2} bg={cardBg} pb={{ base: 2, md: 0 }}>
+                <Flex justify="space-between" align="start" mb={3} gap={2}>
+                  <IconButton
+                    display={{ base: 'inline-flex', md: 'none' }}
+                    icon={<FiChevronLeft />}
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Retour a la liste"
+                    onClick={() => setSelectedEmail(null)}
+                  />
+                  <Heading size={{ base: "sm", md: "md" }} flex="1" noOfLines={{ base: 2, md: 3 }}>{selectedEmail.subject || "(Sans objet)"}</Heading>
                 </Flex>
-                <HStack spacing={2}>
+                <HStack spacing={2} align="start">
                   <Avatar size="sm" name={selectedEmail.fromName || selectedEmail.from} />
-                  <Box flex="1">
+                  <Box flex="1" minW="0">
                     <Text fontWeight="600" fontSize={{ base: "xs", md: "sm" }}>
                       {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from 
                         ? selectedEmail.fromName 
@@ -1511,45 +1549,45 @@ export default function Retromail() {
               <Flex 
                 gap={2} 
                 p={2} 
-                bg={useColorModeValue('gray.50', 'gray.700')} 
+                bg={readerActionBg} 
                 borderRadius="md"
                 wrap="wrap"
+                position={{ base: 'sticky', md: 'static' }}
+                bottom={{ base: 0, md: 'auto' }}
+                zIndex={3}
+                borderWidth={{ base: '1px', md: 0 }}
+                borderColor={borderColor}
+                justify={{ base: 'space-between', md: 'flex-start' }}
               >
                 {isMobile ? (
                   <>
                     <Button
-                      leftIcon={<FiChevronLeft />}
-                      size="xs"
+                      leftIcon={<FiCornerUpLeft />}
+                      size="sm"
                       variant="outline"
                       colorScheme="rbe"
                       onClick={openReply}
+                      flex="1"
                     >
                       Repondre
                     </Button>
                     <Button
                       leftIcon={<FiCornerUpRight />}
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={openForward}
+                      flex="1"
                     >
                       Transferer
                     </Button>
-                    <Button
-                      leftIcon={<FiTrash2 />}
-                      size="xs"
-                      variant="outline"
-                      colorScheme="red"
-                      onClick={() => handleDeleteEmail(selectedEmail.id)}
-                    >
-                      Supprimer
-                    </Button>
                     <Menu>
-                      <MenuButton as={Button} size="xs" variant="ghost" leftIcon={<FiSettings />}>
+                      <MenuButton as={Button} size="sm" variant="ghost" leftIcon={<FiSettings />}>
                         Plus
                       </MenuButton>
                       <MenuList>
                         <MenuItem icon={<FiArchive />} onClick={() => notifyComingSoon('Archivage')}>Archiver</MenuItem>
                         <MenuItem icon={<FiFolder />} onClick={() => notifyComingSoon('Classement')}>Classer</MenuItem>
+                        <MenuItem icon={<FiTrash2 />} color="red.500" onClick={() => handleDeleteEmail(selectedEmail.id)}>Supprimer</MenuItem>
                       </MenuList>
                     </Menu>
                   </>
@@ -1610,9 +1648,10 @@ export default function Retromail() {
                     srcDoc={selectedEmail.html}
                     style={{
                       width: '100%',
-                      minHeight: isMobile ? '55vh' : '400px',
+                      minHeight: isMobile ? '58dvh' : '400px',
                       border: 'none',
-                      backgroundColor: 'white'
+                      backgroundColor: 'white',
+                      borderRadius: '8px'
                     }}
                     onLoad={(e) => {
                       // Ajuster la hauteur de l'iframe au contenu
@@ -1625,7 +1664,7 @@ export default function Retromail() {
                     }}
                   />
                 ) : (
-                  <Text whiteSpace="pre-wrap">
+                  <Text whiteSpace="pre-wrap" fontSize={{ base: 'sm', md: 'md' }} lineHeight="1.7">
                     {selectedEmail.body || "(Contenu vide)"}
                   </Text>
                 )}
@@ -1649,17 +1688,17 @@ export default function Retromail() {
                         return (
                           <Card key={idx} size="sm" bg={cardBg}>
                             <CardBody>
-                              <Flex justify="space-between" align="center" gap={3}>
-                                <HStack spacing={2} flex={1}>
+                              <Flex justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3} direction={{ base: 'column', md: 'row' }}>
+                                <HStack spacing={2} flex={1} minW="0">
                                   <FiPaperclip />
-                                  <VStack align="start" spacing={0}>
-                                    <Text fontSize="sm" fontWeight="500">{att.filename}</Text>
+                                  <VStack align="start" spacing={0} minW="0">
+                                    <Text fontSize="sm" fontWeight="500" noOfLines={1}>{att.filename}</Text>
                                     <Text fontSize="xs" color="gray.500">
                                       {att.contentType} • {(att.size / 1024).toFixed(1)} KB
                                     </Text>
                                   </VStack>
                                 </HStack>
-                                <HStack spacing={1}>
+                                <HStack spacing={1} justify={{ base: 'flex-end', md: 'flex-start' }}>
                                   {canPreview && (
                                     <IconButton
                                       icon={<FiEye />}
@@ -2494,8 +2533,7 @@ export default function Retromail() {
                   justifyContent="flex-start"
                   leftIcon={<folder.icon />}
                   onClick={() => {
-                    setActiveFolder(folder.key);
-                    setSelectedEmail(null);
+                    changeFolder(folder.key);
                     setMobileFoldersOpen(false);
                   }}
                 >

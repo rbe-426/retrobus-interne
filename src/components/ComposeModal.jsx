@@ -9,7 +9,7 @@ import {
   ModalCloseButton, Button, FormControl, FormLabel, Input,
   VStack, HStack, IconButton, Card, CardBody, Text, Flex, useToast,
   Collapse, Badge, Tooltip,
-  ButtonGroup, Divider, Box, useColorModeValue, Image, Menu, MenuButton, MenuList, MenuItem
+  ButtonGroup, Divider, Box, useColorModeValue, useBreakpointValue, Image, Menu, MenuButton, MenuList, MenuItem
 } from '@chakra-ui/react';
 import { 
   FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
@@ -53,6 +53,7 @@ const ComposeModal = memo(({
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
   const previewBg = useColorModeValue('white', 'gray.800');
+  const isMobile = useBreakpointValue({ base: true, md: false }) || false;
 
   // Synchroniser l'éditeur avec composeBody au chargement
   useEffect(() => {
@@ -219,13 +220,13 @@ const ComposeModal = memo(({
   }, [composeTo, composeSubject, composeBody, onSendEmail, toast]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={isFullscreen ? 'full' : '4xl'}>
+    <Modal isOpen={isOpen} onClose={onClose} size={isFullscreen || isMobile ? 'full' : '4xl'} scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent maxH={isFullscreen ? '100vh' : '90vh'}>
-        <ModalHeader>
-          <Flex justify="space-between" align="center">
-            <HStack spacing={3}>
-              <Text fontSize="lg" fontWeight="600">✉️ Nouveau message</Text>
+      <ModalContent maxH={isFullscreen || isMobile ? '100dvh' : '90vh'} h={isMobile ? '100dvh' : 'auto'} borderRadius={{ base: 0, md: 'md' }}>
+        <ModalHeader py={{ base: 3, md: 4 }} pr={{ base: 12, md: 14 }}>
+          <Flex justify="space-between" align={{ base: 'start', md: 'center' }} gap={3} direction={{ base: 'column', md: 'row' }}>
+            <HStack spacing={2} wrap="wrap">
+              <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="600">✉️ Nouveau message</Text>
               {isNoReplyAccount && (
                 <Badge colorScheme="purple" fontSize="xs">NoReply</Badge>
               )}
@@ -245,7 +246,7 @@ const ComposeModal = memo(({
                 </Tooltip>
               )}
             </HStack>
-            <HStack spacing={2}>
+            <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
               {contentType === 'template' && onOpenTemplateEditor && (
                 <Button
                   size="sm"
@@ -281,13 +282,13 @@ const ComposeModal = memo(({
           </Flex>
         </ModalHeader>
         <ModalCloseButton />
-        <ModalBody overflowY="auto">
+        <ModalBody overflowY="auto" px={{ base: 3, md: 6 }} py={{ base: 2, md: 4 }}>
           <VStack spacing={3} align="stretch">
             {/* Destinataires */}
             <VStack spacing={2} align="stretch">
               <FormControl>
-                <HStack>
-                  <FormLabel mb={0} minW="80px">À :</FormLabel>
+                <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
+                  <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>À :</FormLabel>
                   <Input 
                     type="email"
                     placeholder="destinataire@example.com"
@@ -315,13 +316,13 @@ const ComposeModal = memo(({
                       Bcc
                     </Button>
                   </HStack>
-                </HStack>
+                </Flex>
               </FormControl>
 
               <Collapse in={showCc}>
                 <FormControl>
-                  <HStack>
-                    <FormLabel mb={0} minW="80px">Cc :</FormLabel>
+                  <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
+                    <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cc :</FormLabel>
                     <Input 
                       type="email"
                       placeholder="copie@example.com"
@@ -341,14 +342,14 @@ const ComposeModal = memo(({
                       }}
                       aria-label="Masquer Cc"
                     />
-                  </HStack>
+                  </Flex>
                 </FormControl>
               </Collapse>
 
               <Collapse in={showBcc}>
                 <FormControl>
-                  <HStack>
-                    <FormLabel mb={0} minW="80px">Bcc :</FormLabel>
+                  <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
+                    <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Bcc :</FormLabel>
                     <Input 
                       type="email"
                       placeholder="copie-cachee@example.com"
@@ -368,13 +369,13 @@ const ComposeModal = memo(({
                       }}
                       aria-label="Masquer Bcc"
                     />
-                  </HStack>
+                  </Flex>
                 </FormControl>
               </Collapse>
 
               <FormControl>
-                <HStack>
-                  <FormLabel mb={0} minW="80px">Objet :</FormLabel>
+                <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
+                  <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Objet :</FormLabel>
                   <Input 
                     placeholder="Objet du message"
                     value={composeSubject}
@@ -384,7 +385,7 @@ const ComposeModal = memo(({
                     flex={1}
                     fontWeight="500"
                   />
-                </HStack>
+                </Flex>
               </FormControl>
             </VStack>
 
@@ -428,7 +429,7 @@ const ComposeModal = memo(({
                 border="1px solid"
                 borderColor={borderColor}
               >
-                <Flex gap={2} wrap="wrap" align="center">
+                <Flex gap={{ base: 1, md: 2 }} wrap="wrap" align="center">
                   <ButtonGroup size="sm" isAttached variant="outline">
                     <Tooltip label="Gras (Ctrl+B)">
                       <IconButton
@@ -538,7 +539,7 @@ const ComposeModal = memo(({
                   </Button>
                 </Tooltip>
 
-                <Text fontSize="xs" color="gray.500" ml="auto">
+                <Text fontSize="xs" color="gray.500" ml={{ base: 0, md: 'auto' }} w={{ base: '100%', md: 'auto' }}>
                   {charCount} caractères
                 </Text>
               </Flex>
@@ -553,8 +554,8 @@ const ComposeModal = memo(({
                 onInput={handleEditorInput}
                 onKeyDown={handleKeyDown}
                 placeholder="Composez votre message... Utilisez les boutons ci-dessus pour formater le texte."
-                minH="300px"
-                p={4}
+                minH={{ base: '38dvh', md: '300px' }}
+                p={{ base: 3, md: 4 }}
                 bg={previewBg}
                 border="1px solid"
                 borderColor={borderColor}
@@ -597,7 +598,7 @@ const ComposeModal = memo(({
                   '& div, & span': { textTransform: 'none !important' }
                 }}
               />
-              <HStack justify="space-between" mt={2}>
+              <HStack justify="space-between" mt={2} wrap="wrap">
                 <Text fontSize="xs" color="gray.500">
                   Police : {mailFont} • {signature && '✅ Signature'} {signatureImage && '📸'}
                 </Text>
@@ -644,7 +645,7 @@ const ComposeModal = memo(({
                     return (
                       <Card key={idx} size="sm" variant="outline">
                         <CardBody>
-                          <Flex gap={3} align="center">
+                          <Flex gap={3} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                             {isImage && att.content && (
                               <Image
                                 src={`data:${att.contentType};base64,${att.content}`}
@@ -690,9 +691,9 @@ const ComposeModal = memo(({
           </VStack>
         </ModalBody>
 
-        <ModalFooter borderTop="1px solid" borderColor={borderColor}>
-          <HStack spacing={3} w="100%" justify="space-between">
-            <Box>
+        <ModalFooter borderTop="1px solid" borderColor={borderColor} px={{ base: 3, md: 6 }} py={{ base: 3, md: 4 }}>
+          <Flex gap={3} w="100%" justify="space-between" align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
+            <Box display={{ base: 'none', md: 'block' }}>
               {isLargeAttachment ? (
                 <HStack spacing={2}>
                   <Text fontSize="xs" color="orange.600" fontWeight="600">
@@ -720,8 +721,8 @@ const ComposeModal = memo(({
                 </Text>
               )}
             </Box>
-            <HStack spacing={3}>
-              <Button variant="ghost" onClick={onClose} size="md" isDisabled={isSending}>
+            <HStack spacing={3} justify={{ base: 'stretch', md: 'flex-end' }}>
+              <Button variant="ghost" onClick={onClose} size={{ base: 'sm', md: 'md' }} isDisabled={isSending} flex={{ base: 1, md: 'initial' }}>
                 Annuler
               </Button>
               <Button 
@@ -730,13 +731,14 @@ const ComposeModal = memo(({
                 onClick={handleSend}
                 isLoading={isSending}
                 loadingText={isLargeAttachment ? "Transmission..." : "Envoi..."}
-                size="md"
-                px={6}
+                size={{ base: 'sm', md: 'md' }}
+                px={{ base: 4, md: 6 }}
+                flex={{ base: 1, md: 'initial' }}
               >
                 Envoyer
               </Button>
             </HStack>
-          </HStack>
+          </Flex>
         </ModalFooter>
       </ModalContent>
     </Modal>
