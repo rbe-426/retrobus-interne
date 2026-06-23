@@ -1903,6 +1903,22 @@ const TrafficContextManagement = () => {
   const searchConsole = monthlyTraffic?.totals?.searchConsole || {};
   const adsense = monthlyTraffic?.totals?.adsense || {};
   const searchConsoleApi = data?.searchConsoleApi;
+  const trafficFreshness = monthlyTraffic?.freshness || {};
+  const formatFreshDate = (value) => {
+    if (!value) return 'aucune donnee';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'date invalide';
+    return date.toLocaleString('fr-FR');
+  };
+  const ageInHours = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - date.getTime()) / 3600000));
+  };
+  const lastPageViewAgeHours = ageInHours(trafficFreshness.lastPageViewAt);
+  const trafficLooksStale = lastPageViewAgeHours !== null && lastPageViewAgeHours >= 6;
+  const hasSearchConsoleDelay = searchConsoleApi?.enabled && Number(searchConsoleApi?.dataLagDays || 0) >= 2;
   const effectiveSearch = searchConsoleApi?.enabled
     ? {
         impressions: Number(searchConsoleApi.impressions || 0),
@@ -2119,10 +2135,30 @@ const TrafficContextManagement = () => {
           <Heading size="md">Pilotage Search Console & AdSense</Heading>
         </HStack>
         <Text fontSize="sm" color="gray.600" mb={3}>
-          Suivi impressions, clics, CTR, CPC estimé et revenus à partir des événements réels du site.
+          Vues issues du tracker interne, Search Console issue de Google quand l'API est connectee, revenus publicitaires estimes a partir des evenements du site.
         </Text>
         <Divider />
       </Box>
+
+      <Alert status={trafficLooksStale || hasSearchConsoleDelay ? 'warning' : 'info'} borderRadius="md">
+        <AlertIcon />
+        <Box>
+          <Text fontWeight="bold">Fraicheur des remontees</Text>
+          <Text fontSize="sm">
+            Dernier evenement trafic: {formatFreshDate(trafficFreshness.lastEventAt)} | Derniere page vue: {formatFreshDate(trafficFreshness.lastPageViewAt)} | Evenements du mois: {trafficFreshness.eventsCount ?? 0}
+          </Text>
+          {searchConsoleApi?.enabled && (
+            <Text fontSize="sm">
+              Search Console Google: donnees disponibles jusqu'au {searchConsoleApi.latestDataDate || 'n/a'} ({searchConsoleApi.dataLagDays ?? 'n/a'} jour(s) de decalage), collecte API: {formatFreshDate(searchConsoleApi.generatedAt)}
+            </Text>
+          )}
+          {!trafficFreshness.lastAdEventAt && (
+            <Text fontSize="sm" color="orange.700">
+              Aucun evenement publicitaire recu ce mois-ci: les indicateurs AdSense affiches ici restent donc des estimations internes non alimentees.
+            </Text>
+          )}
+        </Box>
+      </Alert>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
         <Card><CardBody><Text fontSize="sm" color="gray.600" mb={2}>Search Impressions</Text><Heading size="md">{effectiveSearch?.impressions ?? 0}</Heading></CardBody></Card>
