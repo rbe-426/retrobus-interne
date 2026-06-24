@@ -290,7 +290,8 @@ const ComposeModal = memo(({
                 <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                   <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>À :</FormLabel>
                   <Input 
-                    type="email"
+                    type="text"
+                    inputMode="email"
                     placeholder="destinataire@example.com"
                     value={composeTo}
                     onChange={onComposeToChange}
@@ -324,8 +325,9 @@ const ComposeModal = memo(({
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cc :</FormLabel>
                     <Input 
-                      type="email"
-                      placeholder="copie@example.com"
+                      type="text"
+                      inputMode="email"
+                      placeholder="copie@example.com; autre@example.com"
                       value={composeCc}
                       onChange={onComposeCcChange}
                       autoComplete="off"
@@ -351,8 +353,9 @@ const ComposeModal = memo(({
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Bcc :</FormLabel>
                     <Input 
-                      type="email"
-                      placeholder="copie-cachee@example.com"
+                      type="text"
+                      inputMode="email"
+                      placeholder="copie-cachee@example.com; autre@example.com"
                       value={composeBcc}
                       onChange={onComposeBccChange}
                       autoComplete="off"

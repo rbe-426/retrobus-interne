@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const DEV_API_TARGET = env.VITE_DEV_API_TARGET || 'https://attractive-kindness-rbe-serveurs.up.railway.app';
+  const LOCAL_API_TARGET = env.VITE_LOCAL_API_TARGET || 'http://localhost:8080';
   const isHttps = DEV_API_TARGET.startsWith('https://');
   // Helpful banner on startup
   console.log(`[vite] Mode=${mode} | Proxy target=${DEV_API_TARGET}`);
@@ -28,6 +29,7 @@ export default defineConfig(({ mode }) => {
           }
         };
         return {
+          '/api/process-parc': { ...common, target: LOCAL_API_TARGET, secure: false },
           '/api': { ...common },
           // Some clients call versioned paths directly
           '/v1': { ...common },

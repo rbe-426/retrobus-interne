@@ -4,10 +4,10 @@ import {
   Tabs, TabList, TabPanels, Tab, TabPanel, useToast, Spinner, HStack, VStack,
   Badge, Tag, TagLabel, TagLeftIcon, Button, Divider, Table, Thead, Tbody, Tr, Th, Td,
   Icon, Alert, AlertIcon, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Slider, SliderTrack, SliderFilledTrack, SliderThumb, FormLabel,
-  AlertTitle, AlertDescription, CloseButton
+  AlertTitle, AlertDescription, CloseButton, Input
 } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders, FiRefreshCw } from "react-icons/fi";
+import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders, FiRefreshCw, FiPlus, FiTruck, FiArchive, FiArrowRight, FiSearch } from "react-icons/fi";
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
 import { vehicleAdminAPI } from "../api/vehicleAdmin";
@@ -570,6 +570,14 @@ export default function RetroBus() {
   const [statusByParc, setStatusByParc] = useState({});
   const [usagesData, setUsagesData] = useState({});
   const [loadingUsages, setLoadingUsages] = useState(false);
+  const [processParcOpen, setProcessParcOpen] = useState(false);
+  const [processParcStep, setProcessParcStep] = useState('choice');
+  const [processParcTcInfosUrl, setProcessParcTcInfosUrl] = useState('');
+  const [processParcTcInfosLoading, setProcessParcTcInfosLoading] = useState(false);
+  const [processParcTcInfosResult, setProcessParcTcInfosResult] = useState(null);
+  const [processParcProjectSource, setProcessParcProjectSource] = useState('');
+  const [processParcInternalProjectName, setProcessParcInternalProjectName] = useState('');
+  const [processParcInternalFleetNumber, setProcessParcInternalFleetNumber] = useState('');
   
   // Modal édition technique
   const [editTechOpen, setEditTechOpen] = useState(false);
@@ -612,6 +620,38 @@ export default function RetroBus() {
       setLoading(false);
     }
   }, [toast]);
+
+  const identifyTcInfosVehicle = useCallback(async () => {
+    try {
+      setProcessParcTcInfosLoading(true);
+      setProcessParcTcInfosResult(null);
+      const result = await apiClient.post('/api/process-parc/tc-infos/identify', { url: processParcTcInfosUrl.trim() });
+      setProcessParcTcInfosResult(result);
+      setProcessParcProjectSource('tc-infos');
+      const vehicle = result?.vehicle || {};
+      setProcessParcInternalProjectName([vehicle.manufacturer, vehicle.model, vehicle.fleetNumber ? `n°${vehicle.fleetNumber}` : ''].filter(Boolean).join(' '));
+      setProcessParcInternalFleetNumber(vehicle.fleetNumber || '');
+      toast({ status: 'success', title: 'Véhicule identifié', description: `${result.detectedFields || 0} champs récupérés.` });
+    } catch (error) {
+      toast({ status: 'error', title: 'Lecture TC Infos impossible', description: error.message });
+    } finally {
+      setProcessParcTcInfosLoading(false);
+    }
+  }, [processParcTcInfosUrl, toast]);
+
+  const processParcCanGoNext = processParcStep === 'project-start' && (
+    processParcProjectSource === 'manual' || Boolean(processParcTcInfosResult?.vehicle)
+  );
+
+  const resetProcessParcModal = () => {
+    setProcessParcOpen(false);
+    setProcessParcStep('choice');
+    setProcessParcTcInfosUrl('');
+    setProcessParcTcInfosResult(null);
+    setProcessParcProjectSource('');
+    setProcessParcInternalProjectName('');
+    setProcessParcInternalFleetNumber('');
+  };
 
   // Charger les alertes critiques (CT périmés, documents manquants) - OPTIMISÉ
   // Une alerte par véhicule avec tous ses problèmes regroupés
@@ -1119,6 +1159,76 @@ export default function RetroBus() {
     <MaintenanceTab vehicles={vehicles} apiClient={apiClient} />
   );
 
+  const renderProcessParcSection = () => (
+    <VStack align="stretch" spacing={4} py={2}>
+      <HStack justify="space-between" align="center" wrap="wrap" gap={3}>
+        <HStack>
+          <FiFileText />
+          <Heading size="sm">Process PARC</Heading>
+        </HStack>
+        <Button
+          leftIcon={<FiPlus />}
+          colorScheme="blue"
+          size="sm"
+          onClick={() => setProcessParcOpen(true)}
+        >
+          Ajouter un véhicule
+        </Button>
+      </HStack>
+
+      <Alert status="info" borderRadius="md">
+        <AlertIcon />
+        <VStack align="start" spacing={1}>
+          <Text fontWeight="600">Processus d'Ajout d'un véhicule pRéservé et Collectionné</Text>
+          <Text fontSize="sm">
+            Cet onglet accueillera le processus dédié aux véhicules en attente de préservation, séparé du parc officiel.
+          </Text>
+        </VStack>
+      </Alert>
+
+      <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+        <Card variant="outline">
+          <CardBody>
+            <Stat>
+              <StatLabel>Dossiers en cours</StatLabel>
+              <StatNumber>0</StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+        <Card variant="outline">
+          <CardBody>
+            <Stat>
+              <StatLabel>À compléter</StatLabel>
+              <StatNumber>0</StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+        <Card variant="outline">
+          <CardBody>
+            <Stat>
+              <StatLabel>Prêts à intégrer</StatLabel>
+              <StatNumber>0</StatNumber>
+            </Stat>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+
+      <Card variant="outline">
+        <CardBody>
+          <VStack align="start" spacing={2}>
+            <Heading size="sm">Workflow à définir</Heading>
+            <Text fontSize="sm" color="gray.600">
+              Les véhicules créés ici resteront invisibles de la page Véhicules jusqu'à la validation complète du process PARC.
+            </Text>
+            <Text fontSize="sm" color="gray.600">
+              En attente des étapes métier, champs obligatoires et conditions d'intégration au parc.
+            </Text>
+          </VStack>
+        </CardBody>
+      </Card>
+    </VStack>
+  );
+
   const renderAdministrativeSection = () => (
     <VStack align="stretch" spacing={4} py={2}>
       <HStack>
@@ -1292,6 +1402,13 @@ export default function RetroBus() {
       render: renderMaintenanceSection
     },
     {
+      id: 'process-parc',
+      label: 'Process PARC',
+      icon: FiFileText,
+      description: 'Préservation & intégration',
+      render: renderProcessParcSection
+    },
+    {
       id: 'administrative',
       label: 'Administratif',
       icon: FiAlertTriangle,
@@ -1356,6 +1473,353 @@ export default function RetroBus() {
         versionLabel="RétroBus v3"
         headerActions={headerActions}
       />
+
+      <Modal
+        isOpen={processParcOpen}
+        onClose={resetProcessParcModal}
+        size="full"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack align="stretch" spacing={2}>
+              <HStack>
+                <Icon as={FiArchive} boxSize={5} color="rbe.500" />
+                <Text>Process PARC</Text>
+                <Badge colorScheme="rbe">Préservation</Badge>
+              </HStack>
+              <Text fontSize="sm" color="gray.600" fontWeight="400">
+                Processus d'Ajout d'un véhicule pRéservé et Collectionné
+              </Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={6} py={4} maxW="1100px" mx="auto">
+              <Box
+                bg="linear-gradient(135deg, #d30c4c 0%, #c10744 100%)"
+                color="white"
+                borderRadius="xl"
+                p={{ base: 5, md: 8 }}
+              >
+                <VStack align="start" spacing={3}>
+                  <HStack spacing={3}>
+                    <Icon as={FiTruck} boxSize={8} />
+                    <Heading size="lg">Nouveau dossier PARC</Heading>
+                  </HStack>
+                  <Text opacity={0.92}>
+                    Dossier séparé du parc officiel jusqu'à validation complète.
+                  </Text>
+                </VStack>
+              </Box>
+
+              <HStack spacing={2} wrap="wrap">
+                {[
+                  { id: 'choice', label: 'Parcours' },
+                  { id: 'project-start', label: 'Infos véhicule' },
+                  { id: 'project-review', label: 'Pré-fiche projet' }
+                ].map((step, index) => {
+                  const stepOrder = ['choice', 'project-start', 'project-review'];
+                  const activeIndex = stepOrder.indexOf(processParcStep);
+                  const isActive = step.id === processParcStep;
+                  const isDone = index < activeIndex;
+
+                  return (
+                    <HStack key={step.id} spacing={2}>
+                      <Badge
+                        colorScheme={isActive ? 'rbe' : isDone ? 'green' : 'gray'}
+                        variant={isActive ? 'solid' : 'subtle'}
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                      >
+                        {index + 1}. {step.label}
+                      </Badge>
+                      {index < 2 && <Text color="gray.400">/</Text>}
+                    </HStack>
+                  );
+                })}
+              </HStack>
+
+              {processParcStep === 'choice' ? (
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                <Card
+                  cursor="pointer"
+                  borderWidth={2}
+                  borderColor="rbe.500"
+                  _hover={{ transform: 'translateY(-3px)', shadow: 'xl' }}
+                  transition="all 0.2s"
+                  onClick={() => setProcessParcStep('project-start')}
+                >
+                <CardBody>
+                  <VStack align="start" spacing={4} h="full">
+                    <HStack justify="space-between" w="full" align="start">
+                      <Icon as={FiArchive} boxSize={9} color="rbe.500" />
+                      <Badge colorScheme="rbe">Projet principal</Badge>
+                    </HStack>
+                    <Box>
+                      <Heading size="md" color="black" mb={2}>Démarrer un projet de préservation</Heading>
+                      <Text fontSize="sm" color="gray.600">
+                        Ouvrir un projet en amont, avant décision d'intégration ou rattachement à un véhicule.
+                      </Text>
+                    </Box>
+                    <Button mt="auto" w="full" colorScheme="rbe" rightIcon={<FiArrowRight />}>
+                      Démarrer un projet
+                    </Button>
+                  </VStack>
+                </CardBody>
+              </Card>
+
+                <Card
+                  cursor="pointer"
+                  borderWidth={2}
+                  borderColor="gray.200"
+                  _hover={{ transform: 'translateY(-3px)', shadow: 'xl', borderColor: 'blue.400' }}
+                  transition="all 0.2s"
+                  onClick={() => toast({ status: 'info', title: 'Ajout véhicule PARC', description: 'Parcours à brancher.' })}
+                >
+                  <CardBody>
+                    <VStack align="start" spacing={4} h="full">
+                      <HStack justify="space-between" w="full" align="start">
+                        <Icon as={FiTruck} boxSize={9} color="blue.500" />
+                        <Badge colorScheme="blue">Intégration avancée</Badge>
+                      </HStack>
+                      <Box>
+                        <Heading size="md" color="black" mb={2}>Ajouter un véhicule à préserver/intégrer dans le parc</Heading>
+                        <Text fontSize="sm" color="gray.600">
+                          Utilisable quand le véhicule est intégré ou proche de l'intégration.
+                        </Text>
+                      </Box>
+                      <Button mt="auto" w="full" colorScheme="blue" variant="outline" rightIcon={<FiArrowRight />}>
+                        Ajouter un véhicule
+                      </Button>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </SimpleGrid>
+              ) : processParcStep === 'project-start' ? (
+              <VStack align="stretch" spacing={5}>
+                <Box>
+                  <Heading size="lg" color="black">Ajouter un Projet</Heading>
+                  <Text color="gray.600" mt={1}>Les infos du véhicule.</Text>
+                </Box>
+
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                  <Card
+                    cursor="pointer"
+                    borderWidth={2}
+                    borderColor={processParcProjectSource === 'manual' ? 'rbe.500' : 'gray.200'}
+                    _hover={{ transform: 'translateY(-3px)', shadow: 'xl' }}
+                    transition="all 0.2s"
+                    onClick={() => setProcessParcProjectSource('manual')}
+                  >
+                    <CardBody>
+                      <VStack align="start" spacing={4} h="full">
+                        <HStack justify="space-between" w="full" align="start">
+                          <Icon as={FiEdit} boxSize={9} color="rbe.500" />
+                          <Badge colorScheme="rbe">Manuel</Badge>
+                        </HStack>
+                        <Box>
+                          <Heading size="md" color="black" mb={2}>Saisie manuelle</Heading>
+                          <Text fontSize="sm" color="gray.600">
+                            Renseigner directement les informations connues du véhicule.
+                          </Text>
+                        </Box>
+                        <Button mt="auto" w="full" colorScheme="rbe" rightIcon={<FiArrowRight />}>
+                          Saisir les infos
+                        </Button>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  <Card
+                    borderWidth={2}
+                    borderColor={processParcProjectSource === 'tc-infos' ? 'blue.400' : 'gray.200'}
+                    _hover={{ transform: 'translateY(-3px)', shadow: 'xl', borderColor: 'blue.400' }}
+                    transition="all 0.2s"
+                  >
+                    <CardBody>
+                      <VStack align="start" spacing={4} h="full">
+                        <HStack justify="space-between" w="full" align="start">
+                          <Icon as={FiSearch} boxSize={9} color="blue.500" />
+                          <Badge colorScheme="blue">TC Infos</Badge>
+                        </HStack>
+                        <Box>
+                          <Heading size="md" color="black" mb={2}>Matchmaking TC Infos</Heading>
+                          <Text fontSize="sm" color="gray.600">
+                            Insérer directement le lien du véhicule projet TC Infos.
+                          </Text>
+                        </Box>
+                        <Box w="full" mt="auto">
+                          <FormLabel fontSize="sm">Lien du véhicule projet</FormLabel>
+                          <Input
+                            type="url"
+                            value={processParcTcInfosUrl}
+                            onChange={(event) => {
+                              setProcessParcTcInfosUrl(event.target.value);
+                              setProcessParcTcInfosResult(null);
+                              if (processParcProjectSource === 'tc-infos') setProcessParcProjectSource('');
+                            }}
+                            placeholder="https://..."
+                          />
+                        </Box>
+                        <Button
+                          w="full"
+                          colorScheme="blue"
+                          variant="outline"
+                          rightIcon={<FiArrowRight />}
+                          isDisabled={!processParcTcInfosUrl.trim()}
+                          isLoading={processParcTcInfosLoading}
+                          loadingText="Lecture..."
+                          onClick={identifyTcInfosVehicle}
+                        >
+                          Utiliser ce lien
+                        </Button>
+
+                        {processParcTcInfosResult?.vehicle && (
+                          <Box w="full" borderWidth="1px" borderRadius="md" borderColor="blue.100" bg="blue.50" p={3}>
+                            <VStack align="stretch" spacing={3}>
+                              <HStack justify="space-between" align="start">
+                                <Box>
+                                  <Text fontWeight="700" color="black">{processParcTcInfosResult.title || 'Véhicule TC Infos'}</Text>
+                                  <Text fontSize="xs" color="gray.600">ID TC Infos: {processParcTcInfosResult.tcInfosId}</Text>
+                                </Box>
+                                <Badge colorScheme="green">{processParcTcInfosResult.detectedFields} champs</Badge>
+                              </HStack>
+                              <SimpleGrid columns={{ base: 1, sm: 2 }} gap={2}>
+                                {[
+                                  ['Numéro', processParcTcInfosResult.vehicle.fleetNumber],
+                                  ['Constructeur', processParcTcInfosResult.vehicle.manufacturer],
+                                  ['Modèle', processParcTcInfosResult.vehicle.model],
+                                  ['Immatriculation', processParcTcInfosResult.vehicle.registration],
+                                  ['Mise en circulation', processParcTcInfosResult.vehicle.firstRegistration],
+                                  ['N° série', processParcTcInfosResult.vehicle.vin],
+                                  ['Énergie', processParcTcInfosResult.vehicle.energy],
+                                  ['Statut', processParcTcInfosResult.vehicle.status]
+                                ].filter(([, value]) => Boolean(value)).map(([label, value]) => (
+                                  <Box key={label} bg="white" borderRadius="md" p={2}>
+                                    <Text fontSize="xs" color="gray.500">{label}</Text>
+                                    <Text fontSize="sm" fontWeight="600" color="black">{value}</Text>
+                                  </Box>
+                                ))}
+                              </SimpleGrid>
+                            </VStack>
+                          </Box>
+                        )}
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                </SimpleGrid>
+              </VStack>
+              ) : (
+              <VStack align="stretch" spacing={5}>
+                <Box>
+                  <Heading size="lg" color="black">Récap' pré-projet</Heading>
+                  <Text color="gray.600" mt={1}>Résumé des informations saisies via TC Infos avec suggestions de modifications.</Text>
+                </Box>
+
+                <Card variant="outline">
+                  <CardBody>
+                    <VStack align="stretch" spacing={4}>
+                      <HStack justify="space-between" align="start" wrap="wrap" gap={3}>
+                        <Box>
+                          <Heading size="md">Info interne</Heading>
+                          <Text fontSize="sm" color="gray.600">À ajuster avant création du dossier PARC.</Text>
+                        </Box>
+                        <Badge colorScheme={processParcProjectSource === 'tc-infos' ? 'blue' : 'rbe'}>
+                          {processParcProjectSource === 'tc-infos' ? 'TC Infos' : 'Manuel'}
+                        </Badge>
+                      </HStack>
+
+                      <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                        <Box>
+                          <FormLabel>1 : Nom du projet interne</FormLabel>
+                          <Input
+                            value={processParcInternalProjectName}
+                            onChange={(event) => setProcessParcInternalProjectName(event.target.value)}
+                            placeholder="Ex. Préservation Heuliez GX 317 R5"
+                          />
+                        </Box>
+                        <Box>
+                          <FormLabel>2 : Numéro de parc interne</FormLabel>
+                          <Input
+                            value={processParcInternalFleetNumber}
+                            onChange={(event) => setProcessParcInternalFleetNumber(event.target.value)}
+                            placeholder="Ex. R5"
+                          />
+                        </Box>
+                      </SimpleGrid>
+                    </VStack>
+                  </CardBody>
+                </Card>
+
+                {processParcTcInfosResult?.vehicle && (
+                  <Card variant="outline">
+                    <CardBody>
+                      <VStack align="stretch" spacing={4}>
+                        <HStack justify="space-between" align="start" wrap="wrap" gap={3}>
+                          <Box>
+                            <Heading size="md">Informations TC Infos</Heading>
+                            <Text fontSize="sm" color="gray.600">{processParcTcInfosResult.title}</Text>
+                          </Box>
+                          <Badge colorScheme="green">{processParcTcInfosResult.detectedFields} champs détectés</Badge>
+                        </HStack>
+
+                        <SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
+                          {[
+                            ['Numéro TC Infos', processParcTcInfosResult.vehicle.fleetNumber],
+                            ['Constructeur', processParcTcInfosResult.vehicle.manufacturer],
+                            ['Modèle', processParcTcInfosResult.vehicle.model],
+                            ['Immatriculation', processParcTcInfosResult.vehicle.registration],
+                            ['Mise en circulation', processParcTcInfosResult.vehicle.firstRegistration],
+                            ['N° série', processParcTcInfosResult.vehicle.vin],
+                            ['Énergie', processParcTcInfosResult.vehicle.energy],
+                            ['Norme Euro', processParcTcInfosResult.vehicle.euroNorm],
+                            ['Statut', processParcTcInfosResult.vehicle.status],
+                            ['Moteur', processParcTcInfosResult.vehicle.engine],
+                            ['Boîte', processParcTcInfosResult.vehicle.gearbox],
+                            ['Portes', processParcTcInfosResult.vehicle.doors]
+                          ].filter(([, value]) => Boolean(value)).map(([label, value]) => (
+                            <Box key={label} bg="gray.50" borderRadius="md" p={3}>
+                              <Text fontSize="xs" color="gray.500">{label}</Text>
+                              <Text fontSize="sm" fontWeight="600" color="black">{value}</Text>
+                            </Box>
+                          ))}
+                        </SimpleGrid>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+                )}
+              </VStack>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack w="full" justify="space-between">
+              {processParcStep !== 'choice' ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setProcessParcStep(processParcStep === 'project-review' ? 'project-start' : 'choice')}
+                >
+                  Retour
+                </Button>
+              ) : <Box />}
+              <HStack>
+                {processParcCanGoNext && (
+                  <Button
+                    colorScheme="rbe"
+                    rightIcon={<FiArrowRight />}
+                    onClick={() => setProcessParcStep('project-review')}
+                  >
+                    Étape suivante
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={resetProcessParcModal}>Fermer</Button>
+              </HStack>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Modal édition technique véhicule */}
       <Modal isOpen={editTechOpen} onClose={() => setEditTechOpen(false)} size="lg">
