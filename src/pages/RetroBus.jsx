@@ -1363,6 +1363,7 @@ export default function RetroBus() {
           // Trouver les alertes pour ce véhicule
           const vehicleAlert = criticalAlerts.vehicleAlerts?.find(alert => alert.parc === parc);
           const hasAlerts = vehicleAlert && (vehicleAlert.ctIssues.length > 0 || vehicleAlert.docIssues.length > 0);
+          const processParcProject = processParcProjects.find((project) => project.internalFleetNumber === parc);
 
           return (
             <Card 
@@ -1461,7 +1462,7 @@ export default function RetroBus() {
 
                   {/* Actions */}
                   <Divider />
-                  <HStack w="full" spacing={2}>
+                  <HStack w="full" spacing={2} wrap="wrap">
                     <Button 
                       size="sm" 
                       leftIcon={<FiTool />}
@@ -1485,6 +1486,16 @@ export default function RetroBus() {
                     >
                       Modifier
                     </Button>
+                    {processParcProject && (
+                      <Button
+                        size="sm"
+                        leftIcon={<FiFileText />}
+                        colorScheme="rbe"
+                        onClick={() => openProcessParcConsultation(processParcProject)}
+                      >
+                        Consultation PARC
+                      </Button>
+                    )}
                   </HStack>
                 </VStack>
               </CardBody>
@@ -1544,10 +1555,10 @@ export default function RetroBus() {
 
                   <Divider />
                   <HStack w="full" spacing={2} wrap="wrap">
-                    <Button size="sm" leftIcon={<FiTool />} flex={1} colorScheme="blue" variant="outline" isDisabled>
+                    <Button size="sm" leftIcon={<FiTool />} flex={1} colorScheme="blue" variant="outline" onClick={() => openProcessParcConsultation(project)}>
                       Gérer
                     </Button>
-                    <Button size="sm" leftIcon={<FiSliders />} variant="ghost" isDisabled>
+                    <Button size="sm" leftIcon={<FiSliders />} variant="ghost" onClick={() => openProcessParcConsultation(project)}>
                       Modifier
                     </Button>
                     <Button size="sm" leftIcon={<FiFileText />} colorScheme="rbe" onClick={() => openProcessParcConsultation(project)}>
