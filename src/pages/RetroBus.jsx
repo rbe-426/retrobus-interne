@@ -34,6 +34,71 @@ function EtatBadge({ etat }) {
 
 const normalizeParcKey = (value) => String(value || '').trim().toUpperCase();
 
+const readFileAsDataUrl = (file) => new Promise((resolve) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => resolve(null);
+  reader.readAsDataURL(file);
+});
+
+const buildStoredFile = async (file, idPrefix) => ({
+  id: `${idPrefix}-${Date.now()}-${file.name}`,
+  name: file.name,
+  size: file.size,
+  type: file.type || 'application/octet-stream',
+  dataUrl: await readFileAsDataUrl(file),
+  addedAt: new Date().toISOString()
+});
+
+const getStoredFileHref = (file) => file?.dataUrl || file?.url || file?.href || '';
+const isImageFile = (file) => String(file?.type || '').startsWith('image/') || /^data:image\//.test(String(file?.dataUrl || ''));
+
+function ProcessParcFilePreview({ file, fallbackName }) {
+  const href = getStoredFileHref(file);
+  const fileName = file?.name || fallbackName || 'Fichier';
+
+  return (
+    <Box borderWidth="1px" borderRadius="md" p={3} bg="white">
+      {href && isImageFile(file) && (
+        <Box
+          as="img"
+          src={href}
+          alt={fileName}
+          w="full"
+          maxH="220px"
+          objectFit="cover"
+          borderRadius="md"
+          mb={3}
+          borderWidth="1px"
+        />
+      )}
+      <HStack justify="space-between" gap={3} align="start">
+        <Box minW={0}>
+          <Text fontSize="sm" color="gray.700" fontWeight="600" noOfLines={2}>{fileName}</Text>
+          <Text fontSize="xs" color="gray.500">{file?.size ? `${Math.max(1, Math.round(file.size / 1024))} Ko` : 'Fichier historique non téléchargeable'}</Text>
+          {file?.source === 'relance' && (
+            <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
+          )}
+        </Box>
+        <Button
+          as="a"
+          href={href || undefined}
+          download={href ? fileName : undefined}
+          target={href ? '_blank' : undefined}
+          rel={href ? 'noreferrer' : undefined}
+          size="xs"
+          colorScheme="rbe"
+          variant="outline"
+          isDisabled={!href}
+          flexShrink={0}
+        >
+          Télécharger
+        </Button>
+      </HStack>
+    </Box>
+  );
+}
+
 // Animation clignotante pour l'icône uniquement (Trilogy)
 const blinkIconAnimation = keyframes`
   0%, 100% { opacity: 1; }
@@ -871,17 +936,11 @@ export default function RetroBus() {
     return () => window.removeEventListener('storage', handleRapatriementStorage);
   }, [reloadVehicles, toast]);
 
-  const addProcessParcFiles = (type, files) => {
+  const addProcessParcFiles = async (type, files) => {
     if (!processParcOpenedProject || !files?.length) return;
 
     const field = type === 'mail' ? 'mailCaptures' : 'documents';
-    const additions = Array.from(files).map((file) => ({
-      id: `${field}-${Date.now()}-${file.name}`,
-      name: file.name,
-      size: file.size,
-      type: file.type || 'application/octet-stream',
-      addedAt: new Date().toISOString()
-    }));
+    const additions = await Promise.all(Array.from(files).map((file) => buildStoredFile(file, field)));
 
     const updatedProject = {
       ...processParcOpenedProject,
@@ -1023,18 +1082,23 @@ export default function RetroBus() {
             const offlineMessage = ${offlineMessagePayload};
             const getValue = (id) => document.getElementById(id)?.value || '';
             const getChecked = (id) => Boolean(document.getElementById(id)?.checked);
-            const fileMeta = (id) => Array.from(document.getElementById(id)?.files || []).map((file) => ({
+            const readFileAsDataUrl = (file) => new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = () => resolve(null);
+              reader.readAsDataURL(file);
+            });
+            const toStoredFile = async (file) => ({
               name: file.name,
               size: file.size,
-              type: file.type || 'application/octet-stream'
-            }));
-            const fileMetaFromSelector = (selector) => Array.from(document.querySelectorAll(selector)).flatMap((input) =>
-              Array.from(input.files || []).map((file) => ({
-                name: file.name,
-                size: file.size,
-                type: file.type || 'application/octet-stream'
-              }))
-            );
+              type: file.type || 'application/octet-stream',
+              dataUrl: await readFileAsDataUrl(file)
+            });
+            const fileMeta = async (id) => Promise.all(Array.from(document.getElementById(id)?.files || []).map(toStoredFile));
+            const fileMetaFromSelector = async (selector) => {
+              const files = Array.from(document.querySelectorAll(selector)).flatMap((input) => Array.from(input.files || []));
+              return Promise.all(files.map(toStoredFile));
+            };
             const setHint = (message, isError = false) => {
               const hint = document.getElementById('submitHint');
               if (!hint) return;
@@ -1052,15 +1116,15 @@ export default function RetroBus() {
             document.getElementById('addVehiclePhoto')?.addEventListener('click', () => addPhotoInput('extraVehiclePhotos', 'vehicleExtraPhoto', 'Photo véhicule complémentaire'));
             document.getElementById('addInteriorPhoto')?.addEventListener('click', () => addPhotoInput('extraInteriorPhotos', 'interiorExtraPhoto', 'Photo intérieure complémentaire'));
 
-            const buildReport = (moveToOverview = false) => {
+            const buildReport = async (moveToOverview = false) => {
               const vehiclePhotos = {
-                front: fileMeta('photoFront'),
-                rear: fileMeta('photoRear'),
-                left: fileMeta('photoLeft'),
-                right: fileMeta('photoRight'),
-                extra: fileMetaFromSelector('.vehicleExtraPhoto')
+                front: await fileMeta('photoFront'),
+                rear: await fileMeta('photoRear'),
+                left: await fileMeta('photoLeft'),
+                right: await fileMeta('photoRight'),
+                extra: await fileMetaFromSelector('.vehicleExtraPhoto')
               };
-              const interiorPhotos = [...fileMeta('interiorPhotos'), ...fileMetaFromSelector('.interiorExtraPhoto')];
+              const interiorPhotos = [...await fileMeta('interiorPhotos'), ...await fileMetaFromSelector('.interiorExtraPhoto')];
 
               if (!interiorPhotos.length) {
                 setHint('Ajoutez au moins 1 photo intérieure avant de valider.', true);
@@ -1085,16 +1149,16 @@ export default function RetroBus() {
                 appointmentTime: getValue('rapatriementTime'),
                 vehiclePhotos,
                 interiorPhotos,
-                legalDocuments: fileMeta('legalDocuments'),
-                oil: { photos: fileMeta('oilPhoto'), ok: getChecked('oilOk') },
-                coolant: { photos: fileMeta('coolantPhoto'), ok: getChecked('coolantOk') },
+                legalDocuments: await fileMeta('legalDocuments'),
+                oil: { photos: await fileMeta('oilPhoto'), ok: getChecked('oilOk') },
+                coolant: { photos: await fileMeta('coolantPhoto'), ok: getChecked('coolantOk') },
                 fuelLevel: getValue('fuelLevel'),
                 anomalies: getValue('anomalies')
               };
             };
 
             const saveReport = async (moveToOverview = false) => {
-              const report = buildReport(moveToOverview);
+              const report = await buildReport(moveToOverview);
               if (!report) return false;
 
               try {
@@ -2204,13 +2268,14 @@ export default function RetroBus() {
                 <HStack spacing={2} wrap="wrap">
                   {(processParcConsultationMode ? [
                     { id: 'recap', label: 'Récap du projet' },
+                    { id: 'documents', label: 'Documents et Mails' },
                     { id: 'repatriement', label: 'Données de rapatriement' }
                   ] : [
                     { id: 'recap', label: 'Récap Projets' },
                     { id: 'documents', label: 'Documents et Mails' },
                     { id: 'repatriement', label: 'Process de Rapatriement' }
                   ]).map((step, index, steps) => {
-                    const order = processParcConsultationMode ? ['recap', 'repatriement'] : ['recap', 'documents', 'repatriement'];
+                    const order = ['recap', 'documents', 'repatriement'];
                     const activeIndex = order.indexOf(processParcProjectDetailStep);
                     const isActive = step.id === processParcProjectDetailStep;
                     const isDone = index < activeIndex;
@@ -2287,6 +2352,7 @@ export default function RetroBus() {
                           </Box>
                           <Badge colorScheme="rbe">{(processParcOpenedProject.documents || []).length} document(s)</Badge>
                         </HStack>
+                        {!processParcConsultationMode && (
                         <Box>
                           <Input
                             type="file"
@@ -2298,6 +2364,7 @@ export default function RetroBus() {
                             }}
                           />
                         </Box>
+                        )}
                         {(processParcOpenedProject.documents || []).length === 0 ? (
                           <Alert status="info" borderRadius="md">
                             <AlertIcon />
@@ -2306,13 +2373,7 @@ export default function RetroBus() {
                         ) : (
                           <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
                             {(processParcOpenedProject.documents || []).map((file) => (
-                              <Box key={file.id} borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
-                                <Text fontWeight="600" color="black">{file.name}</Text>
-                                <Text fontSize="sm" color="gray.600">{Math.max(1, Math.round(file.size / 1024))} Ko</Text>
-                                {file.source === 'relance' && (
-                                  <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
-                                )}
-                              </Box>
+                              <ProcessParcFilePreview key={file.id} file={file} />
                             ))}
                           </SimpleGrid>
                         )}
@@ -2330,6 +2391,7 @@ export default function RetroBus() {
                           </Box>
                           <Badge colorScheme="blue">{(processParcOpenedProject.mailCaptures || []).length} capture(s)</Badge>
                         </HStack>
+                        {!processParcConsultationMode && (
                         <Box>
                           <Input
                             type="file"
@@ -2341,6 +2403,7 @@ export default function RetroBus() {
                             }}
                           />
                         </Box>
+                        )}
                         {(processParcOpenedProject.mailCaptures || []).length === 0 ? (
                           <Box borderWidth="1px" borderStyle="dashed" borderRadius="md" p={4} textAlign="center" color="gray.600">
                             Aucune capture de mail jointe.
@@ -2348,13 +2411,7 @@ export default function RetroBus() {
                         ) : (
                           <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
                             {(processParcOpenedProject.mailCaptures || []).map((file) => (
-                              <Box key={file.id} borderWidth="1px" borderRadius="md" p={3} bg="blue.50">
-                                <Text fontWeight="600" color="black">{file.name}</Text>
-                                <Text fontSize="sm" color="gray.600">{Math.max(1, Math.round(file.size / 1024))} Ko</Text>
-                                {file.source === 'relance' && (
-                                  <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
-                                )}
-                              </Box>
+                              <ProcessParcFilePreview key={file.id} file={file} />
                             ))}
                           </SimpleGrid>
                         )}
@@ -2471,6 +2528,24 @@ export default function RetroBus() {
                                       <Text fontSize="xs" color="gray.500">Niveau gasoil</Text>
                                       <Text fontWeight="600" color="black">{report.fuelLevel || '-'}</Text>
                                     </Box>
+                                  </SimpleGrid>
+                                  <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+                                    {[
+                                      ['Photos véhicule', Object.entries(report.vehiclePhotos || {}).flatMap(([angle, files]) => (files || []).map((file) => ({ ...file, group: angle })))],
+                                      ['Photos intérieurs', report.interiorPhotos || []],
+                                      ['Documents légaux', report.legalDocuments || []],
+                                      ['Photos huile', report.oil?.photos || []],
+                                      ['Photos LDR / fluides', report.coolant?.photos || []]
+                                    ].filter(([, files]) => files.length > 0).map(([label, files]) => (
+                                      <Box key={label} borderWidth="1px" borderRadius="md" p={3} bg="white">
+                                        <Text fontSize="sm" fontWeight="700" color="black" mb={2}>{label}</Text>
+                                        <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+                                          {files.map((file, index) => (
+                                            <ProcessParcFilePreview key={`${label}-${file.id || file.name || index}`} file={file} fallbackName={`Fichier ${index + 1}`} />
+                                          ))}
+                                        </SimpleGrid>
+                                      </Box>
+                                    ))}
                                   </SimpleGrid>
                                   {report.anomalies && (
                                     <Box bg="orange.50" borderRadius="md" p={3}>
@@ -2839,8 +2914,12 @@ export default function RetroBus() {
                   onClick={() => {
                     if (processParcStep === 'project-detail') {
                       if (processParcConsultationMode) {
-                        if (processParcProjectDetailStep === 'repatriement') {
+                        if (processParcProjectDetailStep === 'documents') {
                           setProcessParcProjectDetailStep('recap');
+                          return;
+                        }
+                        if (processParcProjectDetailStep === 'repatriement') {
+                          setProcessParcProjectDetailStep('documents');
                           return;
                         }
                         resetProcessParcModal();
@@ -2880,11 +2959,11 @@ export default function RetroBus() {
                   </Button>
                 )}
                 {processParcStep === 'project-detail' && processParcProjectDetailStep === 'recap' && (
-                  <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep(processParcConsultationMode ? 'repatriement' : 'documents')}>
+                  <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep('documents')}>
                     Suivant
                   </Button>
                 )}
-                {processParcStep === 'project-detail' && processParcProjectDetailStep === 'documents' && !processParcConsultationMode && (
+                {processParcStep === 'project-detail' && processParcProjectDetailStep === 'documents' && (
                   <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep('repatriement')}>
                     Suivant
                   </Button>
@@ -2941,13 +3020,8 @@ export default function RetroBus() {
                   type="file"
                   multiple
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                  onChange={(event) => {
-                    const additions = Array.from(event.target.files || []).map((file) => ({
-                      id: `relance-doc-${Date.now()}-${file.name}`,
-                      name: file.name,
-                      size: file.size,
-                      type: file.type || 'application/octet-stream'
-                    }));
+                  onChange={async (event) => {
+                    const additions = await Promise.all(Array.from(event.target.files || []).map((file) => buildStoredFile(file, 'relance-doc')));
                     setProcessParcReminderForm((prev) => ({ ...prev, documents: [...prev.documents, ...additions] }));
                     event.target.value = '';
                   }}
@@ -2966,13 +3040,8 @@ export default function RetroBus() {
                   type="file"
                   multiple
                   accept="image/*,.pdf"
-                  onChange={(event) => {
-                    const additions = Array.from(event.target.files || []).map((file) => ({
-                      id: `relance-mail-${Date.now()}-${file.name}`,
-                      name: file.name,
-                      size: file.size,
-                      type: file.type || 'application/octet-stream'
-                    }));
+                  onChange={async (event) => {
+                    const additions = await Promise.all(Array.from(event.target.files || []).map((file) => buildStoredFile(file, 'relance-mail')));
                     setProcessParcReminderForm((prev) => ({ ...prev, mailCaptures: [...prev.mailCaptures, ...additions] }));
                     event.target.value = '';
                   }}
