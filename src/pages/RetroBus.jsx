@@ -1001,6 +1001,13 @@ export default function RetroBus() {
             input[type="file"] { background: #fafafa; border-style: dashed; }
             input[type="checkbox"] { width: auto; min-height: auto; transform: scale(1.25); margin-right: 8px; accent-color: var(--rbe); }
             .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+            .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+            .preview-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; overflow: hidden; }
+            .preview-card img { width: 100%; height: 96px; object-fit: cover; border-radius: 6px; background: #f2f4f7; display: block; margin-bottom: 8px; }
+            .preview-file { min-height: 96px; border-radius: 6px; background: #f8fafc; display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; color: var(--muted); font-weight: 800; margin-bottom: 8px; }
+            .preview-name { font-size: 12px; font-weight: 700; word-break: break-word; color: #1f2937; }
+            .preview-size { font-size: 11px; color: var(--muted); margin-top: 2px; }
+            .remove-file { margin-top: 8px; padding: 8px 10px; font-size: 12px; background: white; color: #b42318; border: 1px solid #fda29b; box-shadow: none; }
             .check { display: flex; align-items: center; min-height: 44px; font-weight: 700; }
             .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
             .error { color: #b42318; font-weight: 700; }
@@ -1030,10 +1037,10 @@ export default function RetroBus() {
               <h2>Photos du véhicule</h2>
               <div class="badge">4 angles requis</div>
               <div class="grid">
-                <div><label>Angle avant</label><input id="photoFront" type="file" accept="image/*" capture="environment" /></div>
-                <div><label>Angle arrière</label><input id="photoRear" type="file" accept="image/*" capture="environment" /></div>
-                <div><label>Côté gauche</label><input id="photoLeft" type="file" accept="image/*" capture="environment" /></div>
-                <div><label>Côté droit</label><input id="photoRight" type="file" accept="image/*" capture="environment" /></div>
+                <div><label>Angle avant</label><input id="photoFront" type="file" accept="image/*" capture="environment" /><div id="preview-photoFront" class="preview-grid"></div></div>
+                <div><label>Angle arrière</label><input id="photoRear" type="file" accept="image/*" capture="environment" /><div id="preview-photoRear" class="preview-grid"></div></div>
+                <div><label>Côté gauche</label><input id="photoLeft" type="file" accept="image/*" capture="environment" /><div id="preview-photoLeft" class="preview-grid"></div></div>
+                <div><label>Côté droit</label><input id="photoRight" type="file" accept="image/*" capture="environment" /><div id="preview-photoRight" class="preview-grid"></div></div>
               </div>
               <div id="extraVehiclePhotos" class="grid"></div>
               <button id="addVehiclePhoto" class="ghost" type="button">Ajouter d'autres photos</button>
@@ -1043,6 +1050,7 @@ export default function RetroBus() {
               <h2>Photos intérieurs</h2>
               <label>Intérieur du véhicule - 1 photo minimum</label>
               <input id="interiorPhotos" type="file" accept="image/*" capture="environment" multiple />
+              <div id="preview-interiorPhotos" class="preview-grid"></div>
               <div id="extraInteriorPhotos" class="grid"></div>
               <button id="addInteriorPhoto" class="ghost" type="button">Ajouter d'autres photos</button>
               <div class="hint">1 photo minimum.</div>
@@ -1052,13 +1060,14 @@ export default function RetroBus() {
               <h2>Documents légaux signés</h2>
               <label>Justificatif de cession</label>
               <input id="legalDocuments" type="file" accept="image/*,.pdf" capture="environment" multiple />
+              <div id="preview-legalDocuments" class="preview-grid"></div>
             </section>
 
             <section>
               <h2>Niveaux et fluides</h2>
               <div class="grid">
-                <div><label>Niveau huile à photographier</label><input id="oilPhoto" type="file" accept="image/*" capture="environment" /><label class="check"><input id="oilOk" type="checkbox" /> OK</label></div>
-                <div><label>Niveau LDR et autres fluides</label><input id="coolantPhoto" type="file" accept="image/*" capture="environment" /><label class="check"><input id="coolantOk" type="checkbox" /> OK</label></div>
+                <div><label>Niveau huile à photographier</label><input id="oilPhoto" type="file" accept="image/*" capture="environment" /><div id="preview-oilPhoto" class="preview-grid"></div><label class="check"><input id="oilOk" type="checkbox" /> OK</label></div>
+                <div><label>Niveau LDR et autres fluides</label><input id="coolantPhoto" type="file" accept="image/*" capture="environment" /><div id="preview-coolantPhoto" class="preview-grid"></div><label class="check"><input id="coolantOk" type="checkbox" /> OK</label></div>
                 <div><label>Niveau gasoil</label><input id="fuelLevel" type="number" min="0" max="100" step="1" placeholder="Pourcentage ou estimation" /></div>
               </div>
             </section>
@@ -1105,14 +1114,64 @@ export default function RetroBus() {
               hint.textContent = message;
               hint.className = isError ? 'hint error' : 'hint';
             };
+            const syncInputFiles = (input, files) => {
+              const transfer = new DataTransfer();
+              files.forEach((file) => transfer.items.add(file));
+              input.files = transfer.files;
+            };
+            const formatSize = (size) => Math.max(1, Math.round((Number(size) || 0) / 1024)) + ' Ko';
+            const renderPreview = (input) => {
+              const preview = document.getElementById('preview-' + input.id) || input.parentElement?.querySelector('.preview-grid');
+              if (!preview) return;
+              preview.innerHTML = '';
+              Array.from(input.files || []).forEach((file, index) => {
+                const card = document.createElement('div');
+                card.className = 'preview-card';
+                const media = document.createElement(file.type.startsWith('image/') ? 'img' : 'div');
+                if (file.type.startsWith('image/')) {
+                  media.src = URL.createObjectURL(file);
+                  media.onload = () => URL.revokeObjectURL(media.src);
+                  media.alt = file.name;
+                } else {
+                  media.className = 'preview-file';
+                  media.textContent = file.type.includes('pdf') ? 'PDF' : 'Fichier';
+                }
+                const name = document.createElement('div');
+                name.className = 'preview-name';
+                name.textContent = file.name;
+                const size = document.createElement('div');
+                size.className = 'preview-size';
+                size.textContent = formatSize(file.size);
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'remove-file';
+                remove.textContent = 'Retirer';
+                remove.addEventListener('click', () => {
+                  const nextFiles = Array.from(input.files || []).filter((_, fileIndex) => fileIndex !== index);
+                  syncInputFiles(input, nextFiles);
+                  renderPreview(input);
+                });
+                card.append(media, name, size, remove);
+                preview.appendChild(card);
+              });
+            };
+            const bindFilePreview = (input) => {
+              if (!input || input.dataset.previewBound === '1') return;
+              input.dataset.previewBound = '1';
+              input.addEventListener('change', () => renderPreview(input));
+              renderPreview(input);
+            };
             const addPhotoInput = (containerId, className, label) => {
               const container = document.getElementById(containerId);
               if (!container) return;
               const index = container.querySelectorAll('input').length + 1;
               const wrapper = document.createElement('div');
-              wrapper.innerHTML = '<label>' + label + ' ' + index + '</label><input class="' + className + '" type="file" accept="image/*" capture="environment" multiple />';
+              const inputId = className + '-' + Date.now() + '-' + index;
+              wrapper.innerHTML = '<label>' + label + ' ' + index + '</label><input id="' + inputId + '" class="' + className + '" type="file" accept="image/*" capture="environment" multiple /><div id="preview-' + inputId + '" class="preview-grid"></div>';
               container.appendChild(wrapper);
+              bindFilePreview(wrapper.querySelector('input'));
             };
+            ['photoFront', 'photoRear', 'photoLeft', 'photoRight', 'interiorPhotos', 'legalDocuments', 'oilPhoto', 'coolantPhoto'].forEach((id) => bindFilePreview(document.getElementById(id)));
             document.getElementById('addVehiclePhoto')?.addEventListener('click', () => addPhotoInput('extraVehiclePhotos', 'vehicleExtraPhoto', 'Photo véhicule complémentaire'));
             document.getElementById('addInteriorPhoto')?.addEventListener('click', () => addPhotoInput('extraInteriorPhotos', 'interiorExtraPhoto', 'Photo intérieure complémentaire'));
 
