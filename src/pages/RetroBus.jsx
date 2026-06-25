@@ -1136,8 +1136,31 @@ export default function RetroBus() {
   const addProcessParcReminder = () => {
     if (!processParcOpenedProject) return;
 
+    const reminderId = `relance-${Date.now()}`;
+    const withReminderSource = (files = [], type) => files.map((file) => ({
+      ...file,
+      id: `${file.id}-${reminderId}`,
+      source: 'relance',
+      sourceType: type,
+      reminderId,
+      reminderRank: processParcReminderForm.rank.trim(),
+      reminderDate: processParcReminderForm.date
+    }));
+    const mergeFiles = (current = [], additions = []) => {
+      const seen = new Set(current.map((file) => `${file.name}-${file.size}-${file.type || ''}`));
+      return [
+        ...current,
+        ...additions.filter((file) => {
+          const key = `${file.name}-${file.size}-${file.type || ''}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+      ];
+    };
+
     const reminder = {
-      id: `relance-${Date.now()}`,
+      id: reminderId,
       rank: processParcReminderForm.rank.trim(),
       date: processParcReminderForm.date,
       contact: processParcReminderForm.contact.trim(),
@@ -1146,8 +1169,13 @@ export default function RetroBus() {
       mailCaptures: processParcReminderForm.mailCaptures
     };
 
+    const reminderDocuments = withReminderSource(processParcReminderForm.documents, 'document');
+    const reminderMailCaptures = withReminderSource(processParcReminderForm.mailCaptures, 'mail');
+
     const updatedProject = {
       ...processParcOpenedProject,
+      documents: mergeFiles(processParcOpenedProject.documents || [], reminderDocuments),
+      mailCaptures: mergeFiles(processParcOpenedProject.mailCaptures || [], reminderMailCaptures),
       reminders: [...(processParcOpenedProject.reminders || []), reminder]
     };
 
@@ -2281,6 +2309,9 @@ export default function RetroBus() {
                               <Box key={file.id} borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
                                 <Text fontWeight="600" color="black">{file.name}</Text>
                                 <Text fontSize="sm" color="gray.600">{Math.max(1, Math.round(file.size / 1024))} Ko</Text>
+                                {file.source === 'relance' && (
+                                  <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
+                                )}
                               </Box>
                             ))}
                           </SimpleGrid>
@@ -2320,6 +2351,9 @@ export default function RetroBus() {
                               <Box key={file.id} borderWidth="1px" borderRadius="md" p={3} bg="blue.50">
                                 <Text fontWeight="600" color="black">{file.name}</Text>
                                 <Text fontSize="sm" color="gray.600">{Math.max(1, Math.round(file.size / 1024))} Ko</Text>
+                                {file.source === 'relance' && (
+                                  <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
+                                )}
                               </Box>
                             ))}
                           </SimpleGrid>
