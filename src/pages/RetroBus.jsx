@@ -4,14 +4,14 @@ import {
   Tabs, TabList, TabPanels, Tab, TabPanel, useToast, Spinner, HStack, VStack,
   Badge, Tag, TagLabel, TagLeftIcon, Button, Divider, Table, Thead, Tbody, Tr, Th, Td,
   Icon, Alert, AlertIcon, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Slider, SliderTrack, SliderFilledTrack, SliderThumb, FormLabel,
-  AlertTitle, AlertDescription, CloseButton, Input
+  AlertTitle, AlertDescription, CloseButton, Input, Select, Textarea
 } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { FiClock, FiAlertTriangle, FiTool, FiFileText, FiInfo, FiEdit, FiSliders, FiRefreshCw, FiPlus, FiTruck, FiArchive, FiArrowRight, FiSearch } from "react-icons/fi";
 import WorkspaceLayout from "../components/Layout/WorkspaceLayout";
 import { apiClient } from "../api/config";
 import { vehicleAdminAPI } from "../api/vehicleAdmin";
-import { cachedAPICall, batchAPICall, debounce } from "../lib/performanceUtils";
+import { apiCache, cachedAPICall, batchAPICall, debounce } from "../lib/performanceUtils";
 import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor.jsx';
 import VehicleAdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,8 @@ function EtatBadge({ etat }) {
   const colorMap = {
     disponible: "green",
     en_panne: "red",
+    immobilise: "red",
+    reforme: "gray",
     maintenance: "orange",
     Service: "green",
     Préservé: "blue",
@@ -29,6 +31,8 @@ function EtatBadge({ etat }) {
   };
   return <Badge colorScheme={colorMap[etat] || "purple"}>{etat || "—"}</Badge>;
 }
+
+const normalizeParcKey = (value) => String(value || '').trim().toUpperCase();
 
 // Animation clignotante pour l'icône uniquement (Trilogy)
 const blinkIconAnimation = keyframes`
@@ -582,6 +586,7 @@ export default function RetroBus() {
   const [processParcCreatedProject, setProcessParcCreatedProject] = useState(null);
   const [processParcOpenedProject, setProcessParcOpenedProject] = useState(null);
   const [processParcProjectDetailStep, setProcessParcProjectDetailStep] = useState('recap');
+  const [processParcConsultationMode, setProcessParcConsultationMode] = useState(false);
   const [processParcReminderOpen, setProcessParcReminderOpen] = useState(false);
   const [processParcReminderForm, setProcessParcReminderForm] = useState({
     rank: '',
@@ -598,6 +603,20 @@ export default function RetroBus() {
   const [editTechCaracs, setEditTechCaracs] = useState([]);
   const [editTechGasoil, setEditTechGasoil] = useState(0);
   const [editTechSaving, setEditTechSaving] = useState(false);
+  const [lifecycleOpen, setLifecycleOpen] = useState(false);
+  const [lifecycleVehicle, setLifecycleVehicle] = useState(null);
+  const [lifecycleSaving, setLifecycleSaving] = useState(false);
+  const [lifecycleForm, setLifecycleForm] = useState({
+    eventType: 'incident',
+    severity: 'critique',
+    title: '',
+    description: '',
+    decision: 'a_diagnostiquer',
+    immobilizing: true,
+    reformReason: '',
+    reformDate: '',
+    decidedBy: ''
+  });
 
   // Alertes critiques - Une alerte par véhicule avec tous ses problèmes
   const [criticalAlerts, setCriticalAlerts] = useState({
@@ -634,6 +653,51 @@ export default function RetroBus() {
     }
   }, [toast]);
 
+  const openLifecycleModal = useCallback((vehicle) => {
+    setLifecycleVehicle(vehicle);
+    setLifecycleForm({
+      eventType: 'incident',
+      severity: 'critique',
+      title: '',
+      description: '',
+      decision: 'a_diagnostiquer',
+      immobilizing: true,
+      reformReason: '',
+      reformDate: '',
+      decidedBy: ''
+    });
+    setLifecycleOpen(true);
+  }, []);
+
+  const submitLifecycleEvent = useCallback(async () => {
+    if (!lifecycleVehicle) return;
+    const parc = lifecycleVehicle.parc || lifecycleVehicle.id || lifecycleVehicle.slug;
+    if (!lifecycleForm.title.trim()) {
+      toast({ status: 'warning', title: 'Titre requis' });
+      return;
+    }
+
+    try {
+      setLifecycleSaving(true);
+      const response = await apiClient.post(`/vehicles/${encodeURIComponent(parc)}/lifecycle-events`, lifecycleForm);
+      const updatedVehicle = response?.vehicle || {};
+      setVehicles(prev => prev.map(vehicle => {
+        const vehicleParc = vehicle.parc || vehicle.id || vehicle.slug;
+        return vehicleParc === parc ? { ...vehicle, ...updatedVehicle } : vehicle;
+      }));
+      apiCache.delete('vehicles-list');
+      toast({
+        status: 'success',
+        title: lifecycleForm.eventType === 'reforme' ? 'Véhicule réformé' : 'Incident enregistré'
+      });
+      setLifecycleOpen(false);
+    } catch (error) {
+      toast({ status: 'error', title: 'Erreur cycle de vie', description: error.message });
+    } finally {
+      setLifecycleSaving(false);
+    }
+  }, [lifecycleForm, lifecycleVehicle, toast]);
+
   const identifyTcInfosVehicle = useCallback(async () => {
     try {
       setProcessParcTcInfosLoading(true);
@@ -665,11 +729,15 @@ export default function RetroBus() {
     try {
       const projects = await apiClient.get('/api/process-parc/projects');
       setProcessParcProjects(Array.isArray(projects) ? projects : []);
+      if (Array.isArray(projects) && projects.some((project) => project.status === 'overview')) {
+        apiCache.delete('vehicles-list');
+        reloadVehicles();
+      }
     } catch (error) {
       console.error('Erreur chargement Process PARC:', error);
       toast({ status: 'error', title: 'Process PARC', description: 'Impossible de charger les projets serveur.' });
     }
-  }, [toast]);
+  }, [reloadVehicles, toast]);
 
   useEffect(() => {
     loadProcessParcProjects();
@@ -701,6 +769,7 @@ export default function RetroBus() {
   };
 
   const openProcessParcProject = (project) => {
+    setProcessParcConsultationMode(false);
     setProcessParcOpenedProject(project);
     setProcessParcOpen(true);
     setProcessParcStep('project-detail');
@@ -713,7 +782,11 @@ export default function RetroBus() {
     setProcessParcInternalFleetNumber(project.internalFleetNumber);
     setProcessParcProjectSource(project.source);
     setProcessParcTcInfosResult(project.tcInfos || null);
-    openProcessParcProject(project);
+    setProcessParcConsultationMode(true);
+    setProcessParcOpenedProject(project);
+    setProcessParcOpen(true);
+    setProcessParcStep('project-detail');
+    setProcessParcProjectDetailStep('recap');
   };
 
   const updateProcessParcProject = (updatedProject) => {
@@ -736,6 +809,10 @@ export default function RetroBus() {
           setProcessParcProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
           setProcessParcOpenedProject((prev) => prev?.id === project.id ? project : prev);
           setProcessParcCreatedProject((prev) => prev?.id === project.id ? project : prev);
+          if (project.status === 'overview') {
+            apiCache.delete('vehicles-list');
+            reloadVehicles();
+          }
           toast({ status: 'success', title: 'Process PARC sauvegardé', description: project.name });
           return;
         }
@@ -781,6 +858,10 @@ export default function RetroBus() {
         });
 
         toast({ status: 'success', title: 'Relevé de rapatriement reçu', description: report.projectName });
+        if (report.moveToOverview) {
+          apiCache.delete('vehicles-list');
+          reloadVehicles();
+        }
       } catch (error) {
         console.error('Erreur lecture relevé rapatriement:', error);
       }
@@ -788,7 +869,7 @@ export default function RetroBus() {
 
     window.addEventListener('storage', handleRapatriementStorage);
     return () => window.removeEventListener('storage', handleRapatriementStorage);
-  }, [toast]);
+  }, [reloadVehicles, toast]);
 
   const addProcessParcFiles = (type, files) => {
     if (!processParcOpenedProject || !files?.length) return;
@@ -830,6 +911,9 @@ export default function RetroBus() {
     const projectIdPayload = JSON.stringify(processParcOpenedProject.id);
     const projectNamePayload = JSON.stringify(processParcOpenedProject.name);
     const parcPayload = JSON.stringify(processParcOpenedProject.internalFleetNumber);
+    const successMoveMessagePayload = JSON.stringify("Relevé sauvegardé serveur. Véhicule déplacé dans Vue d'ensemble.");
+    const successSaveMessagePayload = JSON.stringify('Relevé sauvegardé serveur dans le dossier Process PARC.');
+    const offlineMessagePayload = JSON.stringify('Serveur indisponible: relevé conservé localement, à resynchroniser depuis RétroBus.');
     const child = window.open('', '_blank');
     if (!child) {
       toast({ status: 'warning', title: 'Nouvel onglet bloqué', description: 'Autorisez les popups pour ouvrir le process mobile.' });
@@ -927,14 +1011,16 @@ export default function RetroBus() {
 
             <section>
               <button id="submitRepatriement" type="button">Valider le relevé de rapatriement</button>
-              <button id="closeRepatriement" class="secondary" type="button">Fermer</button>
-              <div id="submitHint" class="hint">Le relevé sera renvoyé au dossier Process PARC.</div>
+              <div id="submitHint" class="hint">Le relevé sera sauvegardé, renvoyé au dossier Process PARC et déplacera le véhicule dans Vue d'ensemble.</div>
             </section>
           </main>
           <script>
             const projectId = ${projectIdPayload};
             const projectName = ${projectNamePayload};
             const internalFleetNumber = ${parcPayload};
+            const successMoveMessage = ${successMoveMessagePayload};
+            const successSaveMessage = ${successSaveMessagePayload};
+            const offlineMessage = ${offlineMessagePayload};
             const getValue = (id) => document.getElementById(id)?.value || '';
             const getChecked = (id) => Boolean(document.getElementById(id)?.checked);
             const fileMeta = (id) => Array.from(document.getElementById(id)?.files || []).map((file) => ({
@@ -1028,24 +1114,18 @@ export default function RetroBus() {
                 const project = await response.json();
                 localStorage.setItem('process-parc-project:' + projectId, JSON.stringify(project));
                 localStorage.setItem('process-parc-rapatriement:' + projectId, JSON.stringify(report));
-                setHint(moveToOverview ? 'Relevé sauvegardé serveur. Véhicule déplacé dans Vue d\'ensemble.' : 'Relevé sauvegardé serveur dans le dossier Process PARC.');
+                setHint(moveToOverview ? successMoveMessage : successSaveMessage);
                 document.getElementById('submitRepatriement').textContent = 'Relevé sauvegardé';
                 return true;
               } catch (error) {
                 localStorage.setItem('process-parc-rapatriement:' + projectId, JSON.stringify(report));
-                setHint('Serveur indisponible: relevé conservé localement, à resynchroniser depuis RétroBus.', true);
+                setHint(offlineMessage, true);
                 return false;
               }
             };
 
             document.getElementById('submitRepatriement')?.addEventListener('click', async () => {
-              await saveReport(false);
-            });
-
-            document.getElementById('closeRepatriement')?.addEventListener('click', async () => {
-              if (!await saveReport(true)) return;
-              window.close();
-              setTimeout(() => setHint('Relevé conservé. Vous pouvez fermer cet onglet.'), 250);
+              await saveReport(true);
             });
           </script>
         </body>
@@ -1088,6 +1168,7 @@ export default function RetroBus() {
     setProcessParcCreatedProject(null);
     setProcessParcOpenedProject(null);
     setProcessParcProjectDetailStep('recap');
+    setProcessParcConsultationMode(false);
     setProcessParcReminderOpen(false);
     setProcessParcReminderForm({ rank: '', date: '', contact: '', identity: '', documents: [], mailCaptures: [] });
   };
@@ -1287,7 +1368,8 @@ export default function RetroBus() {
   }, [vehicles, toast]);
 
   const vehicleCards = useMemo(() => {
-    const overviewProcessParcProjects = processParcProjects.filter((project) => project.status === 'overview');
+    const vehicleParcs = new Set((vehicles || []).map((vehicle) => normalizeParcKey(vehicle.parc || vehicle.id || vehicle.slug)).filter(Boolean));
+    const overviewProcessParcProjects = processParcProjects.filter((project) => project.status === 'overview' && !vehicleParcs.has(normalizeParcKey(project.internalFleetNumber)));
     if ((!vehicles || vehicles.length === 0) && overviewProcessParcProjects.length === 0) return null;
     return (
       <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={4} mt={4}>
@@ -1363,7 +1445,7 @@ export default function RetroBus() {
           // Trouver les alertes pour ce véhicule
           const vehicleAlert = criticalAlerts.vehicleAlerts?.find(alert => alert.parc === parc);
           const hasAlerts = vehicleAlert && (vehicleAlert.ctIssues.length > 0 || vehicleAlert.docIssues.length > 0);
-          const processParcProject = processParcProjects.find((project) => project.internalFleetNumber === parc);
+          const processParcProject = processParcProjects.find((project) => normalizeParcKey(project.internalFleetNumber) === normalizeParcKey(parc));
 
           return (
             <Card 
@@ -1453,10 +1535,10 @@ export default function RetroBus() {
                       <TagLeftIcon as={FiClock} />
                       <TagLabel>Pointage en cours</TagLabel>
                     </Tag>
-                  ) : (v.etat === 'en_panne' || v.statut === 'en_panne') ? (
+                  ) : (['en_panne', 'immobilise', 'reforme'].includes(v.etat) || ['en_panne', 'immobilise', 'reforme'].includes(v.statut)) ? (
                     <Tag colorScheme="red" size="sm" w="full" justifyContent="center">
                       <TagLeftIcon as={FiAlertTriangle} />
-                      <TagLabel>En panne</TagLabel>
+                      <TagLabel>{v.etat === 'reforme' || v.statut === 'reforme' ? 'Réformé' : v.etat === 'immobilise' || v.statut === 'immobilise' ? 'Immobilisé' : 'En panne'}</TagLabel>
                     </Tag>
                   ) : null}
 
@@ -1485,6 +1567,15 @@ export default function RetroBus() {
                       }}
                     >
                       Modifier
+                    </Button>
+                    <Button
+                      size="sm"
+                      leftIcon={<FiAlertTriangle />}
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={() => openLifecycleModal(v)}
+                    >
+                      Incident
                     </Button>
                     {processParcProject && (
                       <Button
@@ -1771,14 +1862,29 @@ export default function RetroBus() {
     </VStack>
   );
 
-  const renderAdministrativeSection = () => (
+  const renderAdministrativeSection = () => {
+    const vehicleParcs = new Set((vehicles || []).map((vehicle) => normalizeParcKey(vehicle.parc || vehicle.id || vehicle.slug)).filter(Boolean));
+    const administrativeVehicles = [
+      ...vehicles,
+      ...processParcProjects
+        .filter((project) => project.status === 'overview' && !vehicleParcs.has(normalizeParcKey(project.internalFleetNumber)))
+        .map((project) => ({
+          parc: project.internalFleetNumber,
+          marque: project.tcInfos?.vehicle?.manufacturer || 'Process PARC',
+          modele: project.tcInfos?.vehicle?.model || project.name,
+          etat: 'Préservé',
+          processParcProject: project
+        }))
+    ];
+
+    return (
     <VStack align="stretch" spacing={4} py={2}>
       <HStack>
         <FiAlertTriangle />
         <Heading size="sm">Situation administrative</Heading>
       </HStack>
-      
-      {vehicles.length === 0 ? (
+
+      {administrativeVehicles.length === 0 ? (
         <Alert status="info">
           <AlertIcon />
           Aucun véhicule enregistré
@@ -1796,7 +1902,7 @@ export default function RetroBus() {
           </Alert>
           
           <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} gap={3} w="full">
-            {vehicles.map((v) => {
+            {administrativeVehicles.map((v) => {
               const parc = v.parc || v.id || v.slug;
               return (
                 <Card key={parc} variant="outline" _hover={{ shadow: 'md' }} p={3}>
@@ -1808,6 +1914,11 @@ export default function RetroBus() {
                       </VStack>
                     </HStack>
                     <VehicleAdminStatus parc={parc} />
+                    {v.processParcProject && (
+                      <Button size="xs" colorScheme="rbe" onClick={() => openProcessParcConsultation(v.processParcProject)}>
+                        Consultation PARC
+                      </Button>
+                    )}
                   </VStack>
                 </Card>
               );
@@ -1830,7 +1941,8 @@ export default function RetroBus() {
         </>
       )}
     </VStack>
-  );
+    );
+  };
 
   const renderCheckinsSection = () => (
     <VStack align="start" spacing={4} py={2}>
@@ -1980,10 +2092,8 @@ export default function RetroBus() {
       variant="outline"
       size="sm"
       onClick={() => {
-        // Nettoyer le cache avant d'actualiser
-        const { apiCache } = require('../lib/performanceUtils');
         apiCache.clear();
-        
+        loadProcessParcProjects();
         reloadVehicles();
         setCriticalAlerts({ vehicleAlerts: [], dismissed: [] });
       }}
@@ -2058,12 +2168,15 @@ export default function RetroBus() {
                 </Box>
 
                 <HStack spacing={2} wrap="wrap">
-                  {[
+                  {(processParcConsultationMode ? [
+                    { id: 'recap', label: 'Récap du projet' },
+                    { id: 'repatriement', label: 'Données de rapatriement' }
+                  ] : [
                     { id: 'recap', label: 'Récap Projets' },
                     { id: 'documents', label: 'Documents et Mails' },
                     { id: 'repatriement', label: 'Process de Rapatriement' }
-                  ].map((step, index) => {
-                    const order = ['recap', 'documents', 'repatriement'];
+                  ]).map((step, index, steps) => {
+                    const order = processParcConsultationMode ? ['recap', 'repatriement'] : ['recap', 'documents', 'repatriement'];
                     const activeIndex = order.indexOf(processParcProjectDetailStep);
                     const isActive = step.id === processParcProjectDetailStep;
                     const isDone = index < activeIndex;
@@ -2079,7 +2192,7 @@ export default function RetroBus() {
                         >
                           {index + 1}. {step.label}
                         </Badge>
-                        {index < 2 && <Text color="gray.400">/</Text>}
+                        {index < steps.length - 1 && <Text color="gray.400">/</Text>}
                       </HStack>
                     );
                   })}
@@ -2272,9 +2385,11 @@ export default function RetroBus() {
                         <Badge colorScheme="rbe">{(processParcOpenedProject.repatriementReports || []).length} relevé(s)</Badge>
                       </HStack>
 
-                      <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={openProcessParcRepatriementTab}>
-                        Ouvrir le process mobile
-                      </Button>
+                      {!processParcConsultationMode && (
+                        <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={openProcessParcRepatriementTab}>
+                          Ouvrir le process mobile
+                        </Button>
+                      )}
 
                       {(processParcOpenedProject.repatriementReports || []).length > 0 && (
                         <VStack align="stretch" spacing={3}>
@@ -2330,6 +2445,7 @@ export default function RetroBus() {
                         </VStack>
                       )}
 
+                      {!processParcConsultationMode && (
                       <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
                         {[
                           'Date de rdv / rapatriement',
@@ -2347,6 +2463,7 @@ export default function RetroBus() {
                           </Box>
                         ))}
                       </SimpleGrid>
+                      )}
                     </VStack>
                   </CardBody>
                 </Card>
@@ -2681,6 +2798,14 @@ export default function RetroBus() {
                   variant="outline"
                   onClick={() => {
                     if (processParcStep === 'project-detail') {
+                      if (processParcConsultationMode) {
+                        if (processParcProjectDetailStep === 'repatriement') {
+                          setProcessParcProjectDetailStep('recap');
+                          return;
+                        }
+                        resetProcessParcModal();
+                        return;
+                      }
                       if (processParcProjectDetailStep === 'documents') {
                         setProcessParcProjectDetailStep('recap');
                         return;
@@ -2715,11 +2840,11 @@ export default function RetroBus() {
                   </Button>
                 )}
                 {processParcStep === 'project-detail' && processParcProjectDetailStep === 'recap' && (
-                  <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep('documents')}>
+                  <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep(processParcConsultationMode ? 'repatriement' : 'documents')}>
                     Suivant
                   </Button>
                 )}
-                {processParcStep === 'project-detail' && processParcProjectDetailStep === 'documents' && (
+                {processParcStep === 'project-detail' && processParcProjectDetailStep === 'documents' && !processParcConsultationMode && (
                   <Button colorScheme="rbe" rightIcon={<FiArrowRight />} onClick={() => setProcessParcProjectDetailStep('repatriement')}>
                     Suivant
                   </Button>
@@ -2936,6 +3061,105 @@ export default function RetroBus() {
                 }
               }}
             >
+              Enregistrer
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={lifecycleOpen} onClose={() => setLifecycleOpen(false)} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Incident / réforme : {lifecycleVehicle?.parc}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              <FormLabel>Type d'événement</FormLabel>
+              <Select
+                value={lifecycleForm.eventType}
+                onChange={(event) => setLifecycleForm(prev => ({
+                  ...prev,
+                  eventType: event.target.value,
+                  immobilizing: event.target.value === 'reforme' ? true : prev.immobilizing,
+                  severity: event.target.value === 'reforme' ? 'critique' : prev.severity,
+                  decision: event.target.value === 'reforme' ? 'reforme' : prev.decision
+                }))}
+              >
+                <option value="incident">Panne / incident important</option>
+                <option value="reforme">Réforme du parc association</option>
+              </Select>
+
+              <FormLabel>Titre</FormLabel>
+              <Input
+                value={lifecycleForm.title}
+                onChange={(event) => setLifecycleForm(prev => ({ ...prev, title: event.target.value }))}
+                placeholder="Ex: casse moteur, châssis HS, réforme bureau..."
+              />
+
+              <FormLabel>Gravité</FormLabel>
+              <Select
+                value={lifecycleForm.severity}
+                onChange={(event) => setLifecycleForm(prev => ({ ...prev, severity: event.target.value }))}
+              >
+                <option value="mineure">Mineure</option>
+                <option value="majeure">Majeure</option>
+                <option value="critique">Critique</option>
+              </Select>
+
+              <FormLabel>Décision</FormLabel>
+              <Select
+                value={lifecycleForm.decision}
+                onChange={(event) => setLifecycleForm(prev => ({ ...prev, decision: event.target.value }))}
+              >
+                <option value="a_diagnostiquer">À diagnostiquer</option>
+                <option value="reparable">Réparable</option>
+                <option value="attente_pieces">En attente pièces</option>
+                <option value="non_reparable">Non réparable</option>
+                <option value="reforme">Réformé</option>
+              </Select>
+
+              <FormLabel>Description</FormLabel>
+              <Textarea
+                rows={4}
+                value={lifecycleForm.description}
+                onChange={(event) => setLifecycleForm(prev => ({ ...prev, description: event.target.value }))}
+                placeholder="Constat, diagnostic, contexte, prochaines actions..."
+              />
+
+              {lifecycleForm.eventType === 'reforme' && (
+                <>
+                  <FormLabel>Motif de réforme</FormLabel>
+                  <Input
+                    value={lifecycleForm.reformReason}
+                    onChange={(event) => setLifecycleForm(prev => ({ ...prev, reformReason: event.target.value }))}
+                    placeholder="Casse, vente, don, destruction, restitution..."
+                  />
+
+                  <FormLabel>Date de réforme</FormLabel>
+                  <Input
+                    type="date"
+                    value={lifecycleForm.reformDate}
+                    onChange={(event) => setLifecycleForm(prev => ({ ...prev, reformDate: event.target.value }))}
+                  />
+
+                  <FormLabel>Décision validée par</FormLabel>
+                  <Input
+                    value={lifecycleForm.decidedBy}
+                    onChange={(event) => setLifecycleForm(prev => ({ ...prev, decidedBy: event.target.value }))}
+                    placeholder="Bureau, responsable parc, CA..."
+                  />
+
+                  <Alert status="warning" borderRadius="md">
+                    <AlertIcon />
+                    La réforme passe automatiquement le véhicule en Réformé et le retire du public.
+                  </Alert>
+                </>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => setLifecycleOpen(false)}>Annuler</Button>
+            <Button colorScheme="red" isLoading={lifecycleSaving} onClick={submitLifecycleEvent}>
               Enregistrer
             </Button>
           </ModalFooter>

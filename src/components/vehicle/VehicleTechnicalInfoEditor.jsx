@@ -21,7 +21,9 @@ export const VEHICLE_STATES = [
   { value: 'en_restauration', label: '🔧 En restauration', color: 'orange' },
   { value: 'en_achat', label: '🛒 En achat', color: 'yellow' },
   { value: 'en_panne', label: '⚠️ En panne', color: 'red' },
+  { value: 'immobilise', label: '⛔ Immobilisé', color: 'red' },
   { value: 'maintenance', label: '🔩 Maintenance', color: 'orange' },
+  { value: 'reforme', label: '📦 Réformé', color: 'gray' },
   { value: 'a_venir', label: '📅 À venir', color: 'gray' }
 ];
 

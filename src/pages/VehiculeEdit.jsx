@@ -14,6 +14,47 @@ import { apiClient } from '../api/config.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+const normalizeVehicleState = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, '_');
+  const aliases = {
+    disponible: 'disponible',
+    preserve: 'preservé',
+    preservee: 'preservé',
+    preservé: 'preservé',
+    préservé: 'preservé',
+    en_restauration: 'en_restauration',
+    restauration: 'en_restauration',
+    en_achat: 'en_achat',
+    achat: 'en_achat',
+    en_panne: 'en_panne',
+    panne: 'en_panne',
+    immobilise: 'immobilise',
+    immobilisé: 'immobilise',
+    maintenance: 'maintenance',
+    reforme: 'reforme',
+    reformé: 'reforme',
+    a_venir: 'a_venir',
+    à_venir: 'a_venir'
+  };
+  return aliases[normalized] || value || '';
+};
+
+const normalizeVehicleEnergy = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, '_');
+  const aliases = {
+    diesel: 'diesel',
+    essence: 'essence',
+    electrique: 'electrique',
+    électrique: 'electrique',
+    gpl: 'gpl',
+    hybride: 'hybride',
+    autre: 'autre'
+  };
+  return aliases[normalized] || value || '';
+};
+
 export default function VehiculeEdit() {
   const { parc } = useParams();
   const navigate = useNavigate();
@@ -64,15 +105,7 @@ export default function VehiculeEdit() {
     const fetchVehicle = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE}/vehicles/${parc}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Véhicule non trouvé');
-        }
-
-        const responseData = await response.json();
+        const responseData = await apiClient.get(`/vehicles/${encodeURIComponent(parc)}`);
         const vehicleData = responseData.vehicle || responseData;
         
         // Ensure caracteristiques is always an array for the editor
@@ -99,6 +132,8 @@ export default function VehiculeEdit() {
 
         setData({
           ...vehicleData,
+          etat: normalizeVehicleState(vehicleData.etat),
+          energie: normalizeVehicleEnergy(vehicleData.energie),
           miseEnCirculation: toDateInput(vehicleData.miseEnCirculation),
           caracteristiques: Array.isArray(caracteristiques) ? caracteristiques : [],
           gallery: vehicleData.gallery || []
