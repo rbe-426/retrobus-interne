@@ -1780,7 +1780,13 @@ export default function RetroBus() {
           leftIcon={<FiPlus />}
           colorScheme="blue"
           size="sm"
-          onClick={() => setProcessParcOpen(true)}
+          onClick={() => {
+            setProcessParcConsultationMode(false);
+            setProcessParcStep('choice');
+            setProcessParcProjectDetailStep('recap');
+            setProcessParcOpenedProject(null);
+            setProcessParcOpen(true);
+          }}
         >
           Ajouter un véhicule
         </Button>
@@ -1849,7 +1855,7 @@ export default function RetroBus() {
                     <Text fontSize="sm" color="gray.600">Parc interne: {project.internalFleetNumber}</Text>
                   </Box>
                   <Button size="sm" colorScheme="rbe" onClick={() => {
-                    openProcessParcConsultation(project);
+                    openProcessParcProject(project);
                   }}>
                     Ouvrir le projet
                   </Button>

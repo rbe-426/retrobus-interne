@@ -12,7 +12,7 @@ import { API_BASE_URL } from "../api/config";
 // Build API URLs that always include the /api prefix and support same-origin when no base is set
 const BASE = (API_BASE_URL || (import.meta.env.VITE_API_URL || "")).replace(/\/+$/, "");
 const PREFIX = (import.meta.env.VITE_API_PREFIX || localStorage.getItem('rbe_api_prefix') || "api").replace(/^\/+|\/+$/g, "");
-const getVehiclesPath = () => (localStorage.getItem('rbe_api_vehicles_path') || `${PREFIX}/vehicles`).replace(/^\/+/, '').replace(/\/+$/, '');
+const getVehiclesPath = () => `${PREFIX}/mobile/vehicles`;
 const getOrigin = () => (localStorage.getItem('rbe_api_origin') || BASE).replace(/\/+$/, '');
 
 const buildCandidates = (resourcePath) => {
@@ -282,9 +282,10 @@ export default function MobileVehicle() {
 
   const updateUsage = async (id, payload) => {
     try {
-      const urls = buildCandidates(`usages/${encodeURIComponent(id)}`);
+      const basePath = getVehiclesPath();
+      const urls = buildCandidates(`${basePath}/${encodeURIComponent(parc)}/usages/${encodeURIComponent(id)}/end`);
       const r = await fetch(urls[0], {
-        method: "PUT",
+        method: "POST",
         headers: headersFor(),
         body: JSON.stringify(payload),
       });
