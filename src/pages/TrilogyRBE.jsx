@@ -46,6 +46,83 @@ import SidebarLayout from '../components/SidebarLayout';
 import { useSidebar } from '../context/SidebarContext';
 import { TriangleErrorIcon } from '../components/icons';
 
+const trilogyColorGroups = [
+  {
+    title: 'Couleurs institutionnelles',
+    colors: [
+      { name: 'Framboise RétroBus', hex: '#d30c4c', textColor: 'white' },
+      { name: 'Framboise foncée RBE', hex: '#c10744', textColor: 'white' },
+      { name: 'RBE Accent', hex: '#e40045', textColor: 'white' },
+      { name: 'RBE Profond', hex: '#9f063a', textColor: 'white' },
+      { name: 'Texte Principal', hex: '#0f172a', textColor: 'white' },
+      { name: 'Texte Externe', hex: '#222222', textColor: 'white' },
+      { name: 'Surface', hex: '#ffffff', textColor: 'gray.900' },
+    ],
+  },
+  {
+    title: 'Couleurs fonctionnelles utiles',
+    colors: [
+      { name: 'Blue Action', hex: '#3182ce', textColor: 'white' },
+      { name: 'Green Succès', hex: '#38a169', textColor: 'white' },
+      { name: 'Red Danger', hex: '#e53e3e', textColor: 'white' },
+      { name: 'Orange Attention', hex: '#dd6b20', textColor: 'white' },
+      { name: 'Purple Archive', hex: '#805ad5', textColor: 'white' },
+      { name: 'Teal Parc', hex: '#319795', textColor: 'white' },
+      { name: 'Cyan Info', hex: '#00b5d8', textColor: 'white' },
+      { name: 'Yellow Alerte', hex: '#d69e2e', textColor: 'white' },
+    ],
+  },
+  {
+    title: 'Neutres de structure',
+    colors: [
+      { name: 'Gray 50', hex: '#f8fafc', textColor: 'gray.900' },
+      { name: 'Gray 100', hex: '#f1f5f9', textColor: 'gray.900' },
+      { name: 'Gray 200', hex: '#e2e8f0', textColor: 'gray.900' },
+      { name: 'Gray 300', hex: '#cbd5e1', textColor: 'gray.900' },
+      { name: 'Gray 500', hex: '#64748b', textColor: 'white' },
+      { name: 'Gray 600', hex: '#475569', textColor: 'white' },
+      { name: 'Gray 700', hex: '#334155', textColor: 'white' },
+      { name: 'Gray 800', hex: '#1e293b', textColor: 'white' },
+    ],
+  },
+  {
+    title: 'Pastels utiles',
+    colors: [
+      { name: 'RBE Soft', hex: '#fef1f5', textColor: 'gray.900' },
+      { name: 'RBE Accent Soft', hex: '#fde4eb', textColor: 'gray.900' },
+      { name: 'Blue 50', hex: '#ebf8ff', textColor: 'gray.900' },
+      { name: 'Green 50', hex: '#f0fff4', textColor: 'gray.900' },
+      { name: 'Red 50', hex: '#fff5f5', textColor: 'gray.900' },
+      { name: 'Orange 50', hex: '#fffaf0', textColor: 'gray.900' },
+      { name: 'Purple 50', hex: '#faf5ff', textColor: 'gray.900' },
+      { name: 'Cyan 50', hex: '#edfdfd', textColor: 'gray.900' },
+    ],
+  },
+  {
+    title: 'Pastels des couleurs primaires',
+    colors: [
+      { name: 'Framboise RétroBus Pastel', hex: '#fef1f5', textColor: 'gray.900' },
+      { name: 'RBE Accent Pastel', hex: '#ffd9e6', textColor: 'gray.900' },
+      { name: 'Blue Action Pastel', hex: '#bee3f8', textColor: 'gray.900' },
+      { name: 'Green Succès Pastel', hex: '#c6f6d5', textColor: 'gray.900' },
+      { name: 'Red Danger Pastel', hex: '#fed7d7', textColor: 'gray.900' },
+      { name: 'Orange Attention Pastel', hex: '#feebc8', textColor: 'gray.900' },
+      { name: 'Gray Texte Pastel', hex: '#e2e8f0', textColor: 'gray.900' },
+    ],
+  },
+];
+
+function TrilogyColorCard({ color }) {
+  return (
+    <Card bg={color.hex} color={color.textColor} border="1px solid" borderColor="blackAlpha.200">
+      <CardBody>
+        <Text fontWeight="bold">{color.name}</Text>
+        <Text fontSize="sm">{color.hex}</Text>
+      </CardBody>
+    </Card>
+  );
+}
+
 export default function TrilogyRBE() {
   const cardBg = useColorModeValue('white', 'gray.800');
   const { closeOnMobile } = useSidebar();
@@ -360,38 +437,20 @@ export default function TrilogyRBE() {
         {/* Section Couleurs */}
         <Box>
           <Heading size="md" mb={4} color="black">Palette de Couleurs</Heading>
-          <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4}>
-            <Card bg="rbe.500" color="white">
-              <CardBody>
-                <Text fontWeight="bold">RBE 500</Text>
-                <Text fontSize="sm">#d30c4c</Text>
-              </CardBody>
-            </Card>
-            <Card bg="rbe.600" color="white">
-              <CardBody>
-                <Text fontWeight="bold">RBE 600</Text>
-                <Text fontSize="sm">#c10744</Text>
-              </CardBody>
-            </Card>
-            <Card bg="blue.500" color="white">
-              <CardBody>
-                <Text fontWeight="bold">Blue 500</Text>
-                <Text fontSize="sm">#3b82f6</Text>
-              </CardBody>
-            </Card>
-            <Card bg="green.500" color="white">
-              <CardBody>
-                <Text fontWeight="bold">Green 500</Text>
-                <Text fontSize="sm">#10b981</Text>
-              </CardBody>
-            </Card>
-            <Card bg="gray.900" color="white" border="1px solid" borderColor="gray.700">
-              <CardBody>
-                <Text fontWeight="bold">Gray 900</Text>
-                <Text fontSize="sm">#0f172a</Text>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
+          <VStack align="stretch" spacing={5}>
+            {trilogyColorGroups.map((group) => (
+              <Box key={group.title}>
+                <Text fontSize="sm" fontWeight="700" color="gray.700" mb={3} textTransform="uppercase" letterSpacing="0.5px">
+                  {group.title}
+                </Text>
+                <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4}>
+                  {group.colors.map((color) => (
+                    <TrilogyColorCard key={`${group.title}-${color.name}`} color={color} />
+                  ))}
+                </SimpleGrid>
+              </Box>
+            ))}
+          </VStack>
         </Box>
 
         <Divider />
