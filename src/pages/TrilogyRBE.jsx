@@ -90,7 +90,7 @@ const trilogyColorGroups = [
   {
     title: 'Pastels des couleurs primaires',
     colors: [
-      { name: 'Framboise RétroBus Pastel', hex: '#fef1f5', textColor: 'gray.900' },
+      { name: 'Framboise RétroBus Pastel', hex: '#f8bfd0', textColor: 'gray.900' },
       { name: 'RBE Accent Pastel', hex: '#ffd9e6', textColor: 'gray.900' },
       { name: 'Blue Action Pastel', hex: '#bee3f8', textColor: 'gray.900' },
       { name: 'Green Succès Pastel', hex: '#c6f6d5', textColor: 'gray.900' },
@@ -208,6 +208,64 @@ function TrilogyAllianceCard({ alliance }) {
   );
 }
 
+const trilogyTabLayouts = [
+  {
+    name: 'Languette basse',
+    description: 'Pour une carte visuelle avec explication courte sous l\'apercu.',
+    accent: '#d30c4c',
+    layout: 'bottom',
+  },
+  {
+    name: 'Languette haute',
+    description: 'Pour identifier un statut ou une categorie avant le contenu.',
+    accent: '#3b82f6',
+    layout: 'top',
+  },
+  {
+    name: 'Languette laterale',
+    description: 'Pour marquer une priorite ou un module sans alourdir la carte.',
+    accent: '#10b981',
+    layout: 'side',
+  },
+  {
+    name: 'Languette flottante',
+    description: 'Pour une information courte, badgee, rattachee a un bloc dense.',
+    accent: '#0f172a',
+    layout: 'floating',
+  },
+];
+
+function TrilogyTabLayoutCard({ item }) {
+  const preview = (
+    <Box bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={3} minH="108px" position="relative" overflow="hidden">
+      {item.layout === 'top' && <Box bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full" display="inline-block" mb={3}>Languette</Box>}
+      {item.layout === 'side' && <Box position="absolute" left={0} top={0} bottom={0} w="6px" bg={item.accent} />}
+      {item.layout === 'floating' && <Box position="absolute" top={3} right={3} bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full">Info</Box>}
+      <VStack align="stretch" spacing={2} pt={item.layout === 'floating' ? 7 : 0} pl={item.layout === 'side' ? 2 : 0}>
+        <Box h="12px" w="70%" bg="gray.300" borderRadius="full" />
+        <Box h="10px" w="92%" bg="gray.200" borderRadius="full" />
+        <Box h="10px" w="54%" bg="gray.200" borderRadius="full" />
+      </VStack>
+      {item.layout === 'bottom' && <Box position="absolute" left={3} right={3} bottom={3} bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full" textAlign="center">Languette</Box>}
+    </Box>
+  );
+
+  return (
+    <Card bg="white" border="1px solid" borderColor="gray.200">
+      <CardBody>
+        <VStack align="stretch" spacing={3}>
+          {preview}
+          <Box>
+            <Text fontWeight="bold" color="gray.900">{item.name}</Text>
+            <Text fontSize="sm" color="gray.600" mt={1}>{item.description}</Text>
+            <Text fontSize="xs" color="gray.500" mt={2}>{item.accent}</Text>
+          </Box>
+        </VStack>
+      </CardBody>
+    </Card>
+  );
+}
+
 export default function TrilogyRBE() {
   const cardBg = useColorModeValue('white', 'gray.800');
   const { closeOnMobile } = useSidebar();
@@ -287,238 +345,6 @@ export default function TrilogyRBE() {
 
         <Box flex={1} overflowY="auto" p={6} w="full">
           <VStack spacing={6} align="stretch">
-        {/* Section Cap stratégique */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Cap Trilogy Interne 2026</Heading>
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardBody>
-                <HStack mb={2}>
-                  <Icon as={FiShield} color="rbe.500" boxSize={5} />
-                  <Text fontWeight="bold">Cohérence</Text>
-                </HStack>
-                <Text fontSize="sm" color="gray.600">Une seule logique visuelle entre dashboard, modules finance, et écrans opérationnels.</Text>
-              </CardBody>
-            </Card>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardBody>
-                <HStack mb={2}>
-                  <Icon as={FiTarget} color="blue.500" boxSize={5} />
-                  <Text fontWeight="bold">Lisibilité</Text>
-                </HStack>
-                <Text fontSize="sm" color="gray.600">Chaque écran doit guider l'action principale en moins de 3 secondes de scan visuel.</Text>
-              </CardBody>
-            </Card>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardBody>
-                <HStack mb={2}>
-                  <Icon as={FiLayers} color="green.500" boxSize={5} />
-                  <Text fontWeight="bold">Scalabilité</Text>
-                </HStack>
-                <Text fontSize="sm" color="gray.600">Les règles doivent fonctionner pour les futures pages sans réinventer les composants.</Text>
-              </CardBody>
-            </Card>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardBody>
-                <HStack mb={2}>
-                  <Icon as={FiCheckCircle} color="orange.500" boxSize={5} />
-                  <Text fontWeight="bold">Contrôle qualité</Text>
-                </HStack>
-                <Text fontSize="sm" color="gray.600">Chaque PR UI doit vérifier contrastes, états vides, mobile, erreurs et icônes.</Text>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
-        </Box>
-
-        <Divider />
-
-        {/* Section Règles de design interne */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Règles de Design Interne</Heading>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <HStack>
-                  <Icon as={FiType} color="rbe.500" boxSize={5} />
-                  <Heading size="sm">Typographie & hiérarchie</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={2}>
-                  <Text fontSize="sm">Titre page: Heading lg, unique, orienté action.</Text>
-                  <Text fontSize="sm">Titre section: Heading md, jamais plus de 6 mots.</Text>
-                  <Text fontSize="sm">Texte d'aide: gray.500/gray.600, max 2 lignes.</Text>
-                  <Text fontSize="sm">Aucun bloc de texte sans respiration (espacement vertical obligatoire).</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <HStack>
-                  <Icon as={FiShield} color="blue.500" boxSize={5} />
-                  <Heading size="sm">Comportements UI</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={2}>
-                  <Text fontSize="sm">Un seul CTA primaire visible par zone fonctionnelle.</Text>
-                  <Text fontSize="sm">Les actions destructives doivent rester en rouge et demander confirmation.</Text>
-                  <Text fontSize="sm">Tout composant long doit gérer: loading, vide, erreur.</Text>
-                  <Text fontSize="sm">Sur mobile, les boutons d'actions passent en pleine largeur.</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
-        </Box>
-
-        <Divider />
-
-        {/* Section Logos */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Règles Logos RBE (Interne)</Heading>
-          <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <HStack>
-                  <Icon as={FiImage} color="rbe.500" boxSize={5} />
-                  <Heading size="sm">Usage autorisé</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={2}>
-                  <Badge colorScheme="green">OK</Badge>
-                  <Text fontSize="sm">Logo principal sur fonds clairs ou neutres.</Text>
-                  <Text fontSize="sm">Version monochrome uniquement pour signatures discrètes.</Text>
-                  <Text fontSize="sm">Zone de protection: minimum 8px autour du logo.</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <HStack>
-                  <Icon as={FiXCircle} color="red.500" boxSize={5} />
-                  <Heading size="sm">Interdits visuels</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={2}>
-                  <Badge colorScheme="red">KO</Badge>
-                  <Text fontSize="sm">Ne pas étirer ou compresser le ratio du logo.</Text>
-                  <Text fontSize="sm">Ne pas appliquer d'ombre portée forte ou effet 3D.</Text>
-                  <Text fontSize="sm">Ne pas changer les couleurs institutionnelles.</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <HStack>
-                  <Icon as={FiAlertTriangle} color="orange.500" boxSize={5} />
-                  <Heading size="sm">Implémentation</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={2}>
-                  <Badge colorScheme="orange">A vérifier</Badge>
-                  <Text fontSize="sm">Desktop header: hauteur cible 36-44px.</Text>
-                  <Text fontSize="sm">Mobile header: hauteur cible 28-32px.</Text>
-                  <Text fontSize="sm">Fichier source préféré: SVG optimisé.</Text>
-                </VStack>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
-        </Box>
-
-        <Divider />
-
-        {/* Section Icônes */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Système d'Icônes - Démarrage</Heading>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <Heading size="sm">Set principal & taille</Heading>
-              </CardHeader>
-              <CardBody pt={0}>
-                <VStack align="start" spacing={3}>
-                  <Text fontSize="sm">Bibliothèque par défaut: react-icons/fi (traits cohérents, lecture nette).</Text>
-                  <Text fontSize="sm">Taille recommandée: 18-20px en ligne, 24px pour en-têtes.</Text>
-                  <Text fontSize="sm">Épaisseur: garder des pictos lineaires, éviter le mélange filled/outline.</Text>
-                  <HStack spacing={3} pt={1}>
-                    <Icon as={FiBarChart2} boxSize={5} color="blue.500" />
-                    <Icon as={FiUsers} boxSize={5} color="green.500" />
-                    <Icon as={FiTrendingUp} boxSize={5} color="orange.500" />
-                    <Icon as={FiShield} boxSize={5} color="rbe.500" />
-                    <Icon as={FiImage} boxSize={5} color="purple.500" />
-                  </HStack>
-                </VStack>
-              </CardBody>
-            </Card>
-
-            <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-              <CardHeader>
-                <Heading size="sm">Mapping métier recommandé</Heading>
-              </CardHeader>
-              <CardBody pt={0}>
-                <Table variant="simple" size="sm">
-                  <Thead>
-                    <Tr>
-                      <Th>Contexte</Th>
-                      <Th>Icône</Th>
-                      <Th>Couleur</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    <Tr>
-                      <Td>Performance</Td>
-                      <Td>FiTrendingUp</Td>
-                      <Td>green.500</Td>
-                    </Tr>
-                    <Tr>
-                      <Td>Alertes</Td>
-                      <Td>FiAlertTriangle</Td>
-                      <Td>orange.500</Td>
-                    </Tr>
-                    <Tr>
-                      <Td>Sécurité</Td>
-                      <Td>FiShield</Td>
-                      <Td>blue.600</Td>
-                    </Tr>
-                    <Tr>
-                      <Td>Médias/Logo</Td>
-                      <Td>FiImage</Td>
-                      <Td>rbe.500</Td>
-                    </Tr>
-                  </Tbody>
-                </Table>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
-        </Box>
-
-        <Divider />
-
-        {/* Section Checklist opérationnelle */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Checklist avant livraison UI</Heading>
-          <Card bg={cardBg} borderWidth="1px" borderColor="gray.200">
-            <CardBody>
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3}>
-                <HStack><Badge colorScheme="green">1</Badge><Text fontSize="sm">Contraste texte/fond valide</Text></HStack>
-                <HStack><Badge colorScheme="green">2</Badge><Text fontSize="sm">États loading/vide/erreur présents</Text></HStack>
-                <HStack><Badge colorScheme="green">3</Badge><Text fontSize="sm">CTA primaire unique par écran</Text></HStack>
-                <HStack><Badge colorScheme="green">4</Badge><Text fontSize="sm">Logo non déformé et marge respectée</Text></HStack>
-                <HStack><Badge colorScheme="green">5</Badge><Text fontSize="sm">Icônes cohérentes (même famille)</Text></HStack>
-                <HStack><Badge colorScheme="green">6</Badge><Text fontSize="sm">Comportement mobile validé</Text></HStack>
-              </SimpleGrid>
-            </CardBody>
-          </Card>
-        </Box>
-
-        <Divider />
-
         {/* Section Couleurs */}
         <Box>
           <Heading size="md" mb={4} color="black">Palette de Couleurs</Heading>
@@ -546,6 +372,18 @@ export default function TrilogyRBE() {
               </SimpleGrid>
             </Box>
           </VStack>
+        </Box>
+
+        <Divider />
+
+        {/* Section Languettes */}
+        <Box>
+          <Heading size="md" mb={4} color="black">Languette et dispositions IV</Heading>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+            {trilogyTabLayouts.map((item) => (
+              <TrilogyTabLayoutCard key={item.name} item={item} />
+            ))}
+          </SimpleGrid>
         </Box>
 
         <Divider />
