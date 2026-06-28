@@ -34,7 +34,6 @@ import {
   FiUsers,
   FiCheckCircle,
   FiLayout,
-  FiImage,
   FiShield,
   FiTarget,
   FiType,
@@ -208,64 +207,6 @@ function TrilogyAllianceCard({ alliance }) {
   );
 }
 
-const trilogyTabLayouts = [
-  {
-    name: 'Languette basse',
-    description: 'Pour une carte visuelle avec explication courte sous l\'apercu.',
-    accent: '#d30c4c',
-    layout: 'bottom',
-  },
-  {
-    name: 'Languette haute',
-    description: 'Pour identifier un statut ou une categorie avant le contenu.',
-    accent: '#3b82f6',
-    layout: 'top',
-  },
-  {
-    name: 'Languette laterale',
-    description: 'Pour marquer une priorite ou un module sans alourdir la carte.',
-    accent: '#10b981',
-    layout: 'side',
-  },
-  {
-    name: 'Languette flottante',
-    description: 'Pour une information courte, badgee, rattachee a un bloc dense.',
-    accent: '#0f172a',
-    layout: 'floating',
-  },
-];
-
-function TrilogyTabLayoutCard({ item }) {
-  const preview = (
-    <Box bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={3} minH="108px" position="relative" overflow="hidden">
-      {item.layout === 'top' && <Box bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full" display="inline-block" mb={3}>Languette</Box>}
-      {item.layout === 'side' && <Box position="absolute" left={0} top={0} bottom={0} w="6px" bg={item.accent} />}
-      {item.layout === 'floating' && <Box position="absolute" top={3} right={3} bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full">Info</Box>}
-      <VStack align="stretch" spacing={2} pt={item.layout === 'floating' ? 7 : 0} pl={item.layout === 'side' ? 2 : 0}>
-        <Box h="12px" w="70%" bg="gray.300" borderRadius="full" />
-        <Box h="10px" w="92%" bg="gray.200" borderRadius="full" />
-        <Box h="10px" w="54%" bg="gray.200" borderRadius="full" />
-      </VStack>
-      {item.layout === 'bottom' && <Box position="absolute" left={3} right={3} bottom={3} bg={item.accent} color="white" fontSize="xs" fontWeight="700" px={3} py={1} borderRadius="full" textAlign="center">Languette</Box>}
-    </Box>
-  );
-
-  return (
-    <Card bg="white" border="1px solid" borderColor="gray.200">
-      <CardBody>
-        <VStack align="stretch" spacing={3}>
-          {preview}
-          <Box>
-            <Text fontWeight="bold" color="gray.900">{item.name}</Text>
-            <Text fontSize="sm" color="gray.600" mt={1}>{item.description}</Text>
-            <Text fontSize="xs" color="gray.500" mt={2}>{item.accent}</Text>
-          </Box>
-        </VStack>
-      </CardBody>
-    </Card>
-  );
-}
-
 export default function TrilogyRBE() {
   const cardBg = useColorModeValue('white', 'gray.800');
   const { closeOnMobile } = useSidebar();
@@ -372,18 +313,6 @@ export default function TrilogyRBE() {
               </SimpleGrid>
             </Box>
           </VStack>
-        </Box>
-
-        <Divider />
-
-        {/* Section Languettes */}
-        <Box>
-          <Heading size="md" mb={4} color="black">Languette et dispositions IV</Heading>
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-            {trilogyTabLayouts.map((item) => (
-              <TrilogyTabLayoutCard key={item.name} item={item} />
-            ))}
-          </SimpleGrid>
         </Box>
 
         <Divider />
