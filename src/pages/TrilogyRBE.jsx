@@ -52,9 +52,11 @@ const trilogyColorGroups = [
     colors: [
       { name: 'Framboise RétroBus', hex: '#d30c4c', textColor: 'white' },
       { name: 'Framboise foncée RBE', hex: '#c10744', textColor: 'white' },
+      { name: 'Bleu 500 RBE', hex: '#3b82f6', textColor: 'white' },
+      { name: 'Vert 500 RBE', hex: '#10b981', textColor: 'white' },
+      { name: 'Gray 900 RBE', hex: '#0f172a', textColor: 'white' },
       { name: 'RBE Accent', hex: '#e40045', textColor: 'white' },
       { name: 'RBE Profond', hex: '#9f063a', textColor: 'white' },
-      { name: 'Texte Principal', hex: '#0f172a', textColor: 'white' },
       { name: 'Texte Externe', hex: '#222222', textColor: 'white' },
       { name: 'Surface', hex: '#ffffff', textColor: 'gray.900' },
     ],
@@ -86,19 +88,6 @@ const trilogyColorGroups = [
     ],
   },
   {
-    title: 'Pastels utiles',
-    colors: [
-      { name: 'RBE Soft', hex: '#fef1f5', textColor: 'gray.900' },
-      { name: 'RBE Accent Soft', hex: '#fde4eb', textColor: 'gray.900' },
-      { name: 'Blue 50', hex: '#ebf8ff', textColor: 'gray.900' },
-      { name: 'Green 50', hex: '#f0fff4', textColor: 'gray.900' },
-      { name: 'Red 50', hex: '#fff5f5', textColor: 'gray.900' },
-      { name: 'Orange 50', hex: '#fffaf0', textColor: 'gray.900' },
-      { name: 'Purple 50', hex: '#faf5ff', textColor: 'gray.900' },
-      { name: 'Cyan 50', hex: '#edfdfd', textColor: 'gray.900' },
-    ],
-  },
-  {
     title: 'Pastels des couleurs primaires',
     colors: [
       { name: 'Framboise RétroBus Pastel', hex: '#fef1f5', textColor: 'gray.900' },
@@ -112,12 +101,108 @@ const trilogyColorGroups = [
   },
 ];
 
+const trilogyColorAlliances = [
+  {
+    name: 'Alliance Framboise RBE',
+    description: 'Complementaire adoucie: framboise, bleu confiance, vert vivant, encre profonde.',
+    colors: [
+      { name: 'Framboise RétroBus', hex: '#d30c4c' },
+      { name: 'Bleu pacifique', hex: '#2f80ed' },
+      { name: 'Sauge vive', hex: '#22a06b' },
+      { name: 'Encre nuit', hex: '#111827' },
+    ],
+  },
+  {
+    name: 'Alliance Framboise foncée',
+    description: 'Analogue chaud: base profonde, rose sourd, cuivre doux, bleu noir pour stabiliser.',
+    colors: [
+      { name: 'Framboise foncée RBE', hex: '#c10744' },
+      { name: 'Rose ancien', hex: '#a83a5f' },
+      { name: 'Cuivre doux', hex: '#c56a3a' },
+      { name: 'Bleu noir', hex: '#172033' },
+    ],
+  },
+  {
+    name: 'Alliance Bleu 500 RBE',
+    description: 'Triade lisible: bleu action, framboise, ambre lumineux, gris encre.',
+    colors: [
+      { name: 'Bleu 500 RBE', hex: '#3b82f6' },
+      { name: 'Framboise vive', hex: '#d30c4c' },
+      { name: 'Ambre signal', hex: '#f2a900' },
+      { name: 'Ardoise', hex: '#1f2937' },
+    ],
+  },
+  {
+    name: 'Alliance Vert 500 RBE',
+    description: 'Nature technique: vert principal, framboise accent, bleu calme, graphite.',
+    colors: [
+      { name: 'Vert 500 RBE', hex: '#10b981' },
+      { name: 'Framboise accent', hex: '#d30c4c' },
+      { name: 'Bleu horizon', hex: '#2563eb' },
+      { name: 'Graphite', hex: '#263238' },
+    ],
+  },
+  {
+    name: 'Alliance Gray 900 RBE',
+    description: 'Neutre premium: encre, framboise, bleu froid, blanc casse pour respirer.',
+    colors: [
+      { name: 'Gray 900 RBE', hex: '#0f172a' },
+      { name: 'Framboise RétroBus', hex: '#d30c4c' },
+      { name: 'Bleu acier', hex: '#4f8cff' },
+      { name: 'Blanc casse', hex: '#f8fafc' },
+    ],
+  },
+  {
+    name: 'Alliance RBE Accent',
+    description: 'Contraste evenementiel: accent vif, marine, menthe, champagne discret.',
+    colors: [
+      { name: 'RBE Accent', hex: '#e40045' },
+      { name: 'Marine', hex: '#0b1f3a' },
+      { name: 'Menthe', hex: '#2dd4bf' },
+      { name: 'Champagne', hex: '#f6e7c1' },
+    ],
+  },
+  {
+    name: 'Alliance RBE Profond',
+    description: 'Institutionnelle dense: profond, bleu patrimoine, vert bronze, ivoire.',
+    colors: [
+      { name: 'RBE Profond', hex: '#9f063a' },
+      { name: 'Bleu patrimoine', hex: '#1d4ed8' },
+      { name: 'Vert bronze', hex: '#5f7f4f' },
+      { name: 'Ivoire', hex: '#fff7ed' },
+    ],
+  },
+];
+
 function TrilogyColorCard({ color }) {
   return (
     <Card bg={color.hex} color={color.textColor} border="1px solid" borderColor="blackAlpha.200">
       <CardBody>
         <Text fontWeight="bold">{color.name}</Text>
         <Text fontSize="sm">{color.hex}</Text>
+      </CardBody>
+    </Card>
+  );
+}
+
+function TrilogyAllianceCard({ alliance }) {
+  return (
+    <Card bg={alliance.colors[0].hex} color="white" overflow="hidden" border="1px solid" borderColor="blackAlpha.200">
+      <Box display="grid" gridTemplateColumns="repeat(4, 1fr)" minH="118px">
+        {alliance.colors.map((color) => (
+          <Box key={`${alliance.name}-${color.hex}`} bg={color.hex} title={`${color.name} ${color.hex}`} />
+        ))}
+      </Box>
+      <CardBody bg="white" color="gray.900" borderTop="1px solid" borderColor="blackAlpha.200">
+        <Text fontWeight="bold">{alliance.name}</Text>
+        <Text fontSize="xs" color="gray.600" mt={1}>{alliance.description}</Text>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={1} mt={3}>
+          {alliance.colors.map((color) => (
+            <Text key={`${alliance.name}-label-${color.hex}`} fontSize="xs" color="gray.700">
+              {color.name} · {color.hex}
+            </Text>
+          ))}
+        </SimpleGrid>
       </CardBody>
     </Card>
   );
@@ -450,6 +535,16 @@ export default function TrilogyRBE() {
                 </SimpleGrid>
               </Box>
             ))}
+            <Box>
+              <Text fontSize="sm" fontWeight="700" color="gray.700" mb={3} textTransform="uppercase" letterSpacing="0.5px">
+                Alliances colorimétriques
+              </Text>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                {trilogyColorAlliances.map((alliance) => (
+                  <TrilogyAllianceCard key={alliance.name} alliance={alliance} />
+                ))}
+              </SimpleGrid>
+            </Box>
           </VStack>
         </Box>
 
