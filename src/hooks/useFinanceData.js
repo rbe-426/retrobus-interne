@@ -185,13 +185,13 @@ export const useFinanceData = (currentUser = null) => {
         if (expenseRes.ok) {
           const data = await expenseRes.json();
           const reports = data.reports || [];
-          setExpenseReports(reports);
-          console.log(`✅ ${reports.length} notes de frais chargées`);
+          console.log(`✅ ${reports.length} notes de frais chargées depuis l'API`);
           reports.forEach((r, i) => {
-            console.log(`   ${i + 1}. ${r.id} - ${r.description} - Statut: ${r.status} - userId: ${r.userId}`);
+            console.log(`   ${i + 1}. ID: ${r.id} - ${r.description} - Statut: ${r.status} - userId: ${r.userId} - createdBy: ${r.createdBy}`);
           });
+          setExpenseReports(reports);
         } else {
-          console.warn(`⚠️ Erreur chargement notes de frais:`, expenseRes.status);
+          console.warn(`⚠️ Erreur chargement notes de frais: HTTP ${expenseRes.status}`);
         }
       } catch (err) {
         console.warn("⚠️ Erreur chargement notes de frais:", err.message);
@@ -875,10 +875,16 @@ export const useFinanceData = (currentUser = null) => {
           body
         });
 
-        if (!res.ok) throw new Error("Erreur création");
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('❌ Erreur création note:', res.status, errorText);
+          throw new Error(`Erreur création (${res.status})`);
+        }
 
         const data = await res.json();
         const newReport = data.report || data;
+        console.log('✅ Note créée côté serveur:', newReport.id, newReport.description);
+        
         setExpenseReports([...expenseReports, newReport]);
         toast({
           title: "Succès",
@@ -887,6 +893,7 @@ export const useFinanceData = (currentUser = null) => {
         });
         
         // 🔄 Recharger les données pour synchroniser
+        console.log('🔄 Rechargement après création dans hook...');
         await loadFinanceData();
         
         return newReport;

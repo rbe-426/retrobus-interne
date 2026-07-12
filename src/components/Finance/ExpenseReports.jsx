@@ -395,14 +395,20 @@ const ExpenseReports = () => {
   console.log('   All reports:', expenseReports);
   console.log('   Reports count:', expenseReports?.length || 0);
 
-  // Afficher les notes de l'utilisateur courant OU les notes sans userId
+  // Afficher les notes de l'utilisateur courant avec critères élargis
   const myReports = expenseReports.filter(r => {
-    const matches = !r.userId || r.userId === userEmail || r.userId === currentUser.id || r.createdBy === userEmail || r.createdBy === currentUser.email;
-    if (!matches) {
-      console.log(`   ❌ Filtered out:`, r.description, '- userId:', r.userId, '- createdBy:', r.createdBy, '- userEmail:', userEmail);
-    } else {
-      console.log(`   ✅ Included:`, r.description, '- Statut:', r.status);
-    }
+    // Critères élargis pour capturer toutes les variations possibles
+    const matches = 
+      !r.userId || // Notes sans userId assigné
+      r.userId === userEmail || // userId = email
+      r.userId === currentUser?.id || // userId = id membre
+      r.userId === currentUser?.email || // userId = email membre
+      r.createdBy === userEmail || // Créé par email
+      r.createdBy === currentUser?.email || // Créé par email membre
+      r.createdBy === currentUser?.name || // Créé par nom
+      (currentUser?.id && String(r.userId) === String(currentUser.id)); // Comparaison stricte ID
+    
+    console.log(`   ${matches ? '✅' : '❌'} Report: ${r.description?.substring(0, 30)}... | userId: ${r.userId} | createdBy: ${r.createdBy} | status: ${r.status}`);
     return matches;
   });
   console.log(`💰 ${myReports.length}/${expenseReports.length} notes de frais affichées (utilisateur: ${userEmail})`);
@@ -884,6 +890,10 @@ const ExpenseReports = () => {
 
         resetForm();
         onClose();
+        
+        // Force un rechargement explicite des données
+        console.log('🔄 Rechargement des notes de frais après création...');
+        await loadFinanceData();
       }
     } catch (error) {
       toast({
