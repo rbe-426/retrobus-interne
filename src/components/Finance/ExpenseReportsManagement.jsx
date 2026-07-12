@@ -10,6 +10,14 @@ import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { useUserRoles } from "../../hooks/useUserRoles";
 
+const DEFAULT_EXPENSE_REPORT_TYPE = "Note de frais avec justificatif";
+
+const EXPENSE_REPORT_TYPE_COLORS = {
+  "Note de frais avec justificatif": "green",
+  "Demande d'avance sur frais": "orange",
+  "Frais de déplacement": "blue"
+};
+
 /**
  * ExpenseReportsManagement - Gestion des notes de frais
  * Accessible UNIQUEMENT au Président, Vice-Président et Trésorier
@@ -154,6 +162,11 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     return <Badge colorScheme={config.colorScheme}>{config.label}</Badge>;
   };
 
+  const getTypeBadge = (type) => {
+    const label = type || DEFAULT_EXPENSE_REPORT_TYPE;
+    return <Badge colorScheme={EXPENSE_REPORT_TYPE_COLORS[label] || "gray"}>{label}</Badge>;
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
@@ -281,6 +294,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                 <Tr bg="gray.50">
                   <Th>Date</Th>
                   <Th>Membre dépositaire</Th>
+                  <Th>Type</Th>
                   <Th>Description</Th>
                   <Th isNumeric>Montant</Th>
                   <Th>Statut</Th>
@@ -301,6 +315,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                         </Text>
                       </VStack>
                     </Td>
+                    <Td>{getTypeBadge(report.type)}</Td>
                     <Td>
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="bold" fontSize="sm">
@@ -432,6 +447,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                   <Box bg="gray.50" p={4} borderRadius="md" w="full">
                     <Text fontSize="sm" fontWeight="bold" mb={2}>Note à refuser:</Text>
                     <Text fontSize="sm"><strong>Membre:</strong> {selectedReport.createdBy || selectedReport.userName}</Text>
+                    <Text fontSize="sm"><strong>Type:</strong> {selectedReport.type || DEFAULT_EXPENSE_REPORT_TYPE}</Text>
                     <Text fontSize="sm"><strong>Description:</strong> {selectedReport.description}</Text>
                     <Text fontSize="sm"><strong>Montant:</strong> {formatCurrency(selectedReport.amount)}</Text>
                   </Box>

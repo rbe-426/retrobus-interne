@@ -86,6 +86,7 @@ export const useFinanceData = (currentUser = null) => {
   // État notes de frais
   const [expenseReports, setExpenseReports] = useState([]);
   const [newExpenseReport, setNewExpenseReport] = useState({
+    type: "Note de frais avec justificatif",
     description: "",
     amount: "",
     date: new Date().toISOString().split("T")[0]
@@ -846,13 +847,32 @@ export const useFinanceData = (currentUser = null) => {
     async (report) => {
       try {
         setLoading(true);
+        const hasAttachment = Boolean(report.attachment);
+        const headers = {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        };
+        let body;
+
+        if (hasAttachment) {
+          const formData = new FormData();
+          Object.entries(report).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === "") return;
+            if (key === "attachment") {
+              formData.append("file", value);
+            } else {
+              formData.append(key, value);
+            }
+          });
+          body = formData;
+        } else {
+          headers["Content-Type"] = "application/json";
+          body = JSON.stringify(report);
+        }
+
         const res = await fetch(`${API_BASE}/api/finance/expense-reports`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          },
-          body: JSON.stringify(report)
+          headers,
+          body
         });
 
         if (!res.ok) throw new Error("Erreur création");

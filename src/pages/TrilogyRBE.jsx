@@ -259,6 +259,25 @@ export default function TrilogyRBE() {
         >
           Trilogy Externe
         </Button>
+
+        <Button
+          as={RouterLink}
+          to="/dashboard/trilogy-rbe/ressourcery"
+          variant="ghost"
+          justifyContent="flex-start"
+          w="full"
+          borderLeft="3px"
+          borderColor="transparent"
+          borderRadius={0}
+          px={4}
+          py={6}
+          fontSize="sm"
+          fontWeight="500"
+          _hover={{ bg: 'gray.100', borderLeftColor: 'blue.500' }}
+          onClick={closeOnMobile}
+        >
+          Trilogy Ressourcery
+        </Button>
       </VStack>
 
       <Box p={4} borderTop="1px" borderColor="gray.200" fontSize="xs" color="gray.500" textAlign="center" w="full">

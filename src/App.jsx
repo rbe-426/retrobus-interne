@@ -57,6 +57,7 @@ const MyRBE = lazy(() => import("./pages/MyRBE"));
 const MyRBEActions = lazy(() => import("./pages/MyRBEActions"));
 const AdminFinance = lazy(() => import("./pages/AdminFinance"));
 const FinanceNew = lazy(() => import("./pages/FinanceNew"));
+const NDF = lazy(() => import("./pages/NDF"));
 const Vehicules = lazyWithRetry(() => import("./pages/Vehicules"), 'retry:vehicules:chunk');
 const VehiculeShow = lazy(() => import("./pages/VehiculeShow"));
 const VehiculeCreate = lazy(() => import("./pages/VehiculeCreate"));
@@ -88,6 +89,7 @@ const EchancierPage = lazy(() => import("./pages/EchancierPage"));
 const ThemeShowcase = lazy(() => import("./pages/ThemeShowcase"));
 const TrilogyRBE = lazy(() => import("./pages/TrilogyRBE"));
 const TrilogyRBEExterne = lazy(() => import("./pages/TrilogyRBEExterne"));
+const TrilogyRBERessourcery = lazy(() => import("./pages/TrilogyRBERessourcery"));
 const SubventionCampaign = lazy(() => import("./pages/SubventionCampaign"));
 const SubventionCampaignAdmin = lazy(() => import("./pages/SubventionCampaignAdmin"));
 const PermissionsManager = lazy(() => import("./components/PermissionsManager"));
@@ -159,6 +161,7 @@ export default function App() {
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
+  <Route path="/dashboard/trilogy-rbe/ressourcery" element={<ProtectedRoute><TrilogyRBERessourcery /></ProtectedRoute>} />
         
         {/* 📋 RétroDemandes - Demandes unifiées avec contrôle d'accès */}
         <Route path="/dashboard/retro-demandes" element={<ProtectedRoute><RetroDemandes /></ProtectedRoute>} />
@@ -175,6 +178,7 @@ export default function App() {
         {/* 💰 Route gestion financière */}
         <Route path="/admin/finance" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><AdminFinance /></RoleProtectedRoute>} />
         <Route path="/admin/finance-v2" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'TRESORIER']}><FinanceNew /></RoleProtectedRoute>} />
+        <Route path="/dashboard/ndf" element={<ProtectedRoute><NDF /></ProtectedRoute>} />
         
         {/* 🚗 Routes des véhicules */}
         <Route path="/dashboard/retrobus" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroBus /></RoleProtectedRoute>} />

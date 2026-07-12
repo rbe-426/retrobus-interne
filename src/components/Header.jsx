@@ -485,6 +485,9 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/adhesion">
                   Mon Adhésion
                 </MenuItem>
+                <MenuItem as={RouterLink} to="/dashboard/ndf">
+                  NDF
+                </MenuItem>
                 <MenuItem as={RouterLink} to="/retromail">
                   RétroMail
                 </MenuItem>
@@ -567,6 +570,20 @@ export default function Header() {
                 _active={{ bg: "gray.200" }}
               >
                 👤 MyRBE
+              </Button>
+              <Button 
+                as={RouterLink} 
+                to="/dashboard/ndf" 
+                variant="ghost" 
+                justifyContent="flex-start" 
+                onClick={navDrawer.onClose} 
+                py={3} 
+                px={4}
+                fontWeight="600"
+                _hover={{ bg: "gray.100" }}
+                _active={{ bg: "gray.200" }}
+              >
+                NDF
               </Button>
               <Button 
                 as={RouterLink} 

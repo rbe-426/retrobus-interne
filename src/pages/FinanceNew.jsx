@@ -24,23 +24,20 @@ import FinanceQuotes from "../components/Finance/Quotes";
 import FinanceInvoicing from "../components/Finance/Invoicing";
 import FinanceReports from "../components/Finance/Reports";
 import FinanceSettings from "../components/Finance/Settings";
-import ExpenseReports from "../components/Finance/ExpenseReports";
 import ExpenseReportsManagement from "../components/Finance/ExpenseReportsManagement";
 import Simulations from "../components/Finance/Simulations";
 import FinanceDebts from "../components/Finance/Debts";
 import { useFinanceData } from "../hooks/useFinanceData";
 import { useUser } from "../context/UserContext";
-import { useUserRoles } from "../hooks/useUserRoles";
 
 /**
  * FinanceNew - Nouvelle page Finance avec sidebar navigation
  * Architecture modulaire pour meilleure organisation
- * Inclut: Notes de frais, Gestion des notes, Simulations, Échéanciers avec courbes
+ * Inclut: gestion, suivi financier, validations NDF, simulations et échéanciers
  */
 const FinanceNew = () => {
   // États de navigation
   const [activeMainSection, setActiveMainSection] = useState("dashboard");
-  const [activeSubTab, setActiveSubTab] = useState("my-notes");
   
   // Récupérer le contexte sidebar pour fermer automatiquement sur mobile après clic
   const { closeOnMobile } = useSidebar();
@@ -48,7 +45,6 @@ const FinanceNew = () => {
   // Charger les données Finance une fois au mount
   const { loadFinanceData } = useFinanceData();
   const { user, roles } = useUser(); // Récupérer l'utilisateur et ses rôles
-  const userRolesHook = useUserRoles(); // Hook centralisé pour les rôles
 
   useEffect(() => {
     loadFinanceData();
@@ -63,9 +59,6 @@ const FinanceNew = () => {
     return () => clearInterval(interval);
   }, [loadFinanceData]);
 
-  // Vérifier si l'utilisateur a accès à la gestion des notes - utiliser le hook centralisé
-  const hasExpenseReportsManagementAccess = userRolesHook.hasFinanceAccess();
-
   // Sections principales
   const sections = [
     { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Vue d'ensemble" },
@@ -73,7 +66,7 @@ const FinanceNew = () => {
     { id: "scheduled", label: "Opérations programmées", icon: FiCalendar, description: "Paiements récurrents" },
     { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Gestion documents" },
     { id: "debts", label: "Dettes", icon: FiAlertCircle, description: "Créanciers & échéances" },
-    { id: "ndf", label: "Notes de frais", icon: FiShoppingCart, description: "Gestion NDF" },
+    { id: "ndf", label: "Suivi NDF", icon: FiShoppingCart, description: "Validation & remboursements" },
     { id: "simulations", label: "Simulations", icon: FiActivity, description: "Projections" },
     { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyses" },
     { id: "settings", label: "Paramètres", icon: FiSettings, description: "Configuration" }
@@ -93,7 +86,7 @@ const FinanceNew = () => {
       case "debts":
         return <FinanceDebts />;
       case "ndf":
-        return activeSubTab === "my-notes" ? <ExpenseReports /> : <ExpenseReportsManagement currentUser={user} userRoles={roles} />;
+        return <ExpenseReportsManagement currentUser={user} userRoles={roles} />;
       case "simulations":
         return <Simulations />;
       case "reports":
@@ -144,10 +137,6 @@ const FinanceNew = () => {
                 _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
                 onClick={() => {
                   setActiveMainSection(section.id);
-                  // Réinitialiser le sous-onglet quand on change de section
-                  if (section.id !== "ndf") {
-                    setActiveSubTab("");
-                  }
                   // Fermer la sidebar sur mobile après sélection
                   closeOnMobile();
                 }}
@@ -159,39 +148,6 @@ const FinanceNew = () => {
                   )}
                 </Flex>
               </Button>
-
-              {/* Sous-onglets pour Notes de Frais */}
-              {isActive && section.id === "ndf" && (
-                <VStack align="stretch" spacing={0} pl={8} bg="blue.50">
-                  {[
-                    { id: "my-notes", label: "Mes notes de frais" },
-                    ...(hasExpenseReportsManagementAccess ? [{ id: "management", label: "Gestion des notes" }] : [])
-                  ].map((subTab) => (
-                    <Button
-                      key={subTab.id}
-                      variant="ghost"
-                      justifyContent="flex-start"
-                      w="full"
-                      bg={activeSubTab === subTab.id ? "blue.100" : "transparent"}
-                      borderLeft="3px"
-                      borderColor={activeSubTab === subTab.id ? "blue.600" : "transparent"}
-                      borderRadius={0}
-                      px={4}
-                      py={4}
-                      fontSize="sm"
-                      fontWeight={activeSubTab === subTab.id ? "600" : "500"}
-                      color={activeSubTab === subTab.id ? "blue.600" : "gray.600"}
-                      _hover={{ bg: "blue.100" }}
-                      onClick={() => {
-                        setActiveSubTab(subTab.id);
-                        closeOnMobile();
-                      }}
-                    >
-                      {subTab.label}
-                    </Button>
-                  ))}
-                </VStack>
-              )}
             </Box>
           );
         })}
@@ -217,7 +173,7 @@ const FinanceNew = () => {
                 {activeMainSection === "scheduled" && "Opérations programmées"}
                 {activeMainSection === "invoicing" && "Devis & Factures"}
                 {activeMainSection === "debts" && "Dettes"}
-                {activeMainSection === "ndf" && "Notes de frais"}
+                {activeMainSection === "ndf" && "Suivi NDF"}
                 {activeMainSection === "simulations" && "Simulations"}
                 {activeMainSection === "reports" && "Rapports & KPI"}
                 {activeMainSection === "settings" && "Paramètres"}
@@ -228,7 +184,7 @@ const FinanceNew = () => {
                 {activeMainSection === "scheduled" && "Paiements et prélèvements récurrents"}
                 {activeMainSection === "invoicing" && "Gestion des devis et factures"}
                 {activeMainSection === "debts" && "Suivi des créanciers et échéances"}
-                {activeMainSection === "ndf" && "Gestion des notes de frais"}
+                {activeMainSection === "ndf" && "Validation, suivi et remboursement des notes de frais"}
                 {activeMainSection === "simulations" && "Simulations financières"}
                 {activeMainSection === "reports" && "Rapports et indicateurs clés"}
                 {activeMainSection === "settings" && "Configuration de votre espace Finance"}
