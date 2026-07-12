@@ -817,6 +817,94 @@ const ExpenseReports = () => {
     setActiveStep(prev => Math.max(prev - 1, 0));
   };
 
+  const formatTravelDescription = (addresses, roundTrip, intermediateRoundTrips = []) => {
+    if (addresses.length === 0) return "";
+    
+    // Aller simple avec 2 adresses
+    if (addresses.length === 2 && !roundTrip && !intermediateRoundTrips.some(Boolean)) {
+      return `📍 ${addresses[0]} ➡️ 📍 ${addresses[1]}`;
+    }
+    
+    // Aller-retour simple avec 2 adresses
+    if (addresses.length === 2 && roundTrip) {
+      return `📍 ${addresses[0]} ↔️ 📍 ${addresses[1]}`;
+    }
+    
+    // Trajet multiple
+    const parts = [];
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      
+      if (i === 0) {
+        parts.push(`📍 ${address}`);
+      } else {
+        // Vérifier si cette étape a un aller-retour intermédiaire avec la précédente
+        const hasIntermediateRT = i >= 2 && intermediateRoundTrips[i];
+        const arrow = hasIntermediateRT ? " ↔️ 📍 " : " ➡️ 📍 ";
+        parts.push(`${arrow}${address}`);
+      }
+    }
+    
+    // Ajouter le retour au départ si aller-retour complet
+    if (roundTrip) {
+      parts.push(` ↔️ 📍 ${addresses[0]}`);
+    }
+    
+    return parts.join("");
+  };
+
+  const parseAndFormatOldTravelNotes = (notes) => {
+    if (!notes || typeof notes !== 'string') return notes;
+    
+    // Détecter si c'est une ancienne note kilométrique
+    if (!notes.includes('Départ:') && !notes.includes('Distance parcourue:')) {
+      return notes;
+    }
+    
+    // Extraire les adresses
+    const addresses = [];
+    const addressLines = notes.split('\n').filter(line => 
+      line.includes('Départ:') || line.includes('Étape')
+    );
+    
+    addressLines.forEach(line => {
+      // Format: "Départ: Adresse" ou "Étape 2: Adresse" ou "Étape 2: Adresse (A/R avec précédente)"
+      const match = line.match(/(?:Départ|Étape \d+):\s*([^(]+?)(?:\s*\(A\/R.*\))?$/);
+      if (match) {
+        addresses.push(match[1].trim());
+      }
+    });
+    
+    // Détecter aller-retour complet
+    const hasRoundTrip = notes.includes('Aller-retour complet: Oui');
+    
+    // Détecter A/R intermédiaires
+    const intermediateRoundTrips = addressLines.map(line => 
+      line.includes('(A/R avec précédente)') || line.includes('(A/R précédente)')
+    );
+    
+    // Reformater
+    if (addresses.length > 0) {
+      const travelDesc = formatTravelDescription(addresses, hasRoundTrip, intermediateRoundTrips);
+      
+      // Extraire distance et montant
+      const distanceMatch = notes.match(/Distance parcourue:\s*([\d.]+)\s*km/);
+      const montantMatch = notes.match(/Montant calculé:\s*([\d.]+)\s*km\s*×\s*[\d,]+\s*€\s*\/\s*km\s*=\s*([\d,]+)\s*€/);
+      
+      const parts = [travelDesc];
+      if (distanceMatch) {
+        parts.push(`Distance: ${distanceMatch[1]} km`);
+      }
+      if (montantMatch) {
+        parts.push(`Montant: ${montantMatch[2]} €`);
+      }
+      
+      return parts.join(' • ');
+    }
+    
+    return notes;
+  };
+
   const handleSubmit = async () => {
     const amount = isTravelExpense && !formData.amount ? 0 : parseFloat(formData.amount);
 
@@ -853,16 +941,18 @@ const ExpenseReports = () => {
       return;
     }
 
+    // Générer la description du trajet simplifiée pour les frais kilométriques
+    const travelDescription = isTravelExpense ? formatTravelDescription(
+      cleanedTravelAddresses, 
+      formData.travelRoundTrip, 
+      formData.travelIntermediateRoundTrips
+    ) : "";
+
     const travelNotes = isTravelExpense ? [
-      "[Détails kilométriques]",
-      ...cleanedTravelAddresses.map((address, index) => {
-        const roundTripInfo = index >= 2 && formData.travelIntermediateRoundTrips[index] ? " (A/R avec précédente)" : "";
-        return `${index === 0 ? "Départ" : `Étape ${index + 1}`}: ${address}${roundTripInfo}`;
-      }),
-      `Aller-retour complet: ${formData.travelRoundTrip ? "Oui" : "Non"}`,
+      travelDescription,
       `Distance parcourue: ${travelRoute.distanceKm?.toFixed(1)} km`,
       travelRoute.durationMin ? `Durée estimée: ${Math.round(travelRoute.durationMin)} min` : null,
-      `Source itinéraire: ${travelRoute.source || "OSM/OSRM"}`,
+      `Source itinéraire: ${travelRoute.source || "OSRM"}`,
       `Indice de remboursement kilométrique: ${KILOMETRIC_RATE_LABEL}`,
       travelRoute.distanceKm ? `Montant calculé: ${travelRoute.distanceKm.toFixed(1)} km × ${KILOMETRIC_RATE_LABEL} = ${formatCurrency(travelRoute.distanceKm * KILOMETRIC_RATE)}` : null
     ].filter(Boolean).join("\n") : "";
@@ -1394,23 +1484,11 @@ const ExpenseReports = () => {
                   )}
                   {isTravelExpense && (
                     <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                      <Box>
-                        <Text fontSize="xs" color="gray.500">Adresses du parcours</Text>
-                        <VStack align="start" spacing={1} mt={1}>
-                          {cleanedTravelAddresses.map((address, index) => {
-                            const hasIntermediateRT = index >= 2 && formData.travelIntermediateRoundTrips[index];
-                            return (
-                              <Text key={`${address}-${index}`} fontSize="sm">
-                                {index === 0 ? "Départ" : `Étape ${index + 1}`} · {address}
-                                {hasIntermediateRT && <Badge ml={2} colorScheme="purple" fontSize="xs">A/R précédente</Badge>}
-                              </Text>
-                            );
-                          })}
-                        </VStack>
-                      </Box>
-                      <Box>
-                        <Text fontSize="xs" color="gray.500">Aller-retour au départ</Text>
-                        <Text>{formData.travelRoundTrip ? "Oui" : "Non"}</Text>
+                      <Box gridColumn={{ md: "span 2" }}>
+                        <Text fontSize="xs" color="gray.500">Parcours</Text>
+                        <Text fontSize="md" fontWeight="semibold" mt={1}>
+                          {formatTravelDescription(cleanedTravelAddresses, formData.travelRoundTrip, formData.travelIntermediateRoundTrips)}
+                        </Text>
                       </Box>
                       <Box>
                         <Text fontSize="xs" color="gray.500">Kilomètres parcourus</Text>
@@ -1522,8 +1600,8 @@ const ExpenseReports = () => {
                           {report.description}
                         </Text>
                         {report.notes && (
-                          <Text fontSize="xs" color="gray.500">
-                            {report.notes}
+                          <Text fontSize="xs" color="gray.500" whiteSpace="pre-wrap">
+                            {parseAndFormatOldTravelNotes(report.notes)}
                           </Text>
                         )}
                       </VStack>

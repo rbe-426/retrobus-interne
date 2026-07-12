@@ -179,6 +179,84 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     return new Date(dateStr).toLocaleDateString("fr-FR");
   };
 
+  const formatTravelDescription = (addresses, roundTrip, intermediateRoundTrips = []) => {
+    if (addresses.length === 0) return "";
+    
+    // Aller simple avec 2 adresses
+    if (addresses.length === 2 && !roundTrip && !intermediateRoundTrips.some(Boolean)) {
+      return `📍 ${addresses[0]} ➡️ 📍 ${addresses[1]}`;
+    }
+    
+    // Aller-retour simple avec 2 adresses
+    if (addresses.length === 2 && roundTrip) {
+      return `📍 ${addresses[0]} ↔️ 📍 ${addresses[1]}`;
+    }
+    
+    // Trajet multiple
+    const parts = [];
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      
+      if (i === 0) {
+        parts.push(`📍 ${address}`);
+      } else {
+        const hasIntermediateRT = i >= 2 && intermediateRoundTrips[i];
+        const arrow = hasIntermediateRT ? " ↔️ 📍 " : " ➡️ 📍 ";
+        parts.push(`${arrow}${address}`);
+      }
+    }
+    
+    if (roundTrip) {
+      parts.push(` ↔️ 📍 ${addresses[0]}`);
+    }
+    
+    return parts.join("");
+  };
+
+  const parseAndFormatOldTravelNotes = (notes) => {
+    if (!notes || typeof notes !== 'string') return notes;
+    
+    if (!notes.includes('Départ:') && !notes.includes('Distance parcourue:')) {
+      return notes;
+    }
+    
+    const addresses = [];
+    const addressLines = notes.split('\n').filter(line => 
+      line.includes('Départ:') || line.includes('Étape')
+    );
+    
+    addressLines.forEach(line => {
+      const match = line.match(/(?:Départ|Étape \d+):\s*([^(]+?)(?:\s*\(A\/R.*\))?$/);
+      if (match) {
+        addresses.push(match[1].trim());
+      }
+    });
+    
+    const hasRoundTrip = notes.includes('Aller-retour complet: Oui');
+    const intermediateRoundTrips = addressLines.map(line => 
+      line.includes('(A/R avec précédente)') || line.includes('(A/R précédente)')
+    );
+    
+    if (addresses.length > 0) {
+      const travelDesc = formatTravelDescription(addresses, hasRoundTrip, intermediateRoundTrips);
+      
+      const distanceMatch = notes.match(/Distance parcourue:\s*([\d.]+)\s*km/);
+      const montantMatch = notes.match(/Montant calculé:\s*([\d.]+)\s*km\s*×\s*[\d,]+\s*€\s*\/\s*km\s*=\s*([\d,]+)\s*€/);
+      
+      const parts = [travelDesc];
+      if (distanceMatch) {
+        parts.push(`Distance: ${distanceMatch[1]} km`);
+      }
+      if (montantMatch) {
+        parts.push(`Montant: ${montantMatch[2]} €`);
+      }
+      
+      return parts.join(' • ');
+    }
+    
+    return notes;
+  };
+
   // Helper pour normaliser le statut
   const normalizeStatus = (status) => {
     const map = {
@@ -323,7 +401,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                         </Text>
                         {report.notes && (
                           <Text fontSize="xs" color="gray.500">
-                            Remarques: {report.notes}
+                            Remarques: {parseAndFormatOldTravelNotes(report.notes)}
                           </Text>
                         )}
                         {report.statusNotes && (
