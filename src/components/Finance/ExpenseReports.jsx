@@ -7,7 +7,7 @@ import {
   NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper,
   NumberDecrementStepper, Textarea, useDisclosure, Spinner, Flex, SimpleGrid,
   Stepper, Step, StepIndicator, StepStatus, StepIcon, StepNumber,
-  StepTitle, StepDescription, StepSeparator
+  StepTitle, StepDescription, StepSeparator, List, ListItem, ListIcon
 } from "@chakra-ui/react";
 import L from "leaflet";
 import { FiPlus, FiTrash2, FiDownload } from "react-icons/fi";
@@ -69,7 +69,8 @@ const TRAVEL_NDF_WIZARD_STEPS = [
   { title: "Validation", description: "Récapitulatif" }
 ];
 
-const KILOMETRIC_RATE_LABEL = "À définir plus tard";
+const KILOMETRIC_RATE = 0.601; // EUR par kilomètre
+const KILOMETRIC_RATE_LABEL = "0,601 € / km";
 const DEFAULT_MAP_CENTER = [48.8566, 2.3522];
 
 const createEmptyTravelRoute = () => ({
@@ -233,22 +234,56 @@ const scoreGeocodeResult = (result, query) => {
   return tokenScore + importanceScore + poiScore;
 };
 
-const geocodeAddress = async (address) => {
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const geocodeAddress = async (address, retryCount = 0) => {
   const queries = expandAddressKeywords(address);
   const results = [];
 
-  for (const query of queries) {
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&extratags=1&namedetails=1&countrycodes=fr&q=${encodeURIComponent(query)}`, {
-      headers: { Accept: "application/json", "Accept-Language": "fr" }
-    });
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    
+    // Ajouter un délai entre les requêtes pour éviter le rate limiting
+    if (i > 0) await sleep(300);
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&extratags=1&namedetails=1&countrycodes=fr&q=${encodeURIComponent(query)}`,
+        {
+          headers: { 
+            Accept: "application/json", 
+            "Accept-Language": "fr",
+            "User-Agent": "RetrobusEssonne/1.0"
+          }
+        }
+      );
 
-    if (!response.ok) throw new Error("Géocodage indisponible");
+      if (response.status === 429) {
+        // Rate limiting - attendre et réessayer
+        if (retryCount < 2) {
+          await sleep(1000 * (retryCount + 1));
+          return geocodeAddress(address, retryCount + 1);
+        }
+        throw new Error("Service de géocodage temporairement indisponible (trop de requêtes). Veuillez patienter quelques secondes.");
+      }
 
-    const queryResults = await response.json();
-    results.push(...queryResults.map(result => ({ ...result, query })));
+      if (!response.ok) {
+        console.warn(`Géocodage échoué pour "${query}": ${response.status} ${response.statusText}`);
+        continue;
+      }
+
+      const queryResults = await response.json();
+      results.push(...queryResults.map(result => ({ ...result, query })));
+    } catch (error) {
+      if (error.message.includes("Service de géocodage")) throw error;
+      console.error(`Erreur réseau pour "${query}":`, error);
+      // Continuer avec les autres requêtes
+    }
   }
 
-  if (!results?.length) throw new Error(`Adresse introuvable: ${address}`);
+  if (!results?.length) {
+    throw new Error(`Adresse introuvable: "${address}". Vérifiez l'orthographe ou essayez une adresse plus précise.`);
+  }
 
   const uniqueResults = Array.from(
     new Map(results.map(result => [`${result.lat},${result.lon}`, result])).values()
@@ -280,19 +315,35 @@ const calculateStraightLineRouteKm = (points) => points.slice(1).reduce((sum, po
 
 const fetchRoadRoute = async (points) => {
   const coordStr = points.map(point => `${point.lng},${point.lat}`).join(";");
-  const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`);
+  
+  try {
+    const response = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`,
+      { headers: { "User-Agent": "RetrobusEssonne/1.0" } }
+    );
 
-  if (!response.ok) throw new Error("Calcul d'itinéraire indisponible");
+    if (!response.ok) {
+      throw new Error(`Service de routage indisponible (${response.status})`);
+    }
 
-  const data = await response.json();
-  const route = data.routes?.[0];
-  if (!route) throw new Error("Aucun itinéraire trouvé");
+    const data = await response.json();
+    const route = data.routes?.[0];
+    
+    if (!route) {
+      throw new Error("Aucun itinéraire routier trouvé entre ces points");
+    }
 
-  return {
-    distanceKm: route.distance / 1000,
-    durationMin: route.duration / 60,
-    geometry: route.geometry.coordinates.map(([lng, lat]) => [lat, lng])
-  };
+    return {
+      distanceKm: route.distance / 1000,
+      durationMin: route.duration / 60,
+      geometry: route.geometry.coordinates.map(([lng, lat]) => [lat, lng])
+    };
+  } catch (error) {
+    if (error.message.includes("Service de routage") || error.message.includes("Aucun itinéraire")) {
+      throw error;
+    }
+    throw new Error("Erreur réseau lors du calcul d'itinéraire");
+  }
 };
 
 /**
@@ -364,12 +415,16 @@ const ExpenseReports = () => {
     notes: "",
     attachment: null,
     travelAddresses: createDefaultTravelAddresses(),
-    travelRoundTrip: false
+    travelRoundTrip: false,
+    travelIntermediateRoundTrips: []
   });
   const [activeStep, setActiveStep] = useState(0);
   const [travelRoute, setTravelRoute] = useState(createEmptyTravelRoute());
   const [travelRouteLoading, setTravelRouteLoading] = useState(false);
   const [travelRouteError, setTravelRouteError] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState({});
+  const [suggestionLoadingIndex, setSuggestionLoadingIndex] = useState(null);
+  const suggestionsTimeoutRef = useRef(null);
 
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -383,8 +438,11 @@ const ExpenseReports = () => {
       notes: "",
       attachment: null,
       travelAddresses: createDefaultTravelAddresses(),
-      travelRoundTrip: false
+      travelRoundTrip: false,
+      travelIntermediateRoundTrips: []
     });
+    setAddressSuggestions({});
+    setSuggestionLoadingIndex(null);
     setTravelRoute(createEmptyTravelRoute());
     setTravelRouteError("");
     setTravelRouteLoading(false);
@@ -414,12 +472,85 @@ const ExpenseReports = () => {
     setTravelRouteError("");
   };
 
+  const fetchAddressSuggestions = async (address, index) => {
+    if (!address || address.length < 3) {
+      setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
+      return;
+    }
+
+    try {
+      setSuggestionLoadingIndex(index);
+      const queries = expandAddressKeywords(address);
+      const results = [];
+
+      // Limiter à 1 seule requête pour les suggestions pour éviter le rate limiting
+      const primaryQuery = queries[0];
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&extratags=1&namedetails=1&countrycodes=fr&q=${encodeURIComponent(primaryQuery)}`,
+          { 
+            headers: { 
+              Accept: "application/json", 
+              "Accept-Language": "fr",
+              "User-Agent": "RetrobusEssonne/1.0"
+            } 
+          }
+        );
+
+        if (response.ok) {
+          const queryResults = await response.json();
+          results.push(...queryResults.map(result => ({ ...result, query: primaryQuery })));
+        }
+      } catch (error) {
+        console.error('Erreur recherche suggestions:', error);
+      }
+
+      const uniqueResults = Array.from(
+        new Map(results.map(result => [`${result.lat},${result.lon}`, result])).values()
+      );
+
+      const scoredResults = uniqueResults
+        .map(result => ({
+          ...result,
+          score: scoreGeocodeResult(result, result.query)
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      setAddressSuggestions(prev => ({ ...prev, [index]: scoredResults }));
+    } catch (error) {
+      console.error('Erreur recherche suggestions:', error);
+      setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
+    } finally {
+      setSuggestionLoadingIndex(null);
+    }
+  };
+
   const handleTravelAddressChange = (index, value) => {
     setFormData(prev => {
       const addresses = [...prev.travelAddresses];
       addresses[index] = value;
       return { ...prev, travelAddresses: addresses };
     });
+    resetTravelRoutePreview();
+
+    if (suggestionsTimeoutRef.current) {
+      clearTimeout(suggestionsTimeoutRef.current);
+    }
+
+    suggestionsTimeoutRef.current = setTimeout(() => {
+      fetchAddressSuggestions(value, index);
+    }, 400);
+  };
+
+  const handleSelectSuggestion = (index, suggestion) => {
+    setFormData(prev => {
+      const addresses = [...prev.travelAddresses];
+      addresses[index] = suggestion.display_name;
+      return { ...prev, travelAddresses: addresses };
+    });
+    setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
     resetTravelRoutePreview();
   };
 
@@ -428,6 +559,7 @@ const ExpenseReports = () => {
       ...prev,
       travelAddresses: [...prev.travelAddresses, ""]
     }));
+    setAddressSuggestions({});
     resetTravelRoutePreview();
   };
 
@@ -436,11 +568,25 @@ const ExpenseReports = () => {
       ...prev,
       travelAddresses: prev.travelAddresses.filter((_, addressIndex) => addressIndex !== index)
     }));
+    setAddressSuggestions(prev => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
     resetTravelRoutePreview();
   };
 
   const handleToggleRoundTrip = () => {
     setFormData(prev => ({ ...prev, travelRoundTrip: !prev.travelRoundTrip }));
+    resetTravelRoutePreview();
+  };
+
+  const handleToggleIntermediateRoundTrip = (index) => {
+    setFormData(prev => {
+      const roundTrips = [...prev.travelIntermediateRoundTrips];
+      roundTrips[index] = !roundTrips[index];
+      return { ...prev, travelIntermediateRoundTrips: roundTrips };
+    });
     resetTravelRoutePreview();
   };
 
@@ -480,27 +626,79 @@ const ExpenseReports = () => {
       setTravelRouteLoading(true);
       setTravelRouteError("");
 
-      const geocodedPoints = await Promise.all(cleanedTravelAddresses.map(address => geocodeAddress(address)));
-      const routePoints = formData.travelRoundTrip ? [...geocodedPoints, geocodedPoints[0]] : geocodedPoints;
+      // Géocoder les adresses séquentiellement pour éviter le rate limiting
+      const geocodedPoints = [];
+      for (let i = 0; i < cleanedTravelAddresses.length; i++) {
+        if (i > 0) await sleep(400); // Délai entre chaque requête
+        const point = await geocodeAddress(cleanedTravelAddresses[i]);
+        geocodedPoints.push(point);
+      }
+      
+      // Remplacer les adresses par leurs noms complets
+      setFormData(prev => ({
+        ...prev,
+        travelAddresses: prev.travelAddresses.map((addr, idx) => {
+          if (idx < geocodedPoints.length && addr.trim()) {
+            return geocodedPoints[idx].label;
+          }
+          return addr;
+        })
+      }));
+      setAddressSuggestions({});
+      
+      // Construire le parcours avec aller-retours intermédiaires
+      let routePoints = [...geocodedPoints];
+      
+      // Ajouter les aller-retours intermédiaires (de la fin vers le début pour garder les indices)
+      for (let i = geocodedPoints.length - 1; i >= 2; i--) {
+        if (formData.travelIntermediateRoundTrips[i]) {
+          // Insérer le retour vers l'adresse précédente après cette adresse
+          routePoints.splice(i + 1, 0, geocodedPoints[i - 1]);
+        }
+      }
+      
+      // Ajouter le retour au départ si demandé
+      if (formData.travelRoundTrip) {
+        routePoints = [...routePoints, geocodedPoints[0]];
+      }
 
       try {
         const roadRoute = await fetchRoadRoute(routePoints);
-        setTravelRoute({ points: geocodedPoints, ...roadRoute, source: "OSRM", roundTrip: formData.travelRoundTrip });
+        const calculatedRoute = { points: geocodedPoints, ...roadRoute, source: "OSRM", roundTrip: formData.travelRoundTrip };
+        setTravelRoute(calculatedRoute);
+        
+        // Calculer le montant automatiquement
+        const amount = (calculatedRoute.distanceKm * KILOMETRIC_RATE).toFixed(2);
+        setFormData(prev => ({ ...prev, amount }));
       } catch (routeError) {
         const fallbackDistance = calculateStraightLineRouteKm(routePoints);
-        setTravelRoute({
+        const calculatedRoute = {
           points: geocodedPoints,
           geometry: routePoints.map(point => [point.lat, point.lng]),
           distanceKm: fallbackDistance,
           durationMin: null,
           source: "ligne droite",
           roundTrip: formData.travelRoundTrip
-        });
+        };
+        setTravelRoute(calculatedRoute);
         setTravelRouteError(`${routeError.message}. Distance indicative en ligne droite.`);
+        
+        // Calculer le montant automatiquement même en ligne droite
+        const amount = (calculatedRoute.distanceKm * KILOMETRIC_RATE).toFixed(2);
+        setFormData(prev => ({ ...prev, amount }));
       }
     } catch (error) {
       setTravelRoute(createEmptyTravelRoute());
-      setTravelRouteError(error.message || "Impossible de calculer l'itinéraire");
+      const errorMessage = error.message || "Impossible de calculer l'itinéraire";
+      setTravelRouteError(errorMessage);
+      
+      toast({
+        title: "Erreur de géocodage",
+        description: errorMessage,
+        status: "error",
+        duration: 5000,
+        isClosable: true
+      });
     } finally {
       setTravelRouteLoading(false);
     }
@@ -617,12 +815,16 @@ const ExpenseReports = () => {
 
     const travelNotes = isTravelExpense ? [
       "[Détails kilométriques]",
-      ...cleanedTravelAddresses.map((address, index) => `${index === 0 ? "Départ" : `Étape ${index + 1}`}: ${address}`),
-      `Aller-retour: ${formData.travelRoundTrip ? "Oui" : "Non"}`,
+      ...cleanedTravelAddresses.map((address, index) => {
+        const roundTripInfo = index >= 2 && formData.travelIntermediateRoundTrips[index] ? " (A/R avec précédente)" : "";
+        return `${index === 0 ? "Départ" : `Étape ${index + 1}`}: ${address}${roundTripInfo}`;
+      }),
+      `Aller-retour complet: ${formData.travelRoundTrip ? "Oui" : "Non"}`,
       `Distance parcourue: ${travelRoute.distanceKm?.toFixed(1)} km`,
       travelRoute.durationMin ? `Durée estimée: ${Math.round(travelRoute.durationMin)} min` : null,
       `Source itinéraire: ${travelRoute.source || "OSM/OSRM"}`,
-      `Indice de remboursement kilométrique: ${KILOMETRIC_RATE_LABEL}`
+      `Indice de remboursement kilométrique: ${KILOMETRIC_RATE_LABEL}`,
+      travelRoute.distanceKm ? `Montant calculé: ${travelRoute.distanceKm.toFixed(1)} km × ${KILOMETRIC_RATE_LABEL} = ${formatCurrency(travelRoute.distanceKm * KILOMETRIC_RATE)}` : null
     ].filter(Boolean).join("\n") : "";
 
     const finalNotes = [formData.notes, travelNotes].filter(Boolean).join("\n\n");
@@ -811,7 +1013,7 @@ const ExpenseReports = () => {
                 <AlertIcon />
                 <Box>
                   <Text fontWeight="bold">Indice de remboursement kilométrique</Text>
-                  <Text fontSize="sm">{KILOMETRIC_RATE_LABEL}. Le montant sera donc enregistré à 0 € pour l'instant.</Text>
+                  <Text fontSize="sm">{KILOMETRIC_RATE_LABEL}. Le montant sera calculé automatiquement après le calcul de l'itinéraire à l'étape suivante.</Text>
                 </Box>
               </Alert>
             </VStack>
@@ -881,35 +1083,91 @@ const ExpenseReports = () => {
                   <CardBody>
                     <VStack spacing={4} align="stretch">
                       {formData.travelAddresses.map((address, index) => (
-                        <FormControl key={index} isRequired={index < 2}>
-                          <HStack justify="space-between" mb={2} align="center">
-                            <FormLabel mb={0}>
-                              {index === 0 ? "Adresse de départ" : index === 1 ? "Deuxième adresse" : `Adresse ${index + 1}`}
-                            </FormLabel>
-                            <HStack spacing={2}>
-                              {index === 1 && (
-                                <Button
-                                  size="xs"
-                                  variant={formData.travelRoundTrip ? "solid" : "outline"}
-                                  colorScheme="blue"
-                                  onClick={handleToggleRoundTrip}
-                                >
-                                  Aller-retour
-                                </Button>
-                              )}
-                              {formData.travelAddresses.length > 2 && index > 1 && (
-                                <Button size="xs" variant="ghost" colorScheme="red" leftIcon={<FiTrash2 />} onClick={() => handleRemoveTravelAddress(index)}>
-                                  Retirer
-                                </Button>
-                              )}
+                        <Box key={index}>
+                          <FormControl isRequired={index < 2}>
+                            <HStack justify="space-between" mb={2} align="center">
+                              <FormLabel mb={0}>
+                                {index === 0 ? "Adresse de départ" : index === 1 ? "Deuxième adresse" : `Adresse ${index + 1}`}
+                              </FormLabel>
+                              <HStack spacing={2}>
+                                {index === 1 && (
+                                  <Button
+                                    size="xs"
+                                    variant={formData.travelRoundTrip ? "solid" : "outline"}
+                                    colorScheme="blue"
+                                    onClick={handleToggleRoundTrip}
+                                  >
+                                    A/R départ
+                                  </Button>
+                                )}
+                                {index >= 2 && (
+                                  <Button
+                                    size="xs"
+                                    variant={formData.travelIntermediateRoundTrips[index] ? "solid" : "outline"}
+                                    colorScheme="purple"
+                                    onClick={() => handleToggleIntermediateRoundTrip(index)}
+                                  >
+                                    A/R précédente
+                                  </Button>
+                                )}
+                                {formData.travelAddresses.length > 2 && index > 1 && (
+                                  <Button size="xs" variant="ghost" colorScheme="red" leftIcon={<FiTrash2 />} onClick={() => handleRemoveTravelAddress(index)}>
+                                    Retirer
+                                  </Button>
+                                )}
+                              </HStack>
                             </HStack>
-                          </HStack>
-                          <Input
-                            value={address}
-                            onChange={(event) => handleTravelAddressChange(index, event.target.value)}
-                            placeholder={index === 0 ? "Ex: siège RBE Corbeil" : index === 1 ? "Ex: mcdo massy, carrefour evry, mairie paris..." : "Ex: étape, lieu, commerce ou adresse"}
-                          />
-                        </FormControl>
+                            <Input
+                              value={address}
+                              onChange={(event) => handleTravelAddressChange(index, event.target.value)}
+                              placeholder={index === 0 ? "Ex: siège RBE Corbeil" : index === 1 ? "Ex: mcdo massy, carrefour evry, mairie paris..." : "Ex: étape, lieu, commerce ou adresse"}
+                            />
+                          </FormControl>
+                          
+                          {/* Suggestions d'adresses */}
+                          {addressSuggestions[index] && addressSuggestions[index].length > 0 && (
+                            <Box
+                              mt={1}
+                              borderWidth="1px"
+                              borderColor="gray.200"
+                              borderRadius="md"
+                              bg="white"
+                              shadow="sm"
+                              maxH="200px"
+                              overflowY="auto"
+                            >
+                              <List spacing={0}>
+                                {addressSuggestions[index].map((suggestion, suggestionIndex) => (
+                                  <ListItem
+                                    key={`${suggestion.place_id}-${suggestionIndex}`}
+                                    px={3}
+                                    py={2}
+                                    cursor="pointer"
+                                    _hover={{ bg: "blue.50" }}
+                                    borderBottomWidth={suggestionIndex < addressSuggestions[index].length - 1 ? "1px" : "0"}
+                                    borderBottomColor="gray.100"
+                                    onClick={() => handleSelectSuggestion(index, suggestion)}
+                                  >
+                                    <Text fontSize="sm" fontWeight="medium">
+                                      {suggestion.name || suggestion.display_name.split(',')[0]}
+                                    </Text>
+                                    <Text fontSize="xs" color="gray.600" noOfLines={1}>
+                                      {suggestion.display_name}
+                                    </Text>
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </Box>
+                          )}
+                          
+                          {/* Loading indicator */}
+                          {suggestionLoadingIndex === index && (
+                            <HStack mt={1} spacing={2}>
+                              <Spinner size="xs" />
+                              <Text fontSize="xs" color="gray.500">Recherche d'adresses...</Text>
+                            </HStack>
+                          )}
+                        </Box>
                       ))}
 
                       <Button leftIcon={<FiPlus />} variant="outline" colorScheme="blue" onClick={handleAddTravelAddress}>
@@ -918,12 +1176,21 @@ const ExpenseReports = () => {
 
                       <Alert status="info" borderRadius="md">
                         <AlertIcon />
-                        <Text fontSize="sm">
-                          Les recherches acceptent les mots-clés: exemple "mcdo massy" ou "carrefour evry".
-                        </Text>
+                        <Box>
+                          <Text fontSize="sm" fontWeight="medium">Recherche d'adresses</Text>
+                          <Text fontSize="xs" color="gray.600">
+                            Les mots-clés sont acceptés (ex: "mcdo massy", "carrefour evry").
+                            Le calcul d'itinéraire peut prendre quelques secondes selon le nombre d'adresses.
+                          </Text>
+                        </Box>
                       </Alert>
 
-                      <Button colorScheme="blue" onClick={handleCalculateTravelRoute} isLoading={travelRouteLoading}>
+                      <Button 
+                        colorScheme="blue" 
+                        onClick={handleCalculateTravelRoute} 
+                        isLoading={travelRouteLoading}
+                        loadingText="Calcul en cours..."
+                      >
                         Calculer l'itinéraire
                       </Button>
 
@@ -946,8 +1213,19 @@ const ExpenseReports = () => {
                         </Box>
                         <Box p={3} bg="gray.50" borderRadius="md">
                           <Text fontSize="xs" color="gray.500">Indice remboursement km</Text>
-                          <Heading size="sm" color="orange.600">À définir</Heading>
+                          <Heading size="sm" color="orange.600">{KILOMETRIC_RATE_LABEL}</Heading>
                         </Box>
+                        {travelRoute.distanceKm && (
+                          <Box p={3} bg="green.50" borderRadius="md" gridColumn={{ md: "span 2" }}>
+                            <Text fontSize="xs" color="gray.500">Montant calculé</Text>
+                            <Heading size="md" color="green.600">
+                              {formatCurrency(travelRoute.distanceKm * KILOMETRIC_RATE)}
+                            </Heading>
+                            <Text fontSize="xs" color="gray.600" mt={1}>
+                              {travelRoute.distanceKm.toFixed(1)} km × {KILOMETRIC_RATE_LABEL}
+                            </Text>
+                          </Box>
+                        )}
                       </SimpleGrid>
                     </VStack>
                   </CardBody>
@@ -1034,6 +1312,11 @@ const ExpenseReports = () => {
                     <Box textAlign="right">
                       <Text fontSize="xs" color="gray.500">Montant</Text>
                       <Heading size="sm" color="green.600">{formatCurrency(parseFloat(formData.amount))}</Heading>
+                      {isTravelExpense && travelRoute.distanceKm && (
+                        <Text fontSize="xs" color="gray.500" mt={1}>
+                          {travelRoute.distanceKm.toFixed(1)} km × {KILOMETRIC_RATE_LABEL}
+                        </Text>
+                      )}
                     </Box>
                   </HStack>
                   <Box>
@@ -1055,15 +1338,19 @@ const ExpenseReports = () => {
                       <Box>
                         <Text fontSize="xs" color="gray.500">Adresses du parcours</Text>
                         <VStack align="start" spacing={1} mt={1}>
-                          {cleanedTravelAddresses.map((address, index) => (
-                            <Text key={`${address}-${index}`} fontSize="sm">
-                              {index === 0 ? "Départ" : `Étape ${index + 1}`} · {address}
-                            </Text>
-                          ))}
+                          {cleanedTravelAddresses.map((address, index) => {
+                            const hasIntermediateRT = index >= 2 && formData.travelIntermediateRoundTrips[index];
+                            return (
+                              <Text key={`${address}-${index}`} fontSize="sm">
+                                {index === 0 ? "Départ" : `Étape ${index + 1}`} · {address}
+                                {hasIntermediateRT && <Badge ml={2} colorScheme="purple" fontSize="xs">A/R précédente</Badge>}
+                              </Text>
+                            );
+                          })}
                         </VStack>
                       </Box>
                       <Box>
-                        <Text fontSize="xs" color="gray.500">Aller-retour</Text>
+                        <Text fontSize="xs" color="gray.500">Aller-retour au départ</Text>
                         <Text>{formData.travelRoundTrip ? "Oui" : "Non"}</Text>
                       </Box>
                       <Box>
