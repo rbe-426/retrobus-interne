@@ -429,6 +429,15 @@ const ExpenseReports = () => {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  // Cleanup du timeout lors du démontage du composant
+  useEffect(() => {
+    return () => {
+      if (suggestionsTimeoutRef.current) {
+        clearTimeout(suggestionsTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const resetForm = () => {
     setFormData({
       type: "",
@@ -501,9 +510,12 @@ const ExpenseReports = () => {
         if (response.ok) {
           const queryResults = await response.json();
           results.push(...queryResults.map(result => ({ ...result, query: primaryQuery })));
+          console.log(`📍 Suggestions trouvées pour "${address}":`, results.length);
+        } else {
+          console.warn(`⚠️ Échec recherche suggestions (${response.status})`);
         }
       } catch (error) {
-        console.error('Erreur recherche suggestions:', error);
+        console.error('❌ Erreur fetch suggestions:', error);
       }
 
       const uniqueResults = Array.from(
@@ -520,7 +532,7 @@ const ExpenseReports = () => {
 
       setAddressSuggestions(prev => ({ ...prev, [index]: scoredResults }));
     } catch (error) {
-      console.error('Erreur recherche suggestions:', error);
+      console.error('❌ Erreur recherche suggestions:', error);
       setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
     } finally {
       setSuggestionLoadingIndex(null);
@@ -535,10 +547,12 @@ const ExpenseReports = () => {
     });
     resetTravelRoutePreview();
 
+    // Nettoyer le timeout précédent
     if (suggestionsTimeoutRef.current) {
       clearTimeout(suggestionsTimeoutRef.current);
     }
 
+    // Programmer la recherche de suggestions avec debouncing
     suggestionsTimeoutRef.current = setTimeout(() => {
       fetchAddressSuggestions(value, index);
     }, 400);
