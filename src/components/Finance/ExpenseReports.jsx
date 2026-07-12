@@ -479,6 +479,10 @@ const ExpenseReports = () => {
   const resetTravelRoutePreview = () => {
     setTravelRoute(createEmptyTravelRoute());
     setTravelRouteError("");
+    // Réinitialiser le montant si c'était des frais de déplacement
+    if (isTravelExpense && formData.amount) {
+      setFormData(prev => ({ ...prev, amount: "" }));
+    }
   };
 
   const fetchAddressSuggestions = async (address, index) => {
@@ -684,6 +688,14 @@ const ExpenseReports = () => {
         // Calculer le montant automatiquement
         const amount = (calculatedRoute.distanceKm * KILOMETRIC_RATE).toFixed(2);
         setFormData(prev => ({ ...prev, amount }));
+        
+        toast({
+          title: "Itinéraire calculé ✅",
+          description: `Distance: ${calculatedRoute.distanceKm.toFixed(1)} km - Montant: ${formatCurrency(parseFloat(amount))}`,
+          status: "success",
+          duration: 4000,
+          isClosable: true
+        });
       } catch (routeError) {
         const fallbackDistance = calculateStraightLineRouteKm(routePoints);
         const calculatedRoute = {
@@ -700,6 +712,14 @@ const ExpenseReports = () => {
         // Calculer le montant automatiquement même en ligne droite
         const amount = (calculatedRoute.distanceKm * KILOMETRIC_RATE).toFixed(2);
         setFormData(prev => ({ ...prev, amount }));
+        
+        toast({
+          title: "Itinéraire estimé ⚠️",
+          description: `Distance en ligne droite: ${calculatedRoute.distanceKm.toFixed(1)} km - Montant: ${formatCurrency(parseFloat(amount))}`,
+          status: "warning",
+          duration: 4000,
+          isClosable: true
+        });
       }
     } catch (error) {
       setTravelRoute(createEmptyTravelRoute());
@@ -1030,6 +1050,21 @@ const ExpenseReports = () => {
                   <Text fontSize="sm">{KILOMETRIC_RATE_LABEL}. Le montant sera calculé automatiquement après le calcul de l'itinéraire à l'étape suivante.</Text>
                 </Box>
               </Alert>
+              
+              {travelRoute.distanceKm && formData.amount && (
+                <Alert status="success" borderRadius="md">
+                  <AlertIcon />
+                  <Box>
+                    <Text fontSize="sm" fontWeight="bold">Montant calculé automatiquement</Text>
+                    <Text fontSize="sm">
+                      {travelRoute.distanceKm.toFixed(1)} km × {KILOMETRIC_RATE_LABEL} = {formatCurrency(parseFloat(formData.amount))}
+                    </Text>
+                    <Text fontSize="xs" color="gray.600" mt={1}>
+                      Le montant sera ajusté si vous modifiez l'itinéraire à l'étape suivante.
+                    </Text>
+                  </Box>
+                </Alert>
+              )}
             </VStack>
           );
         }
