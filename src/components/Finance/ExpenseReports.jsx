@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
@@ -9,7 +9,6 @@ import {
   Stepper, Step, StepIndicator, StepStatus, StepIcon, StepNumber,
   StepTitle, StepDescription, StepSeparator
 } from "@chakra-ui/react";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import { FiPlus, FiTrash2, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -107,44 +106,80 @@ const mapEndIcon = L.icon({
   popupAnchor: [1, -34]
 });
 
-function MileageMapBounds({ points }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (points.length >= 2) {
-      map.fitBounds(L.latLngBounds(points), { padding: [36, 36] });
-    }
-  }, [points, map]);
-
-  return null;
-}
+const mapWaypointIcon = L.icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34]
+});
 
 function MileageRouteMap({ route }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const layerRef = useRef(null);
   const points = route.points?.filter(Boolean).map(point => [point.lat, point.lng]) || [];
-  const center = points[0] || DEFAULT_MAP_CENTER;
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    mapRef.current = L.map(containerRef.current, {
+      center: DEFAULT_MAP_CENTER,
+      zoom: 7,
+      scrollWheelZoom: false
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(mapRef.current);
+
+    setTimeout(() => mapRef.current?.invalidateSize(), 80);
+
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (layerRef.current) {
+      layerRef.current.remove();
+    }
+
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+
+    if (route.geometry?.length > 0) {
+      L.polyline(route.geometry, { color: "#3b82f6", weight: 5, opacity: 0.9 }).addTo(layer);
+    }
+
+    route.points?.forEach((point, index) => {
+      const isStart = index === 0;
+      const isEnd = index === route.points.length - 1;
+      L.marker([point.lat, point.lng], { icon: isStart ? mapStartIcon : isEnd ? mapEndIcon : mapWaypointIcon })
+        .bindPopup(`${isStart ? "Départ" : isEnd ? "Arrivée" : `Étape ${index + 1}`}<br />${point.label}`)
+        .addTo(layer);
+    });
+
+    const boundsPoints = route.geometry?.length ? route.geometry : points;
+    if (boundsPoints.length >= 2) {
+      map.fitBounds(L.latLngBounds(boundsPoints), { padding: [36, 36] });
+    } else if (points[0]) {
+      map.setView(points[0], 11);
+    } else {
+      map.setView(DEFAULT_MAP_CENTER, 7);
+    }
+
+    setTimeout(() => map.invalidateSize(), 80);
+  }, [points, route]);
 
   return (
     <Box h={{ base: "320px", lg: "430px" }} borderRadius="lg" overflow="hidden" border="1px solid" borderColor="gray.200">
-      <MapContainer center={center} zoom={points.length ? 11 : 7} style={{ height: "100%", width: "100%" }}>
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        {route.geometry?.length > 0 && (
-          <Polyline positions={route.geometry} color="#3b82f6" weight={5} opacity={0.9} />
-        )}
-        {route.points?.map((point, index) => {
-          const isStart = index === 0;
-          const isEnd = index === route.points.length - 1;
-
-          return (
-          <Marker key={`${point.lat}-${point.lng}-${index}`} position={[point.lat, point.lng]} icon={isStart ? mapStartIcon : isEnd ? mapEndIcon : undefined}>
-            <Popup>{isStart ? "Départ" : isEnd ? "Arrivée" : `Étape ${index + 1}`}<br />{point.label}</Popup>
-          </Marker>
-          );
-        })}
-        <MileageMapBounds points={points} />
-      </MapContainer>
+      <Box ref={containerRef} h="100%" w="100%" />
     </Box>
   );
 }
