@@ -11,7 +11,7 @@ import {
   ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
   useColorModeValue, useBreakpointValue, Drawer, DrawerOverlay,
-  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton
+  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, Portal
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
@@ -23,7 +23,6 @@ import { fetchWithCSRF } from "../lib/csrfClient";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
-import "./RetromailAero.css";
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
@@ -1143,7 +1142,7 @@ export default function Retromail() {
   // Écran de chargement initial
   if (connectionLoading) {
     return (
-      <Box className="retromail-aero" p={6}>
+      <Box>
         <Center minH="60vh">
           <VStack spacing={4}>
             <Spinner size="xl" color="rbe.500" />
@@ -1157,22 +1156,35 @@ export default function Retromail() {
   // Écran de connexion
   if (!isConnected) {
     return (
-      <Box className="retromail-aero" p={{ base: 3, md: 4, lg: 6 }}>
-        <Flex className="retromail-aero-login-header" align="center" justify="space-between" gap={4}>
+      <Box>
+        <Flex
+          bg="gray.900"
+          color="white"
+          minH="56px"
+          px={{ base: 3, md: 5 }}
+          align="center"
+          justify="space-between"
+          borderBottom="3px solid"
+          borderColor="rbe.500"
+        >
           <HStack spacing={3} minW={0}>
-            <Box className="retromail-aero-login-mark" aria-hidden="true">
-              <FiMail />
-            </Box>
+            <FiMail aria-hidden="true" />
             <Box minW={0}>
-              <Text className="retromail-aero-login-brand">Carbone RétroBus</Text>
-              <Heading size={{ base: "sm", md: "md" }} color="white" noOfLines={1}>RétroMail</Heading>
+              <Text fontSize="xs" color="gray.300" fontWeight="700">
+                Carbone RétroBus
+              </Text>
+              <Heading size="sm" color="white" noOfLines={1}>
+                RétroMail
+              </Heading>
             </Box>
           </HStack>
-          <Badge className="retromail-aero-login-badge">Messagerie sécurisée</Badge>
+          <Badge colorScheme="rbe" variant="subtle" flexShrink={0}>
+            Messagerie sécurisée
+          </Badge>
         </Flex>
         
         <Center minH="50vh">
-          <Card className="retromail-aero-panel" maxW="500px" w="100%" bg={cardBg}>
+          <Card maxW="500px" w="100%" bg={cardBg}>
             <CardHeader>
               <Heading size={{ base: "sm", md: "md" }}>📧 RétroMail</Heading>
               <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mt={2}>
@@ -1220,7 +1232,6 @@ export default function Retromail() {
                 </FormControl>
 
                 <Button 
-                  className="retromail-aero-primary"
                   colorScheme="rbe" 
                   onClick={handleConnect}
                   isLoading={loading}
@@ -1246,17 +1257,16 @@ export default function Retromail() {
 
   // Interface mail principale
   return (
-    <Box className="retromail-aero" p={{ base: 2, md: 4, lg: 6 }} bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
+    <Box bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
       {/* Header */}
-      <Flex className="retromail-aero-toolbar"
+      <Flex
         direction={{ base: 'column', md: 'row' }}
         justify="space-between" 
         align={{ base: 'stretch', md: 'center' }} 
-        mb={{ base: 4, md: 6 }}
-        gap={{ base: 3, md: 0 }}
+        gap={{ base: 3, md: 5 }}
       >
         <VStack align="start" spacing={1}>
-          <Heading className="retromail-aero-heading" size={{ base: "md", md: "lg" }}>📧 RétroMail</Heading>
+          <Heading size={{ base: "md", md: "lg" }}>RétroMail</Heading>
           <HStack display={{ base: 'flex', md: 'none' }} spacing={2} color="gray.600" fontSize="xs">
             <Badge colorScheme="green" fontSize="2xs" maxW="180px" overflow="hidden" textOverflow="ellipsis">
               {emailAccount}
@@ -1290,7 +1300,6 @@ export default function Retromail() {
           </Button>
           <Button 
             leftIcon={<FiEdit />}
-            className="retromail-aero-primary"
             colorScheme="rbe"
             size={{ base: "sm", md: "sm" }}
             onClick={onComposeOpen}
@@ -1299,12 +1308,14 @@ export default function Retromail() {
           </Button>
           <Menu>
             <MenuButton as={IconButton} icon={<FiSettings />} size={{ base: "sm", md: "sm" }} variant="ghost" aria-label="Parametres RétroMail" />
-            <MenuList className="retromail-aero-menu">
-              <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
-              <MenuItem className="retromail-aero-disconnect" onClick={handleDisconnect}>
-                Déconnecter
-              </MenuItem>
-            </MenuList>
+            <Portal>
+              <MenuList zIndex="popover">
+                <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
+                <MenuItem color="red.500" onClick={handleDisconnect}>
+                  Déconnecter
+                </MenuItem>
+              </MenuList>
+            </Portal>
           </Menu>
         </HStack>
       </Flex>
@@ -1318,7 +1329,6 @@ export default function Retromail() {
       >
         {/* Sidebar - Dossiers */}
         <Box 
-          className="retromail-aero-panel"
           w={{ base: 'full', md: '220px' }}
           display={{ base: 'none', md: 'block' }}
           borderWidth="1px" 
@@ -1385,7 +1395,6 @@ export default function Retromail() {
 
         {/* Liste des emails */}
         <Box 
-          className="retromail-aero-panel"
           w={{ base: 'full', md: '350px', lg: '400px' }}
           display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
           borderWidth="1px" 
@@ -1506,7 +1515,6 @@ export default function Retromail() {
 
         {/* Lecteur d'email */}
         <Box 
-          className="retromail-aero-panel"
           flex="1"
           w={{ base: 'full', md: 'auto' }}
           display={{ base: selectedEmail ? 'block' : 'none', md: 'block' }}
