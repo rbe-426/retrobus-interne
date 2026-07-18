@@ -12,6 +12,7 @@ import MyRBEActions from './MyRBEActions';
 import RetroBus from './RetroBus';
 import DashboardHome from './DashboardHome';
 import ApiDiagnostics from './ApiDiagnostics';
+import ExternalRetromailRedirect from '../components/ExternalRetromailRedirect';
 
 export default function Dashboard() {
   return (
@@ -22,7 +23,7 @@ export default function Dashboard() {
         <Route path="vehicules" element={<Vehicules />} />
         <Route path="vehicules/ajouter" element={<RequireCreator><VehiculeCreate /></RequireCreator>} />
         <Route path="vehicules/:parc" element={<VehiculeShow />} />
-        <Route path="retromail" element={<Navigate to="https://www.retrobus-interne.fr/red/retromail" replace />} />
+        <Route path="retromail" element={<ExternalRetromailRedirect />} />
         <Route path="myrbe" element={<MyRBE />} />
         <Route path="myrbe/:parc" element={<MyRBEActions />} />
         <Route path="qr" element={<QRManager />} />

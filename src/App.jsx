@@ -13,6 +13,7 @@ import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import PrestataireLimitedRoute from "./components/PrestataireLimitedRoute";
 import RequireCreator from "./components/RequireCreator";
+import ExternalRetromailRedirect from "./components/ExternalRetromailRedirect";
 import { RESOURCES } from "./lib/permissions";
 
 const lazyWithRetry = (factory, cacheKey) =>
@@ -229,7 +230,7 @@ export default function App() {
         <Route path="/planning/attendance/:eventId/:memberId" element={<AttendancePage />} />
         <Route path="/planning/my-invitations" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING_RESPOND}><AttendanceManager /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
-        <Route path="/retromail" element={<Navigate to="https://www.retrobus-interne.fr/red/retromail" replace />} />
+        <Route path="/retromail" element={<ExternalRetromailRedirect />} />
         
         {/* � Pages légales */}
         <Route path="/mentions-legales" element={<ProtectedRoute><MentionsLegales /></ProtectedRoute>} />

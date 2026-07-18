@@ -437,6 +437,8 @@ export default function Header() {
                 <IconButton
                   as="a"
                   href="https://www.retrobus-interne.fr/red/retromail"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label="RétroMail"
                   icon={<FiMail size={20} />}
                   size="sm"
@@ -488,7 +490,7 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
                   NDF
                 </MenuItem>
-                <MenuItem as="a" href="https://www.retrobus-interne.fr/red/retromail">
+                <MenuItem as="a" href="https://www.retrobus-interne.fr/red/retromail" target="_blank" rel="noopener noreferrer">
                   RétroMail
                 </MenuItem>
                 <MenuItem onClick={handleLogout} color="red.500">
@@ -603,6 +605,8 @@ export default function Header() {
               <Button 
                 as="a"
                 href="https://www.retrobus-interne.fr/red/retromail"
+                target="_blank"
+                rel="noopener noreferrer"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose}
@@ -646,6 +650,8 @@ export default function Header() {
               <Button 
                 as="a" 
                 href="https://www.retrobus-interne.fr/red/retromail" 
+                target="_blank"
+                rel="noopener noreferrer"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
