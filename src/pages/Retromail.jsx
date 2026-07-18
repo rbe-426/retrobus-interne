@@ -1472,11 +1472,11 @@ export default function Retromail() {
             h="full"
           >
             <Button
-              leftIcon={isSidebarCollapsed ? undefined : <FiMenu />}
+              leftIcon={<FiMenu />}
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               size="sm"
               variant="ghost"
-              color="gray.400"
+              color="white"
               _hover={{ bg: 'whiteAlpha.100', color: 'white' }}
               justifyContent={isSidebarCollapsed ? 'center' : 'flex-start'}
               mb={2}
