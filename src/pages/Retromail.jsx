@@ -1364,70 +1364,94 @@ export default function Retromail() {
     <Box p={0} bg="gray.50" minH="100vh">
       {/* Header */}
       <Flex
-        px={{ base: 3, md: 5 }}
-        py={3}
-        bg="white"
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        align="center"
-        justify="space-between"
         position="sticky"
         top={0}
         zIndex={100}
         boxShadow="sm"
+        direction="row"
       >
-        <HStack spacing={4}>
+        {/* Partie carbone gauche - alignée avec sidebar */}
+        <Flex
+          w={isSidebarCollapsed ? '60px' : '240px'}
+          bg="#0f172a"
+          transition="width 0.3s ease"
+          display={{ base: 'none', md: 'flex' }}
+          borderBottom="1px solid"
+          borderColor="whiteAlpha.200"
+          py={0.5}
+          minH="75px"
+          align="center"
+          justify="center"
+        >
           <Image 
-            src="/src/assets/retromail_logo.png" 
+            src={isSidebarCollapsed ? "/src/assets/retromail_blanc_mini.png" : "/src/assets/retromail_logo.png"}
             alt="RétroMail" 
-            h="40px"
-            display={{ base: 'none', md: 'block' }}
+            h={isSidebarCollapsed ? "45px" : "75px"}
+            transition="all 0.3s ease"
           />
-          <VStack align="start" spacing={0}>
-            <Heading size="md" color="gray.800">RétroMail</Heading>
-            <Text fontSize="xs" color="gray.500">
-              {emailAccount}
-            </Text>
-          </VStack>
-        </HStack>
-        <HStack spacing={2}>
-          <Button 
-            leftIcon={<FiRefreshCw />} 
-            size="sm"
-            variant="ghost"
-            onClick={loadEmails}
-            isLoading={loading}
-            display={{ base: 'none', md: 'flex' }}
-          >
-            Actualiser
-          </Button>
-          <Button 
-            leftIcon={<FiEdit />}
-            colorScheme="rbe"
-            size="sm"
-            onClick={onComposeOpen}
-          >
-            Nouveau
-          </Button>
-          <Menu>
-            <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" aria-label="Parametres" />
-            <Portal>
-              <MenuList zIndex="popover">
-                <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
-                <MenuItem color="red.500" onClick={handleDisconnect}>
-                  Déconnecter
-                </MenuItem>
-              </MenuList>
-            </Portal>
-          </Menu>
-        </HStack>
+        </Flex>
+        
+        {/* Partie blanche droite - contenu du header */}
+        <Flex
+          flex={1}
+          px={{ base: 2, md: 4 }}
+          py={0.5}
+          bg="white"
+          borderBottom="1px solid"
+          borderColor="gray.200"
+          align="center"
+          justify="space-between"
+          minH="75px"
+        >
+          <HStack spacing={4}>
+            <VStack align="start" spacing={0}>
+              <Heading size="md" color="gray.800">
+              {user?.firstName || user?.prenom || ''} {(user?.lastName || user?.nom || '').toUpperCase()}
+              </Heading>
+              <Text fontSize="md" color="gray.500">
+                {emailAccount}
+              </Text>
+            </VStack>
+          </HStack>
+          <HStack spacing={2}>
+            <Button 
+              leftIcon={<FiRefreshCw />} 
+              size="sm"
+              variant="ghost"
+              onClick={loadEmails}
+              isLoading={loading}
+              display={{ base: 'none', md: 'flex' }}
+            >
+              Actualiser
+            </Button>
+            <Button 
+              leftIcon={<FiEdit />}
+              colorScheme="rbe"
+              size="sm"
+              onClick={onComposeOpen}
+            >
+              Nouveau
+            </Button>
+            <Menu>
+              <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" aria-label="Parametres" />
+              <Portal>
+                <MenuList zIndex="popover">
+                  <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
+                  <MenuItem color="red.500" onClick={handleDisconnect}>
+                    Déconnecter
+                  </MenuItem>
+                </MenuList>
+              </Portal>
+            </Menu>
+          </HStack>
+        </Flex>
       </Flex>
 
       {/* Layout principal avec sidebar */}
       <Flex 
         gap={0}
         align="stretch" 
-        h="calc(100vh - 72px)"
+        h="calc(100vh - 75px)"
         direction="row"
         bg="gray.50"
       >

@@ -28,7 +28,7 @@ export const USERS = {
 export async function login(username, password) {
   // 1) Essai API distante si configurée ou via proxy (base peut être vide => relatif)
   const base = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
-  const url = `${base}/auth/login`;
+  const url = `${base}/api/auth/login`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -74,7 +74,7 @@ export const authAPI = {
 export async function memberLogin(identifier, password) {
   // 1️⃣ Essayer l'API distante si dispo
   const base = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
-  const url = `${base}/auth/member-login`;
+  const url = `${base}/api/auth/member-login`;
   
   try {
     const res = await fetch(url, {
