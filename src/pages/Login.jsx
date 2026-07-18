@@ -1,4 +1,4 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Button, Input, VStack, Text, Image, Flex } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useUser } from '../context/UserContext';
@@ -12,6 +12,7 @@ export default function Login() {
   const [error, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { setToken, setUser } = useUser();
 
   const submit = async () => {
@@ -35,7 +36,9 @@ export default function Login() {
       if (data.user?.mustChangePassword || data.user?.isPasswordTemporary) {
         navigate('/force-password-change');
       } else {
-        navigate('/dashboard');
+        // Rediriger vers l'URL demandée ou vers dashboard
+        const from = location.state?.from || '/dashboard';
+        navigate(from, { replace: true });
       }
     } catch (e) {
       setErr(e.message);

@@ -21,10 +21,12 @@ export default function RoleProtectedRoute({
   showError = true
 }) {
   const { isAuthenticated, roles } = useUser();
+  const location = window.location;
 
-  // Pas authentifié
+  // Pas authentifié - sauvegarder l'URL pour redirection après login
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    const returnUrl = location.pathname + location.search;
+    return <Navigate to="/login" state={{ from: returnUrl }} replace />;
   }
 
   // Récupérer le premier rôle ou MEMBER par défaut
