@@ -428,10 +428,27 @@ export default function Retromail() {
 
     const finalEmail = normalizeMailLogin(emailAccount.includes('@') ? emailAccount : deducedEmail);
     
-    if (!finalEmail.trim() || !password.trim()) {
+    console.log('🔐 Tentative de connexion:', { 
+      emailAccount, 
+      deducedEmail, 
+      finalEmail,
+      hasPassword: !!password 
+    });
+    
+    if (!finalEmail.trim()) {
       toast({
-        title: "Champs requis",
-        description: "Veuillez renseigner votre mot de passe",
+        title: "Email requis",
+        description: "Veuillez saisir votre identifiant email",
+        status: "warning",
+        duration: 3000
+      });
+      return;
+    }
+    
+    if (!password.trim()) {
+      toast({
+        title: "Mot de passe requis",
+        description: "Veuillez saisir votre mot de passe",
         status: "warning",
         duration: 3000
       });
@@ -463,14 +480,14 @@ export default function Retromail() {
           status: "success",
           duration: 3000
         });
-        // Rediriger vers l'interface principale si on est sur la page de login
-        if (location.pathname === '/auth/rmail/login') {
-          navigate('/myrbe/retromail', { replace: true });
-        }
+        // Charger les emails
         await loadEmails();
       } else {
         const data = await res.json();
-        throw new Error(data.error || "Échec de connexion");
+        const errorMessage = data.error || "Échec de connexion";
+        throw new Error(errorMessage === "Non authentifié" 
+          ? "Email ou mot de passe incorrect. Vérifiez vos identifiants." 
+          : errorMessage);
       }
     } catch (e) {
       console.error("Erreur connexion:", e);
@@ -1344,50 +1361,56 @@ export default function Retromail() {
 
   // Interface mail principale
   return (
-    <Box p={0} bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
+    <Box p={0} bg="gray.50" minH="100vh">
       {/* Header */}
       <Flex
-        p={{ base: 2, md: 3 }}
-        direction={{ base: 'column', md: 'row' }}
-        justify="space-between" 
-        align={{ base: 'stretch', md: 'center' }} 
-        gap={{ base: 3, md: 5 }}
+        px={{ base: 3, md: 5 }}
+        py={3}
+        bg="white"
         borderBottom="1px solid"
-        borderColor={borderColor}
+        borderColor="gray.200"
+        align="center"
+        justify="space-between"
+        position="sticky"
+        top={0}
+        zIndex={100}
+        boxShadow="sm"
       >
-        <VStack align="start" spacing={1}>
-          <Heading size={{ base: "md", md: "lg" }}>RétroMail</Heading>
-          <HStack display={{ base: 'flex', md: 'none' }} spacing={2} color="gray.600" fontSize="xs">
-            <Badge colorScheme="green" fontSize="2xs" maxW="180px" overflow="hidden" textOverflow="ellipsis">
+        <HStack spacing={4}>
+          <Image 
+            src="/src/assets/retromail_logo.png" 
+            alt="RétroMail" 
+            h="40px"
+            display={{ base: 'none', md: 'block' }}
+          />
+          <VStack align="start" spacing={0}>
+            <Heading size="md" color="gray.800">RétroMail</Heading>
+            <Text fontSize="xs" color="gray.500">
               {emailAccount}
-            </Badge>
-            <Text>{folderCount} message(s)</Text>
-            {unreadCount > 0 && <Badge colorScheme="rbe" fontSize="2xs">{unreadCount} non lu(s)</Badge>}
-          </HStack>
-        </VStack>
-        <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap" justify={{ base: 'space-between', md: 'flex-end' }}>
-          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" display={{ base: 'none', sm: 'block' }}>
-            Connecté : <Badge colorScheme="green" fontSize={{ base: "2xs", md: "xs" }}>{emailAccount}</Badge>
-          </Text>
+            </Text>
+          </VStack>
+        </HStack>
+        <HStack spacing={2}>
           <Button 
             leftIcon={<FiRefreshCw />} 
-            size={{ base: "sm", md: "sm" }}
-            variant="outline"
+            size="sm"
+            variant="ghost"
             onClick={loadEmails}
             isLoading={loading}
+            display={{ base: 'none', md: 'flex' }}
           >
             Actualiser
           </Button>
           <Button 
             leftIcon={<FiEdit />}
             colorScheme="rbe"
-            size={{ base: "sm", md: "sm" }}
+            size="sm"
             onClick={onComposeOpen}
           >
             Nouveau
           </Button>
           <Menu>
-            <MenuButton as={IconButton} icon={<FiSettings />} size={{ base: "sm", md: "sm" }} variant="ghost" aria-label="Parametres RétroMail" />
+            <MenuButton as={IconButton} icon={<FiSettings />} size="sm" variant="ghost" aria-label="Parametres" />
             <Portal>
               <MenuList zIndex="popover">
                 <MenuItem onClick={onSettingsOpen}>Paramètres</MenuItem>
@@ -1404,144 +1427,163 @@ export default function Retromail() {
       <Flex 
         gap={0}
         align="stretch" 
-        minH={{ base: 'calc(100vh - 180px)', md: '70vh' }}
+        h="calc(100vh - 72px)"
         direction="row"
+        bg="gray.50"
       >
         {/* Sidebar - Dossiers */}
         <Box
-          w={isSidebarCollapsed ? '0' : { base: '0', md: '220px' }}
+          w={isSidebarCollapsed ? '60px' : '240px'}
           display={{ base: 'none', md: 'block' }}
           transition="width 0.3s ease"
           overflow="hidden"
-          bg="gray.900"
-          borderRight="2px solid"
-          borderColor="rbe.500"
+          bg="#0f172a"
           position="relative"
+          h="full"
         >
           <VStack 
             spacing={1} 
             align="stretch" 
-            p={isSidebarCollapsed ? 0 : 3}
+            p={3}
             h="full"
-            opacity={isSidebarCollapsed ? 0 : 1}
-            transition="opacity 0.2s ease"
           >
-            <Text 
-              fontSize="xs" 
-              fontWeight="bold" 
-              color="gray.400" 
-              px={2} 
-              py={2}
-              letterSpacing="wider"
-              textTransform="uppercase"
+            <Button
+              leftIcon={isSidebarCollapsed ? undefined : <FiMenu />}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              size="sm"
+              variant="ghost"
+              color="gray.400"
+              _hover={{ bg: 'whiteAlpha.100', color: 'white' }}
+              justifyContent={isSidebarCollapsed ? 'center' : 'flex-start'}
+              mb={2}
             >
-              Dossiers
-            </Text>
+              {!isSidebarCollapsed && 'Menu'}
+            </Button>
+            
+            <Divider borderColor="whiteAlpha.200" my={2} />
+            
             {folderOptions.map((folder) => {
               const Icon = folder.icon;
               const isActive = activeFolder === folder.key;
+              const unreadInFolder = emails.filter(e => !e.read).length;
+              const totalInFolder = emails.length;
+              
               return (
                 <Button
                   key={folder.key}
                   onClick={() => changeFolder(folder.key)}
-                  leftIcon={<Icon />}
-                  size="sm"
+                  size="md"
                   variant="ghost"
-                  justifyContent="flex-start"
+                  justifyContent={isSidebarCollapsed ? 'center' : 'space-between'}
                   color={isActive ? 'white' : 'gray.400'}
-                  bg={isActive ? 'rbe.600' : 'transparent'}
+                  bg={isActive ? '#d30c4c' : 'transparent'}
                   _hover={{ 
-                    bg: isActive ? 'rbe.700' : 'gray.800',
+                    bg: isActive ? '#b80a40' : 'whiteAlpha.100',
                     color: 'white'
                   }}
-                  fontWeight={isActive ? 'bold' : 'normal'}
-                  borderRadius="md"
+                  fontWeight={isActive ? '600' : 'normal'}
+                  borderRadius="lg"
+                  px={3}
+                  py={6}
+                  transition="all 0.2s"
                 >
-                  {folder.label}
+                  {isSidebarCollapsed ? (
+                    <Icon size={20} />
+                  ) : (
+                    <>
+                      <HStack spacing={3}>
+                        <Icon size={20} />
+                        <Text fontSize="sm">{folder.label}</Text>
+                      </HStack>
+                      {activeFolder === folder.key && totalInFolder > 0 && (
+                        <Badge 
+                          colorScheme={unreadInFolder > 0 ? 'red' : 'whiteAlpha'} 
+                          borderRadius="full"
+                          fontSize="xs"
+                          px={2}
+                          bg={unreadInFolder > 0 ? 'red.500' : 'whiteAlpha.300'}
+                        >
+                          {totalInFolder}
+                        </Badge>
+                      )}
+                    </>
+                  )}
                 </Button>
               );
             })}
             
-            <Divider borderColor="gray.700" my={3} />
+            <Divider borderColor="whiteAlpha.200" my={3} />
             
             <Button
-              leftIcon={<FiFolder />}
-              size="sm"
+              size="md"
               variant="ghost"
-              justifyContent="flex-start"
-              color="gray.400"
-              _hover={{ bg: 'gray.800', color: 'white' }}
-              borderRadius="md"
+              justifyContent={isSidebarCollapsed ? 'center' : 'flex-start'}
+              color="gray.600"
+              _hover={{ bg: 'whiteAlpha.100', color: 'gray.400' }}
+              borderRadius="lg"
+              px={3}
+              py={6}
               isDisabled
             >
-              Archives
+              {isSidebarCollapsed ? (
+                <FiFolder size={20} />
+              ) : (
+                <HStack spacing={3}>
+                  <FiFolder size={20} />
+                  <Text fontSize="sm">Archives</Text>
+                </HStack>
+              )}
             </Button>
           </VStack>
         </Box>
 
-        {/* Bouton toggle sidebar */}
-        <IconButton
-          icon={isSidebarCollapsed ? <FiMenu /> : <FiChevronLeft />}
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          aria-label="Toggle sidebar"
-          size="sm"
-          variant="ghost"
-          position="absolute"
-          left={isSidebarCollapsed ? '8px' : '212px'}
-          top="120px"
-          zIndex={10}
-          display={{ base: 'none', md: 'flex' }}
-          bg="gray.900"
-          color="white"
-          _hover={{ bg: 'gray.800' }}
-          transition="left 0.3s ease"
-          borderRadius="md"
-        />
-
-        {/* Contenu principal */}
-        <Flex 
+        {/* Bloc principal unifié */}
+        <Box 
           flex={1}
-          gap={{ base: 2, md: 4 }} 
-          align="stretch" 
-          direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
-          p={{ base: 2, md: 3 }}
+          bg="white"
+          h="full"
+          position="relative"
         >
-          {/* Liste des emails */}
-          <Box 
-            w={{ base: 'full', md: '400px', lg: '450px' }}
-          display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
-          borderWidth="1px" 
-          borderColor={borderColor}
-          borderRadius="md" 
-          p={{ base: 2, md: 3 }}
-          bg={cardBg}
-          overflowY="auto"
-          h={{ base: listHeight, md: '70vh' }}
-          maxH={{ base: 'none', md: '70vh' }}
-        >
-          <Box position="sticky" top={0} zIndex={2} bg={cardBg} pb={2}>
-            <HStack align="center" mb={1}>
-              <Input 
-                placeholder="Rechercher..." 
-                size={{ base: 'sm', md: 'md' }}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <IconButton
-                  icon={<FiX />}
-                  aria-label="Effacer la recherche"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSearchQuery('')}
+          <Flex h="full" direction="row">
+            {/* Liste des emails */}
+            <Box 
+              w={{ base: 'full', md: '420px' }}
+              display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
+              borderRight="1px"
+              borderColor="gray.200"
+              overflowY="auto"
+              h="full"
+              bg="white"
+            >
+            <Box position="sticky" top={0} zIndex={2} bg="white" p={4} borderBottom="1px" borderColor="gray.200">
+              <HStack spacing={2} mb={3}>
+                <Input 
+                  placeholder="Rechercher dans les emails" 
+                  size="md"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  borderRadius="lg"
+                  border="1px"
+                  borderColor="gray.300"
+                  _hover={{ borderColor: 'gray.400' }}
+                  _focus={{ borderColor: 'rbe.500', boxShadow: '0 0 0 1px #d30c4c' }}
+                  leftElement={<FiMail color="gray.400" />}
                 />
-              )}
-            </HStack>
-            <HStack justify="space-between" fontSize="xs" color="gray.500">
-              <Text>{filteredEmails.length} / {folderCount} message(s)</Text>
-              <Text display={{ base: 'block', md: 'none' }}>{activeFolderLabel}</Text>
-            </HStack>
-          </Box>
+                {searchQuery && (
+                  <IconButton
+                    icon={<FiX />}
+                    aria-label="Effacer"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSearchQuery('')}
+                  />
+                )}
+              </HStack>
+              <HStack justify="space-between" fontSize="sm" color="gray.600">
+                <Text fontWeight="500">{activeFolderLabel}</Text>
+                <Text fontSize="xs" color="gray.500">{filteredEmails.length} / {folderCount}</Text>
+              </HStack>
+            </Box>
 
           {loading ? (
             <Center p={6}>
@@ -1564,7 +1606,7 @@ export default function Retromail() {
               </VStack>
             </Center>
           ) : (
-            <VStack align="stretch" spacing={2}>
+            <VStack align="stretch" spacing={0}>
               {filteredEmails.map((email) => {
                 // Adapter l'affichage selon le type (brouillon ou email normal)
                 const isDraft = activeFolder === 'DRAFTS';
@@ -1572,87 +1614,91 @@ export default function Retromail() {
                 const displaySubName = isDraft ? null : (email.fromName && email.fromName !== email.from ? email.from : null);
                 
                 return (
-                <Card
+                <Box
                   key={email.id}
-                  size="sm"
                   cursor="pointer"
                   onClick={() => handleReadEmail(email)}
-                  bg={selectedEmail?.id === email.id ? selectedBg : cardBg}
-                  borderWidth="1px"
-                  borderColor={selectedEmail?.id === email.id ? 'rbe.500' : borderColor}
-                  _hover={{ borderColor: 'rbe.300' }}
-                  borderRadius="md"
+                  bg={selectedEmail?.id === email.id ? '#fef2f2' : 'white'}
+                  borderBottom="1px"
+                  borderColor="gray.100"
+                  _hover={{ 
+                    bg: 'gray.50'
+                  }}
+                  transition="all 0.15s"
+                  px={4}
+                  py={3}
                 >
-                  <CardBody py={{ base: 3, md: 2 }} px={{ base: 3, md: 3 }}>
-                    <Flex justify="space-between" align="start" mb={1}>
-                      <HStack spacing={2} flex="1" minW="0">
-                        <Avatar size="xs" name={displayName} />
-                        <VStack align="start" spacing={0} flex="1" minW="0">
-                          <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1}>
+                  <Flex justify="space-between" align="center" mb={2}>
+                    <HStack spacing={3} flex="1" minW="0">
+                      <Avatar 
+                        size="md" 
+                        name={displayName} 
+                        bg={email.read ? 'gray.400' : '#d30c4c'}
+                        color="white"
+                      />
+                      <VStack align="start" spacing={0} flex="1" minW="0">
+                        <HStack spacing={2}>
+                          <Text fontWeight={email.read ? '400' : '700'} fontSize="sm" noOfLines={1} color="gray.900">
                             {isDraft ? `À: ${displayName}` : displayName}
                           </Text>
-                          {displaySubName && (
-                            <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                              {displaySubName}
-                            </Text>
+                          {!email.read && (
+                            <Badge colorScheme="blue" fontSize="2xs" borderRadius="full" px={2} bg="#3b82f6" color="white">
+                              NOUVEAU
+                            </Badge>
                           )}
-                        </VStack>
-                      </HStack>
-                      {!email.read && !isDraft && <Badge colorScheme="rbe" fontSize="2xs">Nouveau</Badge>}
-                      {isDraft && <Badge colorScheme="purple" fontSize="2xs">Brouillon</Badge>}
-                    </Flex>
-                    <Text fontWeight="600" fontSize="sm" noOfLines={1} mb={1}>
-                      {email.subject || "(Sans objet)"}
+                          {isDraft && <Badge colorScheme="purple" fontSize="2xs" borderRadius="full" px={2}>Brouillon</Badge>}
+                        </HStack>
+                        {displaySubName && (
+                          <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                            {displaySubName}
+                          </Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                    <Text fontSize="xs" color="gray.500" flexShrink={0}>
+                      {email.date ? new Date(email.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''}
                     </Text>
-                    <Text fontSize="xs" color="gray.600" noOfLines={2}>
-                      {email.preview || email.body?.substring(0, 80) || ""}
-                    </Text>
-                    <HStack justify="space-between" mt={1} color="gray.500">
-                    <Text fontSize="xs" noOfLines={1}>
-                      {email.date ? new Date(email.date).toLocaleString('fr-FR') : (email.savedAt ? new Date(email.savedAt).toLocaleString('fr-FR') : '')}
+                  </Flex>
+                  <Text fontWeight={email.read ? '400' : '600'} fontSize="sm" noOfLines={1} mb={1} color="gray.900" pl="52px">
+                    {email.subject || "(Sans objet)"}
+                  </Text>
+                  <HStack pl="52px" spacing={2}>
+                    <Text fontSize="sm" color="gray.600" noOfLines={1} flex={1}>
+                      {email.preview || email.body?.substring(0, 100) || ""}
                     </Text>
                     {email.attachments?.length > 0 && (
-                      <HStack spacing={1} fontSize="xs">
-                        <FiPaperclip />
-                        <Text>{email.attachments.length}</Text>
-                      </HStack>
+                      <FiPaperclip color="gray" size={14} />
                     )}
-                    </HStack>
-                  </CardBody>
-                </Card>
+                  </HStack>
+                </Box>
                 );
               })}
             </VStack>
           )}
-        </Box>
+          </Box>
 
-        {/* Lecteur d'email */}
-        <Box 
-          flex="1"
-          w={{ base: 'full', md: 'auto' }}
-          display={{ base: selectedEmail ? 'block' : 'none', md: 'block' }}
-          borderWidth="1px" 
-          borderColor={borderColor}
-          borderRadius="md" 
-          p={{ base: 2, md: 4 }}
-          bg={cardBg}
-          overflowY="auto"
-          h={{ base: 'calc(100dvh - 150px)', md: '70vh' }}
-          maxH={{ base: 'none', md: '70vh' }}
-          sx={{ overscrollBehavior: 'contain' }}
-        >
-          {!selectedEmail ? (
-            <Center h="100%">
-              <VStack spacing={3}>
-                <FiMail size={48} color="gray" />
-                <Text color="gray.600">Sélectionnez un email pour le lire</Text>
-              </VStack>
-            </Center>
+          {/* Lecteur d'email */}
+          <Box 
+            flex="1"
+            display={{ base: selectedEmail ? 'block' : 'none', md: 'block' }}
+            overflowY="auto"
+            h="full"
+            bg="white"
+          >
+            {!selectedEmail ? (
+              <Center h="100%" bg="gray.50">
+                <VStack spacing={4}>
+                  <Box p={4} bg="white" borderRadius="full" boxShadow="lg">
+                    <FiMail size={48} color="#9ca3af" />
+                  </Box>
+                  <Text color="gray.600" fontSize="lg">Sélectionnez un email pour le lire</Text>
+                </VStack>
+              </Center>
           ) : (
-            <VStack align="stretch" spacing={{ base: 2, md: 4 }}>
+            <VStack align="stretch" spacing={0}>
               {/* En-tête de l'email */}
-              <Box position={{ base: 'sticky', md: 'static' }} top={0} zIndex={2} bg={cardBg} pb={{ base: 2, md: 0 }}>
-                <Flex justify="space-between" align="start" mb={3} gap={2}>
+              <Box bg="white" p={4} borderBottom="1px" borderColor="gray.200">
+                <Flex justify="space-between" align="start" mb={4} gap={2}>
                   <IconButton
                     display={{ base: 'inline-flex', md: 'none' }}
                     icon={<FiChevronLeft />}
@@ -1661,23 +1707,28 @@ export default function Retromail() {
                     aria-label="Retour a la liste"
                     onClick={() => setSelectedEmail(null)}
                   />
-                  <Heading size={{ base: "sm", md: "md" }} flex="1" noOfLines={{ base: 2, md: 3 }}>{selectedEmail.subject || "(Sans objet)"}</Heading>
+                  <Heading size={{ base: "md", md: "lg" }} flex="1" color="gray.800">
+                    {selectedEmail.subject || "(Sans objet)"}
+                  </Heading>
                 </Flex>
-                <HStack spacing={2} align="start">
-                  <Avatar size="sm" name={selectedEmail.fromName || selectedEmail.from} />
+                <HStack spacing={3} align="start">
+                  <Avatar size="md" name={selectedEmail.fromName || selectedEmail.from} bg="rbe.500" />
                   <Box flex="1" minW="0">
-                    <Text fontWeight="600" fontSize={{ base: "xs", md: "sm" }}>
+                    <Text fontWeight="700" fontSize="md" color="gray.900">
                       {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from 
                         ? selectedEmail.fromName 
                         : selectedEmail.from}
                     </Text>
                     {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from && (
-                      <Text fontSize="xs" color="gray.500">
+                      <Text fontSize="sm" color="gray.600">
                         {selectedEmail.from}
                       </Text>
                     )}
-                    <Text fontSize="xs" color="gray.600">
-                      {selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR') : ''}
+                    <Text fontSize="sm" color="gray.500" mt={1}>
+                      {selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', { 
+                        dateStyle: 'long',
+                        timeStyle: 'short'
+                      }) : ''}
                     </Text>
                   </Box>
                 </HStack>
@@ -1686,15 +1737,14 @@ export default function Retromail() {
               {/* Barre d'actions */}
               <Flex 
                 gap={2} 
-                p={2} 
-                bg={readerActionBg} 
-                borderRadius="md"
+                p={3} 
+                bg="gray.50" 
+                borderBottom="1px"
+                borderColor="gray.200"
                 wrap="wrap"
                 position={{ base: 'sticky', md: 'static' }}
                 bottom={{ base: 0, md: 'auto' }}
                 zIndex={3}
-                borderWidth={{ base: '1px', md: 0 }}
-                borderColor={borderColor}
                 justify={{ base: 'space-between', md: 'flex-start' }}
               >
                 {isMobile ? (
@@ -1777,9 +1827,8 @@ export default function Retromail() {
                 )}
               </Flex>
 
-              <Divider />
-
-              <Box>
+              {/* Contenu email */}
+              <Box p={6} bg="white">
                 {selectedEmail.html ? (
                   <iframe
                     sandbox="allow-same-origin"
@@ -1802,21 +1851,21 @@ export default function Retromail() {
                     }}
                   />
                 ) : (
-                  <Text whiteSpace="pre-wrap" fontSize={{ base: 'sm', md: 'md' }} lineHeight="1.7">
+                  <Text whiteSpace="pre-wrap" fontSize={{ base: 'sm', md: 'md' }} lineHeight="1.8" color="gray.800">
                     {selectedEmail.body || "(Contenu vide)"}
                   </Text>
                 )}
               </Box>
 
               {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                <>
-                  <Divider />
-                  <Box>
-                    <Text fontWeight="600" mb={2}>
-                      <FiPaperclip style={{ display: 'inline', marginRight: '8px' }} />
+                <Box p={6} pt={4} bg="gray.50" borderTop="1px" borderColor="gray.200">
+                  <HStack spacing={2} mb={3}>
+                    <FiPaperclip size={18} />
+                    <Text fontWeight="600" fontSize="md">
                       Pièces jointes ({selectedEmail.attachments.length})
                     </Text>
-                    <VStack align="stretch" spacing={2}>
+                  </HStack>
+                    <VStack align="stretch" spacing={3}>
                       {selectedEmail.attachments.map((att, idx) => {
                         const downloadUrl = att.content 
                           ? createDownloadUrl(att.content, att.contentType)
@@ -1824,13 +1873,15 @@ export default function Retromail() {
                         const canPreview = isPreviewable(att.contentType);
                         
                         return (
-                          <Card key={idx} size="sm" bg={cardBg}>
+                          <Card key={idx} size="sm" bg="white" borderWidth="1px" borderColor="gray.200" borderRadius="lg">
                             <CardBody>
                               <Flex justify="space-between" align={{ base: 'stretch', md: 'center' }} gap={3} direction={{ base: 'column', md: 'row' }}>
-                                <HStack spacing={2} flex={1} minW="0">
-                                  <FiPaperclip />
+                                <HStack spacing={3} flex={1} minW="0">
+                                  <Box bg="rbe.50" p={2} borderRadius="md">
+                                    <FiPaperclip color="var(--chakra-colors-rbe-600)" size={20} />
+                                  </Box>
                                   <VStack align="start" spacing={0} minW="0">
-                                    <Text fontSize="sm" fontWeight="500" noOfLines={1}>{att.filename}</Text>
+                                    <Text fontSize="sm" fontWeight="600" noOfLines={1} color="gray.900">{att.filename}</Text>
                                     <Text fontSize="xs" color="gray.500">
                                       {att.contentType} • {(att.size / 1024).toFixed(1)} KB
                                     </Text>
@@ -1876,12 +1927,13 @@ export default function Retromail() {
                         );
                       })}
                     </VStack>
-                  </Box>
-                </>
+                </Box>
               )}
             </VStack>
           )}
         </Box>
+        </Flex>
+      </Box>
       </Flex>
 
       {/* Modal - Composer un email */}

@@ -234,7 +234,7 @@ export default function App() {
         <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/retromail" element={<ExternalRetromailRedirect />} />
         <Route path="/red/retromail" element={<Navigate to="/auth/rmail/login" replace />} />
-        <Route path="/auth/rmail/login" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/auth/rmail/login" element={<Retromail />} />
         <Route path="/myrbe/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
         
         {/* � Pages légales */}
