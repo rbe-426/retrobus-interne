@@ -435,8 +435,8 @@ export default function Header() {
             <Tooltip label="Accéder à RétroMail">
               <Box position="relative">
                 <IconButton
-                  as={RouterLink}
-                  to="/retromail"
+                  as="a"
+                  href="https://www.retrobus-interne.fr/red/retromail"
                   aria-label="RétroMail"
                   icon={<FiMail size={20} />}
                   size="sm"
@@ -488,7 +488,7 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
                   NDF
                 </MenuItem>
-                <MenuItem as={RouterLink} to="/retromail">
+                <MenuItem as="a" href="https://www.retrobus-interne.fr/red/retromail">
                   RétroMail
                 </MenuItem>
                 <MenuItem onClick={handleLogout} color="red.500">
@@ -601,8 +601,8 @@ export default function Header() {
               </Button>
               <Divider my={2} />
               <Button 
-                as={RouterLink}
-                to="/retromail"
+                as="a"
+                href="https://www.retrobus-interne.fr/red/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose}
@@ -644,8 +644,8 @@ export default function Header() {
                 📋 Mon Adhésion
               </Button>
               <Button 
-                as={RouterLink} 
-                to="/retromail" 
+                as="a" 
+                href="https://www.retrobus-interne.fr/red/retromail" 
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 

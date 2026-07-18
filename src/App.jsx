@@ -73,7 +73,6 @@ const Adhesion = lazy(() => import("./pages/Adhesion"));
 const Login = lazy(() => import("./pages/Login"));
 const ForcePasswordChange = lazy(() => import("./pages/ForcePasswordChange"));
 const MobileVehicle = lazy(() => import("./pages/MobileVehicle"));
-const Retromail = lazy(() => import("./pages/Retromail"));
 const Newsletter = lazy(() => import("./pages/Newsletter"));
 const NewsletterCampaigns = lazy(() => import("./pages/NewsletterCampaigns"));
 const Members = lazy(() => import("./pages/Members"));
@@ -230,7 +229,7 @@ export default function App() {
         <Route path="/planning/attendance/:eventId/:memberId" element={<AttendancePage />} />
         <Route path="/planning/my-invitations" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING_RESPOND}><AttendanceManager /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
-        <Route path="/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/retromail" element={<Navigate to="https://www.retrobus-interne.fr/red/retromail" replace />} />
         
         {/* � Pages légales */}
         <Route path="/mentions-legales" element={<ProtectedRoute><MentionsLegales /></ProtectedRoute>} />

@@ -11,7 +11,6 @@ import MyRBE from './MyRBE';
 import MyRBEActions from './MyRBEActions';
 import RetroBus from './RetroBus';
 import DashboardHome from './DashboardHome';
-import RetroMail from './Retromail';
 import ApiDiagnostics from './ApiDiagnostics';
 
 export default function Dashboard() {
@@ -23,7 +22,7 @@ export default function Dashboard() {
         <Route path="vehicules" element={<Vehicules />} />
         <Route path="vehicules/ajouter" element={<RequireCreator><VehiculeCreate /></RequireCreator>} />
         <Route path="vehicules/:parc" element={<VehiculeShow />} />
-        <Route path="retromail" element={<RetroMail />} />
+        <Route path="retromail" element={<Navigate to="https://www.retrobus-interne.fr/red/retromail" replace />} />
         <Route path="myrbe" element={<MyRBE />} />
         <Route path="myrbe/:parc" element={<MyRBEActions />} />
         <Route path="qr" element={<QRManager />} />
