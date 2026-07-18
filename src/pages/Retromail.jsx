@@ -11,7 +11,7 @@ import {
   ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
   useColorModeValue, useBreakpointValue, Drawer, DrawerOverlay,
-  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, Portal
+  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, Portal, Image
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
@@ -23,6 +23,7 @@ import { fetchWithCSRF } from "../lib/csrfClient";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
+import packageJson from '../../package.json';
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
@@ -1142,7 +1143,7 @@ export default function Retromail() {
   // Écran de chargement initial
   if (connectionLoading) {
     return (
-      <Box>
+      <Box p={0}>
         <Center minH="60vh">
           <VStack spacing={4}>
             <Spinner size="xl" color="rbe.500" />
@@ -1157,109 +1158,145 @@ export default function Retromail() {
   if (!isConnected) {
     return (
       <Box>
+        {/* Header Carbone RétroBus */}
         <Flex
           bg="gray.900"
           color="white"
-          minH="56px"
+          minH={{ base: "80px", md: "100px" }}
           px={{ base: 3, md: 5 }}
           align="center"
           justify="space-between"
           borderBottom="3px solid"
           borderColor="rbe.500"
         >
-          <HStack spacing={3} minW={0}>
-            <FiMail aria-hidden="true" />
-            <Box minW={0}>
-              <Text fontSize="xs" color="gray.300" fontWeight="700">
-                Carbone RétroBus
-              </Text>
-              <Heading size="sm" color="white" noOfLines={1}>
-                RétroMail
-              </Heading>
-            </Box>
+          <HStack spacing={3}>
+            <Image 
+              src="/src/assets/retromail_logo.png" 
+              alt="RétroMail Logo" 
+              h={{ base: "50px", md: "110px" }}
+            />
           </HStack>
           <Badge colorScheme="rbe" variant="subtle" flexShrink={0}>
-            Messagerie sécurisée
+            le Courrier Electronique de l'Association RétroBus
           </Badge>
         </Flex>
         
-        <Center minH="50vh">
-          <Card maxW="500px" w="100%" bg={cardBg}>
-            <CardHeader>
-              <Heading size={{ base: "sm", md: "md" }}>📧 RétroMail</Heading>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mt={2}>
+        {/* Zone de connexion avec effet glass */}
+        <Flex
+          minH={{ base: "calc(100vh - 80px)", md: "calc(100vh - 100px)" }}
+          bg="gray.100"
+          align="center"
+          justify="center"
+          position="relative"
+          _before={{
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgGradient: 'linear(to-br, rbe.50, blue.50)',
+            opacity: 0,
+            zIndex: 0
+          }}
+        >
+          {/* Card de connexion avec effet glass */}
+          <VStack
+            spacing={5}
+            bg="whiteAlpha.700"
+            backdropFilter="blur(20px) saturate(180%)"
+            p={{ base: 6, md: 8 }}
+            borderRadius="2xl"
+            shadow="2xl"
+            w={{ base: '90%', sm: '460px' }}
+            maxW="460px"
+            zIndex={1}
+            position="relative"
+            border="1px solid"
+            borderColor="whiteAlpha.500"
+          >
+            <VStack spacing={2} w="full">
+              <Heading size={{ base: "md", md: "lg" }} color="gray.800">
+                📧 RétroMail
+              </Heading>
+              <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" textAlign="center">
                 Accédez à vos emails Infomaniak
               </Text>
-            </CardHeader>
-            <CardBody>
-              <VStack spacing={{ base: 3, md: 4 }} align="stretch">
-                <FormControl>
-                  <FormLabel>Adresse email</FormLabel>
-                  <Input 
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    placeholder="login ou email@association-rbe.fr"
-                    value={emailAccount}
-                    onChange={(e) => {
-                      setEmailAccount(e.target.value);
-                      setShowAutoConnectSuggest(false);
-                    }}
-                  />
-                  {deducedEmail && deducedEmail !== emailAccount && !emailAccount.includes('@') && (
-                    <Text fontSize="xs" color="rbe.600" mt={1}>
-                      💡 Sera complété automatiquement en : {deducedEmail}
-                    </Text>
-                  )}
-                </FormControl>
+            </VStack>
 
-                <FormControl>
-                  <FormLabel>Mot de passe Infomaniak</FormLabel>
-                  <Input 
-                    type="password"
-                    name="password"
-                    placeholder="••••••••"
-                    value={password}
-                    autoComplete="current-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') handleConnect();
-                    }}
-                  />
-                  <Text fontSize="xs" color="gray.500" mt={1}>
-                    🔐 Votre mot de passe est chiffré et sécurisé
+            <VStack spacing={{ base: 3, md: 4 }} align="stretch" w="full">
+              <FormControl>
+                <FormLabel color="gray.700" fontWeight="600">Adresse email</FormLabel>
+                <Input 
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  placeholder="login ou email@association-rbe.fr"
+                  value={emailAccount}
+                  onChange={(e) => {
+                    setEmailAccount(e.target.value);
+                    setShowAutoConnectSuggest(false);
+                  }}
+                  bg="white"
+                  _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
+                />
+                {deducedEmail && deducedEmail !== emailAccount && !emailAccount.includes('@') && (
+                  <Text fontSize="xs" color="rbe.600" mt={1}>
+                    💡 Sera complété automatiquement en : {deducedEmail}
                   </Text>
-                </FormControl>
+                )}
+              </FormControl>
 
-                <Button 
-                  colorScheme="rbe" 
-                  onClick={handleConnect}
-                  isLoading={loading}
-                  leftIcon={<FiMail />}
-                  size="lg"
-                >
-                  Se connecter
-                </Button>
-
-                <Divider />
-
-                <Text fontSize="xs" color="gray.500" textAlign="center">
-                  ℹ️ Connexion sécurisée IMAP/SMTP avec Infomaniak<br />
-                  Votre navigateur peut enregistrer vos identifiants
+              <FormControl>
+                <FormLabel color="gray.700" fontWeight="600">Mot de passe Infomaniak</FormLabel>
+                <Input 
+                  type="password"
+                  name="password"
+                  placeholder="••••••••"
+                  value={password}
+                  autoComplete="current-password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') handleConnect();
+                  }}
+                  bg="white"
+                  _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
+                />
+                <Text fontSize="xs" color="gray.600" mt={1}>
+                  🔐 Votre mot de passe est chiffré et sécurisé
                 </Text>
-              </VStack>
-            </CardBody>
-          </Card>
-        </Center>
+              </FormControl>
+
+              <Button 
+                colorScheme="rbe" 
+                onClick={handleConnect}
+                isLoading={loading}
+                leftIcon={<FiMail />}
+                size="lg"
+                w="full"
+                mt={2}
+              >
+                Se connecter
+              </Button>
+
+              <Divider />
+
+              <Text fontSize="xs" color="gray.600" textAlign="center">
+                ℹ️ Connexion sécurisée<br />
+              </Text>
+            </VStack>
+          </VStack>
+        </Flex>
       </Box>
     );
   }
 
   // Interface mail principale
   return (
-    <Box bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
+    <Box p={0} bg={{ base: mobileSurfaceBg, md: 'transparent' }} minH="100%">
       {/* Header */}
       <Flex
+        p={{ base: 2, md: 3 }}
         direction={{ base: 'column', md: 'row' }}
         justify="space-between" 
         align={{ base: 'stretch', md: 'center' }} 
@@ -1327,75 +1364,9 @@ export default function Retromail() {
         minH={{ base: 'calc(100vh - 180px)', md: '70vh' }}
         direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
       >
-        {/* Sidebar - Dossiers */}
-        <Box 
-          w={{ base: 'full', md: '220px' }}
-          display={{ base: 'none', md: 'block' }}
-          borderWidth="1px" 
-          borderColor={borderColor}
-          borderRadius="md" 
-          p={{ base: 2, md: 3 }}
-          bg={cardBg}
-        >
-          <VStack align="stretch" spacing={2}>
-            <Button
-              variant={activeFolder === 'INBOX' ? 'solid' : 'ghost'}
-              colorScheme={activeFolder === 'INBOX' ? 'rbe' : 'gray'}
-              justifyContent="flex-start"
-              leftIcon={<FiInbox />}
-              onClick={() => changeFolder('INBOX')}
-              size={{ base: 'sm', md: 'md' }}
-            >
-              Boîte de réception
-            </Button>
-            <Button
-              variant={activeFolder === 'SENT' ? 'solid' : 'ghost'}
-              colorScheme={activeFolder === 'SENT' ? 'rbe' : 'gray'}
-              justifyContent="flex-start"
-              leftIcon={<FiSend />}
-              onClick={() => changeFolder('SENT')}
-              size={{ base: 'sm', md: 'md' }}
-            >
-              Envoyés
-            </Button>
-            <Button
-              variant={activeFolder === 'DRAFTS' ? 'solid' : 'ghost'}
-              colorScheme={activeFolder === 'DRAFTS' ? 'rbe' : 'gray'}
-              justifyContent="flex-start"
-              leftIcon={<FiEdit />}
-              onClick={() => changeFolder('DRAFTS')}
-              size={{ base: 'sm', md: 'md' }}
-              position="relative"
-            >
-              Brouillons
-              {drafts.length > 0 && (
-                <Badge
-                  ml={2}
-                  colorScheme="purple"
-                  borderRadius="full"
-                  px={2}
-                  fontSize="xs"
-                >
-                  {drafts.length}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              variant={activeFolder === 'TRASH' ? 'solid' : 'ghost'}
-              colorScheme={activeFolder === 'TRASH' ? 'rbe' : 'gray'}
-              justifyContent="flex-start"
-              leftIcon={<FiTrash2 />}
-              onClick={() => changeFolder('TRASH')}
-              size={{ base: 'sm', md: 'md' }}
-            >
-              Corbeille
-            </Button>
-          </VStack>
-        </Box>
-
         {/* Liste des emails */}
         <Box 
-          w={{ base: 'full', md: '350px', lg: '400px' }}
+          w={{ base: 'full', md: '400px', lg: '450px' }}
           display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
@@ -2574,6 +2545,32 @@ export default function Retromail() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* Footer */}
+      <Box 
+        position="fixed" 
+        bottom={0} 
+        left={0}
+        right={0}
+        w="full"
+        zIndex={999}
+        bg="rbe.500"
+        backdropFilter="blur(10px)"
+        borderTop="2px solid"
+        borderColor="rbe.600"
+        boxShadow="0 -4px 12px rgba(0, 0, 0, 0.2)"
+      >
+        <Text 
+          fontSize="xs" 
+          color="white" 
+          textAlign="center" 
+          fontWeight="600"
+          letterSpacing="0.5px"
+          py={3}
+        >
+          Version {packageJson.version} • © {new Date().getFullYear()} RétroBus Essonne
+        </Text>
+      </Box>
     </Box>
   );
 }
