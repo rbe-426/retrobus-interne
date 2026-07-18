@@ -4,19 +4,19 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
   SimpleGrid, Card, CardHeader, CardBody, IconButton, Badge, useToast, 
   Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, 
   ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  useColorModeValue, useBreakpointValue, Drawer, DrawerOverlay,
-  DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, Portal, Image
+  useColorModeValue, useBreakpointValue, Portal, Image, InputGroup, InputRightAddon, Link
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiDownload, FiShare2, FiX, FiFileText
+  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiDownload, FiShare2, FiX, FiFileText, FiMenu
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -43,6 +43,8 @@ const parseMailRecipients = (value) => {
 export default function Retromail() {
   const { user, matricule } = useUser();
   const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isOpen: isComposeOpen, onOpen: onComposeOpen, onClose: onComposeClose } = useDisclosure();
   const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose } = useDisclosure();
   const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
@@ -51,6 +53,7 @@ export default function Retromail() {
   const { isOpen: isProfilePhotoCropOpen, onOpen: onProfilePhotoCropOpen, onClose: onProfilePhotoCropClose } = useDisclosure();
   const { isOpen: isSignatureCropOpen, onOpen: onSignatureCropOpen, onClose: onSignatureCropClose } = useDisclosure();
   const { isOpen: isTemplateEditorOpen, onOpen: onTemplateEditorOpen, onClose: onTemplateEditorClose } = useDisclosure();
+  const { isOpen: isForgotPasswordOpen, onOpen: onForgotPasswordOpen, onClose: onForgotPasswordClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -68,8 +71,8 @@ export default function Retromail() {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
-  const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
   const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [drafts, setDrafts] = useState(() => {
     // Charger les brouillons depuis localStorage
     try {
@@ -460,6 +463,10 @@ export default function Retromail() {
           status: "success",
           duration: 3000
         });
+        // Rediriger vers l'interface principale si on est sur la page de login
+        if (location.pathname === '/auth/rmail/login') {
+          navigate('/myrbe/retromail', { replace: true });
+        }
         await loadEmails();
       } else {
         const data = await res.json();
@@ -1216,39 +1223,46 @@ export default function Retromail() {
             borderColor="whiteAlpha.500"
           >
             <VStack spacing={2} w="full">
-              <Heading size={{ base: "md", md: "lg" }} color="gray.800">
-                📧 RétroMail
-              </Heading>
+              <Image 
+                src="/src/assets/retromail_login.png" 
+                alt="RétroMail" 
+                h={{ base: "60px", md: "80px" }}
+                objectFit="contain"
+              />
               <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" textAlign="center">
-                Accédez à vos emails Infomaniak
+                Accédez à votre messagerie RétroBus
               </Text>
             </VStack>
 
             <VStack spacing={{ base: 3, md: 4 }} align="stretch" w="full">
               <FormControl>
-                <FormLabel color="gray.700" fontWeight="600">Adresse email</FormLabel>
-                <Input 
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  placeholder="login ou email@association-rbe.fr"
-                  value={emailAccount}
-                  onChange={(e) => {
-                    setEmailAccount(e.target.value);
-                    setShowAutoConnectSuggest(false);
-                  }}
-                  bg="white"
-                  _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
-                />
-                {deducedEmail && deducedEmail !== emailAccount && !emailAccount.includes('@') && (
-                  <Text fontSize="xs" color="rbe.600" mt={1}>
-                    💡 Sera complété automatiquement en : {deducedEmail}
-                  </Text>
-                )}
+                <FormLabel color="gray.700" fontWeight="600">Adresse e-mail</FormLabel>
+                <InputGroup size={{ base: "md", md: "md" }}>
+                  <Input 
+                    type="text"
+                    name="email"
+                    autoComplete="username"
+                    placeholder="prenom.nom"
+                    value={emailAccount.includes('@') ? emailAccount.split('@')[0] : emailAccount}
+                    onChange={(e) => {
+                      setEmailAccount(e.target.value);
+                      setShowAutoConnectSuggest(false);
+                    }}
+                    bg="white"
+                    borderRightRadius={0}
+                    _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
+                  />
+                  <InputRightAddon 
+                    bg="gray.100" 
+                    color="gray.700"
+                    fontWeight="500"
+                    children="@association-rbe.fr"
+                  />
+                </InputGroup>
               </FormControl>
 
               <FormControl>
-                <FormLabel color="gray.700" fontWeight="600">Mot de passe Infomaniak</FormLabel>
+                <FormLabel color="gray.700" fontWeight="600">Mot de passe</FormLabel>
                 <Input 
                   type="password"
                   name="password"
@@ -1262,10 +1276,18 @@ export default function Retromail() {
                   bg="white"
                   _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
                 />
-                <Text fontSize="xs" color="gray.600" mt={1}>
-                  🔐 Votre mot de passe est chiffré et sécurisé
-                </Text>
               </FormControl>
+
+              <Link 
+                as="button"
+                fontSize="sm" 
+                color="rbe.600" 
+                textAlign="center"
+                _hover={{ color: "rbe.700", textDecoration: "underline" }}
+                onClick={onForgotPasswordOpen}
+              >
+                Mot de passe ou identifiant oublié ?
+              </Link>
 
               <Button 
                 colorScheme="rbe" 
@@ -1287,6 +1309,35 @@ export default function Retromail() {
             </VStack>
           </VStack>
         </Flex>
+
+        {/* Modal - Mot de passe oublié */}
+        <Modal isOpen={isForgotPasswordOpen} onClose={onForgotPasswordClose} size="md" isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader textAlign="center">Mot de passe oublié</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              <VStack spacing={4}>
+                <Text textAlign="center" fontSize="md">
+                  Contacter le Président
+                </Text>
+                <Text 
+                  textAlign="center" 
+                  fontSize="2xl" 
+                  fontWeight="bold" 
+                  color="rbe.500"
+                >
+                  07 60 82 11 62
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter justifyContent="center">
+              <Button colorScheme="rbe" onClick={onForgotPasswordClose}>
+                Fermer
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     );
   }
@@ -1301,6 +1352,8 @@ export default function Retromail() {
         justify="space-between" 
         align={{ base: 'stretch', md: 'center' }} 
         gap={{ base: 3, md: 5 }}
+        borderBottom="1px solid"
+        borderColor={borderColor}
       >
         <VStack align="start" spacing={1}>
           <Heading size={{ base: "md", md: "lg" }}>RétroMail</Heading>
@@ -1313,16 +1366,6 @@ export default function Retromail() {
           </HStack>
         </VStack>
         <HStack spacing={{ base: 2, md: 3 }} flexWrap="wrap" justify={{ base: 'space-between', md: 'flex-end' }}>
-          {isMobile && (
-            <Button
-              leftIcon={<FiFolder />}
-              size="sm"
-              variant="outline"
-              onClick={() => setMobileFoldersOpen(true)}
-            >
-              {activeFolderLabel}
-            </Button>
-          )}
           <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" display={{ base: 'none', sm: 'block' }}>
             Connecté : <Badge colorScheme="green" fontSize={{ base: "2xs", md: "xs" }}>{emailAccount}</Badge>
           </Text>
@@ -1357,16 +1400,115 @@ export default function Retromail() {
         </HStack>
       </Flex>
 
-      {/* Layout principal */}
+      {/* Layout principal avec sidebar */}
       <Flex 
-        gap={{ base: 2, md: 4 }} 
+        gap={0}
         align="stretch" 
         minH={{ base: 'calc(100vh - 180px)', md: '70vh' }}
-        direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
+        direction="row"
       >
-        {/* Liste des emails */}
-        <Box 
-          w={{ base: 'full', md: '400px', lg: '450px' }}
+        {/* Sidebar - Dossiers */}
+        <Box
+          w={isSidebarCollapsed ? '0' : { base: '0', md: '220px' }}
+          display={{ base: 'none', md: 'block' }}
+          transition="width 0.3s ease"
+          overflow="hidden"
+          bg="gray.900"
+          borderRight="2px solid"
+          borderColor="rbe.500"
+          position="relative"
+        >
+          <VStack 
+            spacing={1} 
+            align="stretch" 
+            p={isSidebarCollapsed ? 0 : 3}
+            h="full"
+            opacity={isSidebarCollapsed ? 0 : 1}
+            transition="opacity 0.2s ease"
+          >
+            <Text 
+              fontSize="xs" 
+              fontWeight="bold" 
+              color="gray.400" 
+              px={2} 
+              py={2}
+              letterSpacing="wider"
+              textTransform="uppercase"
+            >
+              Dossiers
+            </Text>
+            {folderOptions.map((folder) => {
+              const Icon = folder.icon;
+              const isActive = activeFolder === folder.key;
+              return (
+                <Button
+                  key={folder.key}
+                  onClick={() => changeFolder(folder.key)}
+                  leftIcon={<Icon />}
+                  size="sm"
+                  variant="ghost"
+                  justifyContent="flex-start"
+                  color={isActive ? 'white' : 'gray.400'}
+                  bg={isActive ? 'rbe.600' : 'transparent'}
+                  _hover={{ 
+                    bg: isActive ? 'rbe.700' : 'gray.800',
+                    color: 'white'
+                  }}
+                  fontWeight={isActive ? 'bold' : 'normal'}
+                  borderRadius="md"
+                >
+                  {folder.label}
+                </Button>
+              );
+            })}
+            
+            <Divider borderColor="gray.700" my={3} />
+            
+            <Button
+              leftIcon={<FiFolder />}
+              size="sm"
+              variant="ghost"
+              justifyContent="flex-start"
+              color="gray.400"
+              _hover={{ bg: 'gray.800', color: 'white' }}
+              borderRadius="md"
+              isDisabled
+            >
+              Archives
+            </Button>
+          </VStack>
+        </Box>
+
+        {/* Bouton toggle sidebar */}
+        <IconButton
+          icon={isSidebarCollapsed ? <FiMenu /> : <FiChevronLeft />}
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          aria-label="Toggle sidebar"
+          size="sm"
+          variant="ghost"
+          position="absolute"
+          left={isSidebarCollapsed ? '8px' : '212px'}
+          top="120px"
+          zIndex={10}
+          display={{ base: 'none', md: 'flex' }}
+          bg="gray.900"
+          color="white"
+          _hover={{ bg: 'gray.800' }}
+          transition="left 0.3s ease"
+          borderRadius="md"
+        />
+
+        {/* Contenu principal */}
+        <Flex 
+          flex={1}
+          gap={{ base: 2, md: 4 }} 
+          align="stretch" 
+          direction={{ base: selectedEmail ? 'column' : 'column', md: 'row' }}
+          p={{ base: 2, md: 3 }}
+        >
+          {/* Liste des emails */}
+          <Box 
+            w={{ base: 'full', md: '400px', lg: '450px' }}
           display={{ base: selectedEmail ? 'none' : 'block', md: 'block' }}
           borderWidth="1px" 
           borderColor={borderColor}
@@ -2513,38 +2655,6 @@ export default function Retromail() {
           });
         }}
       />
-
-      <Drawer isOpen={mobileFoldersOpen} placement="left" onClose={() => setMobileFoldersOpen(false)} size="xs">
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerCloseButton />
-          <DrawerHeader>Mes dossiers</DrawerHeader>
-          <DrawerBody>
-            <VStack align="stretch" spacing={2}>
-              {folderOptions.map((folder) => (
-                <Button
-                  key={folder.key}
-                  variant={activeFolder === folder.key ? 'solid' : 'ghost'}
-                  colorScheme={activeFolder === folder.key ? 'rbe' : 'gray'}
-                  justifyContent="flex-start"
-                  leftIcon={<folder.icon />}
-                  onClick={() => {
-                    changeFolder(folder.key);
-                    setMobileFoldersOpen(false);
-                  }}
-                >
-                  {folder.label}
-                  {folder.key === 'DRAFTS' && drafts.length > 0 && (
-                    <Badge ml={2} colorScheme="purple" borderRadius="full" px={2} fontSize="xs">
-                      {drafts.length}
-                    </Badge>
-                  )}
-                </Button>
-              ))}
-            </VStack>
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
 
       {/* Footer */}
       <Box 

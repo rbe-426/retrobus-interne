@@ -436,7 +436,7 @@ export default function Header() {
               <Box position="relative">
                 <IconButton
                   as="a"
-                  href="https://www.retrobus-interne.fr/red/retromail"
+                  href="https://www.retrobus-interne.fr/auth/rmail/login"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="RétroMail"
@@ -490,7 +490,7 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
                   NDF
                 </MenuItem>
-                <MenuItem as="a" href="https://www.retrobus-interne.fr/red/retromail" target="_blank" rel="noopener noreferrer">
+                <MenuItem as="a" href="https://www.retrobus-interne.fr/auth/rmail/login" target="_blank" rel="noopener noreferrer">
                   RétroMail
                 </MenuItem>
                 <MenuItem onClick={handleLogout} color="red.500">
@@ -604,7 +604,7 @@ export default function Header() {
               <Divider my={2} />
               <Button 
                 as="a"
-                href="https://www.retrobus-interne.fr/red/retromail"
+                href="https://www.retrobus-interne.fr/auth/rmail/login"
                 target="_blank"
                 rel="noopener noreferrer"
                 variant="ghost" 
@@ -649,7 +649,7 @@ export default function Header() {
               </Button>
               <Button 
                 as="a" 
-                href="https://www.retrobus-interne.fr/red/retromail" 
+                href="https://www.retrobus-interne.fr/auth/rmail/login" 
                 target="_blank"
                 rel="noopener noreferrer"
                 variant="ghost" 

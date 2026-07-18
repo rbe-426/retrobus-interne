@@ -128,7 +128,7 @@ export default function App() {
   );
   const canAccessMuseum = import.meta.env.DEV || isBelaidi;
   
-  const isRetromailWorkspace = location.pathname === '/red/retromail';
+  const isRetromailWorkspace = location.pathname === '/auth/rmail/login' || location.pathname === '/myrbe/retromail';
   const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace;
 
   // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
@@ -233,7 +233,9 @@ export default function App() {
         <Route path="/planning/my-invitations" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING_RESPOND}><AttendanceManager /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/retromail" element={<ExternalRetromailRedirect />} />
-        <Route path="/red/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/red/retromail" element={<Navigate to="/auth/rmail/login" replace />} />
+        <Route path="/auth/rmail/login" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/myrbe/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
         
         {/* � Pages légales */}
         <Route path="/mentions-legales" element={<ProtectedRoute><MentionsLegales /></ProtectedRoute>} />

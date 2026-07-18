@@ -33,8 +33,6 @@ export default defineConfig(({ mode }) => {
           '/api': { ...common },
           // Some clients call versioned paths directly
           '/v1': { ...common },
-          '/auth': { ...common },
-          '/retromail': { ...common },
           '/events': { ...common },
           '/vehicles': { ...common },
           '/newsletter': { ...common },

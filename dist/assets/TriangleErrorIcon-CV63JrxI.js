@@ -1,0 +1,1 @@
+import{j as r,U as o}from"./chakra-ui-yfcGdxH7.js";import"./react-vendor-BPxcn8qo.js";const s=i=>r.jsxs(o,{viewBox:"0 0 24 24",...i,children:[r.jsx("path",{d:"M12 3.5L3 19.5h18L12 3.5z",fill:"currentColor",strokeLinejoin:"round"}),r.jsx("rect",{x:"11",y:"9",width:"2",height:"6",rx:"1",fill:"white"}),r.jsx("circle",{cx:"12",cy:"17",r:"1",fill:"white"})]});export{s as T};
