@@ -128,7 +128,8 @@ export default function App() {
   );
   const canAccessMuseum = import.meta.env.DEV || isBelaidi;
   
-  const showHeader = isAuthenticated && location.pathname !== '/login';
+  const isRetromailWorkspace = location.pathname === '/red/retromail';
+  const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace;
 
   // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
   useEffect(() => {
