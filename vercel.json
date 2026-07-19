@@ -1,7 +1,6 @@
 {
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://attractive-kindness-rbe-serveurs.up.railway.app/api/:path*" },
-    { "source": "/auth/:path*", "destination": "https://attractive-kindness-rbe-serveurs.up.railway.app/api/auth/:path*" },
     { "source": "/events/:path*", "destination": "https://attractive-kindness-rbe-serveurs.up.railway.app/api/events/:path*" },
     { "source": "/vehicles/:path*", "destination": "https://attractive-kindness-rbe-serveurs.up.railway.app/api/vehicles/:path*" },
     { "source": "/newsletter/:path*", "destination": "https://attractive-kindness-rbe-serveurs.up.railway.app/api/newsletter/:path*" },
