@@ -13,7 +13,8 @@ import {
 } from '@chakra-ui/react';
 import { 
   FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
-  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit2
+  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit2,
+  FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify
 } from 'react-icons/fi';
 
 const ComposeModal = memo(({
@@ -130,6 +131,51 @@ const ComposeModal = memo(({
   const setTextColor = useCallback((color) => {
     execCommand('foreColor', color);
   }, [execCommand]);
+
+  // Nouvelles fonctions d'édition avancées
+  const setFontFamily = useCallback((font) => {
+    execCommand('fontName', font);
+  }, [execCommand]);
+
+  const setFontSize = useCallback((size) => {
+    execCommand('fontSize', size);
+  }, [execCommand]);
+
+  const setTextAlign = useCallback((align) => {
+    execCommand(`justify${align.charAt(0).toUpperCase() + align.slice(1)}`);
+  }, [execCommand]);
+
+  const setHighlightColor = useCallback((color) => {
+    execCommand('backColor', color);
+  }, [execCommand]);
+
+  const insertImage = useCallback(() => {
+    const url = prompt('URL de l\'image :');
+    if (url) {
+      const img = `<img src="${url}" style="max-width: 100%; height: auto; border-radius: 8px;" alt="Image" />`;
+      execCommand('insertHTML', img);
+    }
+  }, [execCommand]);
+
+  // Appliquer la police par défaut au chargement et à chaque ouverture
+  useEffect(() => {
+    if (isOpen && editorRef.current && mailFont) {
+      // Appliquer la police au conteneur
+      editorRef.current.style.fontFamily = mailFont;
+      
+      // Si le contenu est vide, définir la police pour la prochaine saisie
+      if (!composeBody || composeBody.trim() === '') {
+        editorRef.current.innerHTML = `<span style="font-family: ${mailFont};">&nbsp;</span>`;
+        // Positionner le curseur
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(editorRef.current);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  }, [isOpen, mailFont, composeBody]);
 
   // Gérer la touche Entrée pour des sauts de ligne simples
   const handleKeyDown = useCallback((e) => {
@@ -433,6 +479,41 @@ const ComposeModal = memo(({
                 borderColor={borderColor}
               >
                 <Flex gap={{ base: 1, md: 2 }} wrap="wrap" align="center">
+                  {/* Police et taille */}
+                  <Menu>
+                    <Tooltip label="Police">
+                      <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />} fontSize="xs">
+                        {mailFont || 'Arial'}
+                      </MenuButton>
+                    </Tooltip>
+                    <MenuList maxH="300px" overflowY="auto">
+                      {['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Comic Sans MS', 'Trebuchet MS', 'Calibri', 'Roboto'].map(font => (
+                        <MenuItem key={font} onClick={() => setFontFamily(font)} fontFamily={font}>
+                          {font}
+                        </MenuItem>
+                      ))}
+                    </MenuList>
+                  </Menu>
+
+                  <Menu>
+                    <Tooltip label="Taille">
+                      <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                        A
+                      </MenuButton>
+                    </Tooltip>
+                    <MenuList>
+                      <MenuItem onClick={() => setFontSize('1')}>Très petit</MenuItem>
+                      <MenuItem onClick={() => setFontSize('2')}>Petit</MenuItem>
+                      <MenuItem onClick={() => setFontSize('3')}>Normal</MenuItem>
+                      <MenuItem onClick={() => setFontSize('4')}>Grand</MenuItem>
+                      <MenuItem onClick={() => setFontSize('5')}>Très grand</MenuItem>
+                      <MenuItem onClick={() => setFontSize('6')}>Énorme</MenuItem>
+                    </MenuList>
+                  </Menu>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Formatage de base */}
                   <ButtonGroup size="sm" isAttached variant="outline">
                     <Tooltip label="Gras (Ctrl+B)">
                       <IconButton
@@ -459,94 +540,163 @@ const ComposeModal = memo(({
 
                   <Divider orientation="vertical" h="24px" />
 
-                <ButtonGroup size="sm" isAttached variant="outline">
-                  <Tooltip label="Liste à puces">
+                  {/* Alignement */}
+                  <ButtonGroup size="sm" isAttached variant="outline">
+                    <Tooltip label="Aligner à gauche">
+                      <IconButton
+                        icon={<FiAlignLeft />}
+                        onClick={() => setTextAlign('left')}
+                        aria-label="Gauche"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Centrer">
+                      <IconButton
+                        icon={<FiAlignCenter />}
+                        onClick={() => setTextAlign('center')}
+                        aria-label="Centre"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Aligner à droite">
+                      <IconButton
+                        icon={<FiAlignRight />}
+                        onClick={() => setTextAlign('right')}
+                        aria-label="Droite"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Justifier">
+                      <IconButton
+                        icon={<FiAlignJustify />}
+                        onClick={() => setTextAlign('full')}
+                        aria-label="Justifié"
+                      />
+                    </Tooltip>
+                  </ButtonGroup>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Listes */}
+                  <ButtonGroup size="sm" isAttached variant="outline">
+                    <Tooltip label="Liste à puces">
+                      <IconButton
+                        icon={<FiList />}
+                        onClick={() => insertList('ul')}
+                        aria-label="Liste à puces"
+                      />
+                    </Tooltip>
+                    <Tooltip label="Liste numérotée">
+                      <IconButton
+                        icon={<FiType />}
+                        onClick={() => insertList('ol')}
+                        aria-label="Liste numérotée"
+                      />
+                    </Tooltip>
+                  </ButtonGroup>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Insertion */}
+                  <Tooltip label="Insérer un lien">
                     <IconButton
-                      icon={<FiList />}
-                      onClick={() => insertList('ul')}
-                      aria-label="Liste à puces"
+                      size="sm"
+                      icon={<FiLink />}
+                      onClick={insertLink}
+                      variant="outline"
+                      aria-label="Lien"
                     />
                   </Tooltip>
-                  <Tooltip label="Liste numérotée">
+
+                  <Tooltip label="Insérer une image">
                     <IconButton
-                      icon={<FiType />}
-                      onClick={() => insertList('ol')}
-                      aria-label="Liste numérotée"
+                      size="sm"
+                      icon={<FiImage />}
+                      onClick={insertImage}
+                      variant="outline"
+                      aria-label="Image"
                     />
                   </Tooltip>
-                </ButtonGroup>
 
-                <Divider orientation="vertical" h="24px" />
-
-                <Tooltip label="Insérer un lien">
-                  <IconButton
-                    size="sm"
-                    icon={<FiLink />}
-                    onClick={insertLink}
-                    variant="outline"
-                    aria-label="Lien"
-                  />
-                </Tooltip>
-
-                <Tooltip label="Code">
-                  <IconButton
-                    size="sm"
-                    icon={<FiCode />}
-                    onClick={formatCode}
-                    variant="outline"
-                    aria-label="Code"
-                  />
-                </Tooltip>
-
-                <Menu>
-                  <Tooltip label="Titre">
-                    <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
-                      H
-                    </MenuButton>
+                  <Tooltip label="Code">
+                    <IconButton
+                      size="sm"
+                      icon={<FiCode />}
+                      onClick={formatCode}
+                      variant="outline"
+                      aria-label="Code"
+                    />
                   </Tooltip>
-                  <MenuList>
-                    <MenuItem onClick={() => insertHeading(1)}>Titre 1</MenuItem>
-                    <MenuItem onClick={() => insertHeading(2)}>Titre 2</MenuItem>
-                    <MenuItem onClick={() => insertHeading(3)}>Titre 3</MenuItem>
-                  </MenuList>
-                </Menu>
 
-                <Menu>
-                  <Tooltip label="Couleur du texte">
-                    <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
-                      🎨
-                    </MenuButton>
+                  {/* Titres */}
+                  <Menu>
+                    <Tooltip label="Titre">
+                      <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                        H
+                      </MenuButton>
+                    </Tooltip>
+                    <MenuList>
+                      <MenuItem onClick={() => insertHeading(1)}>Titre 1</MenuItem>
+                      <MenuItem onClick={() => insertHeading(2)}>Titre 2</MenuItem>
+                      <MenuItem onClick={() => insertHeading(3)}>Titre 3</MenuItem>
+                    </MenuList>
+                  </Menu>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Couleurs */}
+                  <Menu>
+                    <Tooltip label="Couleur du texte">
+                      <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                        🎨
+                      </MenuButton>
+                    </Tooltip>
+                    <MenuList>
+                      <MenuItem onClick={() => setTextColor('#000000')}>⚫ Noir</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#FF0000')}>🔴 Rouge</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#0000FF')}>🔵 Bleu</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#00AA00')}>🟢 Vert</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#FF8800')}>🟠 Orange</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#AA00AA')}>🟣 Violet</MenuItem>
+                      <MenuItem onClick={() => setTextColor('#666666')}>⚪ Gris</MenuItem>
+                    </MenuList>
+                  </Menu>
+
+                  <Menu>
+                    <Tooltip label="Surligner le texte">
+                      <MenuButton as={Button} size="sm" variant="outline" rightIcon={<FiChevronDown />}>
+                        ✨
+                      </MenuButton>
+                    </Tooltip>
+                    <MenuList>
+                      <MenuItem onClick={() => setHighlightColor('transparent')}>❌ Aucun</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#FFFF00')}>🟡 Jaune</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#00FF00')}>🟢 Vert</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#00FFFF')}>🔵 Cyan</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#FF00FF')}>🟣 Magenta</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#FFB6C1')}>🌸 Rose</MenuItem>
+                      <MenuItem onClick={() => setHighlightColor('#FFA500')}>🟠 Orange</MenuItem>
+                    </MenuList>
+                  </Menu>
+
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Signature */}
+                  <Tooltip label="Insérer ma signature">
+                    <Button
+                      size="sm"
+                      leftIcon={<Text fontSize="md">✍️</Text>}
+                      onClick={insertSignature}
+                      variant="outline"
+                      colorScheme="purple"
+                      isDisabled={!signature && !signatureImage}
+                    >
+                      Signature
+                    </Button>
                   </Tooltip>
-                  <MenuList>
-                    <MenuItem onClick={() => setTextColor('#000000')}>⚫ Noir</MenuItem>
-                    <MenuItem onClick={() => setTextColor('#FF0000')}>🔴 Rouge</MenuItem>
-                    <MenuItem onClick={() => setTextColor('#0000FF')}>🔵 Bleu</MenuItem>
-                    <MenuItem onClick={() => setTextColor('#00AA00')}>🟢 Vert</MenuItem>
-                    <MenuItem onClick={() => setTextColor('#FF8800')}>🟠 Orange</MenuItem>
-                    <MenuItem onClick={() => setTextColor('#AA00AA')}>🟣 Violet</MenuItem>
-                  </MenuList>
-                </Menu>
 
-                <Divider orientation="vertical" h="24px" />
-
-                <Tooltip label="Insérer ma signature">
-                  <Button
-                    size="sm"
-                    leftIcon={<Text fontSize="md">✍️</Text>}
-                    onClick={insertSignature}
-                    variant="outline"
-                    colorScheme="purple"
-                    isDisabled={!signature && !signatureImage}
-                  >
-                    Signature
-                  </Button>
-                </Tooltip>
-
-                <Text fontSize="xs" color="gray.500" ml={{ base: 0, md: 'auto' }} w={{ base: '100%', md: 'auto' }}>
-                  {charCount} caractères
-                </Text>
-              </Flex>
-            </Box>
+                  <Text fontSize="xs" color="gray.500" ml={{ base: 0, md: 'auto' }} w={{ base: '100%', md: 'auto' }}>
+                    {charCount} caractères
+                  </Text>
+                </Flex>
+              </Box>
             )}
 
             {/* Zone d'édition WYSIWYG */}
