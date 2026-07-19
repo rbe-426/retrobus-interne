@@ -984,6 +984,7 @@ export default function Retromail() {
           body: finalBody,  // Texte brut pour fallback
           html: finalHtml,  // Version HTML
           fromName: displayName || undefined,
+          profilePhoto: profilePhoto || undefined,  // Photo de profil (pour en-têtes personnalisés)
           attachments: composeAttachments  // Pièces jointes en base64
         })
       });
@@ -1020,7 +1021,7 @@ export default function Retromail() {
     } finally {
       setIsSending(false);
     }
-  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, mailFont, API, toast, onComposeClose, minifyHtml]);
+  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, profilePhoto, mailFont, API, toast, onComposeClose, minifyHtml]);
 
   // Supprimer un email
   const handleDeleteEmail = async (emailId) => {
@@ -2085,7 +2086,7 @@ export default function Retromail() {
                         </Button>
                       )}
                       <Text fontSize="xs" color="gray.500">
-                        💡 Comme Gmail : la photo s'affichera dans les clients mail des destinataires
+                        � Votre photo sera envoyée avec vos emails (support limité selon le client mail)
                       </Text>
                     </VStack>
                   </FormControl>
