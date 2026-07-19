@@ -24,6 +24,9 @@ import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
 import packageJson from '../../package.json';
+import retromailLogo from '../assets/retromail_logo.png';
+import retromailLoginLogo from '../assets/retromail_login.png';
+import retromailMiniLogo from '../assets/retromail_blanc_mini.png';
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
@@ -1196,7 +1199,7 @@ export default function Retromail() {
         >
           <HStack spacing={3}>
             <Image 
-              src="/src/assets/retromail_logo.png" 
+              src={retromailLogo} 
               alt="RétroMail Logo" 
               h={{ base: "50px", md: "110px" }}
             />
@@ -1242,7 +1245,7 @@ export default function Retromail() {
           >
             <VStack spacing={2} w="full">
               <Image 
-                src="/src/assets/retromail_login.png" 
+                src={retromailLoginLogo} 
                 alt="RétroMail" 
                 h={{ base: "60px", md: "80px" }}
                 objectFit="contain"
@@ -1385,14 +1388,14 @@ export default function Retromail() {
           justify="center"
         >
           <Image 
-            src={isSidebarCollapsed ? "/src/assets/retromail_blanc_mini.png" : "/src/assets/retromail_logo.png"}
+            src={isSidebarCollapsed ? retromailMiniLogo : retromailLogo}
             alt="RétroMail" 
             h={isSidebarCollapsed ? "45px" : "75px"}
             transition="all 0.3s ease"
           />
         </Flex>
         
-        {/* Partie blanche droite - contenu du header */}
+        {/* Partie blanche droite - contenu du header */
         <Flex
           flex={1}
           px={{ base: 2, md: 4 }}
