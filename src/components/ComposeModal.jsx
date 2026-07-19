@@ -3,19 +3,21 @@
  * Édition visuelle sans voir le code HTML - accessible à tous
  */
 
-import React, { memo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
   ModalCloseButton, Button, FormControl, FormLabel, Input,
   VStack, HStack, IconButton, Card, CardBody, Text, Flex, useToast,
   Collapse, Badge, Tooltip,
-  ButtonGroup, Divider, Box, useColorModeValue, useBreakpointValue, Image, Menu, MenuButton, MenuList, MenuItem
+  ButtonGroup, Divider, Box, useColorModeValue, useBreakpointValue, Image, Menu, MenuButton, MenuList, MenuItem,
+  useDisclosure, Spinner, Alert, AlertIcon, Checkbox, Textarea
 } from '@chakra-ui/react';
 import { 
   FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
   FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit2,
-  FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify
+  FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify, FiCpu
 } from 'react-icons/fi';
+import { tokenManager } from '../api/authService.js';
 
 const ComposeModal = memo(({
   isOpen,
@@ -40,7 +42,9 @@ const ComposeModal = memo(({
   signatureImage,
   isNoReplyAccount,
   onOpenTemplates,
-  onOpenTemplateEditor
+  onOpenTemplateEditor,
+  conversationContext,
+  conversationMessages = []
 }) => {
   const toast = useToast();
   const editorRef = useRef(null);
@@ -50,6 +54,16 @@ const ComposeModal = memo(({
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // États pour l'amélioration IA
+  const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [originalText, setOriginalText] = useState('');
+  const [improvedText, setImprovedText] = useState('');
+  const [aiError, setAiError] = useState('');
+  const [includeConversation, setIncludeConversation] = useState(true);
+  const [includeAttachments, setIncludeAttachments] = useState(true);
+  const [additionalAiContext, setAdditionalAiContext] = useState('');
   
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toolbarBg = useColorModeValue('gray.50', 'gray.700');
@@ -96,6 +110,35 @@ const ComposeModal = memo(({
   const totalSizeMB = (totalAttachmentSize / (1024 * 1024)).toFixed(2);
   const totalSizeKB = (totalAttachmentSize / 1024).toFixed(0);
   const isLargeAttachment = totalAttachmentSize > 2 * 1024 * 1024;
+  const textAttachments = useMemo(() => composeAttachments.filter((attachment) => {
+    const filename = String(attachment.filename || '').toLowerCase();
+    const contentType = String(attachment.contentType || '').toLowerCase();
+    return contentType.startsWith('text/') ||
+      contentType === 'application/json' ||
+      /\.(txt|md|csv|json|xml|html?|log)$/i.test(filename);
+  }), [composeAttachments]);
+
+  const buildAiContext = useCallback(() => {
+    const files = includeAttachments ? textAttachments.slice(0, 5).map((attachment) => {
+      try {
+        const binary = atob(String(attachment.content || ''));
+        const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+        return {
+          name: String(attachment.filename || 'document'),
+          content: new TextDecoder('utf-8').decode(bytes).slice(0, 12000)
+        };
+      } catch {
+        return null;
+      }
+    }).filter(Boolean) : [];
+
+    return {
+      instructions: additionalAiContext.trim(),
+      conversation: includeConversation ? conversationContext : undefined,
+      conversationMessages: includeConversation ? conversationMessages : [],
+      files
+    };
+  }, [additionalAiContext, conversationContext, conversationMessages, includeAttachments, includeConversation, textAttachments]);
 
   // Commandes d'édition WYSIWYG
   const execCommand = useCallback((command, value = null) => {
@@ -199,6 +242,131 @@ const ComposeModal = memo(({
     }
   }, [handleEditorInput]);
 
+  // Amélioration du texte avec l'IA
+  const handleAiImprove = useCallback(async () => {
+    if (!editorRef.current) return;
+    
+    // Récupérer le texte sélectionné ou tout le contenu
+    const selection = window.getSelection();
+    let textToImprove = '';
+    
+    if (selection && selection.toString().trim()) {
+      textToImprove = selection.toString();
+    } else {
+      // Récupérer le texte sans les balises HTML
+      textToImprove = editorRef.current.innerText || editorRef.current.textContent;
+    }
+    
+    if (!textToImprove.trim()) {
+      toast({
+        title: "Aucun texte à améliorer",
+        description: "Écrivez du texte ou sélectionnez une portion à améliorer",
+        status: "warning",
+        duration: 3000
+      });
+      return;
+    }
+    
+    setOriginalText(textToImprove);
+    setImprovedText('');
+    setAiError('');
+    setIsAiProcessing(true);
+    onAiOpen();
+    
+    try {
+      const token = tokenManager.getToken();
+      const response = await fetch('/api/mail/improve-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ text: textToImprove, context: buildAiContext() })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Erreur lors de l'amélioration du texte");
+      }
+      
+      const data = await response.json();
+      setImprovedText(data.improvedText || data.text);
+    } catch (error) {
+      console.error('Erreur amélioration IA:', error);
+      setAiError(error.message || 'Une erreur est survenue');
+      toast({
+        title: "Erreur",
+        description: "Impossible d'améliorer le texte pour le moment",
+        status: "error",
+        duration: 4000
+      });
+    } finally {
+      setIsAiProcessing(false);
+    }
+  }, [buildAiContext, toast, onAiOpen]);
+
+  // Appliquer le texte amélioré
+  const applyImprovedText = useCallback(() => {
+    if (editorRef.current && improvedText) {
+      // Convertir les retours à la ligne en <br>
+      const htmlText = improvedText.replace(/\n/g, '<br>');
+      
+      // Vérifier s'il y avait une sélection
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+        // Remplacer la sélection
+        document.execCommand('insertHTML', false, htmlText);
+      } else {
+        // Remplacer tout le contenu
+        editorRef.current.innerHTML = htmlText;
+      }
+      
+      handleEditorInput();
+      onAiClose();
+      
+      toast({
+        title: "✨ Texte amélioré appliqué",
+        status: "success",
+        duration: 2000
+      });
+    }
+  }, [improvedText, handleEditorInput, onAiClose, toast]);
+
+  // Retravailler le texte (relancer l'amélioration)
+  const reworkText = useCallback(async () => {
+    if (!improvedText) return;
+    
+    setOriginalText(improvedText);
+    setImprovedText('');
+    setAiError('');
+    setIsAiProcessing(true);
+    
+    try {
+      const token = tokenManager.getToken();
+      const response = await fetch('/api/mail/improve-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ text: improvedText, context: buildAiContext() })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Erreur lors du retraitement');
+      }
+      
+      const data = await response.json();
+      setImprovedText(data.improvedText || data.text);
+    } catch (error) {
+      console.error('Erreur retraitement IA:', error);
+      setAiError(error.message || 'Une erreur est survenue');
+    } finally {
+      setIsAiProcessing(false);
+    }
+  }, [buildAiContext, improvedText]);
+
   // Insérer la signature
   const insertSignature = useCallback(() => {
     if (!signature && !signatureImage) {
@@ -266,6 +434,7 @@ const ComposeModal = memo(({
   }, [composeTo, composeSubject, composeBody, onSendEmail, toast]);
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} size={isFullscreen || isMobile ? 'full' : '4xl'} scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent maxH={isFullscreen || isMobile ? '100dvh' : '90vh'} h={isMobile ? '100dvh' : 'auto'} borderRadius={{ base: 0, md: 'md' }}>
@@ -692,6 +861,22 @@ const ComposeModal = memo(({
                     </Button>
                   </Tooltip>
 
+                  <Divider orientation="vertical" h="24px" />
+
+                  {/* Amélioration IA */}
+                  <Tooltip label="Améliorer le texte avec l'IA">
+                    <Button
+                      size="sm"
+                      leftIcon={<FiCpu />}
+                      onClick={handleAiImprove}
+                      variant="outline"
+                      colorScheme="blue"
+                      isDisabled={!composeBody || composeBody.trim() === ''}
+                    >
+                      🤖 IA
+                    </Button>
+                  </Tooltip>
+
                   <Text fontSize="xs" color="gray.500" ml={{ base: 0, md: 'auto' }} w={{ base: '100%', md: 'auto' }}>
                     {charCount} caractères
                   </Text>
@@ -895,6 +1080,201 @@ const ComposeModal = memo(({
         </ModalFooter>
       </ModalContent>
     </Modal>
+
+    {/* Modal d'amélioration IA */}
+    <Modal isOpen={isAiOpen} onClose={onAiClose} size="4xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent maxH="90vh">
+        <ModalHeader>
+          <HStack spacing={2}>
+            <FiCpu size={24} />
+            <Text>🤖 Amélioration du texte par IA</Text>
+          </HStack>
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack spacing={4} align="stretch">
+            {aiError && (
+              <Alert status="error">
+                <AlertIcon />
+                {aiError}
+              </Alert>
+            )}
+
+            <Box border="1px solid" borderColor="blue.100" bg="blue.50" borderRadius="md" p={3}>
+              <VStack align="stretch" spacing={3}>
+                <Text fontSize="sm" fontWeight="600" color="blue.800">
+                  Contexte transmis pour cette amélioration
+                </Text>
+                {conversationContext && (
+                  <Checkbox
+                    isChecked={includeConversation}
+                    onChange={(event) => setIncludeConversation(event.target.checked)}
+                    colorScheme="blue"
+                    fontSize="sm"
+                  >
+                    Inclure le message ouvert et {conversationMessages.length} autre(s) message(s) du fil
+                  </Checkbox>
+                )}
+                {textAttachments.length > 0 && (
+                  <Checkbox
+                    isChecked={includeAttachments}
+                    onChange={(event) => setIncludeAttachments(event.target.checked)}
+                    colorScheme="blue"
+                    fontSize="sm"
+                  >
+                    Lire {textAttachments.length} pièce(s) jointe(s) textuelle(s)
+                  </Checkbox>
+                )}
+                {!conversationContext && textAttachments.length === 0 && (
+                  <Text fontSize="xs" color="blue.700">
+                    Aucun message du fil ou fichier textuel n&apos;est disponible pour cette rédaction.
+                  </Text>
+                )}
+                <FormControl>
+                  <FormLabel fontSize="xs" mb={1}>Contexte ou consigne complémentaire</FormLabel>
+                  <Textarea
+                    value={additionalAiContext}
+                    onChange={(event) => setAdditionalAiContext(event.target.value)}
+                    placeholder="Ex. Ton formel, réponse à un adhérent, rappeler le rendez-vous de mardi."
+                    size="sm"
+                    resize="vertical"
+                    maxLength={4000}
+                    bg="white"
+                  />
+                </FormControl>
+                <Text fontSize="xs" color="blue.700">
+                  Seuls les fichiers texte, CSV, JSON, Markdown, XML, HTML et journal sont lus. Les images, PDF et documents Office restent exclus.
+                </Text>
+              </VStack>
+            </Box>
+            
+            <Flex gap={4} direction={{ base: 'column', md: 'row' }}>
+              {/* Texte original */}
+              <Box flex={1}>
+                <VStack align="stretch" spacing={2}>
+                  <HStack>
+                    <Badge colorScheme="gray">Original</Badge>
+                    <Text fontSize="sm" color="gray.500">
+                      {originalText.length} caractères
+                    </Text>
+                  </HStack>
+                  <Box
+                    p={4}
+                    bg="gray.50"
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    minH="200px"
+                    maxH="400px"
+                    overflowY="auto"
+                    whiteSpace="pre-wrap"
+                    fontSize="sm"
+                  >
+                    {originalText}
+                  </Box>
+                </VStack>
+              </Box>
+
+              {/* Flèche */}
+              <Flex align="center" justify="center" display={{ base: 'none', md: 'flex' }}>
+                <Text fontSize="2xl" color="blue.500">→</Text>
+              </Flex>
+
+              {/* Texte amélioré */}
+              <Box flex={1}>
+                <VStack align="stretch" spacing={2}>
+                  <HStack>
+                    <Badge colorScheme="blue">Amélioré</Badge>
+                    {improvedText && (
+                      <Text fontSize="sm" color="gray.500">
+                        {improvedText.length} caractères
+                      </Text>
+                    )}
+                  </HStack>
+                  <Box
+                    p={4}
+                    bg="blue.50"
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor="blue.200"
+                    minH="200px"
+                    maxH="400px"
+                    overflowY="auto"
+                    whiteSpace="pre-wrap"
+                    fontSize="sm"
+                    position="relative"
+                  >
+                    {isAiProcessing ? (
+                      <Flex align="center" justify="center" h="200px">
+                        <VStack spacing={3}>
+                          <Spinner size="lg" color="blue.500" />
+                          <Text color="gray.500">Amélioration en cours...</Text>
+                        </VStack>
+                      </Flex>
+                    ) : improvedText ? (
+                      improvedText
+                    ) : (
+                      <Text color="gray.400">Le texte amélioré apparaîtra ici</Text>
+                    )}
+                  </Box>
+                </VStack>
+              </Box>
+            </Flex>
+
+            {/* Informations */}
+            {improvedText && !isAiProcessing && (
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                <VStack align="start" spacing={1} flex={1}>
+                  <Text fontSize="sm" fontWeight="600">
+                    💡 Que souhaitez-vous faire ?
+                  </Text>
+                  <Text fontSize="xs" color="gray.600">
+                    • <strong>Conserver</strong> : Remplacer votre texte par la version améliorée<br />
+                    • <strong>Retravailler</strong> : Améliorer encore ce texte<br />
+                    • <strong>Annuler</strong> : Garder votre texte original
+                  </Text>
+                </VStack>
+              </Alert>
+            )}
+          </VStack>
+        </ModalBody>
+        <ModalFooter>
+          <HStack spacing={3} w="100%" justify="space-between">
+            <Button
+              variant="ghost"
+              onClick={onAiClose}
+              size="md"
+            >
+              ❌ Annuler
+            </Button>
+            <HStack spacing={2}>
+              <Button
+                colorScheme="orange"
+                onClick={reworkText}
+                isDisabled={!improvedText || isAiProcessing}
+                isLoading={isAiProcessing}
+                leftIcon={<FiCpu />}
+                size="md"
+              >
+                🔄 Retravailler
+              </Button>
+              <Button
+                colorScheme="blue"
+                onClick={applyImprovedText}
+                isDisabled={!improvedText || isAiProcessing}
+                leftIcon={<Text>✨</Text>}
+                size="md"
+              >
+                ✅ Conserver
+              </Button>
+            </HStack>
+          </HStack>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+    </>
   );
 });
 

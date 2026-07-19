@@ -155,6 +155,39 @@ export default function Retromail() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeAttachments, setComposeAttachments] = useState([]);
+  const aiConversationContext = useMemo(() => {
+    const isReplyOrForward = /^(re|fwd)\s*:/i.test(composeSubject);
+    if (!isReplyOrForward || !selectedEmail) return null;
+
+    return {
+      subject: selectedEmail.subject || composeSubject,
+      from: selectedEmail.fromName || selectedEmail.from || '',
+      to: selectedEmail.to || '',
+      date: selectedEmail.date || '',
+      body: String(selectedEmail.body || '').slice(0, 12000)
+    };
+  }, [composeSubject, selectedEmail]);
+
+  const aiConversationMessages = useMemo(() => {
+    if (!aiConversationContext) return [];
+
+    const normalizeSubject = (subject) => String(subject || '')
+      .replace(/^(re|fwd)\s*:\s*/gi, '')
+      .trim()
+      .toLocaleLowerCase('fr-FR');
+    const threadSubject = normalizeSubject(aiConversationContext.subject);
+
+    return emails
+      .filter((email) => email.id !== selectedEmail?.id && normalizeSubject(email.subject) === threadSubject)
+      .slice(0, 8)
+      .map((email) => ({
+        from: email.fromName || email.from || '',
+        to: email.to || '',
+        date: email.date || '',
+        subject: email.subject || '',
+        body: String(email.body || email.preview || '').slice(0, 2500)
+      }));
+  }, [aiConversationContext, emails, selectedEmail]);
   
   // Handlers mémorisés pour éviter les re-renders
   const handleComposeToChange = useCallback((e) => {
@@ -1989,6 +2022,8 @@ export default function Retromail() {
         isNoReplyAccount={isNoReplyAccount}
         onOpenTemplates={onTemplatesOpen}
         onOpenTemplateEditor={onTemplateEditorOpen}
+        conversationContext={aiConversationContext}
+        conversationMessages={aiConversationMessages}
       />
 
       {/* Modal - Paramètres */}
