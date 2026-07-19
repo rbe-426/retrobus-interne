@@ -1395,7 +1395,7 @@ export default function Retromail() {
           />
         </Flex>
         
-        {/* Partie blanche droite - contenu du header */
+        {/* Partie blanche droite - contenu du header */}
         <Flex
           flex={1}
           px={{ base: 2, md: 4 }}
