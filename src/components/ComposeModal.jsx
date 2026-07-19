@@ -14,10 +14,10 @@ import {
 } from '@chakra-ui/react';
 import { 
   FiSend, FiPaperclip, FiX, FiFileText, FiBold, FiItalic, FiUnderline,
-  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit2,
-  FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify, FiCpu
+  FiList, FiLink, FiImage, FiCode, FiEye, FiType, FiChevronDown, FiMaximize2, FiEdit, FiEdit2,
+  FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify, FiCpu, FiMinimize2, FiMinus
 } from 'react-icons/fi';
-import { tokenManager } from '../api/authService.js';
+import { fetchWithCSRF } from '../lib/csrfClient.js';
 
 const ComposeModal = memo(({
   isOpen,
@@ -53,7 +53,8 @@ const ComposeModal = memo(({
   // États locaux pour fonctionnalités avancées
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPopupMode, setIsPopupMode] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   
   // États pour l'amélioration IA
   const { isOpen: isAiOpen, onOpen: onAiOpen, onClose: onAiClose } = useDisclosure();
@@ -70,15 +71,27 @@ const ComposeModal = memo(({
   const previewBg = useColorModeValue('white', 'gray.800');
   const isMobile = useBreakpointValue({ base: true, md: false }) || false;
 
-  // Synchroniser l'éditeur avec composeBody au chargement
   useEffect(() => {
-    if (editorRef.current && composeBody && isOpen) {
-      // Ne mettre à jour que si le contenu est différent pour éviter les boucles
-      if (editorRef.current.innerHTML !== composeBody) {
-        editorRef.current.innerHTML = composeBody || '';
-      }
+    if (!isOpen) {
+      setIsMinimized(false);
+      setIsPopupMode(false);
     }
   }, [isOpen]);
+
+  // Synchroniser l'éditeur avec le brouillon chargé ou modifié.
+  useEffect(() => {
+    if (!editorRef.current || !isOpen) return;
+
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = null;
+    }
+
+    const nextBody = composeBody || '';
+    if (editorRef.current.innerHTML !== nextBody) {
+      editorRef.current.innerHTML = nextBody;
+    }
+  }, [composeBody, isOpen]);
 
   // Cleanup du timer au démontage
   useEffect(() => {
@@ -200,25 +213,12 @@ const ComposeModal = memo(({
     }
   }, [execCommand]);
 
-  // Appliquer la police par défaut au chargement et à chaque ouverture
+  // Appliquer la police par défaut au chargement et à chaque ouverture.
   useEffect(() => {
     if (isOpen && editorRef.current && mailFont) {
-      // Appliquer la police au conteneur
       editorRef.current.style.fontFamily = mailFont;
-      
-      // Si le contenu est vide, définir la police pour la prochaine saisie
-      if (!composeBody || composeBody.trim() === '') {
-        editorRef.current.innerHTML = `<span style="font-family: ${mailFont};">&nbsp;</span>`;
-        // Positionner le curseur
-        const range = document.createRange();
-        const sel = window.getSelection();
-        range.selectNodeContents(editorRef.current);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
     }
-  }, [isOpen, mailFont, composeBody]);
+  }, [isOpen, mailFont]);
 
   // Gérer la touche Entrée pour des sauts de ligne simples
   const handleKeyDown = useCallback((e) => {
@@ -274,13 +274,8 @@ const ComposeModal = memo(({
     onAiOpen();
     
     try {
-      const token = tokenManager.getToken();
-      const response = await fetch('/api/mail/improve-text', {
+      const response = await fetchWithCSRF('/api/mail/improve-text', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
         body: JSON.stringify({ text: textToImprove, context: buildAiContext() })
       });
       
@@ -342,13 +337,8 @@ const ComposeModal = memo(({
     setIsAiProcessing(true);
     
     try {
-      const token = tokenManager.getToken();
-      const response = await fetch('/api/mail/improve-text', {
+      const response = await fetchWithCSRF('/api/mail/improve-text', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
         body: JSON.stringify({ text: improvedText, context: buildAiContext() })
       });
       
@@ -435,9 +425,28 @@ const ComposeModal = memo(({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} size={isFullscreen || isMobile ? 'full' : '4xl'} scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent maxH={isFullscreen || isMobile ? '100dvh' : '90vh'} h={isMobile ? '100dvh' : 'auto'} borderRadius={{ base: 0, md: 'md' }}>
+    <Modal
+      isOpen={isOpen && !isMinimized}
+      onClose={onClose}
+      isCentered={isPopupMode}
+      trapFocus={isPopupMode || isMobile}
+      blockScrollOnMount={isPopupMode || isMobile}
+      closeOnOverlayClick={false}
+      scrollBehavior="inside"
+    >
+      <ModalOverlay bg={isPopupMode || isMobile ? 'blackAlpha.300' : 'transparent'} pointerEvents={isPopupMode || isMobile ? 'auto' : 'none'} />
+      <ModalContent
+        position={{ base: 'fixed', md: isPopupMode ? 'relative' : 'fixed' }}
+        right={{ base: 0, md: isPopupMode ? 'auto' : 6 }}
+        bottom={{ base: 0, md: isPopupMode ? 'auto' : 0 }}
+        m={{ base: 0, md: isPopupMode ? 'auto' : 0 }}
+        w={{ base: '100vw', md: isPopupMode ? 'min(760px, calc(100vw - 48px))' : 'min(620px, calc(100vw - 24px))' }}
+        maxW="none"
+        h={{ base: '100dvh', md: isPopupMode ? 'min(780px, calc(100dvh - 96px))' : 'min(720px, calc(100dvh - 24px))' }}
+        maxH="100dvh"
+        borderRadius={{ base: 0, md: isPopupMode ? 'md' : '8px 8px 0 0' }}
+        boxShadow={{ base: 'none', md: '2xl' }}
+      >
         <ModalHeader py={{ base: 3, md: 4 }} pr={{ base: 12, md: 14 }}>
           <Flex justify="space-between" align={{ base: 'start', md: 'center' }} gap={3} direction={{ base: 'column', md: 'row' }}>
             <HStack spacing={2} wrap="wrap">
@@ -484,19 +493,36 @@ const ComposeModal = memo(({
                   Templates
                 </Button>
               )}
-              <Tooltip label={isFullscreen ? "Mode normal" : "Plein écran"}>
+              <Tooltip label={isPopupMode ? "Revenir à la fenêtre compacte" : "Ouvrir en popup"}>
                 <IconButton
-                  icon={<FiMaximize2 />}
+                  icon={isPopupMode ? <FiMinimize2 /> : <FiMaximize2 />}
                   size="sm"
                   variant="ghost"
-                  onClick={() => setIsFullscreen(!isFullscreen)}
-                  aria-label="Basculer plein écran"
+                  onClick={() => setIsPopupMode(!isPopupMode)}
+                  aria-label="Basculer le mode popup"
+                />
+              </Tooltip>
+              <Tooltip label="Réduire le brouillon">
+                <IconButton
+                  icon={<FiMinus />}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsMinimized(true)}
+                  aria-label="Réduire le brouillon"
+                />
+              </Tooltip>
+              <Tooltip label="Fermer le brouillon">
+                <IconButton
+                  icon={<FiX />}
+                  size="sm"
+                  variant="ghost"
+                  onClick={onClose}
+                  aria-label="Fermer le brouillon"
                 />
               </Tooltip>
             </HStack>
           </Flex>
         </ModalHeader>
-        <ModalCloseButton />
         <ModalBody overflowY="auto" px={{ base: 3, md: 6 }} py={{ base: 2, md: 4 }}>
           <VStack spacing={3} align="stretch">
             {/* Destinataires */}
@@ -1080,6 +1106,66 @@ const ComposeModal = memo(({
         </ModalFooter>
       </ModalContent>
     </Modal>
+
+    {isOpen && isMinimized && (
+      <Flex
+        position="fixed"
+        right={{ base: 0, md: 6 }}
+        bottom={0}
+        w={{ base: '100vw', md: 'min(360px, calc(100vw - 24px))' }}
+        h="48px"
+        px={3}
+        align="center"
+        justify="space-between"
+        bg="#0f172a"
+        color="white"
+        borderRadius={{ base: 0, md: '8px 8px 0 0' }}
+        boxShadow="2xl"
+        zIndex="modal"
+      >
+        <Button
+          variant="unstyled"
+          display="flex"
+          alignItems="center"
+          gap={2}
+          minW={0}
+          flex={1}
+          h="100%"
+          onClick={() => setIsMinimized(false)}
+          aria-label="Rouvrir le brouillon"
+        >
+          <FiEdit />
+          <Text noOfLines={1} fontSize="sm" fontWeight="600">
+            {composeSubject.trim() || 'Nouveau message'}
+          </Text>
+          {composeBody.trim() && <Badge colorScheme="blue">Brouillon</Badge>}
+        </Button>
+        <HStack spacing={1} ml={2}>
+          <Tooltip label="Rouvrir le brouillon">
+            <IconButton
+              icon={<FiMaximize2 />}
+              size="sm"
+              variant="ghost"
+              color="white"
+              _hover={{ bg: 'whiteAlpha.200' }}
+              onClick={() => setIsMinimized(false)}
+              aria-label="Rouvrir le brouillon"
+            />
+          </Tooltip>
+          <Tooltip label="Fermer le brouillon">
+            <IconButton
+              icon={<FiX />}
+              size="sm"
+              variant="ghost"
+              color="white"
+              _hover={{ bg: 'whiteAlpha.200' }}
+              onClick={onClose}
+              aria-label="Fermer le brouillon"
+            />
+          </Tooltip>
+        </HStack>
+      </Flex>
+    )}
 
     {/* Modal d'amélioration IA */}
     <Modal isOpen={isAiOpen} onClose={onAiClose} size="4xl" scrollBehavior="inside">
