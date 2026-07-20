@@ -10,6 +10,7 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 // Lazy load ReactMarkdown pour réduire le bundle initial
 const ReactMarkdown = React.lazy(() => import('react-markdown'));
+import remarkGfm from 'remark-gfm';
 import { 
   FiActivity, FiBell, FiCalendar, FiClock, 
   FiDollarSign, FiExternalLink, FiEye, FiFileText, FiGitBranch, 
@@ -736,7 +737,14 @@ export default function DashboardHome() {
                       }
                     }}>
                       <React.Suspense fallback={<Spinner size="sm" />}>
-                        <ReactMarkdown>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({ node: _node, ...linkProps }) => (
+                              <ChakraLink {...linkProps} isExternal color="blue.600" />
+                            )
+                          }}
+                        >
                           {retroActus[currentActuIndex]?.body || retroActus[currentActuIndex]?.content || ''}
                         </ReactMarkdown>
                       </React.Suspense>
