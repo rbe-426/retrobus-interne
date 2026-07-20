@@ -1131,11 +1131,11 @@ export default function Retromail() {
   }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, profilePhoto, mailFont, API, toast, onComposeClose, minifyHtml]);
 
   // Supprimer un email
-  const handleDeleteEmail = async (emailId) => {
+  const handleDeleteEmail = async (emailId, folder = activeFolder) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet email ?")) return;
 
     try {
-      const res = await fetchWithCSRF(`${API}/api/mail/delete/${emailId}`, {
+      const res = await fetchWithCSRF(`${API}/api/mail/delete/${emailId}?folder=${encodeURIComponent(folder)}`, {
         method: 'DELETE'
       });
 
@@ -1149,6 +1149,9 @@ export default function Retromail() {
           status: "success",
           duration: 2000
         });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Impossible de supprimer l'email");
       }
     } catch (e) {
       console.error("Erreur suppression:", e);
@@ -1787,9 +1790,26 @@ export default function Retromail() {
                         )}
                       </VStack>
                     </HStack>
-                    <Text fontSize="xs" color="gray.500" flexShrink={0}>
-                      {email.date ? new Date(email.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''}
-                    </Text>
+                    <HStack spacing={1} flexShrink={0}>
+                      <Text fontSize="xs" color="gray.500">
+                        {email.date ? new Date(email.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''}
+                      </Text>
+                      <IconButton
+                        icon={<FiTrash2 />}
+                        aria-label={isDraft ? 'Supprimer le brouillon' : 'Supprimer l’email'}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="red"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isDraft) {
+                            if (window.confirm('Supprimer ce brouillon ?')) deleteDraft(email.id);
+                          } else {
+                            handleDeleteEmail(email.id, activeFolder);
+                          }
+                        }}
+                      />
+                    </HStack>
                   </Flex>
                   <Text fontWeight={email.read ? '400' : '600'} fontSize="sm" noOfLines={1} mb={1} color="gray.900" pl="52px">
                     {email.subject || "(Sans objet)"}
