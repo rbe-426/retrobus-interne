@@ -231,6 +231,13 @@ const mergeFormalitiesIntoNotes = (notes, occupiedPosition, traineeSchoolData, e
   return blocks.length > 0 ? blocks.join('\n') : null;
 };
 
+const buildRbeEmail = (matricule) => {
+  const localPart = String(matricule || '').trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9._-]*$/.test(localPart)
+    ? `${localPart}@association-rbe.fr`
+    : '';
+};
+
 // === COMPOSANTS MODERNES ===
 function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions }) {
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -1711,8 +1718,17 @@ export default function MembersManagement() {
                   <Heading size="sm" mb={3} color="gray.600">📞 Coordonnées</Heading>
                   <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                     <FormControl>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Mail perso (renseigné à l'adhésion)</FormLabel>
                       <Input type="email" value={editData.email || ''} onChange={(e)=>setEditData(p=>({...p, email: e.target.value}))} />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Mail RBE (URBEX)</FormLabel>
+                      <Input
+                        type="email"
+                        value={buildRbeEmail(editData.matricule)}
+                        placeholder="Attribué à partir du matricule"
+                        isReadOnly
+                      />
                     </FormControl>
                     <FormControl>
                       <FormLabel>Téléphone</FormLabel>

@@ -26,8 +26,9 @@ const parseRecipients = (value) => String(value || '')
   .map((recipient) => recipient.trim())
   .filter(Boolean);
 
-function RecipientField({ value, onChange, placeholder, ariaLabel }) {
+function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = [] }) {
   const [pendingRecipient, setPendingRecipient] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const recipients = useMemo(() => parseRecipients(value), [value]);
   const normalizedRecipients = useMemo(
     () => new Set(recipients.map((recipient) => recipient.toLocaleLowerCase('fr-FR'))),
@@ -35,6 +36,15 @@ function RecipientField({ value, onChange, placeholder, ariaLabel }) {
   );
   const candidate = pendingRecipient.trim();
   const canAddCandidate = EMAIL_PATTERN.test(candidate) && !normalizedRecipients.has(candidate.toLocaleLowerCase('fr-FR'));
+  const matchingContacts = useMemo(() => {
+    const query = candidate.toLocaleLowerCase('fr-FR');
+    if (!query) return [];
+
+    return contacts.filter((contact) => {
+      if (normalizedRecipients.has(contact.email.toLocaleLowerCase('fr-FR'))) return false;
+      return contact.name.toLocaleLowerCase('fr-FR').includes(query) || contact.email.toLocaleLowerCase('fr-FR').includes(query);
+    }).slice(0, 6);
+  }, [candidate, contacts, normalizedRecipients]);
 
   const emitRecipients = useCallback((nextRecipients) => {
     onChange({ target: { value: nextRecipients.join(', ') } });
@@ -65,6 +75,10 @@ function RecipientField({ value, onChange, placeholder, ariaLabel }) {
     }
     setPendingRecipient(nextValue);
   }, [emitRecipients, normalizedRecipients, recipients]);
+
+  const addContact = useCallback((contact) => {
+    addRecipient(contact.email);
+  }, [addRecipient]);
 
   return (
     <Box flex={1} minW={0} position="relative">
@@ -98,10 +112,17 @@ function RecipientField({ value, onChange, placeholder, ariaLabel }) {
         <Input
           value={pendingRecipient}
           onChange={handlePendingChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onKeyDown={(event) => {
             if ((event.key === 'Enter' || event.key === 'Tab') && candidate) {
               event.preventDefault();
-              addRecipient();
+              const exactContact = matchingContacts.find((contact) =>
+                contact.name.toLocaleLowerCase('fr-FR') === candidate.toLocaleLowerCase('fr-FR') ||
+                contact.email.toLocaleLowerCase('fr-FR') === candidate.toLocaleLowerCase('fr-FR')
+              );
+              if (exactContact) addContact(exactContact);
+              else addRecipient();
             }
             if (event.key === 'Backspace' && !pendingRecipient && recipients.length > 0) {
               removeRecipient(recipients[recipients.length - 1]);
@@ -118,7 +139,39 @@ function RecipientField({ value, onChange, placeholder, ariaLabel }) {
           fontSize="sm"
         />
       </Flex>
-      {canAddCandidate && (
+      {isFocused && matchingContacts.length > 0 && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          zIndex="dropdown"
+          w="100%"
+          bg="white"
+          boxShadow="md"
+          borderWidth="1px"
+          borderColor="gray.200"
+          borderRadius="md"
+        >
+          {matchingContacts.map((contact) => (
+            <Button
+              key={contact.id}
+              w="100%"
+              h="auto"
+              minH="40px"
+              justifyContent="flex-start"
+              px={3}
+              py={2}
+              borderRadius={0}
+              variant="ghost"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => addContact(contact)}
+            >
+              <Text fontSize="sm" noOfLines={1}>{contact.name} - {contact.email}</Text>
+            </Button>
+          ))}
+        </Box>
+      )}
+      {isFocused && matchingContacts.length === 0 && canAddCandidate && (
         <Button
           position="absolute"
           top="calc(100% + 4px)"
@@ -165,7 +218,8 @@ const ComposeModal = memo(({
   onOpenTemplates,
   onOpenTemplateEditor,
   conversationContext,
-  conversationMessages = []
+  conversationMessages = [],
+  contacts = []
 }) => {
   const toast = useToast();
   const editorRef = useRef(null);
@@ -237,6 +291,17 @@ const ComposeModal = memo(({
       }, 500);
     }
   }, [onComposeBodyChange]);
+
+  const handleClose = useCallback(() => {
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = null;
+    }
+
+    const html = editorRef.current?.innerHTML ?? composeBody;
+    onComposeBodyChange({ target: { value: html } });
+    onClose(html);
+  }, [composeBody, onClose, onComposeBodyChange]);
 
   // Calculer la taille totale des pièces jointes
   const totalAttachmentSize = composeAttachments.reduce((sum, att) => sum + (att.size || 0), 0);
@@ -547,7 +612,7 @@ const ComposeModal = memo(({
     <>
     <Modal
       isOpen={isOpen && !isMinimized}
-      onClose={onClose}
+      onClose={handleClose}
       isCentered={isPopupMode}
       trapFocus={isPopupMode || isMobile}
       blockScrollOnMount={isPopupMode || isMobile}
@@ -636,7 +701,7 @@ const ComposeModal = memo(({
                   icon={<FiX />}
                   size="sm"
                   variant="ghost"
-                  onClick={onClose}
+                  onClick={handleClose}
                   aria-label="Fermer le brouillon"
                 />
               </Tooltip>
@@ -655,6 +720,7 @@ const ComposeModal = memo(({
                     onChange={onComposeToChange}
                     placeholder="destinataire@example.com"
                     ariaLabel="Destinataires"
+                    contacts={contacts}
                   />
                   <HStack spacing={1}>
                     <Button
@@ -686,6 +752,7 @@ const ComposeModal = memo(({
                       onChange={onComposeCcChange}
                       placeholder="copie@example.com"
                       ariaLabel="Destinataires en copie"
+                      contacts={contacts}
                     />
                     <IconButton
                       icon={<FiX />}
@@ -710,6 +777,7 @@ const ComposeModal = memo(({
                       onChange={onComposeBccChange}
                       placeholder="copie-cachee@example.com"
                       ariaLabel="Destinataires en copie cachée"
+                      contacts={contacts}
                     />
                     <IconButton
                       icon={<FiX />}
@@ -1194,7 +1262,7 @@ const ComposeModal = memo(({
               )}
             </Box>
             <HStack spacing={3} justify={{ base: 'stretch', md: 'flex-end' }}>
-              <Button variant="ghost" onClick={onClose} size={{ base: 'sm', md: 'md' }} isDisabled={isSending} flex={{ base: 1, md: 'initial' }}>
+              <Button variant="ghost" onClick={handleClose} size={{ base: 'sm', md: 'md' }} isDisabled={isSending} flex={{ base: 1, md: 'initial' }}>
                 Annuler
               </Button>
               <Button 
@@ -1267,7 +1335,7 @@ const ComposeModal = memo(({
               variant="ghost"
               color="white"
               _hover={{ bg: 'whiteAlpha.200' }}
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Fermer le brouillon"
             />
           </Tooltip>

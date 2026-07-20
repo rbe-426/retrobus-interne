@@ -20,6 +20,7 @@ import {
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
+import { membersAPI } from "../api/members.js";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
@@ -41,6 +42,33 @@ const parseMailRecipients = (value) => {
     .split(/[;,\n\r]+/)
     .map((recipient) => recipient.trim())
     .filter(Boolean);
+};
+
+const buildRbeEmail = (matricule) => {
+  const localPart = String(matricule || '').trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9._-]*$/.test(localPart)
+    ? `${localPart}@association-rbe.fr`
+    : '';
+};
+
+const PERMANENT_MAIL_CONTACTS = [
+  { id: 'gmail-rbe', name: 'GMAIL RBE', email: 'association.rbe@gmail.com' }
+];
+
+const normalizeMailContacts = (members) => {
+  const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
+
+  return (Array.isArray(members) ? members : []).reduce((contacts, member) => {
+    const email = buildRbeEmail(member.matricule);
+    const firstName = String(member.firstName || member.prenom || '').trim();
+    const lastName = String(member.lastName || member.nom || '').trim();
+    const name = `${firstName} ${lastName}`.trim();
+
+    if (!email || !name || uniqueEmails.has(email)) return contacts;
+    uniqueEmails.add(email);
+    contacts.push({ id: String(member.id || email), name, email });
+    return contacts;
+  }, [...PERMANENT_MAIL_CONTACTS]).sort((firstContact, secondContact) => firstContact.name.localeCompare(secondContact.name, 'fr'));
 };
 
 export default function Retromail() {
@@ -87,6 +115,19 @@ export default function Retromail() {
   });
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const lastSavedDraftPayloadRef = useRef('');
+  const [mailContacts, setMailContacts] = useState([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    membersAPI.getAll().then(({ members }) => {
+      if (isActive) setMailContacts(normalizeMailContacts(members));
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const folderOptions = useMemo(() => ([
     { key: 'INBOX', label: 'Boite de reception', icon: FiInbox },
@@ -242,18 +283,23 @@ export default function Retromail() {
   }, []);
 
   // Sauvegarder le brouillon actuel
-  const saveDraft = useCallback(() => {
+  const saveDraft = useCallback((values = {}) => {
+    const nextComposeTo = values.to ?? composeTo;
+    const nextComposeSubject = values.subject ?? composeSubject;
+    const nextComposeBody = values.body ?? composeBody;
+    const nextComposeAttachments = values.attachments ?? composeAttachments;
+
     // Ne sauvegarder que si au moins un champ est rempli
-    if (!composeTo.trim() && !composeSubject.trim() && !composeBody.trim() && composeAttachments.length === 0) {
+    if (!nextComposeTo.trim() && !nextComposeSubject.trim() && !nextComposeBody.trim() && nextComposeAttachments.length === 0) {
       return;
     }
 
     const draft = {
       id: currentDraftId || Date.now().toString(),
-      to: composeTo,
-      subject: composeSubject,
-      body: composeBody,
-      attachments: composeAttachments,
+      to: nextComposeTo,
+      subject: nextComposeSubject,
+      body: nextComposeBody,
+      attachments: nextComposeAttachments,
       savedAt: new Date().toISOString()
     };
 
@@ -292,6 +338,11 @@ export default function Retromail() {
     }
 
   }, [composeTo, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
+
+  const handleComposeClose = useCallback((body) => {
+    saveDraft({ body });
+    onComposeClose();
+  }, [onComposeClose, saveDraft]);
 
   // Sauvegarde différée : la saisie reste prioritaire, y compris avec des pièces jointes lourdes.
   useEffect(() => {
@@ -2020,7 +2071,7 @@ export default function Retromail() {
       {/* Modal - Composer un email */}
       <ComposeModal
         isOpen={isComposeOpen}
-        onClose={onComposeClose}
+        onClose={handleComposeClose}
         composeTo={composeTo}
         composeCc={composeCc}
         composeBcc={composeBcc}
@@ -2044,6 +2095,7 @@ export default function Retromail() {
         onOpenTemplateEditor={onTemplateEditorOpen}
         conversationContext={aiConversationContext}
         conversationMessages={aiConversationMessages}
+        contacts={mailContacts}
       />
 
       {/* Modal - Paramètres */}
