@@ -3,7 +3,7 @@
  * Design cohérent avec le thème RBE/Trilogy
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box, Flex, Heading, Text, Input, Spinner, Center, VStack, HStack, Button,
@@ -86,6 +86,7 @@ export default function Retromail() {
     }
   });
   const [currentDraftId, setCurrentDraftId] = useState(null);
+  const lastSavedDraftPayloadRef = useRef('');
 
   const folderOptions = useMemo(() => ([
     { key: 'INBOX', label: 'Boite de reception', icon: FiInbox },
@@ -256,6 +257,19 @@ export default function Retromail() {
       savedAt: new Date().toISOString()
     };
 
+    const draftPayload = JSON.stringify({
+      id: draft.id,
+      to: draft.to,
+      subject: draft.subject,
+      body: draft.body,
+      attachments: draft.attachments
+    });
+
+    if (lastSavedDraftPayloadRef.current === draftPayload) {
+      return;
+    }
+    lastSavedDraftPayloadRef.current = draftPayload;
+
     setDrafts(prev => {
       const existingIndex = prev.findIndex(d => d.id === draft.id);
       let newDrafts;
@@ -277,22 +291,28 @@ export default function Retromail() {
       setCurrentDraftId(draft.id);
     }
 
-    console.log('💾 Brouillon sauvegardé:', draft.id);
   }, [composeTo, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
 
-  // Debounced autosave - sauvegarde 1 seconde après la dernière modification
+  // Sauvegarde différée : la saisie reste prioritaire, y compris avec des pièces jointes lourdes.
   useEffect(() => {
     if (!isComposeOpen) return;
     
     const timeoutId = setTimeout(() => {
       saveDraft();
-    }, 1000);
+    }, 2500);
 
     return () => clearTimeout(timeoutId);
   }, [composeTo, composeSubject, composeBody, composeAttachments, isComposeOpen, saveDraft]);
 
   // Charger un brouillon
   const loadDraft = useCallback((draft) => {
+    lastSavedDraftPayloadRef.current = JSON.stringify({
+      id: draft.id,
+      to: draft.to || '',
+      subject: draft.subject || '',
+      body: draft.body || '',
+      attachments: draft.attachments || []
+    });
     setComposeTo(draft.to || '');
     setComposeSubject(draft.subject || '');
     setComposeBody(draft.body || '');

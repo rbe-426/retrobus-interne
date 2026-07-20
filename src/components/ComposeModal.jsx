@@ -19,6 +19,127 @@ import {
 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../lib/csrfClient.js';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const parseRecipients = (value) => String(value || '')
+  .split(/[;,\n\r]+/)
+  .map((recipient) => recipient.trim())
+  .filter(Boolean);
+
+function RecipientField({ value, onChange, placeholder, ariaLabel }) {
+  const [pendingRecipient, setPendingRecipient] = useState('');
+  const recipients = useMemo(() => parseRecipients(value), [value]);
+  const normalizedRecipients = useMemo(
+    () => new Set(recipients.map((recipient) => recipient.toLocaleLowerCase('fr-FR'))),
+    [recipients]
+  );
+  const candidate = pendingRecipient.trim();
+  const canAddCandidate = EMAIL_PATTERN.test(candidate) && !normalizedRecipients.has(candidate.toLocaleLowerCase('fr-FR'));
+
+  const emitRecipients = useCallback((nextRecipients) => {
+    onChange({ target: { value: nextRecipients.join(', ') } });
+  }, [onChange]);
+
+  const addRecipient = useCallback((recipient = candidate) => {
+    const nextRecipient = recipient.trim();
+    if (!EMAIL_PATTERN.test(nextRecipient)) return;
+    if (!normalizedRecipients.has(nextRecipient.toLocaleLowerCase('fr-FR'))) {
+      emitRecipients([...recipients, nextRecipient]);
+    }
+    setPendingRecipient('');
+  }, [candidate, emitRecipients, normalizedRecipients, recipients]);
+
+  const removeRecipient = useCallback((recipientToRemove) => {
+    emitRecipients(recipients.filter((recipient) => recipient !== recipientToRemove));
+  }, [emitRecipients, recipients]);
+
+  const handlePendingChange = useCallback((event) => {
+    const nextValue = event.target.value;
+    if (/[;,\n\r]/.test(nextValue)) {
+      const uniqueRecipients = parseRecipients(nextValue).filter((recipient) =>
+        EMAIL_PATTERN.test(recipient) && !normalizedRecipients.has(recipient.toLocaleLowerCase('fr-FR'))
+      );
+      if (uniqueRecipients.length > 0) emitRecipients([...recipients, ...uniqueRecipients]);
+      setPendingRecipient('');
+      return;
+    }
+    setPendingRecipient(nextValue);
+  }, [emitRecipients, normalizedRecipients, recipients]);
+
+  return (
+    <Box flex={1} minW={0} position="relative">
+      <Flex
+        minH="34px"
+        gap={1}
+        align="center"
+        flexWrap="wrap"
+        px={2}
+        py={1}
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="md"
+        bg="white"
+        _focusWithin={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)' }}
+      >
+        {recipients.map((recipient) => (
+          <Flex key={recipient} align="center" gap={1} px={2} py={0.5} bg="blue.100" color="blue.900" borderRadius="md" maxW="100%">
+            <Text fontSize="xs" noOfLines={1}>{recipient}</Text>
+            <IconButton
+              icon={<FiX />}
+              aria-label={`Retirer ${recipient}`}
+              size="2xs"
+              variant="ghost"
+              minW="16px"
+              h="16px"
+              onClick={() => removeRecipient(recipient)}
+            />
+          </Flex>
+        ))}
+        <Input
+          value={pendingRecipient}
+          onChange={handlePendingChange}
+          onKeyDown={(event) => {
+            if ((event.key === 'Enter' || event.key === 'Tab') && candidate) {
+              event.preventDefault();
+              addRecipient();
+            }
+            if (event.key === 'Backspace' && !pendingRecipient && recipients.length > 0) {
+              removeRecipient(recipients[recipients.length - 1]);
+            }
+          }}
+          type="text"
+          inputMode="email"
+          placeholder={recipients.length === 0 ? placeholder : 'Ajouter une adresse'}
+          aria-label={ariaLabel}
+          autoComplete="off"
+          variant="unstyled"
+          minW="160px"
+          flex="1"
+          fontSize="sm"
+        />
+      </Flex>
+      {canAddCandidate && (
+        <Button
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          zIndex="dropdown"
+          w="100%"
+          justifyContent="flex-start"
+          size="sm"
+          variant="outline"
+          bg="white"
+          boxShadow="md"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => addRecipient()}
+        >
+          Ajouter « {candidate} »
+        </Button>
+      )}
+    </Box>
+  );
+}
+
 const ComposeModal = memo(({
   isOpen,
   onClose,
@@ -102,19 +223,18 @@ const ComposeModal = memo(({
     };
   }, []);
 
-  // Mettre à jour le state parent avec debounce pour éviter les lags
+  // Garder l'éditeur natif fluide, puis synchroniser React après une pause de saisie.
   const handleEditorInput = useCallback(() => {
     if (editorRef.current) {
-      // Annuler le timer précédent
       if (updateTimerRef.current) {
         clearTimeout(updateTimerRef.current);
       }
-      
-      // Mettre à jour après 150ms d'inactivité
+
       updateTimerRef.current = setTimeout(() => {
         const html = editorRef.current.innerHTML;
         onComposeBodyChange({ target: { value: html } });
-      }, 150);
+        updateTimerRef.current = null;
+      }, 500);
     }
   }, [onComposeBodyChange]);
 
@@ -530,15 +650,11 @@ const ComposeModal = memo(({
               <FormControl>
                 <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                   <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>À :</FormLabel>
-                  <Input 
-                    type="text"
-                    inputMode="email"
-                    placeholder="destinataire@example.com"
+                  <RecipientField
                     value={composeTo}
                     onChange={onComposeToChange}
-                    autoComplete="off"
-                    size="sm"
-                    flex={1}
+                    placeholder="destinataire@example.com"
+                    ariaLabel="Destinataires"
                   />
                   <HStack spacing={1}>
                     <Button
@@ -565,15 +681,11 @@ const ComposeModal = memo(({
                 <FormControl>
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cc :</FormLabel>
-                    <Input 
-                      type="text"
-                      inputMode="email"
-                      placeholder="copie@example.com; autre@example.com"
+                    <RecipientField
                       value={composeCc}
                       onChange={onComposeCcChange}
-                      autoComplete="off"
-                      size="sm"
-                      flex={1}
+                      placeholder="copie@example.com"
+                      ariaLabel="Destinataires en copie"
                     />
                     <IconButton
                       icon={<FiX />}
@@ -593,15 +705,11 @@ const ComposeModal = memo(({
                 <FormControl>
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Bcc :</FormLabel>
-                    <Input 
-                      type="text"
-                      inputMode="email"
-                      placeholder="copie-cachee@example.com; autre@example.com"
+                    <RecipientField
                       value={composeBcc}
                       onChange={onComposeBccChange}
-                      autoComplete="off"
-                      size="sm"
-                      flex={1}
+                      placeholder="copie-cachee@example.com"
+                      ariaLabel="Destinataires en copie cachée"
                     />
                     <IconButton
                       icon={<FiX />}
