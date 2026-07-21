@@ -1,5 +1,5 @@
 // Service Worker pour RétroBus Essonne PWA
-const CACHE_NAME = 'retrobus-essonne-v2';
+const CACHE_NAME = 'retrobus-essonne-v3';
 const urlsToCache = [
   '/',
   '/index.html',

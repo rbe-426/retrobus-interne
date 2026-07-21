@@ -25,7 +25,8 @@ if ('serviceWorker' in navigator) {
       .register('/service-worker.js')
       .then((registration) => {
         console.log('✅ Service Worker enregistré:', registration.scope);
-        
+        registration.update();
+
         // Vérifier les mises à jour toutes les heures
         setInterval(() => {
           registration.update();
