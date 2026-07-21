@@ -44,6 +44,11 @@ const parseMailRecipients = (value) => {
     .filter(Boolean);
 };
 
+const hasMailContent = (value) => String(value || '')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&nbsp;/gi, ' ')
+  .trim().length > 0;
+
 const buildRbeEmail = (matricule) => {
   const localPart = String(matricule || '').trim().toLowerCase();
   return /^[a-z0-9][a-z0-9._-]*$/.test(localPart)
@@ -1062,15 +1067,17 @@ export default function Retromail() {
   }, [isConnected, isNoReplyAccount, loadEmailTemplates]);
 
   // Envoyer un email
-  const handleSendEmail = useCallback(async () => {
+  const handleSendEmail = useCallback(async (bodyOverride) => {
     const toRecipients = parseMailRecipients(composeTo);
     const ccRecipients = parseMailRecipients(composeCc);
     const bccRecipients = parseMailRecipients(composeBcc);
+    const messageBody = bodyOverride ?? composeBody;
+    const hasContent = composeSubject.trim() || hasMailContent(messageBody) || composeAttachments.length > 0;
 
-    if (toRecipients.length === 0 || !composeSubject.trim() || !composeBody.trim()) {
+    if (toRecipients.length === 0 || !hasContent) {
       toast({
         title: "Champs requis",
-        description: "Veuillez remplir tous les champs",
+        description: "Ajoutez un destinataire et un objet, un message ou une pièce jointe",
         status: "warning",
         duration: 3000
       });
@@ -1094,7 +1101,7 @@ export default function Retromail() {
     setIsSending(true);
     try {
       // Construire le corps - composeBody contient déjà le HTML de l'éditeur WYSIWYG
-      let finalBody = composeBody;
+      let finalBody = messageBody;
       
       // Détecter si le contenu est déjà du HTML complet
       const isFullHtml = finalBody.trim().startsWith('<!DOCTYPE') || 

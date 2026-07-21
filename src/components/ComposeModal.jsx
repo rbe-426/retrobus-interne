@@ -26,6 +26,11 @@ const parseRecipients = (value) => String(value || '')
   .map((recipient) => recipient.trim())
   .filter(Boolean);
 
+const hasMessageContent = (value) => String(value || '')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&nbsp;/gi, ' ')
+  .trim().length > 0;
+
 function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = [] }) {
   const [pendingRecipient, setPendingRecipient] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -113,7 +118,10 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
           value={pendingRecipient}
           onChange={handlePendingChange}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            addRecipient();
+          }}
           onKeyDown={(event) => {
             if ((event.key === 'Enter' || event.key === 'Tab') && candidate) {
               event.preventDefault();
@@ -596,17 +604,26 @@ const ComposeModal = memo(({
 
   // Handler pour le bouton d'envoi
   const handleSend = useCallback(() => {
-    if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) {
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = null;
+    }
+
+    const currentBody = editorRef.current?.innerHTML ?? composeBody;
+    onComposeBodyChange({ target: { value: currentBody } });
+    const hasContent = composeSubject.trim() || hasMessageContent(currentBody) || composeAttachments.length > 0;
+
+    if (!composeTo.trim() || !hasContent) {
       toast({
         title: "Champs requis",
-        description: "Veuillez remplir tous les champs",
+        description: "Ajoutez un destinataire et un objet, un message ou une pièce jointe",
         status: "warning",
         duration: 3000
       });
       return;
     }
-    onSendEmail();
-  }, [composeTo, composeSubject, composeBody, onSendEmail, toast]);
+    onSendEmail(currentBody);
+  }, [composeAttachments.length, composeBody, composeSubject, composeTo, onComposeBodyChange, onSendEmail, toast]);
 
   return (
     <>
