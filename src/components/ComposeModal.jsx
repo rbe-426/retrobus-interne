@@ -31,6 +31,11 @@ const hasMessageContent = (value) => String(value || '')
   .replace(/&nbsp;/gi, ' ')
   .trim().length > 0;
 
+const normalizeContactSearch = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('fr-FR');
+
 function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = [] }) {
   const [pendingRecipient, setPendingRecipient] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -42,12 +47,12 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
   const candidate = pendingRecipient.trim();
   const canAddCandidate = EMAIL_PATTERN.test(candidate) && !normalizedRecipients.has(candidate.toLocaleLowerCase('fr-FR'));
   const matchingContacts = useMemo(() => {
-    const query = candidate.toLocaleLowerCase('fr-FR');
+    const query = normalizeContactSearch(candidate);
     if (!query) return [];
 
     return contacts.filter((contact) => {
       if (normalizedRecipients.has(contact.email.toLocaleLowerCase('fr-FR'))) return false;
-      return contact.name.toLocaleLowerCase('fr-FR').includes(query) || contact.email.toLocaleLowerCase('fr-FR').includes(query);
+      return normalizeContactSearch(contact.name).includes(query) || normalizeContactSearch(contact.email).includes(query);
     }).slice(0, 6);
   }, [candidate, contacts, normalizedRecipients]);
 
@@ -260,6 +265,11 @@ const ComposeModal = memo(({
       setIsPopupMode(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (composeCc) setShowCc(true);
+    if (composeBcc) setShowBcc(true);
+  }, [composeBcc, composeCc]);
 
   // Synchroniser l'éditeur avec le brouillon chargé ou modifié.
   useEffect(() => {
