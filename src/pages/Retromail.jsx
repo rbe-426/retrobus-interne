@@ -796,9 +796,17 @@ export default function Retromail() {
   // Compresser une image si nécessaire
   const compressImage = useCallback(async (file) => {
     return new Promise((resolve) => {
+      let settled = false;
+      const useOriginalFile = (reason) => {
+        if (settled) return;
+        settled = true;
+        console.warn(`Compression ignorée pour ${file.name}: ${reason}`);
+        resolve(file);
+      };
+
       // Ne compresser que si > 500 KB
       if (file.size <= 500 * 1024 || !file.type.startsWith('image/')) {
-        resolve(file);
+        useOriginalFile('fichier non éligible');
         return;
       }
 
@@ -806,43 +814,61 @@ export default function Retromail() {
       reader.onload = (e) => {
         const img = new window.Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Réduire si trop grande (max 1920px)
-          const maxDimension = 1920;
-          if (width > maxDimension || height > maxDimension) {
-            if (width > height) {
-              height = (height / width) * maxDimension;
-              width = maxDimension;
-            } else {
-              width = (width / height) * maxDimension;
-              height = maxDimension;
+          try {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            
+            // Réduire si trop grande (max 1920px)
+            const maxDimension = 1920;
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = (height / width) * maxDimension;
+                width = maxDimension;
+              } else {
+                width = (width / height) * maxDimension;
+                height = maxDimension;
+              }
             }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx || !width || !height) {
+              useOriginalFile('dimensions ou contexte canvas indisponibles');
+              return;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Compresser en JPEG qualité 0.8
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  useOriginalFile('conversion canvas impossible');
+                  return;
+                }
+                if (settled) return;
+                settled = true;
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                console.log(`🗜️ Image compressée: ${(file.size/1024).toFixed(0)}KB → ${(compressedFile.size/1024).toFixed(0)}KB`);
+                resolve(compressedFile);
+              },
+              'image/jpeg',
+              0.8
+            );
+          } catch (error) {
+            useOriginalFile(error.message || 'erreur de compression');
           }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Compresser en JPEG qualité 0.8
-          canvas.toBlob(
-            (blob) => {
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              });
-              console.log(`🗜️ Image compressée: ${(file.size/1024).toFixed(0)}KB → ${(compressedFile.size/1024).toFixed(0)}KB`);
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            0.8
-          );
         };
-        img.src = e.target.result;
+        img.onerror = () => useOriginalFile('format image non décodable par le navigateur');
+        img.src = e.target?.result;
       };
+      reader.onerror = () => useOriginalFile('lecture du fichier impossible');
+      reader.onabort = () => useOriginalFile('lecture du fichier annulée');
       reader.readAsDataURL(file);
     });
   }, []);
