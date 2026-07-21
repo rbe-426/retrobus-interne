@@ -1217,10 +1217,17 @@ export default function Retromail() {
       });
 
       if (res.ok) {
+        const result = await res.json().catch(() => ({}));
+        if (Number(result.attachmentCount || 0) !== composeAttachments.length) {
+          throw new Error('Le serveur n a pas confirme toutes les pieces jointes.');
+        }
         const recipients = [...toRecipients, ...ccRecipients, ...bccRecipients].join(', ');
+        const attachmentDescription = composeAttachments.length > 0
+          ? ` avec ${composeAttachments.length} piece(s) jointe(s)`
+          : '';
         toast({
           title: "Email envoyé ! 📨",
-          description: `Message envoyé à ${recipients}`,
+          description: `Message envoyé à ${recipients}${attachmentDescription}`,
           status: "success",
           duration: 3000
         });
