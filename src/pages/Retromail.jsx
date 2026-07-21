@@ -1254,8 +1254,12 @@ export default function Retromail() {
 
       if (res.ok) {
         const result = await res.json().catch(() => ({}));
-        if (Number(result.attachmentCount || 0) !== composeAttachments.length) {
-          throw new Error('Le serveur n a pas confirme toutes les pieces jointes.');
+        if (Number.isFinite(Number(result.attachmentCount)) && Number(result.attachmentCount) !== composeAttachments.length) {
+          console.warn('Le compteur de pièces jointes retourné par le serveur diffère de la demande.', {
+            expected: composeAttachments.length,
+            received: result.attachmentCount,
+            messageId: result.messageId
+          });
         }
         const recipients = [...toRecipients, ...ccRecipients, ...bccRecipients].join(', ');
         const attachmentDescription = composeAttachments.length > 0
