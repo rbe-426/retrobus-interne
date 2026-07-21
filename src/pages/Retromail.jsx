@@ -63,6 +63,9 @@ const normalizeDirectoryName = (value) => String(value || '')
   .replace(/[^a-z0-9]/gi, '')
   .toLowerCase();
 
+const normalizeAvatarUrl = (value) => String(value || '')
+  .replace(/^http:\/\/(attractive-kindness-rbe-serveurs\.up\.railway\.app)(?=\/|$)/i, 'https://$1');
+
 const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const contact = contactsByEmail.get(normalizedEmail);
@@ -75,7 +78,7 @@ const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
 
   return {
     name: String(reportedName || '').trim() || contact?.name || fallbackName || 'Inconnu',
-    avatar: contact?.avatar || ''
+    avatar: normalizeAvatarUrl(contact?.avatar)
   };
 };
 
@@ -100,7 +103,7 @@ const normalizeMailContacts = (members, teamMembers = []) => {
 
     if (!email || !name || uniqueEmails.has(email)) return contacts;
     uniqueEmails.add(email);
-    contacts.push({ id: String(member.id || email), name, email, avatar: member.image || teamMember?.image || '' });
+    contacts.push({ id: String(member.id || email), name, email, avatar: normalizeAvatarUrl(member.image || teamMember?.image) });
     return contacts;
   }, [...PERMANENT_MAIL_CONTACTS]);
 
@@ -112,7 +115,7 @@ const normalizeMailContacts = (members, teamMembers = []) => {
       id: String(teamMember.id || email),
       name: String(teamMember.name || email).trim(),
       email,
-      avatar: teamMember.image || ''
+      avatar: normalizeAvatarUrl(teamMember.image)
     });
   }
 
@@ -801,7 +804,7 @@ export default function Retromail() {
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
           let width = img.width;
