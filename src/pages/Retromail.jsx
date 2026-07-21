@@ -55,6 +55,8 @@ const PERMANENT_MAIL_CONTACTS = [
   { id: 'gmail-rbe', name: 'GMAIL RBE', email: 'association.rbe@gmail.com' }
 ];
 
+const MAIL_PASSWORD_CHANGE_NOTICE_VERSION = '2026-07';
+
 const normalizeMailContacts = (members) => {
   const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
 
@@ -85,6 +87,7 @@ export default function Retromail() {
   const { isOpen: isSignatureCropOpen, onOpen: onSignatureCropOpen, onClose: onSignatureCropClose } = useDisclosure();
   const { isOpen: isTemplateEditorOpen, onOpen: onTemplateEditorOpen, onClose: onTemplateEditorClose } = useDisclosure();
   const { isOpen: isForgotPasswordOpen, onOpen: onForgotPasswordOpen, onClose: onForgotPasswordClose } = useDisclosure();
+  const { isOpen: isPasswordChangeNoticeOpen, onOpen: onPasswordChangeNoticeOpen, onClose: onPasswordChangeNoticeClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -188,8 +191,12 @@ export default function Retromail() {
     if (!username) return '';
     
     // Construire l'email RBE : <identifiant>@association-rbe.fr
-    return `${username}@association-rbe.fr`;
+    return buildRbeEmail(username);
   }, [user, matricule, emailAccount]);
+
+  const mailPasswordChangeNoticeKey = useMemo(() => {
+    return `retromail:password-change-notice:${MAIL_PASSWORD_CHANGE_NOTICE_VERSION}:${deducedEmail}`;
+  }, [deducedEmail]);
 
   // Formulaire de composition
   const [composeTo, setComposeTo] = useState("");
@@ -588,6 +595,9 @@ export default function Retromail() {
           status: "success",
           duration: 3000
         });
+        if (!localStorage.getItem(`retromail:password-change-notice:${MAIL_PASSWORD_CHANGE_NOTICE_VERSION}:${finalEmail}`)) {
+          onPasswordChangeNoticeOpen();
+        }
         // Charger les emails
         await loadEmails();
       } else {
@@ -1365,13 +1375,13 @@ export default function Retromail() {
 
             <VStack spacing={{ base: 3, md: 4 }} align="stretch" w="full">
               <FormControl>
-                <FormLabel color="gray.700" fontWeight="600">Adresse e-mail</FormLabel>
+                <FormLabel color="gray.700" fontWeight="600">Identifiant de messagerie</FormLabel>
                 <InputGroup size={{ base: "md", md: "md" }}>
                   <Input 
                     type="text"
                     name="email"
                     autoComplete="username"
-                    placeholder="prenom.nom"
+                    placeholder="matricule"
                     value={emailAccount.includes('@') ? emailAccount.split('@')[0] : emailAccount}
                     onChange={(e) => {
                       setEmailAccount(e.target.value);
@@ -1388,6 +1398,11 @@ export default function Retromail() {
                     children="@association-rbe.fr"
                   />
                 </InputGroup>
+                {deducedEmail && (
+                  <Text mt={2} fontSize="sm" color="gray.600">
+                    Connexion a : <Text as="span" fontWeight="600">{deducedEmail}</Text>
+                  </Text>
+                )}
               </FormControl>
 
               <FormControl>
@@ -1474,6 +1489,44 @@ export default function Retromail() {
             <ModalFooter justifyContent="center">
               <Button colorScheme="rbe" onClick={onForgotPasswordClose}>
                 Fermer
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        <Modal isOpen={isPasswordChangeNoticeOpen} onClose={onPasswordChangeNoticeClose} size="md" isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader textAlign="center">Mise a jour du mot de passe</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Text>
+                  Pour renforcer la securite de RétroMail, nous vous recommandons de modifier votre mot de passe de messagerie.
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Ce mot de passe est gere par Infomaniak. Contactez le President afin de recevoir la procedure de modification.
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter justifyContent="space-between">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  localStorage.setItem(mailPasswordChangeNoticeKey, 'acknowledged');
+                  onPasswordChangeNoticeClose();
+                }}
+              >
+                Plus tard
+              </Button>
+              <Button
+                colorScheme="rbe"
+                onClick={() => {
+                  onPasswordChangeNoticeClose();
+                  onForgotPasswordOpen();
+                }}
+              >
+                Contacter le President
               </Button>
             </ModalFooter>
           </ModalContent>

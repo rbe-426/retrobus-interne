@@ -269,7 +269,7 @@ export function UserProvider({ children }) {
   const isVolunteer = roles.includes('VOLUNTEER');
   const isDriver = roles.includes('DRIVER');
   const isMember = roles.includes('MEMBER');
-  const matricule = user?.username || user?.email || user?.id || '';
+  const matricule = user?.matricule || user?.username || user?.email || user?.id || '';
 
   const value = useMemo(
     () => ({
