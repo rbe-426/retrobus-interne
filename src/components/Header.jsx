@@ -372,7 +372,7 @@ export default function Header() {
               transition="color 0.2s"
               onClick={() => navigate('/dashboard/team-rbe')}
             >
-              Team RBE 🚌 ❤️
+              Team RBE
             </Text>
           </HStack>
         )}
