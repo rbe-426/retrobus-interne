@@ -11,12 +11,12 @@ import {
   Divider, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, 
   ModalFooter, ModalCloseButton, FormControl, FormLabel, Textarea, Select,
   useDisclosure, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  useColorModeValue, useBreakpointValue, Portal, Image, InputGroup, InputRightAddon, Link
+  useColorModeValue, useBreakpointValue, Portal, Image, InputGroup, InputRightAddon, InputRightElement, Link
 } from "@chakra-ui/react";
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiDownload, FiShare2, FiX, FiFileText, FiMenu
+  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -149,6 +149,7 @@ export default function Retromail() {
   // Formulaire de connexion Infomaniak
   const [emailAccount, setEmailAccount] = useState("");
   const [password, setPassword] = useState("");
+  const [showMailPassword, setShowMailPassword] = useState(false);
   
   // Détecter et construire l'email automatiquement
   const deducedEmail = useMemo(() => {
@@ -1391,19 +1392,30 @@ export default function Retromail() {
 
               <FormControl>
                 <FormLabel color="gray.700" fontWeight="600">Mot de passe</FormLabel>
-                <Input 
-                  type="password"
-                  name="password"
-                  placeholder="••••••••"
-                  value={password}
-                  autoComplete="current-password"
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') handleConnect();
-                  }}
-                  bg="white"
-                  _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
-                />
+                <InputGroup>
+                  <Input 
+                    type={showMailPassword ? 'text' : 'password'}
+                    name="password"
+                    placeholder="••••••••"
+                    value={password}
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') handleConnect();
+                    }}
+                    bg="white"
+                    _focus={{ borderColor: "rbe.500", boxShadow: "0 0 0 1px var(--chakra-colors-rbe-500)" }}
+                  />
+                  <InputRightElement>
+                    <IconButton
+                      aria-label={showMailPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      icon={showMailPassword ? <FiEyeOff /> : <FiEye />}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowMailPassword((visible) => !visible)}
+                    />
+                  </InputRightElement>
+                </InputGroup>
               </FormControl>
 
               <Link 

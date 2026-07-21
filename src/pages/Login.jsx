@@ -1,6 +1,7 @@
 ﻿import { useNavigate, useLocation } from 'react-router-dom';
-import { Box, Button, Input, VStack, Text, Image, Flex } from '@chakra-ui/react';
+import { Box, Button, Input, VStack, Text, Image, Flex, InputGroup, InputRightElement, IconButton } from '@chakra-ui/react';
 import { useState } from 'react';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
 import logoUrbex from '../assets/URBEX.svg';
@@ -9,6 +10,7 @@ import packageJson from '../../package.json';
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPwd] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -136,30 +138,39 @@ export default function Login() {
           }}
         />
         
-        <Input
-          placeholder="Mot de passe"
-          type="password"
-          value={password}
-          onChange={e => setPwd(e.target.value)}
-          onKeyDown={key}
-          size="lg"
-          bg="whiteAlpha.600"
-          backdropFilter="blur(10px)"
-          border="1px solid"
-          borderColor="gray.300"
-          borderRadius="2xl"
-          fontSize="md"
-          px={5}
-          py={7}
-          _placeholder={{ color: 'gray.500' }}
-          _hover={{ borderColor: 'gray.400', bg: 'whiteAlpha.700' }}
-          _focus={{ 
-            borderColor: 'rbe.400', 
-            boxShadow: '0 0 0 3px rgba(211, 12, 76, 0.1)', 
-            bg: 'whiteAlpha.800',
-            outline: 'none'
-          }}
-        />
+        <InputGroup size="lg">
+          <Input
+            placeholder="Mot de passe"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={e => setPwd(e.target.value)}
+            onKeyDown={key}
+            bg="whiteAlpha.600"
+            backdropFilter="blur(10px)"
+            border="1px solid"
+            borderColor="gray.300"
+            borderRadius="2xl"
+            fontSize="md"
+            px={5}
+            py={7}
+            _placeholder={{ color: 'gray.500' }}
+            _hover={{ borderColor: 'gray.400', bg: 'whiteAlpha.700' }}
+            _focus={{ 
+              borderColor: 'rbe.400', 
+              boxShadow: '0 0 0 3px rgba(211, 12, 76, 0.1)', 
+              bg: 'whiteAlpha.800',
+              outline: 'none'
+            }}
+          />
+          <InputRightElement h="full" pr={2}>
+            <IconButton
+              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              icon={showPassword ? <FiEyeOff /> : <FiEye />}
+              variant="ghost"
+              onClick={() => setShowPassword((visible) => !visible)}
+            />
+          </InputRightElement>
+        </InputGroup>
         
         <Button
           size="lg"

@@ -6,7 +6,7 @@ import {
   ModalBody, ModalCloseButton, useDisclosure, Badge, IconButton,
   Flex, Spacer, Alert, AlertIcon, Spinner, Center,
   Select, Switch, Table, Thead, Tbody, Tr, Th, Td, InputGroup,
-  InputLeftElement, Menu, MenuButton, MenuList, MenuItem,
+  InputLeftElement, InputRightElement, Menu, MenuButton, MenuList, MenuItem,
   useColorModeValue, Tooltip, Divider, SimpleGrid, Image as ChakraImage,
   Container, Checkbox
 } from '@chakra-ui/react';
@@ -14,7 +14,7 @@ import {
   FiEdit, FiTrash2, FiPlus, FiUsers, FiSettings, FiGlobe, FiMail,
   FiShare, FiChevronLeft, FiChevronRight, FiArrowUpRight, FiSearch,
   FiRefreshCw, FiShield, FiLock, FiUnlock, FiActivity, FiEdit2,
-  FiAlertCircle, FiBell, FiTrendingUp, FiMonitor
+  FiAlertCircle, FiBell, FiTrendingUp, FiMonitor, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import { FaEdit, FaTrash, FaPlus, FaEye } from 'react-icons/fa';
 
@@ -135,6 +135,7 @@ const AccessManagement = () => {
     password: ''
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [showCustomPassword, setShowCustomPassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
@@ -619,12 +620,23 @@ const AccessManagement = () => {
                 </Box>
               ) : (
                 <FormControl isRequired>
-                  <Input
-                    type="password"
-                    placeholder="Entrez le mot de passe"
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  />
+                  <InputGroup>
+                    <Input
+                      type={showCustomPassword ? 'text' : 'password'}
+                      placeholder="Entrez le mot de passe"
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        aria-label={showCustomPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                        icon={showCustomPassword ? <FiEyeOff /> : <FiEye />}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowCustomPassword((visible) => !visible)}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
                 </FormControl>
               )}
             </VStack>

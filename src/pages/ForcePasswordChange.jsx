@@ -224,7 +224,7 @@ export default function ForcePasswordChange() {
 
                 {/* Confirmation */}
                 <FormControl isRequired>
-                  <FormLabel>Confirmez le mot de passe</FormLabel>
+                  <FormLabel>Saisir à nouveau</FormLabel>
                   <InputGroup>
                     <Input
                       type={showPassword.confirm ? 'text' : 'password'}

@@ -112,13 +112,24 @@ export default function ForcePasswordChange({ isOpen, onPasswordChanged }) {
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel>Confirmer le mot de passe</FormLabel>
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Retapez le nouveau mot de passe"
-                />
+                <FormLabel>Saisir à nouveau</FormLabel>
+                <InputGroup>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Retapez le nouveau mot de passe"
+                  />
+                  <InputRightElement>
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    />
+                  </InputRightElement>
+                </InputGroup>
               </FormControl>
 
               {error && (
