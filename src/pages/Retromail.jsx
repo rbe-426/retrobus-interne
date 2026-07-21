@@ -88,6 +88,7 @@ export default function Retromail() {
   const { isOpen: isTemplateEditorOpen, onOpen: onTemplateEditorOpen, onClose: onTemplateEditorClose } = useDisclosure();
   const { isOpen: isForgotPasswordOpen, onOpen: onForgotPasswordOpen, onClose: onForgotPasswordClose } = useDisclosure();
   const { isOpen: isPasswordChangeNoticeOpen, onOpen: onPasswordChangeNoticeOpen, onClose: onPasswordChangeNoticeClose } = useDisclosure();
+  const { isOpen: isRetromailPasswordResetOpen, onOpen: onRetromailPasswordResetOpen, onClose: onRetromailPasswordResetClose } = useDisclosure();
   
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -153,6 +154,10 @@ export default function Retromail() {
   const [emailAccount, setEmailAccount] = useState("");
   const [password, setPassword] = useState("");
   const [showMailPassword, setShowMailPassword] = useState(false);
+  const [newMailPassword, setNewMailPassword] = useState("");
+  const [newMailPasswordConfirmation, setNewMailPasswordConfirmation] = useState("");
+  const [showNewMailPassword, setShowNewMailPassword] = useState(false);
+  const [isCompletingMailPasswordReset, setIsCompletingMailPasswordReset] = useState(false);
   
   // Détecter et construire l'email automatiquement
   const deducedEmail = useMemo(() => {
@@ -459,6 +464,11 @@ export default function Retromail() {
         setIsConnected(data.connected);
         if (data.connected && data.email) {
           setEmailAccount(data.email);
+          if (data.mustChangeRetromailPassword) {
+            setIsConnected(false);
+            onRetromailPasswordResetOpen();
+            return;
+          }
           // Sauvegarder l'état connecté dans sessionStorage
           sessionStorage.setItem('mail_connected', 'true');
           sessionStorage.setItem('mail_account', data.email);
@@ -583,8 +593,14 @@ export default function Retromail() {
       });
 
       if (res.ok) {
-        setIsConnected(true);
+        const data = await res.json();
         setEmailAccount(finalEmail); // Mémoriser l'email utilisé
+        if (data.mustChangeRetromailPassword) {
+          setPassword("");
+          onRetromailPasswordResetOpen();
+          return;
+        }
+        setIsConnected(true);
         // Sauvegarder dans sessionStorage pour persistance
         sessionStorage.setItem('mail_connected', 'true');
         sessionStorage.setItem('mail_account', finalEmail);
@@ -617,6 +633,38 @@ export default function Retromail() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCompleteMailPasswordReset = async () => {
+    if (newMailPassword.length < 12) {
+      toast({ title: 'Mot de passe insuffisant', description: 'Utilisez au moins 12 caractères.', status: 'warning', duration: 3000 });
+      return;
+    }
+    if (newMailPassword !== newMailPasswordConfirmation) {
+      toast({ title: 'Mots de passe différents', description: 'Les deux saisies doivent être identiques.', status: 'warning', duration: 3000 });
+      return;
+    }
+
+    try {
+      setIsCompletingMailPasswordReset(true);
+      const response = await fetchWithCSRF(`${API}/api/mail/password-reset/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ newPassword: newMailPassword, confirmPassword: newMailPasswordConfirmation })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Modification du mot de passe impossible.');
+
+      setNewMailPassword("");
+      setNewMailPasswordConfirmation("");
+      onRetromailPasswordResetClose();
+      sessionStorage.removeItem('mail_connected');
+      sessionStorage.removeItem('mail_account');
+      toast({ title: 'Mot de passe mis à jour', description: 'Reconnectez-vous à RétroMail avec votre nouveau mot de passe.', status: 'success', duration: 5000 });
+    } catch (error) {
+      toast({ title: 'Modification impossible', description: error.message, status: 'error', duration: 5000 });
+    } finally {
+      setIsCompletingMailPasswordReset(false);
     }
   };
 
@@ -1527,6 +1575,68 @@ export default function Retromail() {
                 }}
               >
                 Contacter le President
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        <Modal
+          isOpen={isRetromailPasswordResetOpen}
+          onClose={() => {}}
+          closeOnOverlayClick={false}
+          closeOnEsc={false}
+          size="md"
+          isCentered
+        >
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader textAlign="center">Choisissez votre nouveau mot de passe</ModalHeader>
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Text>
+                  Votre mot de passe provisoire a été validé. Définissez maintenant le mot de passe personnel de votre boîte RétroMail.
+                </Text>
+                <FormControl isRequired>
+                  <FormLabel>Nouveau mot de passe</FormLabel>
+                  <InputGroup>
+                    <Input
+                      type={showNewMailPassword ? 'text' : 'password'}
+                      value={newMailPassword}
+                      onChange={(event) => setNewMailPassword(event.target.value)}
+                      autoComplete="new-password"
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        size="sm"
+                        variant="ghost"
+                        icon={showNewMailPassword ? <FiEyeOff /> : <FiEye />}
+                        onClick={() => setShowNewMailPassword((visible) => !visible)}
+                        aria-label={showNewMailPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
+                  <Text mt={1} fontSize="sm" color="gray.600">Au moins 12 caractères.</Text>
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Saisir à nouveau</FormLabel>
+                  <Input
+                    type={showNewMailPassword ? 'text' : 'password'}
+                    value={newMailPasswordConfirmation}
+                    onChange={(event) => setNewMailPasswordConfirmation(event.target.value)}
+                    autoComplete="new-password"
+                  />
+                </FormControl>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button
+                colorScheme="rbe"
+                onClick={handleCompleteMailPasswordReset}
+                isLoading={isCompletingMailPasswordReset}
+                loadingText="Mise à jour..."
+                w="full"
+              >
+                Enregistrer mon nouveau mot de passe
               </Button>
             </ModalFooter>
           </ModalContent>

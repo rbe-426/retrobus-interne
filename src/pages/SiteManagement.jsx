@@ -26,6 +26,7 @@ import { useUser } from '../context/UserContext';
 import { useUserRoles, ADMIN_ROLES } from '../hooks/useUserRoles';
 import { useUserPermissions } from '../hooks/useUserPermissions';
 import EmailTemplateManager from '../components/EmailTemplateManager';
+import RetromailAdministration from '../components/RetromailAdministration';
 import TemplateManagement from '../components/TemplateManagement';
 import MemberProfilesManager from '../components/MemberProfilesManager';
 import MarkdownEditor from '../components/MarkdownEditor';
@@ -2613,6 +2614,12 @@ const SiteManagement = () => {
       label: '📧 Modèles d\'email',
       icon: FiMail,
       render: () => <EmailTemplateManager />,
+    },
+    {
+      id: 'retromail-administration',
+      label: '📬 Administration RétroMail',
+      icon: FiMail,
+      render: () => <RetromailAdministration />,
     },
     {
       id: 'member-profiles',
