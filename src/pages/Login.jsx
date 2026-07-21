@@ -5,7 +5,6 @@ import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
 import logoUrbex from '../assets/URBEX.svg';
-import packageJson from '../../package.json';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -200,31 +199,6 @@ export default function Login() {
         </Button>
       </VStack>
 
-      {/* Footer pleine largeur */}
-      <Box 
-        position="absolute" 
-        bottom={0} 
-        left={0}
-        right={0}
-        w="full"
-        zIndex={2}
-        bg="rbe.500"
-        backdropFilter="blur(10px)"
-        borderTop="2px solid"
-        borderColor="rbe.600"
-        boxShadow="0 -4px 12px rgba(0, 0, 0, 0.2)"
-      >
-        <Text 
-          fontSize="xs" 
-          color="white" 
-          textAlign="center" 
-          fontWeight="600"
-          letterSpacing="0.5px"
-          py={3}
-        >
-          Version {packageJson.version} • © {new Date().getFullYear()} RétroBus Essonne
-        </Text>
-      </Box>
     </Flex>
   );
 }

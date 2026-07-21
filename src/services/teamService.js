@@ -5,7 +5,7 @@
 
 import apiClient from '../apiClient';
 
-const TEAM_API_BASE = '/team';
+const TEAM_API_BASE = '/api/team';
 
 /**
  * Récupère tous les membres de l'équipe

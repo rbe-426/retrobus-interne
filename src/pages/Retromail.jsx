@@ -25,7 +25,6 @@ import { getAllTeamMembers } from "../services/teamService.js";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
-import packageJson from '../../package.json';
 import retromailLogo from '../assets/retromail_logo.png';
 import retromailLoginLogo from '../assets/retromail_login.png';
 import retromailMiniLogo from '../assets/retromail_blanc_mini.png';
@@ -82,13 +81,14 @@ const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
 
 const normalizeMailContacts = (members, teamMembers = []) => {
   const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
+  const directoryMembers = Array.isArray(teamMembers) ? teamMembers : [];
   const teamByEmail = new Map(
-    teamMembers
+    directoryMembers
       .filter((teamMember) => teamMember?.email)
       .map((teamMember) => [String(teamMember.email).trim().toLowerCase(), teamMember])
   );
   const teamByName = new Map(
-    teamMembers.map((teamMember) => [normalizeDirectoryName(teamMember?.name), teamMember])
+    directoryMembers.map((teamMember) => [normalizeDirectoryName(teamMember?.name), teamMember])
   );
 
   const memberContacts = (Array.isArray(members) ? members : []).reduce((contacts, member) => {
@@ -104,7 +104,7 @@ const normalizeMailContacts = (members, teamMembers = []) => {
     return contacts;
   }, [...PERMANENT_MAIL_CONTACTS]);
 
-  for (const teamMember of teamMembers) {
+  for (const teamMember of directoryMembers) {
     const email = String(teamMember?.email || '').trim().toLowerCase();
     if (!email || uniqueEmails.has(email)) continue;
     uniqueEmails.add(email);
@@ -1705,14 +1705,12 @@ export default function Retromail() {
 
   // Interface mail principale
   return (
-    <Box p={0} bg="gray.50" minH="100vh">
+    <Box p={0} bg="gray.50" h="100dvh" overflow="hidden" display="flex" flexDirection="column">
       {/* Header */}
       <Flex
-        position="sticky"
-        top={0}
-        zIndex={100}
         boxShadow="sm"
         direction="row"
+        flexShrink={0}
       >
         {/* Partie carbone gauche - alignée avec sidebar */}
         <Flex
@@ -1795,7 +1793,9 @@ export default function Retromail() {
       <Flex 
         gap={0}
         align="stretch" 
-        h="calc(100vh - 75px)"
+        flex="1"
+        minH={0}
+        overflow="hidden"
         direction="row"
         bg="gray.50"
       >
@@ -1808,6 +1808,7 @@ export default function Retromail() {
           bg="#0f172a"
           position="relative"
           h="full"
+          minH={0}
         >
           <VStack 
             spacing={1} 
@@ -1910,9 +1911,11 @@ export default function Retromail() {
           flex={1}
           bg="white"
           h="full"
+          minH={0}
+          minW={0}
           position="relative"
         >
-          <Flex h="full" direction="row">
+          <Flex h="full" minH={0} direction="row">
             {/* Liste des emails */}
             <Box 
               w={{ base: 'full', md: '420px' }}
@@ -1921,6 +1924,7 @@ export default function Retromail() {
               borderColor="gray.200"
               overflowY="auto"
               h="full"
+              minH={0}
               bg="white"
             >
             <Box position="sticky" top={0} zIndex={2} bg="white" p={4} borderBottom="1px" borderColor="gray.200">
@@ -2075,8 +2079,9 @@ export default function Retromail() {
           <Box 
             flex="1"
             display={{ base: selectedEmail ? 'block' : 'none', md: 'block' }}
-            overflowY="auto"
             h="full"
+            minH={0}
+            minW={0}
             bg="white"
           >
             {!selectedEmail ? (
@@ -2089,7 +2094,7 @@ export default function Retromail() {
                 </VStack>
               </Center>
           ) : (
-            <VStack align="stretch" spacing={0}>
+            <Flex direction="column" h="full" minH={0}>
               {/* En-tête de l'email */}
               <Box bg="white" p={4} borderBottom="1px" borderColor="gray.200">
                 <Flex justify="space-between" align="start" mb={4} gap={2}>
@@ -2144,9 +2149,7 @@ export default function Retromail() {
                 borderBottom="1px"
                 borderColor="gray.200"
                 wrap="wrap"
-                position={{ base: 'sticky', md: 'static' }}
-                bottom={{ base: 0, md: 'auto' }}
-                zIndex={3}
+                flexShrink={0}
                 justify={{ base: 'space-between', md: 'flex-start' }}
               >
                 {isMobile ? (
@@ -2229,8 +2232,9 @@ export default function Retromail() {
                 )}
               </Flex>
 
+              <Box flex="1" minH={0} overflowY="auto" bg="white">
               {/* Contenu email */}
-              <Box p={6} bg="white">
+              <Box p={{ base: 4, md: 6 }} bg="white">
                 {selectedEmail.html ? (
                   <iframe
                     sandbox="allow-same-origin"
@@ -2242,11 +2246,30 @@ export default function Retromail() {
                       backgroundColor: 'white',
                       borderRadius: '8px'
                     }}
-                    onLoad={(e) => {
-                      // Ajuster la hauteur de l'iframe au contenu
+                    onLoad={(event) => {
                       try {
-                        const iframe = e.target;
-                        iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
+                        const iframe = event.currentTarget;
+                        const document = iframe.contentDocument;
+                        if (!document) return;
+
+                        iframe._retromailResizeObserver?.disconnect();
+                        const updateHeight = () => {
+                          const height = Math.max(
+                            document.body?.scrollHeight || 0,
+                            document.documentElement?.scrollHeight || 0,
+                            document.body?.offsetHeight || 0,
+                            document.documentElement?.offsetHeight || 0
+                          );
+                          iframe.style.height = `${height}px`;
+                        };
+
+                        updateHeight();
+                        if (window.ResizeObserver && document.body) {
+                          const observer = new ResizeObserver(updateHeight);
+                          observer.observe(document.body);
+                          observer.observe(document.documentElement);
+                          iframe._retromailResizeObserver = observer;
+                        }
                       } catch (err) {
                         console.warn('Impossible d\'ajuster la hauteur de l\'iframe:', err);
                       }
@@ -2331,7 +2354,8 @@ export default function Retromail() {
                     </VStack>
                 </Box>
               )}
-            </VStack>
+              </Box>
+            </Flex>
           )}
         </Box>
         </Flex>
@@ -3113,31 +3137,6 @@ export default function Retromail() {
         }}
       />
 
-      {/* Footer */}
-      <Box 
-        position="fixed" 
-        bottom={0} 
-        left={0}
-        right={0}
-        w="full"
-        zIndex={999}
-        bg="rbe.500"
-        backdropFilter="blur(10px)"
-        borderTop="2px solid"
-        borderColor="rbe.600"
-        boxShadow="0 -4px 12px rgba(0, 0, 0, 0.2)"
-      >
-        <Text 
-          fontSize="xs" 
-          color="white" 
-          textAlign="center" 
-          fontWeight="600"
-          letterSpacing="0.5px"
-          py={3}
-        >
-          Version {packageJson.version} • © {new Date().getFullYear()} RétroBus Essonne
-        </Text>
-      </Box>
     </Box>
   );
 }

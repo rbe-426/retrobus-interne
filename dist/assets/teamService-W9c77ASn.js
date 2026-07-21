@@ -1,1 +1,0 @@
-import{a}from"./apiClient-1IHgvdm9.js";const t="/team",n=async(e=!1)=>{const r=e?{public:"true"}:{};return await a.get(t,{params:r})},c=async e=>await a.post(t,e),m=async(e,r)=>await a.put(`${t}/${e}`,r),o=async e=>await a.delete(`${t}/${e}`),u=async e=>await a.post(`${t}/reorder`,{members:e});export{c,o as d,n as g,u as r,m as u};
