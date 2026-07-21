@@ -21,6 +21,7 @@ import {
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
 import { membersAPI } from "../api/members.js";
+import { getAllTeamMembers } from "../services/teamService.js";
 import ComposeModal from "../components/ComposeModal.jsx";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
@@ -57,20 +58,65 @@ const PERMANENT_MAIL_CONTACTS = [
 
 const MAIL_PASSWORD_CHANGE_NOTICE_VERSION = '2026-07';
 
-const normalizeMailContacts = (members) => {
-  const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
+const normalizeDirectoryName = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]/gi, '')
+  .toLowerCase();
 
-  return (Array.isArray(members) ? members : []).reduce((contacts, member) => {
+const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const contact = contactsByEmail.get(normalizedEmail);
+  const fallbackName = normalizedEmail
+    .split('@')[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+  return {
+    name: String(reportedName || '').trim() || contact?.name || fallbackName || 'Inconnu',
+    avatar: contact?.avatar || ''
+  };
+};
+
+const normalizeMailContacts = (members, teamMembers = []) => {
+  const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
+  const teamByEmail = new Map(
+    teamMembers
+      .filter((teamMember) => teamMember?.email)
+      .map((teamMember) => [String(teamMember.email).trim().toLowerCase(), teamMember])
+  );
+  const teamByName = new Map(
+    teamMembers.map((teamMember) => [normalizeDirectoryName(teamMember?.name), teamMember])
+  );
+
+  const memberContacts = (Array.isArray(members) ? members : []).reduce((contacts, member) => {
     const email = buildRbeEmail(member.matricule);
     const firstName = String(member.firstName || member.prenom || '').trim();
     const lastName = String(member.lastName || member.nom || '').trim();
     const name = `${firstName} ${lastName}`.trim();
+    const teamMember = teamByEmail.get(email) || teamByName.get(normalizeDirectoryName(name));
 
     if (!email || !name || uniqueEmails.has(email)) return contacts;
     uniqueEmails.add(email);
-    contacts.push({ id: String(member.id || email), name, email });
+    contacts.push({ id: String(member.id || email), name, email, avatar: member.image || teamMember?.image || '' });
     return contacts;
-  }, [...PERMANENT_MAIL_CONTACTS]).sort((firstContact, secondContact) => firstContact.name.localeCompare(secondContact.name, 'fr'));
+  }, [...PERMANENT_MAIL_CONTACTS]);
+
+  for (const teamMember of teamMembers) {
+    const email = String(teamMember?.email || '').trim().toLowerCase();
+    if (!email || uniqueEmails.has(email)) continue;
+    uniqueEmails.add(email);
+    memberContacts.push({
+      id: String(teamMember.id || email),
+      name: String(teamMember.name || email).trim(),
+      email,
+      avatar: teamMember.image || ''
+    });
+  }
+
+  return memberContacts.sort((firstContact, secondContact) => firstContact.name.localeCompare(secondContact.name, 'fr'));
 };
 
 export default function Retromail() {
@@ -121,11 +167,23 @@ export default function Retromail() {
   const lastSavedDraftPayloadRef = useRef('');
   const [mailContacts, setMailContacts] = useState([]);
 
+  const mailContactsByEmail = useMemo(() => new Map(
+    mailContacts.map((contact) => [String(contact.email || '').trim().toLowerCase(), contact])
+  ), [mailContacts]);
+
+  const selectedSenderIdentity = useMemo(
+    () => resolveMailIdentity(selectedEmail?.from, selectedEmail?.fromName, mailContactsByEmail),
+    [selectedEmail, mailContactsByEmail]
+  );
+
   useEffect(() => {
     let isActive = true;
 
-    membersAPI.getAll().then(({ members }) => {
-      if (isActive) setMailContacts(normalizeMailContacts(members));
+    Promise.all([
+      membersAPI.getAll(),
+      getAllTeamMembers(false).catch(() => [])
+    ]).then(([{ members }, teamMembers]) => {
+      if (isActive) setMailContacts(normalizeMailContacts(members, teamMembers));
     });
 
     return () => {
@@ -1920,8 +1978,16 @@ export default function Retromail() {
               {filteredEmails.map((email) => {
                 // Adapter l'affichage selon le type (brouillon ou email normal)
                 const isDraft = activeFolder === 'DRAFTS';
-                const displayName = isDraft ? email.to : (email.fromName || email.from || "Inconnu");
-                const displaySubName = isDraft ? null : (email.fromName && email.fromName !== email.from ? email.from : null);
+                const isSent = activeFolder === 'SENT';
+                const senderIdentity = resolveMailIdentity(email.from, email.fromName, mailContactsByEmail);
+                const displayName = isDraft
+                  ? email.to
+                  : isSent
+                    ? email.to || 'Destinataire inconnu'
+                    : senderIdentity.name;
+                const displaySubName = isDraft || isSent
+                  ? null
+                  : senderIdentity.name !== email.from ? email.from : null;
                 
                 return (
                 <Box
@@ -1943,6 +2009,7 @@ export default function Retromail() {
                       <Avatar 
                         size="md" 
                         name={displayName} 
+                        src={isDraft || isSent ? undefined : senderIdentity.avatar}
                         bg={email.read ? 'gray.400' : '#d30c4c'}
                         color="white"
                       />
@@ -2039,16 +2106,24 @@ export default function Retromail() {
                   </Heading>
                 </Flex>
                 <HStack spacing={3} align="start">
-                  <Avatar size="md" name={selectedEmail.fromName || selectedEmail.from} bg="rbe.500" />
+                  <Avatar size="md" name={selectedSenderIdentity.name} src={selectedSenderIdentity.avatar} bg="rbe.500" />
                   <Box flex="1" minW="0">
                     <Text fontWeight="700" fontSize="md" color="gray.900">
-                      {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from 
-                        ? selectedEmail.fromName 
-                        : selectedEmail.from}
+                      {selectedSenderIdentity.name}
                     </Text>
-                    {selectedEmail.fromName && selectedEmail.fromName !== selectedEmail.from && (
+                    {selectedSenderIdentity.name !== selectedEmail.from && (
                       <Text fontSize="sm" color="gray.600">
                         {selectedEmail.from}
+                      </Text>
+                    )}
+                    {selectedEmail.to && (
+                      <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
+                        À : {selectedEmail.to}
+                      </Text>
+                    )}
+                    {selectedEmail.cc && (
+                      <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
+                        Cc : {selectedEmail.cc}
                       </Text>
                     )}
                     <Text fontSize="sm" color="gray.500" mt={1}>
