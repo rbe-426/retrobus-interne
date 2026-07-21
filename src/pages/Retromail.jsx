@@ -16,7 +16,7 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu
+  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu, FiTag, FiUsers
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -195,7 +195,10 @@ export default function Retromail() {
     { key: 'INBOX', label: 'Boite de reception', icon: FiInbox },
     { key: 'SENT', label: 'Envoyes', icon: FiSend },
     { key: 'DRAFTS', label: 'Brouillons', icon: FiEdit },
-    { key: 'TRASH', label: 'Corbeille', icon: FiTrash2 }
+    { key: 'TRASH', label: 'Corbeille', icon: FiTrash2 },
+    { key: 'SPAM', label: 'Spam', icon: FiTrash2 },
+    { key: 'PROMOTIONS', label: 'Promotions', icon: FiTag },
+    { key: 'SOCIAL_NETWORKS', label: 'Réseaux sociaux', icon: FiUsers }
   ]), []);
 
   const activeFolderLabel = useMemo(() => {

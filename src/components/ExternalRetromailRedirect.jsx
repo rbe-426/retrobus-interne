@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export const RETROMAIL_URL = "https://www.retrobus-interne.fr/auth/rmail/login";
+export const RETROMAIL_URL = "https://www.retrobus-interne.fr/myrbe/retromail";
 
 export default function ExternalRetromailRedirect() {
   useEffect(() => {

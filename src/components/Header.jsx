@@ -145,7 +145,7 @@ export default function Header() {
     let inactivityTimer;
     const INACTIVITY_TIME = 10 * 60 * 1000; // 10 minutes en millisecondes
 
-    const resetTimer = () => {
+    function resetTimer() {
       clearTimeout(inactivityTimer);
       inactivityTimer = setTimeout(() => {
         logout();
@@ -158,7 +158,7 @@ export default function Header() {
           isClosable: true,
         });
       }, INACTIVITY_TIME);
-    };
+    }
 
     // Événements qui réinitialisent le timer d'inactivité
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
@@ -302,7 +302,7 @@ export default function Header() {
         alignItems="center"
         justifyContent="space-between"
         position="relative"
-        h={isMobile ? "50px" : "120px"}
+        h={isMobile ? "50px" : "107px"}
         px={isMobile ? 1 : 5}
         gap={2}
       >
@@ -310,7 +310,7 @@ export default function Header() {
         <Image
           src={isMobile ? logoMobile : logo}
           alt={isMobile ? "URBEX Mobile" : "RétroBus Essonne Intranet"}
-          height={isMobile ? "25px" : "175px"}
+          height={isMobile ? "25px" : "128px"}
           maxW={isMobile ? "60px" : undefined}
           ml={isMobile ? -2 : 0}
           w="auto"
@@ -362,7 +362,7 @@ export default function Header() {
               transition="color 0.2s"
               onClick={() => navigate('/dashboard/myrbe')}
             >
-              MyRBE
+              Espace MyRBE
             </Text>
             <Text 
               fontSize="lg" 
@@ -435,10 +435,8 @@ export default function Header() {
             <Tooltip label="Accéder à RétroMail">
               <Box position="relative">
                 <IconButton
-                  as="a"
-                  href="https://www.retrobus-interne.fr/auth/rmail/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  as={RouterLink}
+                  to="/myrbe/retromail"
                   aria-label="RétroMail"
                   icon={<FiMail size={20} />}
                   size="sm"
@@ -488,9 +486,9 @@ export default function Header() {
                   Mon Adhésion
                 </MenuItem>
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
-                  NDF
+                  Note de Frais
                 </MenuItem>
-                <MenuItem as="a" href="https://www.retrobus-interne.fr/auth/rmail/login" target="_blank" rel="noopener noreferrer">
+                <MenuItem as={RouterLink} to="/myrbe/retromail">
                   RétroMail
                 </MenuItem>
                 <MenuItem onClick={handleLogout} color="red.500">
@@ -585,7 +583,7 @@ export default function Header() {
                 _hover={{ bg: "gray.100" }}
                 _active={{ bg: "gray.200" }}
               >
-                NDF
+                Note de Frais
               </Button>
               <Button 
                 as={RouterLink} 
@@ -603,10 +601,8 @@ export default function Header() {
               </Button>
               <Divider my={2} />
               <Button 
-                as="a"
-                href="https://www.retrobus-interne.fr/auth/rmail/login"
-                target="_blank"
-                rel="noopener noreferrer"
+                as={RouterLink}
+                to="/myrbe/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose}
@@ -648,10 +644,8 @@ export default function Header() {
                 📋 Mon Adhésion
               </Button>
               <Button 
-                as="a" 
-                href="https://www.retrobus-interne.fr/auth/rmail/login" 
-                target="_blank"
-                rel="noopener noreferrer"
+                as={RouterLink}
+                to="/myrbe/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
