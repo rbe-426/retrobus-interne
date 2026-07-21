@@ -74,7 +74,7 @@ const normalizeMailContacts = (members) => {
 };
 
 export default function Retromail() {
-  const { user, matricule } = useUser();
+  const { user, matricule, member } = useUser();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,8 +169,8 @@ export default function Retromail() {
       username = typedLogin;
     }
     // Priorité 2: matricule interne (ex: w.belaidi)
-    else if (matricule && !String(matricule).includes('@')) {
-      username = String(matricule).trim().toLowerCase();
+    else if ((member?.matricule || matricule) && !String(member?.matricule || matricule).includes('@')) {
+      username = String(member?.matricule || matricule).trim().toLowerCase();
     }
     // Priorité 3: user.username (ex: w.belaidi)
     else if (user?.username && !user.username.includes('@')) {
@@ -192,7 +192,7 @@ export default function Retromail() {
     
     // Construire l'email RBE : <identifiant>@association-rbe.fr
     return buildRbeEmail(username);
-  }, [user, matricule, emailAccount]);
+  }, [user, member, matricule, emailAccount]);
 
   const mailPasswordChangeNoticeKey = useMemo(() => {
     return `retromail:password-change-notice:${MAIL_PASSWORD_CHANGE_NOTICE_VERSION}:${deducedEmail}`;
@@ -1517,7 +1517,7 @@ export default function Retromail() {
                   onPasswordChangeNoticeClose();
                 }}
               >
-                Plus tard
+                J'ai pris connaissance
               </Button>
               <Button
                 colorScheme="rbe"

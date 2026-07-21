@@ -13,6 +13,14 @@ import { CacheProvider } from './context/CacheContext'
 // Enregistrement du Service Worker pour PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    let reloadedForServiceWorkerUpdate = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadedForServiceWorkerUpdate) return;
+      reloadedForServiceWorkerUpdate = true;
+      window.location.reload();
+    });
+
     navigator.serviceWorker
       .register('/service-worker.js')
       .then((registration) => {
