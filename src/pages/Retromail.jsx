@@ -16,7 +16,7 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu, FiTag, FiUsers
+  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu, FiTag, FiUsers, FiLogOut
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
@@ -1913,6 +1913,24 @@ export default function Retromail() {
                 </HStack>
               )}
             </Button>
+
+            <Box mt="auto" pt={3} borderTop="1px solid" borderColor="whiteAlpha.200">
+              <Button
+                leftIcon={<FiLogOut />}
+                onClick={() => navigate('/dashboard')}
+                size="md"
+                variant="ghost"
+                justifyContent={isSidebarCollapsed ? 'center' : 'flex-start'}
+                color="white"
+                _hover={{ bg: 'whiteAlpha.100', color: 'white' }}
+                borderRadius="lg"
+                px={3}
+                py={6}
+                w="full"
+              >
+                {!isSidebarCollapsed && "Retour dans l'URBEX"}
+              </Button>
+            </Box>
           </VStack>
         </Box>
 
