@@ -358,7 +358,13 @@ export default function Retromail() {
   // Sauvegarder les brouillons dans localStorage
   const saveDraftsToStorage = useCallback((draftsArray) => {
     try {
-      localStorage.setItem('mail_drafts', JSON.stringify(draftsArray));
+      // Les contenus base64 des PJ dépassent vite le quota localStorage et empêchent
+      // alors aussi la sauvegarde du texte du brouillon.
+      const persistentDrafts = draftsArray.map(({ attachments, ...draft }) => ({
+        ...draft,
+        attachments: []
+      }));
+      localStorage.setItem('mail_drafts', JSON.stringify(persistentDrafts));
     } catch (error) {
       console.error('Erreur sauvegarde brouillons:', error);
     }
@@ -367,6 +373,8 @@ export default function Retromail() {
   // Sauvegarder le brouillon actuel
   const saveDraft = useCallback((values = {}) => {
     const nextComposeTo = values.to ?? composeTo;
+    const nextComposeCc = values.cc ?? composeCc;
+    const nextComposeBcc = values.bcc ?? composeBcc;
     const nextComposeSubject = values.subject ?? composeSubject;
     const nextComposeBody = values.body ?? composeBody;
     const nextComposeAttachments = values.attachments ?? composeAttachments;
@@ -379,6 +387,8 @@ export default function Retromail() {
     const draft = {
       id: currentDraftId || Date.now().toString(),
       to: nextComposeTo,
+      cc: nextComposeCc,
+      bcc: nextComposeBcc,
       subject: nextComposeSubject,
       body: nextComposeBody,
       attachments: nextComposeAttachments,
@@ -388,6 +398,8 @@ export default function Retromail() {
     const draftPayload = JSON.stringify({
       id: draft.id,
       to: draft.to,
+      cc: draft.cc,
+      bcc: draft.bcc,
       subject: draft.subject,
       body: draft.body,
       attachments: draft.attachments
@@ -419,34 +431,34 @@ export default function Retromail() {
       setCurrentDraftId(draft.id);
     }
 
-  }, [composeTo, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
+  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
 
   const handleComposeClose = useCallback((body) => {
     saveDraft({ body });
     onComposeClose();
   }, [onComposeClose, saveDraft]);
 
-  // Sauvegarde différée : la saisie reste prioritaire, y compris avec des pièces jointes lourdes.
+  // La saisie de l'éditeur est déjà temporisée dans ComposeModal ; persister dès que l'état est reçu.
   useEffect(() => {
     if (!isComposeOpen) return;
-    
-    const timeoutId = setTimeout(() => {
-      saveDraft();
-    }, 2500);
 
-    return () => clearTimeout(timeoutId);
-  }, [composeTo, composeSubject, composeBody, composeAttachments, isComposeOpen, saveDraft]);
+    saveDraft();
+  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, isComposeOpen, saveDraft]);
 
   // Charger un brouillon
   const loadDraft = useCallback((draft) => {
     lastSavedDraftPayloadRef.current = JSON.stringify({
       id: draft.id,
       to: draft.to || '',
+      cc: draft.cc || '',
+      bcc: draft.bcc || '',
       subject: draft.subject || '',
       body: draft.body || '',
       attachments: draft.attachments || []
     });
     setComposeTo(draft.to || '');
+    setComposeCc(draft.cc || '');
+    setComposeBcc(draft.bcc || '');
     setComposeSubject(draft.subject || '');
     setComposeBody(draft.body || '');
     setComposeAttachments(draft.attachments || []);
@@ -1396,32 +1408,52 @@ export default function Retromail() {
     onComposeOpen();
   }, [selectedEmail, onComposeOpen]);
 
-  const openForward = useCallback(() => {
+  const openForward = useCallback(async () => {
     if (!selectedEmail) return;
+
+    let emailToForward = selectedEmail;
+    try {
+      const response = await fetchWithCSRF(
+        `${API}/api/mail/read/${selectedEmail.id}?folder=${encodeURIComponent(activeFolder)}`,
+        { method: 'GET' }
+      );
+      if (!response.ok) throw new Error('Lecture complète impossible');
+
+      const data = await response.json();
+      if (data.email) {
+        emailToForward = data.email;
+        setSelectedEmail(data.email);
+      }
+    } catch (error) {
+      console.warn('Transfert avec les données déjà chargées :', error.message);
+    }
+
+    lastSavedDraftPayloadRef.current = '';
+    setCurrentDraftId(null);
     setComposeTo('');
     setComposeCc('');
     setComposeBcc('');
-    setComposeSubject(`Fwd: ${selectedEmail.subject}`);
+    setComposeSubject(`Fwd: ${emailToForward.subject}`);
 
-    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', {
+    const dateStr = emailToForward.date ? new Date(emailToForward.date).toLocaleString('fr-FR', {
       dateStyle: 'long',
       timeStyle: 'short'
     }) : '';
-    const fromName = selectedEmail.fromName || selectedEmail.from;
+    const fromName = emailToForward.fromName || emailToForward.from;
 
-    const quotedBody = String(selectedEmail.body || '')
+    const quotedBody = String(emailToForward.body || '')
       .split('\n')
       .map((line) => `> ${line}`)
       .join('\n');
 
-    setComposeBody(`\n\n---------- Message transfere ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${selectedEmail.subject}\nA : ${selectedEmail.to || ''}\n\n${quotedBody}`);
+    setComposeBody(`\n\n---------- Message transfere ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${emailToForward.subject}\nA : ${emailToForward.to || ''}\n\n${quotedBody}`);
     setComposeAttachments(
-      (selectedEmail.attachments || [])
+      (emailToForward.attachments || [])
         .filter((attachment) => attachment?.content)
         .map((attachment) => ({ ...attachment }))
     );
     onComposeOpen();
-  }, [selectedEmail, onComposeOpen]);
+  }, [API, activeFolder, onComposeOpen, selectedEmail]);
 
   const notifyComingSoon = useCallback((featureName) => {
     toast({
