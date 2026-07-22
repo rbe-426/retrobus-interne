@@ -1399,6 +1399,8 @@ export default function Retromail() {
   const openForward = useCallback(() => {
     if (!selectedEmail) return;
     setComposeTo('');
+    setComposeCc('');
+    setComposeBcc('');
     setComposeSubject(`Fwd: ${selectedEmail.subject}`);
 
     const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', {
@@ -1413,6 +1415,11 @@ export default function Retromail() {
       .join('\n');
 
     setComposeBody(`\n\n---------- Message transfere ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${selectedEmail.subject}\nA : ${selectedEmail.to || ''}\n\n${quotedBody}`);
+    setComposeAttachments(
+      (selectedEmail.attachments || [])
+        .filter((attachment) => attachment?.content)
+        .map((attachment) => ({ ...attachment }))
+    );
     onComposeOpen();
   }, [selectedEmail, onComposeOpen]);
 

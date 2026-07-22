@@ -50,9 +50,12 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
     const query = normalizeContactSearch(candidate);
     if (!query) return [];
 
+    const keywords = query.split(/\s+/).filter(Boolean);
+
     return contacts.filter((contact) => {
       if (normalizedRecipients.has(contact.email.toLocaleLowerCase('fr-FR'))) return false;
-      return normalizeContactSearch(contact.name).includes(query) || normalizeContactSearch(contact.email).includes(query);
+      const searchableContact = `${normalizeContactSearch(contact.name)} ${normalizeContactSearch(contact.email)}`;
+      return keywords.every((keyword) => searchableContact.includes(keyword));
     }).slice(0, 6);
   }, [candidate, contacts, normalizedRecipients]);
 
@@ -83,8 +86,14 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
       setPendingRecipient('');
       return;
     }
+
+    if (EMAIL_PATTERN.test(nextValue.trim())) {
+      addRecipient(nextValue);
+      return;
+    }
+
     setPendingRecipient(nextValue);
-  }, [emitRecipients, normalizedRecipients, recipients]);
+  }, [addRecipient, emitRecipients, normalizedRecipients, recipients]);
 
   const addContact = useCallback((contact) => {
     addRecipient(contact.email);
@@ -764,7 +773,7 @@ const ComposeModal = memo(({
                       colorScheme="blue"
                       onClick={() => setShowBcc(!showBcc)}
                     >
-                      Bcc
+                      Cci
                     </Button>
                   </HStack>
                 </Flex>
@@ -798,12 +807,12 @@ const ComposeModal = memo(({
               <Collapse in={showBcc}>
                 <FormControl>
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
-                    <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Bcc :</FormLabel>
+                    <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cci :</FormLabel>
                     <RecipientField
                       value={composeBcc}
                       onChange={onComposeBccChange}
                       placeholder="copie-cachee@example.com"
-                      ariaLabel="Destinataires en copie cachée"
+                      ariaLabel="Destinataires en copie cachée (Cci)"
                       contacts={contacts}
                     />
                     <IconButton
@@ -814,7 +823,7 @@ const ComposeModal = memo(({
                         setShowBcc(false);
                         onComposeBccChange({ target: { value: '' } });
                       }}
-                      aria-label="Masquer Bcc"
+                      aria-label="Masquer Cci"
                     />
                   </Flex>
                 </FormControl>
