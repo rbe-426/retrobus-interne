@@ -11,6 +11,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
   const [carteGrise, setCarteGrise] = useState(null);
   const [assurance, setAssurance] = useState(null);
   const [ct, setControleTechnique] = useState(null);
+  const [ctAppointmentDate, setCtAppointmentDate] = useState('');
   const [certificat, setCertificat] = useState(null);
   const [certificatTemporaire, setCertificatTemporaire] = useState(null);
   const [echancier, setEchancier] = useState([]);
@@ -38,6 +39,7 @@ const VehicleAdministrationPanel = ({ parc }) => {
       setCarteGrise(cgRes);
       setAssurance(assRes);
       setControleTechnique(ctRes?.latestCT || null);
+      setCtAppointmentDate(ctRes?.appointmentDate ? String(ctRes.appointmentDate).slice(0, 10) : '');
       setCertificat(certRes);
       setCertificatTemporaire(certTempRes);
       setEchancier(Array.isArray(echRes) ? echRes : []);
@@ -101,6 +103,11 @@ const VehicleAdministrationPanel = ({ parc }) => {
           {/* CONTRÔLE TECHNIQUE */}
           <TabPanel>
             <VStack spacing={4} align="stretch">
+              <ControleTechniqueAppointmentForm
+                parc={parc}
+                appointmentDate={ctAppointmentDate}
+                onSave={loadAdministration}
+              />
               {ct && (
                 <Card>
                   <CardHeader>
@@ -122,6 +129,12 @@ const VehicleAdministrationPanel = ({ parc }) => {
                         <Box>
                           <Text fontWeight="bold">Prochain CT</Text>
                           <Text>{new Date(ct.nextCtDate).toLocaleDateString('fr-FR')}</Text>
+                        </Box>
+                      )}
+                      {ctAppointmentDate && (
+                        <Box>
+                          <Text fontWeight="bold">Rendez-vous de renouvellement</Text>
+                          <Text>{new Date(`${ctAppointmentDate}T00:00:00`).toLocaleDateString('fr-FR')}</Text>
                         </Box>
                       )}
                       {ct.mileage && (
@@ -525,6 +538,47 @@ const VehicleAdministrationPanel = ({ parc }) => {
             </FormControl>
 
             <Button colorScheme="blue" onClick={handleSubmit} isLoading={saving}>Enregistrer</Button>
+          </VStack>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  function ControleTechniqueAppointmentForm({ parc, appointmentDate, onSave }) {
+    const [date, setDate] = useState(appointmentDate);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+      setDate(appointmentDate);
+    }, [appointmentDate]);
+
+    const handleSubmit = async () => {
+      try {
+        setSaving(true);
+        await apiClient.put(`/vehicles/${parc}/ct/appointment`, { appointmentDate: date || null });
+        toast({ status: 'success', title: date ? 'Rendez-vous CT enregistré' : 'Rendez-vous CT supprimé' });
+        onSave();
+      } catch (error) {
+        toast({ status: 'error', title: 'Erreur', description: error.message });
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <Card borderWidth="1px" borderColor="orange.300">
+        <CardHeader>
+          <Heading size="md">Rendez-vous de renouvellement du CT</Heading>
+        </CardHeader>
+        <CardBody>
+          <VStack align="stretch" spacing={3}>
+            <FormControl>
+              <FormLabel>Date du rendez-vous CT</FormLabel>
+              <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </FormControl>
+            <Button colorScheme="orange" onClick={handleSubmit} isLoading={saving} alignSelf="flex-start">
+              Enregistrer le rendez-vous
+            </Button>
           </VStack>
         </CardBody>
       </Card>

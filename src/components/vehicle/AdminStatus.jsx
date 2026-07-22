@@ -8,6 +8,32 @@ import { CheckCircleIcon, WarningIcon, TimeIcon } from '@chakra-ui/icons';
 import { vehicleAdminAPI } from '../../api/vehicleAdmin';
 import VehicleAdministrationPanel from './AdministrationPanel';
 
+const CT_APPOINTMENT_WARNING_DAYS = 30;
+
+const getCtAdministrativeStatus = (latestCT, appointmentDate) => {
+  if (!latestCT) return 'missing';
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const appointment = appointmentDate ? new Date(appointmentDate) : null;
+  const hasConformingReport = latestCT.ctStatus === 'passed' && Boolean(latestCT.attestationPath);
+
+  if (appointment && !Number.isNaN(appointment.getTime())) {
+    appointment.setHours(0, 0, 0, 0);
+    const daysUntilAppointment = Math.ceil((appointment - now) / 86400000);
+    const reportClosesAppointment = hasConformingReport && new Date(latestCT.ctDate) >= appointment;
+    if (!reportClosesAppointment && daysUntilAppointment <= CT_APPOINTMENT_WARNING_DAYS) return 'warning';
+  }
+
+  const expirationDate = latestCT.nextCtDate
+    ? new Date(latestCT.nextCtDate)
+    : new Date(new Date(latestCT.ctDate).setFullYear(new Date(latestCT.ctDate).getFullYear() + 2));
+  expirationDate.setHours(0, 0, 0, 0);
+
+  if (now > expirationDate) return 'expired';
+  return latestCT.ctStatus === 'passed' ? 'ok' : 'warning';
+};
+
 const VehicleAdminStatus = ({ parc }) => {
   const [status, setStatus] = useState({});
   const [loading, setLoading] = useState(true);
@@ -31,7 +57,7 @@ const VehicleAdminStatus = ({ parc }) => {
       setStatus({
         carteGrise: cgRes?.newCGPath ? 'ok' : cgRes?.oldCGPath && certTempRes?.isActive ? 'tempCert' : 'missing',
         assurance: assRes?.isActive ? 'ok' : assRes?.dateValidityEnd ? 'expired' : 'missing',
-        controleTechnique: ctRes?.latestCT ? (ctRes.latestCT.ctStatus === 'passed' ? 'ok' : 'warning') : 'missing',
+        controleTechnique: getCtAdministrativeStatus(ctRes?.latestCT, ctRes?.appointmentDate),
         certificatCession: certRes?.imported ? 'ok' : 'missing',
         certificatTemporaire: certTempRes?.isActive ? 'ok' : 'missing'
       });
@@ -52,6 +78,7 @@ const VehicleAdminStatus = ({ parc }) => {
   const getStatusColor = (statusKey) => {
     const s = status[statusKey];
     if (statusKey === 'carteGrise' && s === 'tempCert') return 'orange';
+    if (statusKey === 'controleTechnique' && s === 'warning') return 'orange';
     return s === 'ok' ? 'green' : s === 'warning' ? 'yellow' : s === 'expired' ? 'red' : 'gray';
   };
 
@@ -64,6 +91,7 @@ const VehicleAdminStatus = ({ parc }) => {
   const getStatusText = (statusKey) => {
     const s = status[statusKey];
     if (statusKey === 'carteGrise' && s === 'tempCert') return 'Tempor.';
+    if (statusKey === 'controleTechnique' && s === 'warning') return 'Renouvellement prochainement';
     return s === 'ok' ? 'À jour' : s === 'warning' ? 'Attn.' : s === 'expired' ? 'Expiré' : 'Manquant';
   };
 

@@ -36,6 +36,10 @@ export const vehicleAdminAPI = {
     return apiClient.post(`/vehicles/${parc}/ct`, data);
   },
 
+  updateControleTechniqueAppointment: async (parc, appointmentDate) => {
+    return apiClient.put(`/vehicles/${parc}/ct/appointment`, { appointmentDate });
+  },
+
   // CERTIFICAT TEMPORAIRE
   getCertificatTemporaire: async (parc) => {
     return apiClient.get(`/vehicles/${parc}/certificat-temporaire`);
