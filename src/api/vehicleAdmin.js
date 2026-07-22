@@ -40,6 +40,14 @@ export const vehicleAdminAPI = {
     return apiClient.put(`/vehicles/${parc}/ct/appointment`, { appointmentDate });
   },
 
+  getSpeedLimiter: async (parc) => {
+    return apiClient.get(`/vehicles/${parc}/speed-limiter`);
+  },
+
+  updateSpeedLimiter: async (parc, data) => {
+    return apiClient.post(`/vehicles/${parc}/speed-limiter`, data);
+  },
+
   // CERTIFICAT TEMPORAIRE
   getCertificatTemporaire: async (parc) => {
     return apiClient.get(`/vehicles/${parc}/certificat-temporaire`);
