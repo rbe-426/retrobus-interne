@@ -1281,8 +1281,17 @@ export default function Retromail() {
         setComposeAttachments([]);
         onComposeClose();
       } else {
-        const data = await res.json();
-        throw new Error(data.error || "Échec d'envoi");
+        const responseText = await res.text();
+        let errorMessage = `Le serveur a refusé l'envoi (HTTP ${res.status}).`;
+
+        try {
+          const data = JSON.parse(responseText);
+          errorMessage = data.error || errorMessage;
+        } catch {
+          if (responseText) errorMessage = `${errorMessage} ${responseText.slice(0, 180)}`;
+        }
+
+        throw new Error(errorMessage);
       }
     } catch (e) {
       console.error("Erreur envoi:", e);
