@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Accordion,
   AccordionButton,
@@ -47,6 +47,15 @@ const parseLocalDate = (value) => {
   return new Date(year, month - 1, day);
 };
 
+const getRequestSignature = (request) => JSON.stringify({
+  contactDate: request.contactDate,
+  contactName: request.contactName,
+  contactRole: request.contactRole,
+  productionCompany: request.productionCompany,
+  audiovisualProject: request.audiovisualProject,
+  shootDate: request.shootDate
+});
+
 export default function RetroStudio() {
   const toast = useToast();
   const { closeOnMobile } = useSidebar();
@@ -55,6 +64,7 @@ export default function RetroStudio() {
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [activeSection, setActiveSection] = useState('request');
   const [savingRequest, setSavingRequest] = useState(false);
+  const [draftSaveState, setDraftSaveState] = useState('idle');
   const [ongoingRequests, setOngoingRequests] = useState([]);
   const [loadingOngoing, setLoadingOngoing] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -64,6 +74,7 @@ export default function RetroStudio() {
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const headingColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
+  const lastSavedDraftSignature = useRef('');
 
   const isPresident = (
     String(matricule || user?.username || '').trim().toLowerCase() === 'w.belaidi' ||
@@ -105,35 +116,74 @@ export default function RetroStudio() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persistRequest = async (saveAsDraft) => {
+  const persistRequest = async (saveAsDraft, { silent = false } = {}) => {
     try {
       setSavingRequest(true);
+      if (saveAsDraft) setDraftSaveState('saving');
       const requestPayload = { ...request, saveAsDraft };
       const createdRequest = editingRequestId
         ? await retroStudioApi.updateRequest(editingRequestId, requestPayload)
         : await retroStudioApi.createRequest(requestPayload);
       const requiresValidation = createdRequest?.validationRequired;
-      toast({
-        title: saveAsDraft ? 'Brouillon enregistré' : requiresValidation ? 'Validation présidentielle requise' : 'Premier jalon enregistré',
-        description: saveAsDraft
-          ? 'Le dossier peut être repris à tout moment depuis les demandes en cours.'
-          : requiresValidation
-          ? 'Waiyl Belaidi a reçu une notification dans son espace RétroBus.'
-          : 'Le dossier de mise à disposition est prêt à être complété.',
-        status: saveAsDraft ? 'info' : requiresValidation ? 'warning' : 'success',
-        duration: 5000,
-        isClosable: true
-      });
-      setRequest(initialRequest);
-      setEditingRequestId(null);
+      if (saveAsDraft) {
+        lastSavedDraftSignature.current = getRequestSignature(request);
+        setEditingRequestId(createdRequest.id);
+        setDraftSaveState('saved');
+        if (!silent) {
+          toast({
+            title: 'Brouillon enregistré',
+            description: 'Le dossier peut être repris à tout moment depuis les demandes en cours.',
+            status: 'info',
+            duration: 3000,
+            isClosable: true
+          });
+        }
+      } else {
+        toast({
+          title: requiresValidation ? 'Validation présidentielle requise' : 'Premier jalon enregistré',
+          description: requiresValidation
+            ? 'Waiyl Belaidi a reçu une notification dans son espace RétroBus.'
+            : 'Le dossier de mise à disposition est prêt à être complété.',
+          status: requiresValidation ? 'warning' : 'success',
+          duration: 5000,
+          isClosable: true
+        });
+        setRequest(initialRequest);
+        setEditingRequestId(null);
+        lastSavedDraftSignature.current = '';
+        setDraftSaveState('idle');
+      }
       loadOngoingRequests();
       if (isPresident) loadPendingRequests();
     } catch (error) {
-      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
+      if (saveAsDraft) setDraftSaveState('error');
+      if (!silent) {
+        toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
+      }
     } finally {
       setSavingRequest(false);
     }
   };
+
+  const requestSignature = getRequestSignature(request);
+  const hasDraftContent = Boolean(
+    request.contactName.trim() ||
+    request.contactRole.trim() ||
+    request.productionCompany.trim() ||
+    request.audiovisualProject.trim() ||
+    request.shootDate ||
+    request.contactDate !== initialRequest.contactDate
+  );
+
+  useEffect(() => {
+    if (!hasDraftContent || savingRequest || requestSignature === lastSavedDraftSignature.current) return undefined;
+
+    const saveTimeout = window.setTimeout(() => {
+      persistRequest(true, { silent: true });
+    }, 1200);
+
+    return () => window.clearTimeout(saveTimeout);
+  }, [hasDraftContent, requestSignature, savingRequest, editingRequestId]);
 
   const submitRequest = async (event) => {
     event.preventDefault();
@@ -141,15 +191,18 @@ export default function RetroStudio() {
   };
 
   const resumeDraft = (draft) => {
-    setRequest({
+    const resumedRequest = {
       contactDate: draft.contactDate ? draft.contactDate.slice(0, 10) : '',
       contactName: draft.contactName || '',
       contactRole: draft.contactRole || '',
       productionCompany: draft.productionCompany || '',
       audiovisualProject: draft.audiovisualProject || '',
       shootDate: draft.shootDate ? draft.shootDate.slice(0, 10) : ''
-    });
+    };
+    lastSavedDraftSignature.current = getRequestSignature(resumedRequest);
+    setRequest(resumedRequest);
     setEditingRequestId(draft.id);
+    setDraftSaveState('saved');
     setActiveSection('request');
   };
 
@@ -260,8 +313,15 @@ export default function RetroStudio() {
           <Box>
             <Text fontWeight="600">{editingRequestId ? 'Reprise du brouillon' : 'Premier fil Ariane : prise de contact'}</Text>
             <Text color="gray.600" fontSize="sm">
-              Enregistrez la demande reçue pour la mise à disposition d'un bus auprès d'une production audiovisuelle, ou conservez-la en brouillon dès la première information.
+              Chaque information saisie est enregistrée automatiquement comme brouillon sur le serveur.
             </Text>
+            {hasDraftContent && (
+              <Text mt={1} fontSize="xs" color={draftSaveState === 'error' ? 'red.600' : 'gray.500'}>
+                {draftSaveState === 'saving' && 'Enregistrement du brouillon...'}
+                {draftSaveState === 'saved' && 'Brouillon enregistré sur le serveur.'}
+                {draftSaveState === 'error' && 'Le brouillon n a pas pu être enregistré automatiquement.'}
+              </Text>
+            )}
           </Box>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
