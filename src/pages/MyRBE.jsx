@@ -22,7 +22,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
   FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool,
-  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag
+  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag, FiVideo
 } from "react-icons/fi";
 import { FaPaintBrush } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
@@ -148,12 +148,14 @@ const cards = [
     cardAccess: true
   },
   {
-    title: "Planning partagés",
-    description: "Événements et disponibilités pour les entretiens",
-    to: "/dashboard/planning-rbe",
-    icon: FiCalendar,
-    color: "orange",
-    cardAccess: false  // Visible par tous, pas de ressource
+    title: "RetroStudio",
+    description: "Planification et suivi des tournages",
+    to: "/myrbe/retrostudio",
+    icon: FiVideo,
+    color: "red",
+    resource: "EVENTS",
+    cardAccess: true,
+    badge: { label: "Événements", color: "red" }
   }
 ];
 
