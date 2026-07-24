@@ -105,6 +105,7 @@ const Changelogs = lazy(() => import("./pages/Changelogs"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TeamRBE = lazy(() => import("./pages/TeamRBE"));
 const LumistudioLaunch = lazy(() => import("./pages/LumistudioLaunch"));
+const RetroStudio = lazy(() => import("./pages/RetroStudio"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -185,6 +186,7 @@ export default function App() {
         {/* 🚗 Routes des véhicules */}
         <Route path="/dashboard/retrobus" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroBus /></RoleProtectedRoute>} />
         <Route path="/myrbe/lumistudio" element={<ProtectedRoute><LumistudioLaunch /></ProtectedRoute>} />
+        <Route path="/myrbe/retrostudio" element={<ProtectedRoute><RetroStudio /></ProtectedRoute>} />
         <Route path="/echancier" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EchancierPage /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Vehicules /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/ajouter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RequireCreator><VehiculeCreate /></RequireCreator></RoleProtectedRoute>} />
