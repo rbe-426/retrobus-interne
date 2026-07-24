@@ -19,6 +19,16 @@ export const notificationsAPI = {
     }
   },
 
+  getInbox: async () => {
+    try {
+      const response = await apiClient.get('/api/notifications/inbox');
+      return Array.isArray(response) ? response : response?.data || [];
+    } catch (error) {
+      console.error('Erreur récupération boîte de réception:', error);
+      throw error;
+    }
+  },
+
   /**
    * Récupère une notification par ID
    */

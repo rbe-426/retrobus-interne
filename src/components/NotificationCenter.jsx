@@ -21,7 +21,7 @@ export default function NotificationCenter() {
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await notificationsAPI.getAll();
+      const data = await notificationsAPI.getInbox();
       
       if (Array.isArray(data)) {
         // Filtrer les notifications actives

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Accordion,
   AccordionButton,
@@ -19,15 +19,18 @@ import {
   Icon,
   Input,
   SimpleGrid,
+  Spinner,
   Text,
   useColorModeValue,
   useToast,
   VStack
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiFolder, FiSend, FiVideo, FiXCircle } from 'react-icons/fi';
+import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiFolder, FiRefreshCw, FiSend, FiVideo, FiXCircle } from 'react-icons/fi';
 import SidebarLayout from '../components/SidebarLayout';
 import { useSidebar } from '../context/SidebarContext';
+import { useUser } from '../context/UserContext';
+import { retroStudioApi } from '../api/retrostudio';
 
 const initialRequest = {
   contactDate: new Date().toISOString().split('T')[0],
@@ -47,23 +50,77 @@ const parseLocalDate = (value) => {
 export default function RetroStudio() {
   const toast = useToast();
   const { closeOnMobile } = useSidebar();
+  const { user } = useUser();
   const [request, setRequest] = useState(initialRequest);
   const [activeSection, setActiveSection] = useState('request');
+  const [savingRequest, setSavingRequest] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState(null);
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const headingColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
 
-  const submitRequest = (event) => {
+  const isGaelle = String(user?.email || '').trim().toLowerCase() === 'g.champenois@retrobus-essonne.fr';
+
+  const loadPendingRequests = async () => {
+    if (!isGaelle) return;
+    try {
+      setLoadingPending(true);
+      const requests = await retroStudioApi.getPendingValidations();
+      setPendingRequests(Array.isArray(requests) ? requests : []);
+    } catch (error) {
+      toast({ title: 'Chargement impossible', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGaelle]);
+
+  const submitRequest = async (event) => {
     event.preventDefault();
-    toast({
-      title: 'Premier jalon enregistré',
-      description: 'Le dossier de mise à disposition est prêt à être complété.',
-      status: 'success',
-      duration: 4000,
-      isClosable: true
-    });
-    setRequest(initialRequest);
+    try {
+      setSavingRequest(true);
+      const createdRequest = await retroStudioApi.createRequest(request);
+      const requiresValidation = createdRequest?.validationRequired;
+      toast({
+        title: requiresValidation ? 'Validation présidentielle requise' : 'Premier jalon enregistré',
+        description: requiresValidation
+          ? 'Gaëlle Champenois a reçu une notification dans son espace RétroBus.'
+          : 'Le dossier de mise à disposition est prêt à être complété.',
+        status: requiresValidation ? 'warning' : 'success',
+        duration: 5000,
+        isClosable: true
+      });
+      setRequest(initialRequest);
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
+    } finally {
+      setSavingRequest(false);
+    }
+  };
+
+  const validateRequest = async (requestId, decision) => {
+    try {
+      setProcessingRequestId(requestId);
+      await retroStudioApi.validateRequest(requestId, decision);
+      setPendingRequests((requests) => requests.filter((item) => item.id !== requestId));
+      toast({
+        title: decision === 'APPROVED' ? 'Dossier validé' : 'Dossier refusé',
+        status: decision === 'APPROVED' ? 'success' : 'warning',
+        duration: 4000,
+        isClosable: true
+      });
+    } catch (error) {
+      toast({ title: 'Décision impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
+    } finally {
+      setProcessingRequestId(null);
+    }
   };
 
   const contactDate = parseLocalDate(request.contactDate);
@@ -206,8 +263,20 @@ export default function RetroStudio() {
             </Box>
           )}
 
+          {isGaelle && (
+            <ValidationPanel
+              requests={pendingRequests}
+              loading={loadingPending}
+              processingRequestId={processingRequestId}
+              onRefresh={loadPendingRequests}
+              onDecision={validateRequest}
+            />
+          )}
+
           <HStack justify="flex-end">
-            <Button type="submit" colorScheme="red" leftIcon={<FiSend />}>Enregistrer la prise de contact</Button>
+            <Button type="submit" colorScheme="red" leftIcon={<FiSend />} isLoading={savingRequest} loadingText="Enregistrement">
+              Enregistrer la prise de contact
+            </Button>
           </HStack>
         </VStack>
       );
@@ -299,5 +368,49 @@ function ProcedureStep({ title, children }) {
       </AccordionButton>
       <AccordionPanel pb={4} color="gray.600">{children}</AccordionPanel>
     </AccordionItem>
+  );
+}
+
+function ValidationPanel({ requests, loading, processingRequestId, onRefresh, onDecision }) {
+  return (
+    <Box borderWidth="1px" borderColor="orange.300" bg="orange.50" p={4} borderRadius="md">
+      <HStack justify="space-between" align="start" mb={4} wrap="wrap">
+        <Box>
+          <Text fontWeight="700">Validations présidentielles</Text>
+          <Text fontSize="sm" color="orange.800">Les dossiers à délai court attendent votre décision.</Text>
+        </Box>
+        <Button data-no-full-width size="sm" variant="outline" colorScheme="orange" leftIcon={<FiRefreshCw />} onClick={onRefresh} isLoading={loading}>
+          Actualiser
+        </Button>
+      </HStack>
+
+      {loading ? (
+        <HStack justify="center" py={4}><Spinner size="sm" /><Text fontSize="sm">Chargement des dossiers...</Text></HStack>
+      ) : requests.length === 0 ? (
+        <Text fontSize="sm" color="gray.600">Aucun dossier RetroStudio en attente de validation.</Text>
+      ) : (
+        <VStack align="stretch" spacing={3}>
+          {requests.map((request) => (
+            <Box key={request.id} bg="white" borderWidth="1px" borderColor="orange.200" p={4} borderRadius="md">
+              <HStack justify="space-between" align="start" spacing={3} wrap="wrap">
+                <Box>
+                  <Text fontWeight="600">{request.audiovisualProject}</Text>
+                  <Text fontSize="sm" color="gray.600">{request.productionCompany} - {request.contactName}, {request.contactRole}</Text>
+                  <Text fontSize="sm" color="gray.600">Tournage : {new Date(request.shootDate).toLocaleDateString('fr-FR')} ({request.leadTimeDays} jours)</Text>
+                </Box>
+                <HStack>
+                  <Button data-no-full-width size="sm" colorScheme="green" onClick={() => onDecision(request.id, 'APPROVED')} isLoading={processingRequestId === request.id}>
+                    Valider
+                  </Button>
+                  <Button data-no-full-width size="sm" colorScheme="red" variant="outline" onClick={() => onDecision(request.id, 'REJECTED')} isLoading={processingRequestId === request.id}>
+                    Refuser
+                  </Button>
+                </HStack>
+              </HStack>
+            </Box>
+          ))}
+        </VStack>
+      )}
+    </Box>
   );
 }
