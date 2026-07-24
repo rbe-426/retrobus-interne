@@ -1,0 +1,1 @@
+import{a}from"./apiClient-BeNQItXS.js";const t="/api/team",n=async(e=!1)=>{const r=e?{public:"true"}:{};return await a.get(t,{params:r})},c=async e=>await a.post(t,e),m=async(e,r)=>await a.put(`${t}/${e}`,r),o=async e=>await a.delete(`${t}/${e}`),i=async e=>await a.post(`${t}/reorder`,{members:e});export{c,o as d,n as g,i as r,m as u};

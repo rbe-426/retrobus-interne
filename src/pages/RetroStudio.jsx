@@ -26,7 +26,7 @@ import {
   VStack
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiFolder, FiRefreshCw, FiSend, FiVideo, FiXCircle } from 'react-icons/fi';
+import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiClock, FiFolder, FiRefreshCw, FiSend, FiVideo, FiXCircle } from 'react-icons/fi';
 import SidebarLayout from '../components/SidebarLayout';
 import { useSidebar } from '../context/SidebarContext';
 import { useUser } from '../context/UserContext';
@@ -52,8 +52,11 @@ export default function RetroStudio() {
   const { closeOnMobile } = useSidebar();
   const { user } = useUser();
   const [request, setRequest] = useState(initialRequest);
+  const [editingRequestId, setEditingRequestId] = useState(null);
   const [activeSection, setActiveSection] = useState('request');
   const [savingRequest, setSavingRequest] = useState(false);
+  const [ongoingRequests, setOngoingRequests] = useState([]);
+  const [loadingOngoing, setLoadingOngoing] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState(null);
@@ -63,6 +66,18 @@ export default function RetroStudio() {
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
 
   const isGaelle = String(user?.email || '').trim().toLowerCase() === 'g.champenois@retrobus-essonne.fr';
+
+  const loadOngoingRequests = async () => {
+    try {
+      setLoadingOngoing(true);
+      const requests = await retroStudioApi.getOngoingRequests();
+      setOngoingRequests(Array.isArray(requests) ? requests : []);
+    } catch (error) {
+      toast({ title: 'Chargement impossible', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setLoadingOngoing(false);
+    }
+  };
 
   const loadPendingRequests = async () => {
     if (!isGaelle) return;
@@ -82,22 +97,34 @@ export default function RetroStudio() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGaelle]);
 
-  const submitRequest = async (event) => {
-    event.preventDefault();
+  useEffect(() => {
+    loadOngoingRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const persistRequest = async (saveAsDraft) => {
     try {
       setSavingRequest(true);
-      const createdRequest = await retroStudioApi.createRequest(request);
+      const requestPayload = { ...request, saveAsDraft };
+      const createdRequest = editingRequestId
+        ? await retroStudioApi.updateRequest(editingRequestId, requestPayload)
+        : await retroStudioApi.createRequest(requestPayload);
       const requiresValidation = createdRequest?.validationRequired;
       toast({
-        title: requiresValidation ? 'Validation présidentielle requise' : 'Premier jalon enregistré',
-        description: requiresValidation
+        title: saveAsDraft ? 'Brouillon enregistré' : requiresValidation ? 'Validation présidentielle requise' : 'Premier jalon enregistré',
+        description: saveAsDraft
+          ? 'Le dossier peut être repris à tout moment depuis les demandes en cours.'
+          : requiresValidation
           ? 'Gaëlle Champenois a reçu une notification dans son espace RétroBus.'
           : 'Le dossier de mise à disposition est prêt à être complété.',
-        status: requiresValidation ? 'warning' : 'success',
+        status: saveAsDraft ? 'info' : requiresValidation ? 'warning' : 'success',
         duration: 5000,
         isClosable: true
       });
       setRequest(initialRequest);
+      setEditingRequestId(null);
+      loadOngoingRequests();
+      if (isGaelle) loadPendingRequests();
     } catch (error) {
       toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
     } finally {
@@ -105,11 +132,30 @@ export default function RetroStudio() {
     }
   };
 
+  const submitRequest = async (event) => {
+    event.preventDefault();
+    await persistRequest(false);
+  };
+
+  const resumeDraft = (draft) => {
+    setRequest({
+      contactDate: draft.contactDate ? draft.contactDate.slice(0, 10) : '',
+      contactName: draft.contactName || '',
+      contactRole: draft.contactRole || '',
+      productionCompany: draft.productionCompany || '',
+      audiovisualProject: draft.audiovisualProject || '',
+      shootDate: draft.shootDate ? draft.shootDate.slice(0, 10) : ''
+    });
+    setEditingRequestId(draft.id);
+    setActiveSection('request');
+  };
+
   const validateRequest = async (requestId, decision) => {
     try {
       setProcessingRequestId(requestId);
       await retroStudioApi.validateRequest(requestId, decision);
       setPendingRequests((requests) => requests.filter((item) => item.id !== requestId));
+      loadOngoingRequests();
       toast({
         title: decision === 'APPROVED' ? 'Dossier validé' : 'Dossier refusé',
         status: decision === 'APPROVED' ? 'success' : 'warning',
@@ -131,6 +177,7 @@ export default function RetroStudio() {
 
   const sections = [
     { id: 'request', label: 'Saisie de demande', description: 'Nouveau besoin', icon: FiClipboard },
+    { id: 'ongoing', label: 'Demandes en cours', description: 'Suivi des dossiers', icon: FiClock },
     { id: 'resources', label: 'RetroStudio Ressourcery', description: 'Médias et références', icon: FiFolder },
     { id: 'procedure', label: 'Procédure associée', description: 'Circuit de production', icon: FiBook }
   ];
@@ -208,9 +255,9 @@ export default function RetroStudio() {
           </Breadcrumb>
 
           <Box>
-            <Text fontWeight="600">Premier fil Ariane : prise de contact</Text>
+            <Text fontWeight="600">{editingRequestId ? 'Reprise du brouillon' : 'Premier fil Ariane : prise de contact'}</Text>
             <Text color="gray.600" fontSize="sm">
-              Enregistrez la demande reçue pour la mise à disposition d'un bus auprès d'une production audiovisuelle.
+              Enregistrez la demande reçue pour la mise à disposition d'un bus auprès d'une production audiovisuelle, ou conservez-la en brouillon dès la première information.
             </Text>
           </Box>
 
@@ -263,6 +310,31 @@ export default function RetroStudio() {
             </Box>
           )}
 
+          <HStack justify="flex-end">
+            <Button type="button" variant="outline" leftIcon={<FiArchive />} onClick={() => persistRequest(true)} isLoading={savingRequest}>
+              Enregistrer le brouillon
+            </Button>
+            <Button type="submit" colorScheme="red" leftIcon={<FiSend />} isLoading={savingRequest} loadingText="Enregistrement">
+              Enregistrer la prise de contact
+            </Button>
+          </HStack>
+        </VStack>
+      );
+    }
+
+    if (activeSection === 'ongoing') {
+      return (
+        <VStack spacing={5} align="stretch">
+          <HStack justify="space-between" align="start" spacing={4} wrap="wrap">
+            <Box>
+              <Text fontWeight="600">Demandes en cours</Text>
+              <Text color="gray.600" fontSize="sm">Suivi de tous les dossiers RetroStudio non clôturés.</Text>
+            </Box>
+            <Button data-no-full-width size="sm" variant="outline" leftIcon={<FiRefreshCw />} onClick={loadOngoingRequests} isLoading={loadingOngoing}>
+              Actualiser
+            </Button>
+          </HStack>
+          <OngoingRequestsPanel requests={ongoingRequests} loading={loadingOngoing} onResume={resumeDraft} />
           {isGaelle && (
             <ValidationPanel
               requests={pendingRequests}
@@ -272,12 +344,6 @@ export default function RetroStudio() {
               onDecision={validateRequest}
             />
           )}
-
-          <HStack justify="flex-end">
-            <Button type="submit" colorScheme="red" leftIcon={<FiSend />} isLoading={savingRequest} loadingText="Enregistrement">
-              Enregistrer la prise de contact
-            </Button>
-          </HStack>
         </VStack>
       );
     }
@@ -413,4 +479,59 @@ function ValidationPanel({ requests, loading, processingRequestId, onRefresh, on
       )}
     </Box>
   );
+}
+
+function OngoingRequestsPanel({ requests, loading, onResume }) {
+  if (loading) {
+    return <HStack justify="center" py={8}><Spinner size="sm" /><Text fontSize="sm">Chargement des demandes...</Text></HStack>;
+  }
+
+  if (requests.length === 0) {
+    return <Text fontSize="sm" color="gray.600">Aucune demande RetroStudio en cours.</Text>;
+  }
+
+  return (
+    <VStack align="stretch" spacing={3}>
+      {requests.map((request) => {
+        const status = getRequestStatus(request.status);
+        return (
+          <Box key={request.id} bg="white" borderWidth="1px" borderColor={status.borderColor} p={4} borderRadius="md">
+            <HStack justify="space-between" align="start" spacing={3} wrap="wrap">
+              <Box>
+                <HStack mb={1} wrap="wrap">
+                  <Text fontWeight="600">{request.audiovisualProject}</Text>
+                  <Badge colorScheme={status.colorScheme}>{status.label}</Badge>
+                </HStack>
+                <Text fontSize="sm" color="gray.600">{request.productionCompany} - {request.contactName}, {request.contactRole}</Text>
+                <Text fontSize="sm" color="gray.600">Tournage : {new Date(request.shootDate).toLocaleDateString('fr-FR')} ({request.leadTimeDays} jours)</Text>
+              </Box>
+              {request.validationRequired && (
+                <Text fontSize="sm" fontWeight="600" color={request.status === 'PENDING_VALIDATION' ? 'orange.700' : 'green.700'}>
+                  {request.status === 'PENDING_VALIDATION' ? 'Validation présidentielle requise' : 'Validation présidentielle obtenue'}
+                </Text>
+              )}
+              {request.status === 'DRAFT' && (
+                <Button data-no-full-width size="sm" colorScheme="blue" variant="outline" onClick={() => onResume(request)}>
+                  Reprendre
+                </Button>
+              )}
+            </HStack>
+          </Box>
+        );
+      })}
+    </VStack>
+  );
+}
+
+function getRequestStatus(status) {
+  if (status === 'DRAFT') {
+    return { label: 'Brouillon', colorScheme: 'gray', borderColor: 'gray.300' };
+  }
+  if (status === 'PENDING_VALIDATION') {
+    return { label: 'En attente de validation', colorScheme: 'orange', borderColor: 'orange.300' };
+  }
+  if (status === 'APPROVED') {
+    return { label: 'Validée', colorScheme: 'green', borderColor: 'green.200' };
+  }
+  return { label: 'Enregistrée', colorScheme: 'blue', borderColor: 'gray.200' };
 }
