@@ -87,13 +87,24 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
       return;
     }
 
-    if (EMAIL_PATTERN.test(nextValue.trim())) {
-      addRecipient(nextValue);
-      return;
-    }
-
     setPendingRecipient(nextValue);
-  }, [addRecipient, emitRecipients, normalizedRecipients, recipients]);
+  }, [emitRecipients, normalizedRecipients, recipients]);
+
+  const handlePaste = useCallback((event) => {
+    const pastedValue = event.clipboardData.getData('text');
+    if (!pastedValue) return;
+
+    const pastedRecipients = parseRecipients(pastedValue);
+    const uniqueRecipients = pastedRecipients.filter((recipient) =>
+      EMAIL_PATTERN.test(recipient) && !normalizedRecipients.has(recipient.toLocaleLowerCase('fr-FR'))
+    );
+
+    if (uniqueRecipients.length > 0) {
+      event.preventDefault();
+      emitRecipients([...recipients, ...uniqueRecipients]);
+      setPendingRecipient('');
+    }
+  }, [emitRecipients, normalizedRecipients, recipients]);
 
   const addContact = useCallback((contact) => {
     addRecipient(contact.email);
