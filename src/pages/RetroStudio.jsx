@@ -50,7 +50,7 @@ const parseLocalDate = (value) => {
 export default function RetroStudio() {
   const toast = useToast();
   const { closeOnMobile } = useSidebar();
-  const { user } = useUser();
+  const { user, matricule } = useUser();
   const [request, setRequest] = useState(initialRequest);
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [activeSection, setActiveSection] = useState('request');
@@ -65,7 +65,10 @@ export default function RetroStudio() {
   const headingColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
 
-  const isGaelle = String(user?.email || '').trim().toLowerCase() === 'g.champenois@retrobus-essonne.fr';
+  const isPresident = (
+    String(matricule || user?.username || '').trim().toLowerCase() === 'w.belaidi' ||
+    String(user?.email || '').trim().toLowerCase() === 'belaidiw91@gmail.com'
+  );
 
   const loadOngoingRequests = async () => {
     try {
@@ -80,7 +83,7 @@ export default function RetroStudio() {
   };
 
   const loadPendingRequests = async () => {
-    if (!isGaelle) return;
+    if (!isPresident) return;
     try {
       setLoadingPending(true);
       const requests = await retroStudioApi.getPendingValidations();
@@ -95,7 +98,7 @@ export default function RetroStudio() {
   useEffect(() => {
     loadPendingRequests();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGaelle]);
+  }, [isPresident]);
 
   useEffect(() => {
     loadOngoingRequests();
@@ -115,7 +118,7 @@ export default function RetroStudio() {
         description: saveAsDraft
           ? 'Le dossier peut être repris à tout moment depuis les demandes en cours.'
           : requiresValidation
-          ? 'Gaëlle Champenois a reçu une notification dans son espace RétroBus.'
+          ? 'Waiyl Belaidi a reçu une notification dans son espace RétroBus.'
           : 'Le dossier de mise à disposition est prêt à être complété.',
         status: saveAsDraft ? 'info' : requiresValidation ? 'warning' : 'success',
         duration: 5000,
@@ -124,7 +127,7 @@ export default function RetroStudio() {
       setRequest(initialRequest);
       setEditingRequestId(null);
       loadOngoingRequests();
-      if (isGaelle) loadPendingRequests();
+      if (isPresident) loadPendingRequests();
     } catch (error) {
       toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
     } finally {
@@ -335,7 +338,7 @@ export default function RetroStudio() {
             </Button>
           </HStack>
           <OngoingRequestsPanel requests={ongoingRequests} loading={loadingOngoing} onResume={resumeDraft} />
-          {isGaelle && (
+          {isPresident && (
             <ValidationPanel
               requests={pendingRequests}
               loading={loadingPending}

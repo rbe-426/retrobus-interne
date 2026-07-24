@@ -3,7 +3,7 @@
 const API_BASE_URL = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
 // Import CSRF client utilities
-import { getStoredCSRFToken } from '../lib/csrfClient.js';
+import { fetchCSRFToken, getStoredCSRFToken } from '../lib/csrfClient.js';
 import logger from '../utils/logger.js';
 
 // Headers par défaut
@@ -109,6 +109,36 @@ const normalizeCaughtError = (error, method, url) => {
   return new Error(`[RBE-CLI-000] Erreur client (${method} ${url}). Detail: ${message}`);
 };
 
+const isCsrfFailure = async (response) => {
+  if (response.status !== 403) return false;
+  const errorData = await parseResponse(response.clone()).catch(() => ({}));
+  const code = String(errorData?.code || '').toUpperCase();
+  return code === 'CSRF_INVALID' || code === 'CSRF_MISSING';
+};
+
+const requestMutation = async (method, url, data, options = {}) => {
+  const { headers: customHeaders, ...fetchOptions } = options;
+  const buildRequestHeaders = () => {
+    const token = localStorage.getItem('token');
+    const headerOptions = { headers: customHeaders };
+    return token ? getMutationHeaders(token, headerOptions) : getDefaultHeaders(headerOptions);
+  };
+  const sendRequest = (headers) => fetch(`${API_BASE_URL}${url}`, {
+    method,
+    headers,
+    ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+    ...fetchOptions,
+  });
+
+  let response = await sendRequest(buildRequestHeaders());
+  if (!await isCsrfFailure(response)) return response;
+
+  console.warn(`⚠️ Jeton CSRF refuse pour ${method} ${url}; renouvellement et nouvelle tentative.`);
+  await fetchCSRFToken(API_BASE_URL);
+  response = await sendRequest(buildRequestHeaders());
+  return response;
+};
+
 // Instance API client avec support JWT et gestion d'erreur améliorée
 export const apiClient = {
   baseURL: API_BASE_URL,
@@ -152,20 +182,10 @@ export const apiClient = {
   },
   
   post: async (url, data, options = {}) => {
-    const token = localStorage.getItem('token');
-    const headers = token 
-      ? getMutationHeaders(token, options)
-      : getDefaultHeaders(options);
-
     logger.api(`POST ${API_BASE_URL}${url}`, data);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data),
-        ...options,
-      });
+      const response = await requestMutation('POST', url, data, options);
       
       console.log(`📡 Response status: ${response.status}`);
       
@@ -191,20 +211,10 @@ export const apiClient = {
   },
   
   put: async (url, data, options = {}) => {
-    const token = localStorage.getItem('token');
-    const headers = token 
-      ? getMutationHeaders(token, options)
-      : getDefaultHeaders(options);
-
     logger.api(`PUT ${API_BASE_URL}${url}`, data);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(data),
-        ...options,
-      });
+      const response = await requestMutation('PUT', url, data, options);
       
       console.log(`📡 Response status: ${response.status}`);
       
@@ -230,20 +240,10 @@ export const apiClient = {
   },
 
   patch: async (url, data, options = {}) => {
-    const token = localStorage.getItem('token');
-    const headers = token 
-      ? getMutationHeaders(token, options)
-      : getDefaultHeaders(options);
-
     logger.api(`PATCH ${API_BASE_URL}${url}`, data);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(data),
-        ...options,
-      });
+      const response = await requestMutation('PATCH', url, data, options);
       
       console.log(`📡 Response status: ${response.status}`);
       
@@ -269,19 +269,10 @@ export const apiClient = {
   },
 
   delete: async (url, options = {}) => {
-    const token = localStorage.getItem('token');
-    const headers = token 
-      ? getMutationHeaders(token, options)
-      : getDefaultHeaders(options);
-
     logger.api(`DELETE ${API_BASE_URL}${url}`);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: 'DELETE',
-        headers,
-        ...options,
-      });
+      const response = await requestMutation('DELETE', url, undefined, options);
       
       console.log(`📡 Response status: ${response.status}`);
       
