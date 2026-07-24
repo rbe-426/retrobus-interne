@@ -19,7 +19,7 @@ import {
 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../lib/csrfClient.js';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const parseRecipients = (value) => String(value || '')
   .split(/[;,\n\r]+/)
@@ -131,10 +131,15 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
         <Input
           value={pendingRecipient}
           onChange={handlePendingChange}
+          onPaste={handlePaste}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);
-            addRecipient();
+            if (EMAIL_PATTERN.test(candidate)) {
+              addRecipient();
+            } else {
+              setPendingRecipient('');
+            }
           }}
           onKeyDown={(event) => {
             if ((event.key === 'Enter' || event.key === 'Tab') && candidate) {

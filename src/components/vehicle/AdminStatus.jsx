@@ -79,7 +79,7 @@ const VehicleAdminStatus = ({ parc }) => {
     const s = status[statusKey];
     if (statusKey === 'carteGrise' && s === 'tempCert') return 'orange';
     if (statusKey === 'controleTechnique' && s === 'warning') return 'orange';
-    return s === 'ok' ? 'green' : s === 'warning' ? 'yellow' : s === 'expired' ? 'red' : 'gray';
+    return s === 'ok' ? 'green' : s === 'expired' ? 'red' : 'gray';
   };
 
   const getStatusIcon = (statusKey) => {
