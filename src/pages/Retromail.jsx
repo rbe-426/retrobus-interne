@@ -56,8 +56,31 @@ const buildRbeEmail = (matricule) => {
     : '';
 };
 
+const escapeHtml = (value) => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const formatRbeDisplayName = (member, user) => {
+  const firstName = String(member?.firstName || member?.prenom || user?.prenom || '').trim();
+  const lastName = String(member?.lastName || member?.nom || user?.nom || '').trim().toUpperCase();
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName ? `RBE - ${fullName}` : 'RBE';
+};
+
+const toSignatureHtml = (value) => {
+  const signature = String(value || '').trim();
+  if (!signature) return '';
+  return /<\/?[a-z][\s\S]*>/i.test(signature)
+    ? signature
+    : escapeHtml(signature).replace(/\r?\n/g, '<br>');
+};
+
 const PERMANENT_MAIL_CONTACTS = [
-  { id: 'gmail-rbe', name: 'GMAIL RBE', email: 'association.rbe@gmail.com' }
+  { id: 'gmail-rbe', name: 'GMAIL RBE', email: 'association.rbe@gmail.com' },
+  { id: 'benjamin-van-steenwinckel', name: 'Benjamin VAN STEENWINCKEL', email: 'b.vansteen@cars-nedroma.com' }
 ];
 
 const MAIL_PASSWORD_CHANGE_NOTICE_VERSION = '2026-07';
@@ -82,7 +105,7 @@ const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
     .join(' ');
 
   return {
-    name: String(reportedName || '').trim() || contact?.name || fallbackName || 'Inconnu',
+    name: String(reportedName || '').trim() || contact?.name || fallbackName || normalizedEmail,
     avatar: normalizeAvatarUrl(contact?.avatar)
   };
 };
@@ -138,7 +161,6 @@ export default function Retromail() {
   const { isOpen: isTemplatesOpen, onOpen: onTemplatesOpen, onClose: onTemplatesClose } = useDisclosure();
   const { isOpen: isTemplatePreviewOpen, onOpen: onTemplatePreviewOpen, onClose: onTemplatePreviewClose } = useDisclosure();
   const { isOpen: isProfilePhotoCropOpen, onOpen: onProfilePhotoCropOpen, onClose: onProfilePhotoCropClose } = useDisclosure();
-  const { isOpen: isSignatureCropOpen, onOpen: onSignatureCropOpen, onClose: onSignatureCropClose } = useDisclosure();
   const { isOpen: isTemplateEditorOpen, onOpen: onTemplateEditorOpen, onClose: onTemplateEditorClose } = useDisclosure();
   const { isOpen: isForgotPasswordOpen, onOpen: onForgotPasswordOpen, onClose: onForgotPasswordClose } = useDisclosure();
   const { isOpen: isPasswordChangeNoticeOpen, onOpen: onPasswordChangeNoticeOpen, onClose: onPasswordChangeNoticeClose } = useDisclosure();
@@ -173,6 +195,8 @@ export default function Retromail() {
   });
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const lastSavedDraftPayloadRef = useRef('');
+  const signatureEditorRef = useRef(null);
+  const mailSettingsSaveTimerRef = useRef(null);
   const [mailContacts, setMailContacts] = useState([]);
 
   const mailContactsByEmail = useMemo(() => new Map(
@@ -272,6 +296,8 @@ export default function Retromail() {
     return `retromail:password-change-notice:${MAIL_PASSWORD_CHANGE_NOTICE_VERSION}:${deducedEmail}`;
   }, [deducedEmail]);
 
+  const mailDisplayName = useMemo(() => formatRbeDisplayName(member, user), [member, user]);
+
   // Formulaire de composition
   const [composeTo, setComposeTo] = useState("");
   const [composeCc, setComposeCc] = useState("");
@@ -344,11 +370,75 @@ export default function Retromail() {
   const [previewingTemplate, setPreviewingTemplate] = useState(null);
   
   // Paramètres mail
-  const [displayName, setDisplayName] = useState(() => localStorage.getItem('mail_displayName') || user?.nom + ' ' + user?.prenom || '');
   const [profilePhoto, setProfilePhoto] = useState(() => localStorage.getItem('mail_profilePhoto') || '');
   const [signature, setSignature] = useState(() => localStorage.getItem('mail_signature') || '');
   const [mailFont, setMailFont] = useState(() => localStorage.getItem('mail_font') || 'Arial');
-  const [signatureImage, setSignatureImage] = useState(() => localStorage.getItem('mail_signatureImage') || '');
+  const [mailSettingsLoaded, setMailSettingsLoaded] = useState(false);
+
+  const saveSignature = useCallback((nextSignature) => {
+    setSignature(nextSignature);
+    localStorage.setItem('mail_signature', nextSignature);
+  }, []);
+
+  useEffect(() => {
+    const legacySignatureImage = localStorage.getItem('mail_signatureImage');
+    if (!legacySignatureImage) return;
+
+    setSignature((currentSignature) => {
+      if (currentSignature.includes(legacySignatureImage)) return currentSignature;
+      const migratedSignature = `${toSignatureHtml(currentSignature)}${currentSignature ? '<br>' : ''}<img src="${legacySignatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
+      localStorage.setItem('mail_signature', migratedSignature);
+      return migratedSignature;
+    });
+    localStorage.removeItem('mail_signatureImage');
+  }, []);
+
+  useEffect(() => {
+    const editor = signatureEditorRef.current;
+    const signatureHtml = toSignatureHtml(signature);
+    if (editor && editor.innerHTML !== signatureHtml) editor.innerHTML = signatureHtml;
+  }, [signature]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    fetchWithCSRF(`${API}/api/mail/settings`, { method: 'GET' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Paramètres indisponibles');
+        return response.json();
+      })
+      .then(({ settings }) => {
+        if (!isActive || !settings) return;
+        setSignature(settings.signature || '');
+        setProfilePhoto(settings.profilePhoto || '');
+        setMailFont(settings.mailFont || 'Arial');
+        localStorage.setItem('mail_signature', settings.signature || '');
+        localStorage.setItem('mail_profilePhoto', settings.profilePhoto || '');
+        localStorage.setItem('mail_font', settings.mailFont || 'Arial');
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isActive) setMailSettingsLoaded(true);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mailSettingsLoaded) return undefined;
+
+    clearTimeout(mailSettingsSaveTimerRef.current);
+    mailSettingsSaveTimerRef.current = setTimeout(() => {
+      fetchWithCSRF(`${API}/api/mail/settings`, {
+        method: 'PUT',
+        body: JSON.stringify({ signature, profilePhoto, mailFont })
+      }).catch((error) => console.warn('Sauvegarde distante des paramètres RétroMail impossible:', error));
+    }, 500);
+
+    return () => clearTimeout(mailSettingsSaveTimerRef.current);
+  }, [signature, profilePhoto, mailFont, mailSettingsLoaded]);
 
   // Détecter si connecté avec NoReply
   const isNoReplyAccount = useMemo(() => {
@@ -1217,31 +1307,14 @@ export default function Retromail() {
         console.log('📧 Email normal - traitement complet');
         
         // Vérifier si la signature est déjà présente dans le contenu
-        const signatureHtmlVersion = signature ? signature.split('\n').join('<br>') : '';
-        const signatureTextPresent = signature && (
-          finalBody.includes(signature) || 
-          htmlBody.includes(signature) ||
+        const signatureHtmlVersion = toSignatureHtml(signature);
+        const signatureTextPresent = signatureHtmlVersion && (
           htmlBody.includes(signatureHtmlVersion) ||
-          (signature.length > 20 && htmlBody.includes(signature.substring(0, 20)))
+          (signatureHtmlVersion.length > 20 && htmlBody.includes(signatureHtmlVersion.substring(0, 20)))
         );
-        const signatureImagePresent = signatureImage && (
-          finalBody.includes(signatureImage) || 
-          htmlBody.includes(signatureImage)
-        );
-        
-        let signatureHtml = '';
-        
-        // Ajouter signature texte si elle n'est pas déjà présente
-        if (signature && !signatureTextPresent) {
-          signatureHtml += '<br><br>' + signatureHtmlVersion;
-        }
-        
-        // Ajouter signature image si elle n'est pas déjà présente
-        if (signatureImage && !signatureImagePresent) {
-          if (signatureHtml) signatureHtml += '<br>';
-          else signatureHtml = '<br><br>';
-          signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
-        }
+        const signatureHtml = signatureHtmlVersion && !signatureTextPresent
+          ? `<br><br>${signatureHtmlVersion}`
+          : '';
         
         finalHtml = signatureHtml ? htmlBody + signatureHtml : htmlBody;
         
@@ -1256,9 +1329,11 @@ export default function Retromail() {
           cc: ccRecipients.length > 0 ? ccRecipients : undefined,
           bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: composeSubject,
-          body: finalBody,  // Texte brut pour fallback
+          body: signature
+            ? `${finalBody}\n\n${toSignatureHtml(signature).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim()}`
+            : finalBody,
           html: finalHtml,  // Version HTML
-          fromName: displayName || undefined,
+          fromName: mailDisplayName,
           profilePhoto: profilePhoto || undefined,  // Photo de profil (pour en-têtes personnalisés)
           attachments: composeAttachments  // Pièces jointes en base64
         })
@@ -1316,7 +1391,7 @@ export default function Retromail() {
     } finally {
       setIsSending(false);
     }
-  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, signatureImage, displayName, profilePhoto, mailFont, API, toast, onComposeClose, minifyHtml]);
+  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, mailDisplayName, profilePhoto, mailFont, API, toast, onComposeClose, minifyHtml]);
 
   // Supprimer un email
   const handleDeleteEmail = async (emailId, folder = activeFolder) => {
@@ -2103,7 +2178,7 @@ export default function Retromail() {
                 const displayName = isDraft
                   ? email.to
                   : isSent
-                    ? email.to || 'Destinataire inconnu'
+                    ? email.to || email.cc || email.bcc || email.from || ''
                     : senderIdentity.name;
                 const displaySubName = isDraft || isSent
                   ? null
@@ -2245,6 +2320,11 @@ export default function Retromail() {
                     {selectedEmail.cc && (
                       <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
                         Cc : {selectedEmail.cc}
+                      </Text>
+                    )}
+                    {selectedEmail.bcc && (
+                      <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
+                        Cci : {selectedEmail.bcc}
                       </Text>
                     )}
                     <Text fontSize="sm" color="gray.500" mt={1}>
@@ -2499,7 +2579,6 @@ export default function Retromail() {
         isSending={isSending}
         mailFont={mailFont}
         signature={signature}
-        signatureImage={signatureImage}
         isNoReplyAccount={isNoReplyAccount}
         onOpenTemplates={onTemplatesOpen}
         onOpenTemplateEditor={onTemplateEditorOpen}
@@ -2548,16 +2627,9 @@ export default function Retromail() {
                 <VStack spacing={4} align="stretch">
                   <FormControl>
                     <FormLabel fontSize="sm">Nom d'affichage</FormLabel>
-                    <Input 
-                      placeholder="Votre nom complet"
-                      value={displayName}
-                      onChange={(e) => {
-                        setDisplayName(e.target.value);
-                        localStorage.setItem('mail_displayName', e.target.value);
-                      }}
-                    />
+                    <Input value={mailDisplayName} isReadOnly bg="gray.50" />
                     <Text fontSize="xs" color="gray.500" mt={1}>
-                      Apparaîtra comme expéditeur de vos emails
+                      Format appliqué automatiquement à tous les emails envoyés.
                     </Text>
                   </FormControl>
 
@@ -2620,68 +2692,40 @@ export default function Retromail() {
                 <Heading size="sm" mb={3}>✍️ Signature</Heading>
                 <VStack spacing={4} align="stretch">
                   <FormControl>
-                    <FormLabel fontSize="sm">Signature texte</FormLabel>
-                    <Textarea 
-                      placeholder="Cordialement,&#10;Votre nom&#10;Votre fonction"
-                      value={signature}
-                      rows={4}
-                      onChange={(e) => {
-                        setSignature(e.target.value);
-                        localStorage.setItem('mail_signature', e.target.value);
+                    <FormLabel fontSize="sm">Votre signature</FormLabel>
+                    <Box
+                      ref={signatureEditorRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      role="textbox"
+                      aria-multiline="true"
+                      aria-label="Signature email"
+                      minH="180px"
+                      p={3}
+                      bg="white"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      borderRadius="md"
+                      overflow="auto"
+                      sx={{ '& img': { maxW: '100%', maxH: '160px', h: 'auto' } }}
+                      onInput={(event) => saveSignature(event.currentTarget.innerHTML)}
+                      onPaste={(event) => {
+                        const pastedImage = Array.from(event.clipboardData.files).find((file) => file.type.startsWith('image/'));
+                        if (!pastedImage) return;
+
+                        event.preventDefault();
+                        const editor = event.currentTarget;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          document.execCommand('insertImage', false, String(reader.result));
+                          saveSignature(editor.innerHTML);
+                        };
+                        reader.readAsDataURL(pastedImage);
                       }}
                     />
                     <Text fontSize="xs" color="gray.500" mt={1}>
-                      Ajoutée automatiquement à la fin de vos messages
+                      Collez directement du texte, une image ou les deux. La signature est ajoutée à la fin des messages.
                     </Text>
-                  </FormControl>
-
-                  <FormControl>
-                    <FormLabel fontSize="sm">Image de signature</FormLabel>
-                    <VStack align="stretch" spacing={2}>
-                      {signatureImage ? (
-                        <VStack align="stretch" spacing={2}>
-                          <Box p={2} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
-                            <img src={signatureImage} alt="Signature" style={{ maxWidth: '100%', maxHeight: '120px' }} />
-                          </Box>
-                          <HStack>
-                            <Button
-                              size="xs"
-                              leftIcon={<FiEdit />}
-                              onClick={onSignatureCropOpen}
-                            >
-                              Modifier
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="red"
-                              onClick={() => {
-                                setSignatureImage('');
-                                localStorage.removeItem('mail_signatureImage');
-                                toast({
-                                  title: "Signature supprimée",
-                                  status: "success",
-                                  duration: 2000
-                                });
-                              }}
-                            >
-                              Supprimer
-                            </Button>
-                          </HStack>
-                        </VStack>
-                      ) : (
-                        <Button
-                          leftIcon={<FiPaperclip />}
-                          onClick={onSignatureCropOpen}
-                          variant="outline"
-                        >
-                          ✍️ Ajouter une signature image
-                        </Button>
-                      )}
-                      <Text fontSize="xs" color="gray.500">
-                        📸 Comme Gmail : créez votre signature graphique et importez-la
-                      </Text>
-                    </VStack>
                   </FormControl>
                 </VStack>
               </Box>
@@ -3215,27 +3259,6 @@ export default function Retromail() {
         quality={0.9}
       />
 
-      {/* ImageCropper pour signature */}
-      <ImageCropper
-        isOpen={isSignatureCropOpen}
-        onClose={onSignatureCropClose}
-        onImageCropped={(base64Image) => {
-          setSignatureImage(base64Image);
-          localStorage.setItem('mail_signatureImage', base64Image);
-          toast({
-            title: "Signature enregistrée",
-            description: "Elle sera ajoutée automatiquement à vos emails",
-            status: "success",
-            duration: 3000
-          });
-        }}
-        title="Signature image"
-        aspectRatio={4}
-        maxWidth={600}
-        maxHeight={150}
-        outputFormat="png"
-        quality={0.95}
-      />
 
       {/* Éditeur de template HTML avec interface graphique */}
       <TemplateEditor

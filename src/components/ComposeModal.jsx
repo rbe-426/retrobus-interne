@@ -251,7 +251,6 @@ const ComposeModal = memo(({
   isSending,
   mailFont,
   signature,
-  signatureImage,
   isNoReplyAccount,
   onOpenTemplates,
   onOpenTemplateEditor,
@@ -587,7 +586,7 @@ const ComposeModal = memo(({
 
   // Insérer la signature
   const insertSignature = useCallback(() => {
-    if (!signature && !signatureImage) {
+    if (!signature) {
       toast({
         title: "Aucune signature",
         description: "Configurez votre signature dans les paramètres",
@@ -599,19 +598,9 @@ const ComposeModal = memo(({
 
     if (!editorRef.current) return;
 
-    // Construire la signature HTML sans encadré
-    let signatureHtml = '<br><br>';
-    
-    if (signature) {
-      // Convertir les sauts de ligne en <br>
-      const signatureLines = signature.split('\n').join('<br>');
-      signatureHtml += signatureLines;
-    }
-    
-    if (signatureImage) {
-      if (signature) signatureHtml += '<br>';
-      signatureHtml += `<img src="${signatureImage}" alt="Signature" style="max-width: 400px; height: auto;" />`;
-    }
+    const signatureHtml = /<\/?[a-z][\s\S]*>/i.test(signature)
+      ? `<br><br>${signature}`
+      : `<br><br>${signature.split('\n').join('<br>')}`;
 
     // Insérer à la position du curseur
     document.execCommand('insertHTML', false, signatureHtml);
@@ -622,7 +611,7 @@ const ComposeModal = memo(({
       status: "success",
       duration: 2000
     });
-  }, [signature, signatureImage, handleEditorInput, toast]);
+  }, [signature, handleEditorInput, toast]);
 
   const charCount = composeBody?.length || 0;
   
@@ -1109,7 +1098,7 @@ const ComposeModal = memo(({
                       onClick={insertSignature}
                       variant="outline"
                       colorScheme="purple"
-                      isDisabled={!signature && !signatureImage}
+                      isDisabled={!signature}
                     >
                       Signature
                     </Button>
@@ -1192,7 +1181,7 @@ const ComposeModal = memo(({
               />
               <HStack justify="space-between" mt={2} wrap="wrap">
                 <Text fontSize="xs" color="gray.500">
-                  Police : {mailFont} • {signature && '✅ Signature'} {signatureImage && '📸'}
+                  Police : {mailFont} • {signature && '✅ Signature'}
                 </Text>
               </HStack>
             </FormControl>
