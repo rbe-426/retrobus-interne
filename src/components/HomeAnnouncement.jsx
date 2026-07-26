@@ -13,7 +13,7 @@ import {
   Box, HStack, VStack, Text, Button, CloseButton,
   useColorModeValue, Icon, Container, Flex
 } from '@chakra-ui/react';
-import { FiInfo, FiAlertTriangle, FiAlertCircle, FiX } from 'react-icons/fi';
+import { FiInfo, FiAlertTriangle, FiAlertCircle, FiCheckCircle, FiX } from 'react-icons/fi';
 import { homeAnnouncementsAPI } from '../api/homeAnnouncements';
 
 /**
@@ -39,6 +39,16 @@ const SEVERITY_LEVELS = {
     textDark: 'orange.100',
     icon: FiAlertTriangle,
     iconColor: 'orange.500'
+  },
+  success: {
+    bg: 'green.50',
+    bgDark: 'green.900',
+    border: 'green.200',
+    borderDark: 'green.700',
+    text: 'green.800',
+    textDark: 'green.100',
+    icon: FiCheckCircle,
+    iconColor: 'green.500'
   },
   critical: {
     bg: 'linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%)',
@@ -140,7 +150,7 @@ function AnnouncementBanner({ announcement, onClose }) {
                   key={idx}
                   size="sm"
                   variant="outline"
-                  colorScheme={severityKey === 'critical' ? 'red' : severityKey === 'warning' ? 'orange' : 'blue'}
+                  colorScheme={severityKey === 'critical' ? 'red' : severityKey === 'warning' ? 'orange' : severityKey === 'success' ? 'green' : 'blue'}
                   onClick={() => {
                     if (action.onClick) action.onClick();
                     if (action.dismissAfter) onClose();

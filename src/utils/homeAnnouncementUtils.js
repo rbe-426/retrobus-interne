@@ -2,7 +2,7 @@
  * homeAnnouncementUtils.js
  * 
  * Utilitaires pour gérer les annonces d'accueil
- * Permet d'ajouter facilement des bandes de notification avec trois niveaux de gravité
+ * Permet d'ajouter facilement des bandes de notification avec quatre niveaux de gravité
  */
 
 const STORAGE_KEY = 'rbe:home-announcements';
@@ -32,7 +32,7 @@ export function getHomeAnnouncements() {
 /**
  * Ajouter une annonce
  * @param {Object} options - Configuration de l'annonce
- * @param {string} options.severity - 'info', 'warning', ou 'critical'
+ * @param {string} options.severity - 'info', 'warning', 'critical' ou 'success'
  * @param {string} options.title - Titre de l'annonce
  * @param {string} options.message - Message de l'annonce
  * @param {number} options.expiresAt - Timestamp expiration (optionnel, 24h par défaut)
@@ -51,7 +51,7 @@ export function addHomeAnnouncement(options = {}) {
   } = options;
 
   // Validation
-  if (!['info', 'warning', 'critical'].includes(severity)) {
+  if (!['info', 'warning', 'critical', 'success'].includes(severity)) {
     console.warn('Gravité invalide:', severity, '- utilisation de "info"');
   }
 
@@ -137,6 +137,14 @@ export const AnnouncementPresets = {
       expiresAt
     }),
 
+  success: (title, message, expiresAt) =>
+    addHomeAnnouncement({
+      severity: 'success',
+      title,
+      message,
+      expiresAt
+    }),
+
   // Exemples de test
   testInfo: () =>
     addHomeAnnouncement({
@@ -180,6 +188,13 @@ export const RealWorldExamples = {
     AnnouncementPresets.critical(
       '🚨 Problème détecté',
       description,
+      new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    ),
+
+  serviceRestored: (details) =>
+    AnnouncementPresets.success(
+      '✅ Service rétabli',
+      details || 'Le service est de nouveau disponible. Merci pour votre patience.',
       new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     ),
 

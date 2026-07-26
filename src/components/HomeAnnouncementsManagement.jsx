@@ -142,6 +142,8 @@ export default function HomeAnnouncementsManagement() {
         return 'red';
       case 'WARNING':
         return 'orange';
+      case 'SUCCESS':
+        return 'green';
       case 'INFO':
       default:
         return 'blue';
@@ -154,6 +156,8 @@ export default function HomeAnnouncementsManagement() {
         return '🚨 Alerte majeure';
       case 'WARNING':
         return '⚠️ Attention';
+      case 'SUCCESS':
+        return '✅ Service rétabli';
       case 'INFO':
       default:
         return 'ℹ️ Annonce';
@@ -203,6 +207,20 @@ export default function HomeAnnouncementsManagement() {
     }
   };
 
+  const handleAddTestSuccess = async () => {
+    try {
+      await addAnnouncement({
+        severity: 'SUCCESS',
+        title: '✅ Service rétabli',
+        message: 'Le service est de nouveau disponible. Merci pour votre patience.',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      });
+      toast({ title: '✅ Annonce de rétablissement créée', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: '❌ Erreur', description: error.message, status: 'error', duration: 3000 });
+    }
+  };
+
   return (
     <Container maxW="container.lg" py={6}>
       <VStack align="stretch" spacing={6}>
@@ -210,7 +228,7 @@ export default function HomeAnnouncementsManagement() {
         <Box>
           <Heading size="lg" mb={2}>🔔 Gestion des Annonces d'Accueil</Heading>
           <Text color="gray.600">
-            Créez des bandes de notification persistées en base de données avec 3 niveaux de gravité pour informer les utilisateurs.
+            Créez des bandes de notification persistées en base de données avec 4 niveaux de gravité pour informer les utilisateurs.
           </Text>
         </Box>
 
@@ -227,7 +245,7 @@ export default function HomeAnnouncementsManagement() {
           <CardBody>
             <VStack align="stretch" spacing={3}>
               <Heading size="sm">📋 Tests rapides</Heading>
-              <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3}>
+              <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={3}>
                 <Button 
                   colorScheme="blue" 
                   variant="outline"
@@ -251,6 +269,14 @@ export default function HomeAnnouncementsManagement() {
                   isDisabled={isSubmitting}
                 >
                   Test Critique
+                </Button>
+                <Button
+                  colorScheme="green"
+                  variant="outline"
+                  onClick={handleAddTestSuccess}
+                  isDisabled={isSubmitting}
+                >
+                  Test rétablissement
                 </Button>
               </SimpleGrid>
             </VStack>
@@ -378,6 +404,7 @@ export default function HomeAnnouncementsManagement() {
                   <option value="INFO">ℹ️ Annonce (Bleu)</option>
                   <option value="WARNING">⚠️ Attention (Orange)</option>
                   <option value="CRITICAL">🚨 Alerte majeure (Rouge)</option>
+                  <option value="SUCCESS">✅ Service rétabli (Vert)</option>
                 </Select>
               </FormControl>
 

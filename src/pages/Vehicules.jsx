@@ -11,7 +11,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { FiEdit, FiPlus, FiGrid } from 'react-icons/fi';
 import { apiClient } from '../api/config.js'; // Import direct du client API
 
-const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE || window.location.origin;
+const MOBILE_POINTAGE_BASE = (import.meta.env.VITE_MOBILE_POINTAGE_BASE || 'https://www.retrobus-interne.fr').replace(/\/+$/, '');
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
 const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -247,13 +247,13 @@ const Vehicules = () => {
             <VStack spacing={4}>
               <Box ref={qrCanvasRef}>
                 <QRCodeCanvas
-                  value={`${PUBLIC_BASE}/mobile/v/${selectedVehicle?.parc}`}
+                  value={`${MOBILE_POINTAGE_BASE}/mobile/v/${encodeURIComponent(selectedVehicle?.parc || '')}`}
                   size={200}
                   level="M"
                 />
               </Box>
               <Text fontSize="sm" color="gray.600" textAlign="center">
-                {`${PUBLIC_BASE}/mobile/v/${selectedVehicle?.parc}`}
+                {`${MOBILE_POINTAGE_BASE}/mobile/v/${encodeURIComponent(selectedVehicle?.parc || '')}`}
               </Text>
               <Button onClick={downloadQR} colorScheme="blue">
                 Télécharger
