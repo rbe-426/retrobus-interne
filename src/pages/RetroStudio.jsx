@@ -21,12 +21,13 @@ import {
   SimpleGrid,
   Spinner,
   Text,
+  Textarea,
   useColorModeValue,
   useToast,
   VStack
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiClock, FiFolder, FiRefreshCw, FiSend, FiVideo, FiXCircle } from 'react-icons/fi';
+import { FiArchive, FiBook, FiCalendar, FiCheckCircle, FiChevronRight, FiClipboard, FiClock, FiFileText, FiFolder, FiRefreshCw, FiSend, FiUpload, FiVideo, FiXCircle } from 'react-icons/fi';
 import SidebarLayout from '../components/SidebarLayout';
 import { useSidebar } from '../context/SidebarContext';
 import { useUser } from '../context/UserContext';
@@ -38,7 +39,15 @@ const initialRequest = {
   contactRole: '',
   productionCompany: '',
   audiovisualProject: '',
-  shootDate: ''
+  shootDate: '',
+  workTitle: '',
+  approximateShootDate: '',
+  approximateShootLocation: '',
+  circuit: '',
+  synopsisFileName: '',
+  synopsisFileUrl: '',
+  circuitFileName: '',
+  circuitFileUrl: ''
 };
 
 const parseLocalDate = (value) => {
@@ -53,7 +62,15 @@ const getRequestSignature = (request) => JSON.stringify({
   contactRole: request.contactRole,
   productionCompany: request.productionCompany,
   audiovisualProject: request.audiovisualProject,
-  shootDate: request.shootDate
+  shootDate: request.shootDate,
+  workTitle: request.workTitle,
+  approximateShootDate: request.approximateShootDate,
+  approximateShootLocation: request.approximateShootLocation,
+  circuit: request.circuit,
+  synopsisFileName: request.synopsisFileName,
+  synopsisFileUrl: request.synopsisFileUrl,
+  circuitFileName: request.circuitFileName,
+  circuitFileUrl: request.circuitFileUrl
 });
 
 export default function RetroStudio() {
@@ -64,6 +81,7 @@ export default function RetroStudio() {
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [activeSection, setActiveSection] = useState('request');
   const [savingRequest, setSavingRequest] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState('');
   const [draftSaveState, setDraftSaveState] = useState('idle');
   const [ongoingRequests, setOngoingRequests] = useState([]);
   const [loadingOngoing, setLoadingOngoing] = useState(false);
@@ -172,6 +190,12 @@ export default function RetroStudio() {
     request.productionCompany.trim() ||
     request.audiovisualProject.trim() ||
     request.shootDate ||
+    request.workTitle.trim() ||
+    request.approximateShootDate.trim() ||
+    request.approximateShootLocation.trim() ||
+    request.circuit.trim() ||
+    request.synopsisFileUrl ||
+    request.circuitFileUrl ||
     request.contactDate !== initialRequest.contactDate
   );
 
@@ -190,6 +214,45 @@ export default function RetroStudio() {
     await persistRequest(false);
   };
 
+  const uploadAttachment = async (kind, file) => {
+    if (!file) return;
+
+    try {
+      setUploadingAttachment(kind);
+      let requestId = editingRequestId;
+      if (!requestId) {
+        const createdRequest = await retroStudioApi.createRequest({ ...request, saveAsDraft: true });
+        requestId = createdRequest.id;
+        setEditingRequestId(requestId);
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      const updatedRequest = await retroStudioApi.uploadAttachment(requestId, kind, formData);
+      setRequest((currentRequest) => ({
+        ...currentRequest,
+        synopsisFileName: updatedRequest.synopsisFileName || '',
+        synopsisFileUrl: updatedRequest.synopsisFileUrl || '',
+        circuitFileName: updatedRequest.circuitFileName || '',
+        circuitFileUrl: updatedRequest.circuitFileUrl || ''
+      }));
+      lastSavedDraftSignature.current = getRequestSignature({
+        ...request,
+        synopsisFileName: updatedRequest.synopsisFileName || '',
+        synopsisFileUrl: updatedRequest.synopsisFileUrl || '',
+        circuitFileName: updatedRequest.circuitFileName || '',
+        circuitFileUrl: updatedRequest.circuitFileUrl || ''
+      });
+      setDraftSaveState('saved');
+      loadOngoingRequests();
+      toast({ title: 'Pièce jointe enregistrée', status: 'success', duration: 3000, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Téléversement impossible', description: error.message, status: 'error', duration: 5000, isClosable: true });
+    } finally {
+      setUploadingAttachment('');
+    }
+  };
+
   const resumeDraft = (draft) => {
     const resumedRequest = {
       contactDate: draft.contactDate ? draft.contactDate.slice(0, 10) : '',
@@ -197,7 +260,15 @@ export default function RetroStudio() {
       contactRole: draft.contactRole || '',
       productionCompany: draft.productionCompany || '',
       audiovisualProject: draft.audiovisualProject || '',
-      shootDate: draft.shootDate ? draft.shootDate.slice(0, 10) : ''
+      shootDate: draft.shootDate ? draft.shootDate.slice(0, 10) : '',
+      workTitle: draft.workTitle || '',
+      approximateShootDate: draft.approximateShootDate || '',
+      approximateShootLocation: draft.approximateShootLocation || '',
+      circuit: draft.circuit || '',
+      synopsisFileName: draft.synopsisFileName || '',
+      synopsisFileUrl: draft.synopsisFileUrl || '',
+      circuitFileName: draft.circuitFileName || '',
+      circuitFileUrl: draft.circuitFileUrl || ''
     };
     lastSavedDraftSignature.current = getRequestSignature(resumedRequest);
     setRequest(resumedRequest);
@@ -300,7 +371,7 @@ export default function RetroStudio() {
               <BreadcrumbLink fontWeight="600" color="red.600">Prise de contact</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbItem isCurrentPage>
-              <BreadcrumbLink color="gray.500">Qualification</BreadcrumbLink>
+              <BreadcrumbLink color="gray.500">Infos de l'oeuvre</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbItem isCurrentPage>
               <BreadcrumbLink color="gray.500">Validation</BreadcrumbLink>
@@ -350,6 +421,36 @@ export default function RetroStudio() {
               <Input placeholder="Ex. Série documentaire Ligne 91" value={request.audiovisualProject} onChange={(event) => setRequest({ ...request, audiovisualProject: event.target.value })} />
             </FormControl>
           </SimpleGrid>
+
+          <Box borderTopWidth="1px" borderColor={borderColor} pt={5}>
+            <HStack mb={1} spacing={2}>
+              <Icon as={FiFileText} color="red.500" />
+              <Text fontWeight="600">Infos de l'oeuvre</Text>
+            </HStack>
+            <Text color="gray.600" fontSize="sm" mb={4}>Deuxième étape de l'Ariane : précisez le projet de production et les éléments utiles au tournage.</Text>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <FormControl>
+                <FormLabel>Nom de l'oeuvre</FormLabel>
+                <Input placeholder="Ex. Les lignes de l'Essonne" value={request.workTitle} onChange={(event) => setRequest({ ...request, workTitle: event.target.value })} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Date approximative de tournage</FormLabel>
+                <Input placeholder="Ex. Octobre 2026, semaine 42" value={request.approximateShootDate} onChange={(event) => setRequest({ ...request, approximateShootDate: event.target.value })} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Lieu approximatif de tournage</FormLabel>
+                <Input placeholder="Ex. Corbeil-Essonnes et alentours" value={request.approximateShootLocation} onChange={(event) => setRequest({ ...request, approximateShootLocation: event.target.value })} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Circuit</FormLabel>
+                <Input placeholder="Ex. Centre-ville - Gare - Dépôt" value={request.circuit} onChange={(event) => setRequest({ ...request, circuit: event.target.value })} />
+              </FormControl>
+            </SimpleGrid>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
+              <AttachmentField label="Synopsis" fileName={request.synopsisFileName} fileUrl={request.synopsisFileUrl} isLoading={uploadingAttachment === 'synopsis'} onUpload={(file) => uploadAttachment('synopsis', file)} />
+              <AttachmentField label="Circuit" fileName={request.circuitFileName} fileUrl={request.circuitFileUrl} isLoading={uploadingAttachment === 'circuit'} onUpload={(file) => uploadAttachment('circuit', file)} />
+            </SimpleGrid>
+          </Box>
 
           {daysUntilShoot !== null && (
             <Box
@@ -573,9 +674,9 @@ function OngoingRequestsPanel({ requests, loading, onResume }) {
                   {request.status === 'PENDING_VALIDATION' ? 'Validation présidentielle requise' : 'Validation présidentielle obtenue'}
                 </Text>
               )}
-              {request.status === 'DRAFT' && (
+              {request.status !== 'REJECTED' && (
                 <Button data-no-full-width size="sm" colorScheme="blue" variant="outline" onClick={() => onResume(request)}>
-                  Reprendre
+                  Continuer
                 </Button>
               )}
             </HStack>
@@ -597,4 +698,17 @@ function getRequestStatus(status) {
     return { label: 'Validée', colorScheme: 'green', borderColor: 'green.200' };
   }
   return { label: 'Enregistrée', colorScheme: 'blue', borderColor: 'gray.200' };
+}
+
+function AttachmentField({ label, fileName, fileUrl, isLoading, onUpload }) {
+  return (
+    <FormControl>
+      <FormLabel>{label} à joindre si disponible</FormLabel>
+      <Input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" p={1} onChange={(event) => onUpload(event.target.files?.[0])} disabled={isLoading} />
+      <HStack mt={2} spacing={2} minH="20px">
+        <Icon as={FiUpload} color="gray.500" boxSize={4} />
+        {isLoading ? <Text fontSize="xs" color="gray.600">Téléversement...</Text> : fileUrl ? <Button as="a" href={fileUrl} target="_blank" rel="noreferrer" data-no-full-width size="xs" variant="link" colorScheme="red">{fileName || 'Voir le document'}</Button> : <Text fontSize="xs" color="gray.500">PDF, Word, JPG ou PNG, 10 Mo maximum.</Text>}
+      </HStack>
+    </FormControl>
+  );
 }
