@@ -15,21 +15,19 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import "../../leaflet-custom.css";
 
 const EXPENSE_REPORT_TYPES = [
-  "Note de frais avec justificatif",
-  "Demande d'avance sur frais",
-  "Frais de déplacement"
+  "NDF avec justificatif",
+  "Frais KM"
 ];
 
 const DEFAULT_EXPENSE_REPORT_TYPE = EXPENSE_REPORT_TYPES[0];
 
 const EXPENSE_REPORT_TYPE_COLORS = {
-  "Note de frais avec justificatif": "green",
-  "Demande d'avance sur frais": "orange",
-  "Frais de déplacement": "blue"
+  "NDF avec justificatif": "green",
+  "Frais KM": "blue"
 };
 
 const EXPENSE_REPORT_TYPE_DETAILS = {
-  "Note de frais avec justificatif": {
+  "NDF avec justificatif": {
     description: "Remboursement d'une dépense déjà engagée.",
     hint: "Facture, reçu ou justificatif obligatoire.",
     descriptionPlaceholder: "Ex: Achat fournitures bureau",
@@ -37,15 +35,7 @@ const EXPENSE_REPORT_TYPE_DETAILS = {
     attachmentLabel: "Pièce justificative",
     attachmentHelp: "Formats acceptés: PDF, JPG, PNG"
   },
-  "Demande d'avance sur frais": {
-    description: "Demande de versement avant une dépense prévue.",
-    hint: "Indiquez le motif et le montant estimé.",
-    descriptionPlaceholder: "Ex: Avance carburant déplacement salon",
-    notesPlaceholder: "Date prévue, motif, estimation détaillée...",
-    attachmentLabel: "Document prévisionnel",
-    attachmentHelp: "Optionnel: devis, ordre de mission ou estimation"
-  },
-  "Frais de déplacement": {
+  "Frais KM": {
     description: "Déclaration liée à un trajet ou une mission.",
     hint: "Précisez le trajet, la mission et les frais associés.",
     descriptionPlaceholder: "Ex: Déplacement Massy - Évry",
@@ -629,8 +619,8 @@ const ExpenseReports = () => {
   };
 
   const selectedTypeDetails = EXPENSE_REPORT_TYPE_DETAILS[formData.type];
-  const isAttachmentRequired = formData.type === "Note de frais avec justificatif";
-  const isTravelExpense = formData.type === "Frais de déplacement";
+  const isAttachmentRequired = formData.type === "NDF avec justificatif";
+  const isTravelExpense = formData.type === "Frais KM";
   const currentWizardSteps = isTravelExpense ? TRAVEL_NDF_WIZARD_STEPS : NDF_WIZARD_STEPS;
   const cleanedTravelAddresses = formData.travelAddresses.map(address => address.trim()).filter(Boolean);
 

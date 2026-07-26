@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
@@ -9,13 +9,18 @@ import {
 import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { useUserRoles } from "../../hooks/useUserRoles";
+import { membersAPI } from "../../api/members";
 
-const DEFAULT_EXPENSE_REPORT_TYPE = "Note de frais avec justificatif";
+const DEFAULT_EXPENSE_REPORT_TYPE = "NDF avec justificatif";
 
 const EXPENSE_REPORT_TYPE_COLORS = {
-  "Note de frais avec justificatif": "green",
-  "Demande d'avance sur frais": "orange",
-  "Frais de déplacement": "blue"
+  "NDF avec justificatif": "green",
+  "Frais KM": "blue"
+};
+
+const LEGACY_EXPENSE_REPORT_TYPES = {
+  "Note de frais avec justificatif": "NDF avec justificatif",
+  "Frais de déplacement": "Frais KM"
 };
 
 /**
@@ -37,8 +42,25 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const [filterStatus, setFilterStatus] = useState("PENDING");
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
+  const [members, setMembers] = useState([]);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+
+  useEffect(() => {
+    let active = true;
+
+    membersAPI.getAll()
+      .then((result) => {
+        if (active) setMembers(result?.members || []);
+      })
+      .catch(() => {
+        if (active) setMembers([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Vérifier les droits d'accès - utiliser le nouveau hook qui centralise tout
   const hasAccess = userRolesHook.hasFinanceAccess();
@@ -163,8 +185,49 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   };
 
   const getTypeBadge = (type) => {
-    const label = type || DEFAULT_EXPENSE_REPORT_TYPE;
+    const label = LEGACY_EXPENSE_REPORT_TYPES[type] || type || DEFAULT_EXPENSE_REPORT_TYPE;
     return <Badge colorScheme={EXPENSE_REPORT_TYPE_COLORS[label] || "gray"}>{label}</Badge>;
+  };
+
+  const getAttachmentUrl = (report) => report.fileUrl || report.attachmentUrl || report.attachment;
+
+  const getAttachmentLabel = (report) => report.fileName || report.attachmentFileName || "Voir la pièce jointe";
+
+  const getDepositor = (report) => {
+    const identifiers = [report.userId, report.createdBy]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+    const member = members.find((candidate) => {
+      const candidateIdentifiers = [candidate.id, candidate.email, candidate.matricule]
+        .filter(Boolean)
+        .map((value) => String(value).trim().toLowerCase());
+      return candidateIdentifiers.some((identifier) => identifiers.includes(identifier));
+    });
+
+    if (!member) {
+      return {
+        name: report.createdBy || report.userId || "Utilisateur",
+        role: "Profil adhérent introuvable",
+        matricule: "-"
+      };
+    }
+
+    const roleLabels = {
+      PRESIDENT: "Président",
+      VICE_PRESIDENT: "Vice-président",
+      TRESORIER: "Trésorier",
+      SECRETAIRE_GENERAL: "Secrétaire général",
+      MEMBER: "Membre",
+      USER: "Membre"
+    };
+    const role = String(member.role || "MEMBER").toUpperCase();
+    const isPresident = String(member.matricule || "").toLowerCase() === "w.belaidi" ||
+      String(member.email || "").toLowerCase() === "belaidiw91@gmail.com";
+    return {
+      name: `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.email,
+      role: isPresident ? "Président" : roleLabels[role] || "Membre",
+      matricule: member.matricule || "-"
+    };
   };
 
   const formatCurrency = (amount) => {
@@ -371,7 +434,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
               <Thead>
                 <Tr bg="gray.50">
                   <Th>Date</Th>
-                  <Th>Membre dépositaire</Th>
+                  <Th>Membre depositaire</Th>
                   <Th>Type</Th>
                   <Th>Description</Th>
                   <Th isNumeric>Montant</Th>
@@ -380,16 +443,21 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                 </Tr>
               </Thead>
               <Tbody>
-                {filteredReports.map(report => (
-                  <Tr key={report.id}>
+                {filteredReports.map(report => {
+                  const depositor = getDepositor(report);
+                  return (
+                    <Tr key={report.id}>
                     <Td>{formatDate(report.date || report.createdAt)}</Td>
                     <Td>
                       <VStack align="start" spacing={0}>
                         <Text fontWeight="bold" fontSize="sm">
-                          {report.createdBy || report.userName || "Utilisateur"}
+                          {depositor.name}
                         </Text>
                         <Text fontSize="xs" color="gray.500">
-                          {report.userEmail || "N/A"}
+                          {depositor.role}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {depositor.matricule}
                         </Text>
                       </VStack>
                     </Td>
@@ -409,22 +477,22 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                             Motif: {report.statusNotes}
                           </Text>
                         )}
-                        {report.attachmentUrl && (
+                        {getAttachmentUrl(report) && (
                           <HStack spacing={2} mt={1}>
                             <Icon as={FiDownload} boxSize={3} color="blue.500" />
                             <Link
-                              href={report.attachmentUrl}
+                              href={getAttachmentUrl(report)}
                               target="_blank"
                               rel="noopener noreferrer"
                               color="blue.500"
                               fontSize="xs"
                               fontWeight="500"
                             >
-                              {report.attachmentFileName || "Voir pièce jointe"}
+                              {getAttachmentLabel(report)}
                             </Link>
                           </HStack>
                         )}
-                        {!report.attachmentUrl && (
+                        {!getAttachmentUrl(report) && (
                           <Text fontSize="xs" color="orange.600">
                             ⚠️ Pas de pièce jointe
                           </Text>
@@ -474,38 +542,26 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           </Button>
                         )}
 
-                        {report.fileUrl && (
+                        {getAttachmentUrl(report) && (
                           <Button
                             size="xs"
                             leftIcon={<FiEye />}
                             variant="ghost"
                             colorScheme="blue"
                             as="a"
-                            href={report.fileUrl}
+                            href={getAttachmentUrl(report)}
                             target="_blank"
+                            rel="noopener noreferrer"
                             title="Voir la pièce jointe"
                           >
                             PJ
                           </Button>
                         )}
-                        {report.attachment && (
-                          <Button
-                            size="xs"
-                            leftIcon={<FiDownload />}
-                            variant="ghost"
-                            colorScheme="blue"
-                            as="a"
-                            href={report.attachment}
-                            target="_blank"
-                            title="Télécharger"
-                          >
-                            DL
-                          </Button>
-                        )}
                       </HStack>
                     </Td>
                   </Tr>
-                ))}
+                  );
+                })}
               </Tbody>
             </Table>
           </CardBody>
