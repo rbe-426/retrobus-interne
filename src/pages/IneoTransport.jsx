@@ -73,7 +73,7 @@ export default function IneoTransport({ vehicles }) {
       const data = await ineoAPI.findRouteByReference(reference);
       setSelectedRoute(data.route);
       setCourseModalOpen(true);
-      toast({ status: 'success', title: 'Course retrouvée', description: `${data.route.lineName || 'Ligne non renseignée'} · ${data.route.scheduledDeparture || '--:--'} → ${data.route.scheduledArrival || '--:--'}` });
+      toast({ status: 'success', title: 'Course retrouvée', description: `${data.source === 'mission' ? 'Service Inéo prérempli' : data.route.lineName || 'Ligne non renseignée'} · ${data.route.scheduledDeparture || '--:--'} → ${data.route.scheduledArrival || '--:--'}` });
     } catch (error) {
       if (error.message.includes('[RBE-API-404]')) {
         setSelectedRoute({ courseReference: reference });
