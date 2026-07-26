@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Button, FormControl, FormLabel, Grid, HStack, IconButton, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, Spinner, Text, Textarea, VStack, useToast } from '@chakra-ui/react';
+import { Alert, AlertIcon, Badge, Box, Button, FormControl, FormLabel, Grid, HStack, IconButton, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, Select, Spinner, Text, Textarea, VStack, useToast } from '@chakra-ui/react';
 import { FiMapPin, FiMinus, FiPlus, FiSave, FiSearch } from 'react-icons/fi';
 import RouteMap from '../components/RouteMap';
 import 'leaflet/dist/leaflet.css';
@@ -21,10 +21,10 @@ const scorePlace = (place, query) => {
   return words.reduce((score, word) => score + (text.includes(word) ? 4 : 0), 0) + Number(place.importance || 0) * 10;
 };
 
-export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, onSave }) {
+export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, profiles, vehicles, onSave }) {
   const toast = useToast();
   const searchTimeouts = useRef({});
-  const [form, setForm] = useState({ courseReference: '', lineName: '', routeName: '', scheduledDeparture: '', scheduledArrival: '', stops: [emptyStop()], notes: '' });
+  const [form, setForm] = useState({ courseReference: '', lineName: '', routeName: '', vehicleParc: '', scheduledDeparture: '', scheduledArrival: '', stops: [emptyStop()], notes: '' });
   const [suggestions, setSuggestions] = useState({});
   const [searching, setSearching] = useState({});
   const [saving, setSaving] = useState(false);
@@ -35,6 +35,7 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, on
       courseReference: initialRoute?.courseReference || '',
       lineName: initialRoute?.lineName || '',
       routeName: initialRoute?.routeName || '',
+      vehicleParc: initialRoute?.vehicleParc || '',
       scheduledDeparture: initialRoute?.scheduledDeparture || '',
       scheduledArrival: initialRoute?.scheduledArrival || '',
       stops: initialRoute?.stops?.length ? initialRoute.stops.map((stop) => ({ ...emptyStop(), ...stop })) : [emptyStop()],
@@ -45,6 +46,15 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, on
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const updateStop = (index, changes) => setForm((current) => ({ ...current, stops: current.stops.map((stop, stopIndex) => stopIndex === index ? { ...stop, ...changes } : stop) }));
+  const selectedProfile = profiles.find((profile) => profile.vehicleParc === form.vehicleParc);
+  const selectedVehicle = vehicles.find((vehicle) => vehicle.parc === form.vehicleParc);
+  const vehicleConstraints = selectedProfile ? {
+    vehicleType: selectedProfile.vehicleType || selectedVehicle?.type || 'BUS',
+    maxSpeedKmh: selectedProfile.maxSpeedKmh ?? null,
+    lengthM: selectedProfile.lengthM ?? null,
+    widthM: selectedProfile.widthM ?? null,
+    heightM: selectedProfile.heightM ?? null,
+  } : initialRoute?.vehicleConstraints || null;
 
   const searchAddress = (index, query) => {
     clearTimeout(searchTimeouts.current[index]);
@@ -93,7 +103,7 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, on
     }
     try {
       setSaving(true);
-      await onSave({ ...form, courseReference: form.courseReference.trim().toUpperCase(), stops: mapRoute.waypoints });
+      await onSave({ ...form, vehicleConstraints, courseReference: form.courseReference.trim().toUpperCase(), stops: mapRoute.waypoints });
       onClose();
     } finally {
       setSaving(false);
@@ -101,9 +111,10 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, on
   };
 
   return <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside"><ModalOverlay /><ModalContent maxW="1180px"><ModalHeader>Course, ligne et itinéraire</ModalHeader><ModalCloseButton /><ModalBody><VStack align="stretch" spacing={5}>
-    <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr' }} gap={4}><FormControl isRequired><FormLabel>Référence course</FormLabel><Input value={form.courseReference} onChange={(event) => update('courseReference', event.target.value)} placeholder="RBE-991-4826" /></FormControl><FormControl><FormLabel>Ligne</FormLabel><Input value={form.lineName} onChange={(event) => update('lineName', event.target.value)} placeholder="Ex. Ligne patrimoine" /></FormControl><FormControl isRequired><FormLabel>Nom de l’itinéraire</FormLabel><Input value={form.routeName} onChange={(event) => update('routeName', event.target.value)} placeholder="Ex. Gare - Musée" /></FormControl><FormControl><FormLabel>Heure premier départ</FormLabel><Input type="time" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Heure dernière arrivée</FormLabel><Input type="time" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>
+    <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr' }} gap={4}><FormControl isRequired><FormLabel>Référence course</FormLabel><Input value={form.courseReference} onChange={(event) => update('courseReference', event.target.value)} placeholder="RBE-991-4826" /></FormControl><FormControl><FormLabel>Ligne</FormLabel><Input value={form.lineName} onChange={(event) => update('lineName', event.target.value)} placeholder="Ex. Ligne patrimoine" /></FormControl><FormControl isRequired><FormLabel>Nom de l’itinéraire</FormLabel><Input value={form.routeName} onChange={(event) => update('routeName', event.target.value)} placeholder="Ex. Gare - Musée" /></FormControl><FormControl><FormLabel>Véhicule et profil de circulation</FormLabel><Select value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule profilé">{profiles.map((profile) => <option key={profile.id} value={profile.vehicleParc}>{profile.vehicleParc} - {vehicles.find((vehicle) => vehicle.parc === profile.vehicleParc)?.immat || profile.vehicleType || 'Profil Inéo'}</option>)}</Select></FormControl><FormControl><FormLabel>Heure premier départ</FormLabel><Input type="time" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Heure dernière arrivée</FormLabel><Input type="time" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>
+    {vehicleConstraints && <Alert status="info" borderRadius="2px"><AlertIcon /><VStack align="start" spacing={1}><Text fontSize="sm" fontWeight="700">Contraintes appliquées au dossier de course</Text><HStack flexWrap="wrap"><Badge colorScheme="blue">{vehicleConstraints.vehicleType || 'BUS'}</Badge>{vehicleConstraints.maxSpeedKmh != null && <Badge colorScheme="orange">Vmax {vehicleConstraints.maxSpeedKmh} km/h</Badge>}{vehicleConstraints.lengthM != null && <Badge>Long. {vehicleConstraints.lengthM} m</Badge>}{vehicleConstraints.widthM != null && <Badge>Larg. {vehicleConstraints.widthM} m</Badge>}{vehicleConstraints.heightM != null && <Badge>Haut. {vehicleConstraints.heightM} m</Badge>}</HStack></VStack></Alert>}
     <Box border="1px solid" borderColor="gray.200" p={4}><HStack justify="space-between" mb={3}><Text fontWeight="700">Parcours</Text><Button leftIcon={<FiPlus />} size="sm" variant="outline" onClick={addStop}>Ajouter une étape</Button></HStack><VStack align="stretch" spacing={3}>{form.stops.map((stop, index) => <Box key={index} position="relative"><Grid templateColumns={{ base: '1fr', md: '100px 1fr 110px 34px' }} gap={3} alignItems="end"><FormControl><FormLabel>{index === 0 ? 'Premier départ' : `Étape ${index + 1}`}</FormLabel><Input type="time" value={stop.scheduledTime || ''} onChange={(event) => updateStop(index, { scheduledTime: event.target.value })} /></FormControl><FormControl isRequired={index === 0}><FormLabel>{index === 0 ? 'Lieu de départ' : 'Lieu / arrêt'}</FormLabel><Input value={stop.label} onChange={(event) => { updateStop(index, { label: event.target.value, lat: null, lng: null }); searchAddress(index, event.target.value); }} placeholder={index === 0 ? 'Ex. Gare d’Évry-Courcouronnes' : 'Ajouter un arrêt'} /></FormControl><HStack h="40px">{searching[index] && <Spinner size="sm" />} {Number.isFinite(stop.lat) && <Text fontSize="xs" color="green.600">Position trouvée</Text>}</HStack><IconButton aria-label="Retirer l’étape" icon={<FiMinus />} size="sm" colorScheme="red" variant="ghost" isDisabled={index === 0} onClick={() => removeStop(index)} /></Grid>{suggestions[index]?.length > 0 && <Box border="1px solid" borderColor="gray.200" bg="white" boxShadow="sm" mt={1} maxH="180px" overflowY="auto">{suggestions[index].map((place) => <Button key={`${place.place_id}-${place.lat}`} variant="ghost" justifyContent="start" whiteSpace="normal" textAlign="left" w="full" h="auto" py={2} px={3} fontSize="sm" onClick={() => choosePlace(index, place)}><FiSearch /><Text ml={2}>{place.display_name}</Text></Button>)}</Box>}</Box>)}</VStack></Box>
     <FormControl><FormLabel>Observations</FormLabel><Textarea value={form.notes} onChange={(event) => update('notes', event.target.value)} /></FormControl>
-    <Box><Text fontWeight="700" mb={2}>Carte de l’itinéraire</Text>{mapRoute.waypoints.length ? <RouteMap route={mapRoute} /> : <Box h="320px" border="1px solid" borderColor="gray.200" bg="gray.50" display="flex" alignItems="center" justifyContent="center" color="gray.500">Choisissez le premier départ pour afficher la carte.</Box>}<Text mt={2} fontSize="xs" color="gray.500">Fond OpenStreetMap, tracé routier calculé par OSRM. Ajoutez les lieux progressivement: chaque étape retenue est intégrée à la carte.</Text></Box>
+    <Box><Text fontWeight="700" mb={2}>Carte de l’itinéraire</Text>{mapRoute.waypoints.length ? <RouteMap route={{ ...mapRoute, maxLength: vehicleConstraints?.lengthM, maxWidth: vehicleConstraints?.widthM, maxHeight: vehicleConstraints?.heightM, maxSpeedKmh: vehicleConstraints?.maxSpeedKmh, vehicleType: vehicleConstraints?.vehicleType }} /> : <Box h="320px" border="1px solid" borderColor="gray.200" bg="gray.50" display="flex" alignItems="center" justifyContent="center" color="gray.500">Choisissez le premier départ pour afficher la carte.</Box>}<Text mt={2} fontSize="xs" color="gray.500">Fond OpenStreetMap, tracé routier calculé par OSRM. Le profil véhicule est sauvegardé avec la course; les restrictions de gabarit doivent être contrôlées avant mise en exploitation.</Text></Box>
   </VStack></ModalBody><ModalFooter><Button variant="ghost" mr={3} onClick={onClose}>Annuler</Button><Button colorScheme="blue" leftIcon={<FiSave />} isLoading={saving} onClick={save}>Enregistrer la course</Button></ModalFooter></ModalContent></Modal>;
 }

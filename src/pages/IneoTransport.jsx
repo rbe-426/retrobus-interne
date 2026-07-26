@@ -18,6 +18,7 @@ export default function IneoTransport({ vehicles }) {
   const [tab, setTab] = useState('positions');
   const [trackers, setTrackers] = useState([]);
   const [routes, setRoutes] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [trackerForm, setTrackerForm] = useState(blankTracker);
   const [courseReference, setCourseReference] = useState('');
   const [selectedRoute, setSelectedRoute] = useState(null);
@@ -29,9 +30,10 @@ export default function IneoTransport({ vehicles }) {
   const load = async () => {
     try {
       setLoading(true);
-      const [trackerData, routeData] = await Promise.all([ineoAPI.listVehicleTrackers(), ineoAPI.listRoutes()]);
+      const [trackerData, routeData, profileData] = await Promise.all([ineoAPI.listVehicleTrackers(), ineoAPI.listRoutes(), ineoAPI.listVehicleProfiles()]);
       setTrackers(trackerData?.trackers || []);
       setRoutes(routeData?.routes || []);
+      setProfiles(profileData?.profiles || []);
     } catch (error) {
       toast({ status: 'error', title: 'Carte Inéo indisponible', description: error.message });
     } finally {
@@ -114,6 +116,6 @@ export default function IneoTransport({ vehicles }) {
       <Box border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={4}><HStack align="end" flexWrap="wrap" gap={3}><FormControl maxW="360px"><FormLabel>Référence course</FormLabel><Input bg="white" value={courseReference} onChange={(event) => setCourseReference(event.target.value)} placeholder="RBE-991-4826" onKeyDown={(event) => event.key === 'Enter' && lookupCourse()} /></FormControl><Button leftIcon={<FiSearch />} isLoading={searchingCourse} colorScheme="blue" borderRadius="2px" onClick={lookupCourse}>Rechercher</Button><Button leftIcon={<FiPlus />} borderRadius="2px" variant="outline" onClick={() => openCourse()}>Nouvelle course</Button></HStack><Text mt={3} fontSize="sm" color="#60727e">La recherche recharge automatiquement la ligne, les heures et les étapes déjà enregistrées pour cette référence.</Text></Box>
       <Box border="1px solid" borderColor="#c6d0d8" overflowX="auto"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Référence</Th><Th>Ligne</Th><Th>Horaires</Th><Th>Itinéraire</Th><Th>Premier départ</Th><Th>Dernière étape</Th><Th></Th></Tr></Thead><Tbody>{loading ? <Tr><Td colSpan={7}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : routes.length ? routes.map((route) => <Tr key={route.id}><Td fontWeight="700">{route.courseReference}</Td><Td>{route.lineName || '-'}</Td><Td>{route.scheduledDeparture || '--:--'} → {route.scheduledArrival || '--:--'}</Td><Td>{route.routeName}</Td><Td maxW="230px" noOfLines={1}>{routeStart(route)}</Td><Td maxW="230px" noOfLines={1}>{routeEnd(route)}</Td><Td><Button size="xs" leftIcon={<FiEdit2 />} borderRadius="2px" onClick={() => openCourse(route)}>Modifier</Button></Td></Tr>) : <Tr><Td colSpan={7} color="gray.500">Aucune course enregistrée.</Td></Tr>}</Tbody></Table></Box>
     </>}
-    <IneoCourseRouteModal isOpen={courseModalOpen} onClose={() => setCourseModalOpen(false)} initialRoute={selectedRoute} onSave={saveCourse} />
+    <IneoCourseRouteModal isOpen={courseModalOpen} onClose={() => setCourseModalOpen(false)} initialRoute={selectedRoute} profiles={profiles} vehicles={vehicles} onSave={saveCourse} />
   </VStack>;
 }

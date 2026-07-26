@@ -175,7 +175,10 @@ export default function RouteMap({ route }) {
                 <small>Point {idx + 1}/{waypoints.length}</small>
                 {route.maxLength && <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
                   <strong>Restrictions:</strong><br />
+                  {route.vehicleType && <small>Type: {route.vehicleType}<br /></small>}
+                  {route.maxSpeedKmh && <small>Vmax: {route.maxSpeedKmh} km/h<br /></small>}
                   {route.maxLength && <small>Long: {route.maxLength}m</small>}
+                  {route.maxWidth && <small> | Larg: {route.maxWidth}m</small>}
                   {route.maxHeight && <small> | H: {route.maxHeight}m</small>}
                   {route.maxWeight && <small> | P: {route.maxWeight}t</small>}
                 </div>}
