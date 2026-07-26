@@ -2,10 +2,11 @@ import {
   Box, Heading, Text, Button, Stack, Input, Textarea, VStack, HStack,
   Spinner, Center, useToast, Modal, ModalOverlay, ModalContent, ModalHeader,
   ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Card, CardBody,
-  Badge, Divider, SimpleGrid, Container, Tabs, TabList, TabPanels, Tab, TabPanel
+  Badge, Divider, SimpleGrid, Container, Tabs, TabList, TabPanels, Tab, TabPanel, Icon
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { FiAlertTriangle, FiCheckCircle, FiClipboard, FiClock, FiMapPin, FiPlay, FiStopCircle } from "react-icons/fi";
 import { useUser } from "../context/UserContext";
 import { API_BASE_URL } from "../api/config";
 
@@ -309,7 +310,7 @@ export default function MobileVehicle() {
   if (loading) return <Center minH="100vh"><Spinner size="lg" color="blue.500" /></Center>;
 
   return (
-    <Box bg="gray.50" minH="100vh" pb={8}>
+    <Box bg="gray.100" minH="100vh" pb={{ base: 6, md: 8 }}>
       {loading && !veh ? (
         <Container maxW="md" py={12}>
           <VStack spacing={4} justify="center" h="60vh">
@@ -358,98 +359,51 @@ export default function MobileVehicle() {
           </Box>
         </Container>
       ) : (
-        // Main mobile dashboard
-        <Container maxW="md" py={4}>
-          {/* En-tête du véhicule */}
+        <Container maxW="md" py={{ base: 3, md: 5 }}>
           {veh ? (
-            <Card mb={6} bg="white" boxShadow="md">
-              <CardBody>
-                <VStack align="start" spacing={2}>
-                  <HStack w="full" justify="space-between" align="flex-start">
-                    <VStack align="start" spacing={1} flex={1}>
-                      <Heading size="lg">{veh.modele || `Parc - ${parc}`}</Heading>
-                      <Text fontSize="sm" color="gray.600">
-                        {veh.immat ? `${veh.immat}` : ''}
-                      </Text>
-                    </VStack>
-                    <Badge colorScheme="blue" fontSize="md" px={3} py={2}>
-                      {parc}
-                    </Badge>
-                  </HStack>
-                  {veh.etat && (
-                    <Badge colorScheme="green" fontSize="sm">
-                      État: {veh.etat}
-                    </Badge>
-                  )}
-              </VStack>
-            </CardBody>
-          </Card>
-          ) : (
-            <Card mb={6} bg="red.50" borderColor="red.200" borderWidth="1px">
-              <CardBody>
-                <VStack align="center" spacing={2}>
-                  <Text fontSize="sm" color="red.600" fontWeight="bold">⚠️ Erreur de chargement</Text>
-                  <Text fontSize="xs" color="gray.600">Impossible de charger le véhicule. Vérifiez votre connexion.</Text>
-                  <Button size="sm" colorScheme="blue" onClick={() => window.location.reload()}>Réessayer</Button>
+            <Box mb={4} bg="rbe.800" color="white" px={{ base: 4, md: 5 }} py={4} borderRadius="md" borderLeft="4px solid" borderColor="rbe.500" boxShadow="md">
+              <HStack justify="space-between" align="start" spacing={4}>
+                <VStack align="start" spacing={1} minW={0} flex={1}>
+                  <Text fontSize="xs" color="whiteAlpha.700" fontWeight="bold" letterSpacing="0.08em">CARNET DE POINTAGE</Text>
+                  <Heading size="md" noOfLines={2}>{veh.modele || `Véhicule ${parc}`}</Heading>
+                  {veh.immat && <Text fontSize="sm" color="whiteAlpha.900">{veh.immat}</Text>}
                 </VStack>
-              </CardBody>
-            </Card>
+                <Badge bg="white" color="rbe.800" fontSize="sm" px={3} py={1} borderRadius="sm">PARC {parc}</Badge>
+              </HStack>
+              <HStack mt={4} pt={3} borderTopWidth="1px" borderColor="whiteAlpha.300" spacing={2}>
+                <Icon as={FiMapPin} color="rbe.200" />
+                <Text fontSize="xs" color="whiteAlpha.800">{veh.etat ? `État véhicule : ${veh.etat}` : 'Véhicule identifié'}</Text>
+              </HStack>
+            </Box>
+          ) : (
+            <Box mb={4} bg="red.50" borderLeft="4px solid" borderColor="red.500" p={4} borderRadius="md">
+              <HStack align="start" spacing={3}><Icon as={FiAlertTriangle} color="red.500" boxSize={5} /><VStack align="start" spacing={1}><Text fontWeight="bold" color="red.800">Véhicule indisponible</Text><Text fontSize="sm">Impossible de charger le véhicule. Vérifiez votre connexion.</Text><Button mt={2} size="sm" colorScheme="red" onClick={() => window.location.reload()}>Réessayer</Button></VStack></HStack>
+            </Box>
           )}
 
-          {/* Actions principales */}
-          <VStack spacing={3} mb={6}>
+          <Box mb={4} bg="white" borderWidth="1px" borderColor={currentUsageId ? 'green.200' : 'orange.200'} borderRadius="md" overflow="hidden" boxShadow="sm">
+            <HStack px={4} py={3} bg={currentUsageId ? 'green.50' : 'orange.50'} justify="space-between">
+              <HStack spacing={2}><Icon as={currentUsageId ? FiCheckCircle : FiClock} color={currentUsageId ? 'green.600' : 'orange.600'} /><Text fontSize="sm" fontWeight="bold" color={currentUsageId ? 'green.800' : 'orange.800'}>{currentUsageId ? 'Pointage en cours' : 'Aucun pointage en cours'}</Text></HStack>
+              <Badge colorScheme={currentUsageId ? 'green' : 'orange'} borderRadius="sm">{currentUsageId ? 'ACTIF' : 'PRÊT'}</Badge>
+            </HStack>
             {!currentUsageId ? (
-              <Button 
-                colorScheme="orange" 
-                size="lg"
-                w="full"
-                onClick={() => { setFinishMode(false); setShowPassage(true); }}
-                fontSize="md"
-                py={6}
-              >
-                🚗 Démarrer un pointage
+              <Button colorScheme="orange" size="lg" w="full" borderRadius={0} leftIcon={<FiPlay />} onClick={() => { setFinishMode(false); setShowPassage(true); }} fontSize="md" py={7}>
+                Démarrer le pointage
               </Button>
             ) : (
-              <Button 
-                colorScheme="green" 
-                size="lg"
-                w="full"
-                onClick={() => { setFinishMode(true); setShowPassage(true); }}
-                fontSize="md"
-                py={6}
-              >
-                ✓ Terminer le pointage
+              <Button colorScheme="green" size="lg" w="full" borderRadius={0} leftIcon={<FiStopCircle />} onClick={() => { setFinishMode(true); setShowPassage(true); }} fontSize="md" py={7}>
+                Terminer le pointage
               </Button>
             )}
-            
-            <Button 
-              colorScheme="red" 
-              variant="outline"
-              size="lg"
-              w="full"
-              onClick={() => setShowAnomaly(true)}
-              fontSize="md"
-              py={6}
-            >
-              ⚠️ Signaler une anomalie
-            </Button>
-            
-            <Button 
-              colorScheme="blue" 
-              variant="outline"
-              size="lg"
-              w="full"
-              onClick={() => setShowEvent(true)}
-              fontSize="md"
-              py={6}
-            >
-              📝 Ajouter un événement
-            </Button>
-          </VStack>
+          </Box>
 
-          {/* Onglets */}
-          <Tabs index={activeTab} onChange={setActiveTab} variant="soft-rounded" colorScheme="blue">
-            <TabList mb={4}>
+          <SimpleGrid columns={2} spacing={3} mb={5}>
+            <Button minH="76px" colorScheme="red" variant="outline" leftIcon={<FiAlertTriangle />} onClick={() => setShowAnomaly(true)} whiteSpace="normal">Signaler une anomalie</Button>
+            <Button minH="76px" colorScheme="blue" variant="outline" leftIcon={<FiClipboard />} onClick={() => setShowEvent(true)} whiteSpace="normal">Ajouter un événement</Button>
+          </SimpleGrid>
+
+          <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed" colorScheme="rbe" bg="white" borderRadius="md" boxShadow="sm" overflow="hidden">
+            <TabList mb={0} display="grid" gridTemplateColumns="repeat(3, minmax(0, 1fr))" borderBottomWidth="1px">
               <Tab>Vue d'ensemble</Tab>
               <Tab>Pointages</Tab>
               <Tab>Anomalies</Tab>
