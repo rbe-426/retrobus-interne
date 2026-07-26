@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Box, HStack, VStack, Text, Button, CloseButton,
+  Box, HStack, VStack, Text, Button,
   useColorModeValue, Icon, Container, Flex
 } from '@chakra-ui/react';
 import { FiInfo, FiAlertTriangle, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
@@ -49,7 +49,7 @@ const SEVERITY_LEVELS = {
   }
 };
 
-function AnnouncementBanner({ announcement, onClose }) {
+function AnnouncementBanner({ announcement }) {
   const severityKey = String(announcement?.severity || 'info').toLowerCase();
   const severity = SEVERITY_LEVELS[severityKey] || SEVERITY_LEVELS.info;
   const isCritical = severityKey === 'critical';
@@ -124,7 +124,6 @@ function AnnouncementBanner({ announcement, onClose }) {
                   colorScheme={severityKey === 'critical' ? 'red' : severityKey === 'warning' ? 'orange' : severityKey === 'success' ? 'green' : 'blue'}
                   onClick={() => {
                     if (action.onClick) action.onClick();
-                    if (action.dismissAfter) onClose();
                   }}
                 >
                   {action.label}
@@ -134,9 +133,6 @@ function AnnouncementBanner({ announcement, onClose }) {
           )}
         </VStack>
 
-        {announcement.dismissible !== false && (
-          <CloseButton onClick={onClose} size="lg" marginLeft="8px" />
-        )}
       </Flex>
 
       <style>{`
@@ -166,7 +162,7 @@ function AnnouncementBanner({ announcement, onClose }) {
   );
 }
 
-export default function HomeAnnouncementsDisplay({ announcements, onRemove }) {
+export default function HomeAnnouncementsDisplay({ announcements }) {
   if (!announcements || announcements.length === 0) {
     return null;
   }
@@ -178,7 +174,6 @@ export default function HomeAnnouncementsDisplay({ announcements, onRemove }) {
           <AnnouncementBanner
             key={announcement.id}
             announcement={announcement}
-            onClose={() => onRemove(announcement.id)}
           />
         ))}
       </VStack>
