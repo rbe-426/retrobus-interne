@@ -38,24 +38,19 @@ const getMutationHeaders = (token, options = {}) => {
 // Fonction pour parser la réponse de manière sécurisée
 const parseResponse = async (response) => {
   const contentType = response.headers.get('content-type');
-  
-  if (contentType && contentType.includes('application/json')) {
-    try {
-      return await response.json();
-    } catch (error) {
-      console.error('❌ Erreur parsing JSON:', error);
-      throw new Error('[RBE-API-JSON-001] Réponse JSON invalide du serveur. Signification: la réponse API est corrompue ou tronquée.');
-    }
-  } else {
-    // Si ce n'est pas du JSON, récupérer le texte pour débogage
-    const text = await response.text();
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
     console.error('❌ Réponse non-JSON reçue:', text.substring(0, 200) + '...');
-    
     if (text.includes('<!DOCTYPE')) {
       throw new Error('[RBE-API-HTML-001] Réponse HTML au lieu de JSON. Signification: route API invalide ou rewrite/proxy incorrect.');
-    } else {
-      throw new Error(`[RBE-API-RAW-001] Réponse inattendue du serveur (${response.status}). Signification: format de réponse non géré.`);
     }
+    if (contentType?.includes('application/json')) {
+      throw new Error('[RBE-API-JSON-001] Réponse JSON invalide du serveur. Signification: la réponse API est corrompue ou tronquée.');
+    }
+    throw new Error(`[RBE-API-RAW-001] Réponse inattendue du serveur (${response.status}). Signification: format de réponse non géré.`);
   }
 };
 
