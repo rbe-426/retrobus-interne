@@ -14,6 +14,7 @@ import { apiClient } from '../api/config.js'; // Import direct du client API
 const MOBILE_POINTAGE_BASE = (import.meta.env.VITE_MOBILE_POINTAGE_BASE || 'https://retrobus-interne.fr').replace(/\/+$/, '');
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
 const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
+const VEHICLES_LIST_ERROR_TOAST_ID = 'vehicles-list-load-error';
 
 const getPointageUrl = (vehicle) => {
   const immatriculation = String(vehicle?.immat || 'SANS-IMMATRICULATION').trim();
@@ -55,17 +56,20 @@ const Vehicules = () => {
       if (e.name !== "AbortError") {
         console.error(e);
         setData([]);
-        toast({ 
-          status: "error", 
-          title: "Impossible de charger la liste",
-          description: e.message
-        });
+        if (!toast.isActive(VEHICLES_LIST_ERROR_TOAST_ID)) {
+          toast({
+            id: VEHICLES_LIST_ERROR_TOAST_ID,
+            status: "error",
+            title: "Impossible de charger la liste",
+            description: e.message
+          });
+        }
       }
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
     }
-  }, [toast, data.length]);
+  }, [toast]);
 
   useEffect(() => {
     let hasFreshCache = false;
