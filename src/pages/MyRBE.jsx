@@ -76,6 +76,16 @@ const cards = [
     badge: { label: "Workspace", color: "teal" }
   },
   {
+    title: "Inéo RétroBus",
+    description: "Prise de service, affectation et suivi de mission",
+    to: "/myrbe/ineo-retrobus",
+    icon: FiTruck,
+    color: "rbe",
+    resource: null,
+    cardAccess: true,
+    badge: { label: "Conducteur", color: "rbe" }
+  },
+  {
     title: "Gestion Financière",
     description: "Recettes, dépenses et opérations programmées",
     to: "/admin/finance-v2",

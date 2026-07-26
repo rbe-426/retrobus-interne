@@ -106,6 +106,9 @@ const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 const TeamRBE = lazy(() => import("./pages/TeamRBE"));
 const LumistudioLaunch = lazy(() => import("./pages/LumistudioLaunch"));
 const RetroStudio = lazy(() => import("./pages/RetroStudio"));
+const IneoHome = lazy(() => import("./pages/IneoHome"));
+const IneoDriver = lazy(() => import("./pages/IneoDriver"));
+const IneoOperations = lazy(() => import("./pages/IneoOperations"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -162,6 +165,9 @@ export default function App() {
         <Route path="/dashboard/home" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
   <Route path="/dashboard/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus" element={<ProtectedRoute><IneoHome /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus/service" element={<ProtectedRoute><IneoDriver /></ProtectedRoute>} />
+  <Route path="/dashboard/ineo-retrobus" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe/ressourcery" element={<ProtectedRoute><TrilogyRBERessourcery /></ProtectedRoute>} />
