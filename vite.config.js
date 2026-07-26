@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
           // Some clients call versioned paths directly
           '/v1': { ...common },
           '/events': { ...common },
+            '/ineo': { ...common },
           '/vehicles': { ...common },
           '/newsletter': { ...common },
           '/finance': { ...common },
