@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, FormControl, FormLabel, Grid, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
-import { FiEdit2, FiMapPin, FiPlus, FiRefreshCw, FiSave, FiSearch, FiSmartphone } from 'react-icons/fi';
+import { Box, Button, Collapse, FormControl, FormLabel, Grid, HStack, IconButton, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
+import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
+import { FiChevronDown, FiChevronRight, FiEdit2, FiMapPin, FiPlus, FiRefreshCw, FiSave, FiSearch, FiSmartphone } from 'react-icons/fi';
 import { ineoAPI } from '../api/ineo';
 import IneoCourseRouteModal from './IneoCourseRouteModal';
+import 'leaflet/dist/leaflet.css';
 
 const blankTracker = { vehicleParc: '', imei: '', deviceLabel: '' };
 const formatDate = (value) => value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Aucune position';
@@ -11,6 +13,25 @@ const routeEnd = (route) => route.stops?.at(-1)?.label || '-';
 
 function SubTab({ active, children, onClick }) {
   return <Button onClick={onClick} borderRadius="2px" size="sm" variant={active ? 'solid' : 'outline'} colorScheme={active ? 'blue' : 'gray'}>{children}</Button>;
+}
+
+function FitVehiclePositions({ trackers, focusedTrackerId }) {
+  const map = useMap();
+  useEffect(() => {
+    const focusedTracker = trackers.find((tracker) => tracker.id === focusedTrackerId);
+    if (focusedTracker) {
+      map.setView([focusedTracker.lastLatitude, focusedTracker.lastLongitude], 16);
+      return;
+    }
+    if (trackers.length === 1) map.setView([trackers[0].lastLatitude, trackers[0].lastLongitude], 14);
+  }, [focusedTrackerId, map, trackers]);
+  return null;
+}
+
+function VehiclePositionMap({ trackers, cities, focusedTrackerId }) {
+  const locatedTrackers = trackers.filter((tracker) => tracker.lastLatitude != null && tracker.lastLongitude != null);
+  if (!locatedTrackers.length) return <Box border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={4} color="#60727e">Aucune position GPS reçue pour le moment.</Box>;
+  return <Box border="1px solid" borderColor="#c6d0d8" h={{ base: '320px', md: '440px' }} overflow="hidden"><MapContainer center={[locatedTrackers[0].lastLatitude, locatedTrackers[0].lastLongitude]} zoom={12} style={{ height: '100%', width: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' /><FitVehiclePositions trackers={locatedTrackers} focusedTrackerId={focusedTrackerId} />{locatedTrackers.map((tracker) => <CircleMarker key={tracker.id} center={[tracker.lastLatitude, tracker.lastLongitude]} radius={10} pathOptions={{ color: '#005a9e', fillColor: '#d7194b', fillOpacity: 0.9 }}><Popup><strong>{tracker.vehicleParc}</strong><br />{cities[tracker.id] || 'Localisation GPS'}<br />{tracker.lastLatitude.toFixed(5)}, {tracker.lastLongitude.toFixed(5)}<br />{formatDate(tracker.lastPositionAt)}</Popup></CircleMarker>)}</MapContainer></Box>;
 }
 
 export default function IneoTransport({ vehicles }) {
@@ -26,6 +47,9 @@ export default function IneoTransport({ vehicles }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchingCourse, setSearchingCourse] = useState(false);
+  const [openTrackerId, setOpenTrackerId] = useState(null);
+  const [focusedTrackerId, setFocusedTrackerId] = useState(null);
+  const [cities, setCities] = useState({});
 
   const load = async () => {
     try {
@@ -42,6 +66,28 @@ export default function IneoTransport({ vehicles }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const locateTrackers = async () => {
+      const locatedTrackers = trackers.filter((tracker) => tracker.lastLatitude != null && tracker.lastLongitude != null && !cities[tracker.id]);
+      const results = await Promise.all(locatedTrackers.map(async (tracker) => {
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${tracker.lastLatitude}&lon=${tracker.lastLongitude}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+          if (!response.ok) return null;
+          const data = await response.json();
+          const address = data.address || {};
+          return [tracker.id, address.city || address.town || address.village || address.municipality || address.county || 'Localisation GPS'];
+        } catch {
+          return null;
+        }
+      }));
+      const resolvedCities = Object.fromEntries(results.filter(Boolean));
+      if (Object.keys(resolvedCities).length) setCities((current) => ({ ...current, ...resolvedCities }));
+    };
+    locateTrackers();
+    return () => controller.abort();
+  }, [trackers]);
 
   const saveTracker = async (event) => {
     event.preventDefault();
@@ -111,7 +157,8 @@ export default function IneoTransport({ vehicles }) {
 
     {tab === 'positions' ? <>
       <Box as="form" onSubmit={saveTracker} border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={4}><Text fontWeight="700" mb={3}>Rattacher un appareil Urbex</Text><Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr auto' }} gap={3} alignItems="end"><FormControl isRequired><FormLabel>Véhicule</FormLabel><Select bg="white" value={trackerForm.vehicleParc} onChange={(event) => setTrackerForm((current) => ({ ...current, vehicleParc: event.target.value }))} placeholder="Choisir un véhicule">{vehicles.map((vehicle) => <option key={vehicle.parc} value={vehicle.parc}>{vehicle.parc} - {vehicle.immat || vehicle.modele}</option>)}</Select></FormControl><FormControl isRequired><FormLabel>IMEI</FormLabel><Input bg="white" inputMode="numeric" value={trackerForm.imei} onChange={(event) => setTrackerForm((current) => ({ ...current, imei: event.target.value.replace(/\D/g, '') }))} placeholder="15 chiffres" /></FormControl><FormControl><FormLabel>Nom de l’appareil</FormLabel><Input bg="white" value={trackerForm.deviceLabel} onChange={(event) => setTrackerForm((current) => ({ ...current, deviceLabel: event.target.value }))} placeholder="Ex. Urbex VH 920" /></FormControl><Button type="submit" isLoading={saving} leftIcon={<FiSave />} colorScheme="blue" borderRadius="2px">Rattacher</Button></Grid></Box>
-      <Box border="1px solid" borderColor="#c6d0d8" overflowX="auto"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Véhicule</Th><Th>Appareil</Th><Th>IMEI</Th><Th>Dernière position</Th><Th>Vitesse</Th><Th>Carte</Th></Tr></Thead><Tbody>{loading ? <Tr><Td colSpan={6}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : trackers.length ? trackers.map((tracker) => <Tr key={tracker.id}><Td fontWeight="700">{tracker.vehicleParc}</Td><Td><HStack><FiSmartphone /><Text>{tracker.deviceLabel || 'Urbex'}</Text></HStack></Td><Td fontFamily="monospace">{tracker.imei}</Td><Td>{formatDate(tracker.lastPositionAt)}</Td><Td>{tracker.lastSpeedKmh == null ? '-' : `${Math.round(tracker.lastSpeedKmh)} km/h`}</Td><Td>{tracker.lastLatitude == null ? '-' : <Button as="a" href={`https://www.openstreetmap.org/?mlat=${tracker.lastLatitude}&mlon=${tracker.lastLongitude}#map=16/${tracker.lastLatitude}/${tracker.lastLongitude}`} target="_blank" rel="noreferrer" size="xs" variant="link" color="#005a9e" leftIcon={<FiMapPin />}>Voir</Button>}</Td></Tr>) : <Tr><Td colSpan={6} color="gray.500">Aucun appareil Urbex rattaché.</Td></Tr>}</Tbody></Table></Box>
+      <Box border="1px solid" borderColor="#c6d0d8" overflowX="auto"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th w="40px"></Th><Th>Véhicule</Th><Th>Appareil</Th><Th>Position</Th><Th>Vitesse</Th><Th>Dernière mise à jour</Th></Tr></Thead><Tbody>{loading ? <Tr><Td colSpan={6}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : trackers.length ? trackers.map((tracker) => <React.Fragment key={tracker.id}><Tr _hover={{ bg: '#f3f8fb' }}><Td><IconButton aria-label="Afficher les détails de l'appareil" icon={openTrackerId === tracker.id ? <FiChevronDown /> : <FiChevronRight />} size="xs" variant="ghost" onClick={() => setOpenTrackerId((current) => current === tracker.id ? null : tracker.id)} /></Td><Td fontWeight="700">{tracker.vehicleParc}</Td><Td><HStack><FiSmartphone /><Text>{tracker.deviceLabel || 'Urbex'}</Text></HStack></Td><Td>{tracker.lastLatitude == null ? <Text color="gray.500">Position : aucune</Text> : <Button size="xs" variant="link" color="#005a9e" leftIcon={<FiMapPin />} onClick={() => { setFocusedTrackerId(tracker.id); setOpenTrackerId(tracker.id); }}>Position : {cities[tracker.id] || 'localisation GPS'}</Button>}</Td><Td>{tracker.lastSpeedKmh == null ? '-' : `${Math.round(tracker.lastSpeedKmh)} km/h`}</Td><Td>{formatDate(tracker.lastPositionAt)}</Td></Tr><Tr><Td colSpan={6} p={0} border={0}><Collapse in={openTrackerId === tracker.id} animateOpacity><Box bg="#f8fafb" px={5} py={4} borderTop="1px solid" borderColor="#d7e0e6"><Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={3} fontSize="sm"><Box><Text color="#60727e">IMEI</Text><Text fontFamily="monospace">{tracker.imei}</Text></Box><Box><Text color="#60727e">Ville</Text><Text>{cities[tracker.id] || (tracker.lastLatitude == null ? 'Aucune position' : 'Recherche en cours...')}</Text></Box><Box><Text color="#60727e">Coordonnées</Text><Text>{tracker.lastLatitude == null ? '-' : `${tracker.lastLatitude.toFixed(5)}, ${tracker.lastLongitude.toFixed(5)}`}</Text></Box><Box><Text color="#60727e">Précision</Text><Text>{tracker.lastAccuracy == null ? '-' : `${Math.round(tracker.lastAccuracy)} m`}</Text></Box></Grid>{tracker.lastLatitude != null && <Button as="a" mt={3} href={`https://www.openstreetmap.org/?mlat=${tracker.lastLatitude}&mlon=${tracker.lastLongitude}#map=16/${tracker.lastLatitude}/${tracker.lastLongitude}`} target="_blank" rel="noreferrer" size="sm" variant="outline" colorScheme="blue" leftIcon={<FiMapPin />}>Ouvrir dans OpenStreetMap</Button>}</Box></Collapse></Td></Tr></React.Fragment>) : <Tr><Td colSpan={6} color="gray.500">Aucun appareil Urbex rattaché.</Td></Tr>}</Tbody></Table></Box>
+      <VehiclePositionMap trackers={trackers} cities={cities} focusedTrackerId={focusedTrackerId} />
     </> : <>
       <Box border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={4}><HStack align="end" flexWrap="wrap" gap={3}><FormControl maxW="360px"><FormLabel>Référence course</FormLabel><Input bg="white" value={courseReference} onChange={(event) => setCourseReference(event.target.value)} placeholder="RBE-991-4826" onKeyDown={(event) => event.key === 'Enter' && lookupCourse()} /></FormControl><Button leftIcon={<FiSearch />} isLoading={searchingCourse} colorScheme="blue" borderRadius="2px" onClick={lookupCourse}>Rechercher</Button><Button leftIcon={<FiPlus />} borderRadius="2px" variant="outline" onClick={() => openCourse()}>Nouvelle course</Button></HStack><Text mt={3} fontSize="sm" color="#60727e">La recherche recharge automatiquement la ligne, les heures et les étapes déjà enregistrées pour cette référence.</Text></Box>
       <Box border="1px solid" borderColor="#c6d0d8" overflowX="auto"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Référence</Th><Th>Ligne</Th><Th>Horaires</Th><Th>Itinéraire</Th><Th>Premier départ</Th><Th>Dernière étape</Th><Th></Th></Tr></Thead><Tbody>{loading ? <Tr><Td colSpan={7}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : routes.length ? routes.map((route) => <Tr key={route.id}><Td fontWeight="700">{route.courseReference}</Td><Td>{route.lineName || '-'}</Td><Td>{route.scheduledDeparture || '--:--'} → {route.scheduledArrival || '--:--'}</Td><Td>{route.routeName}</Td><Td maxW="230px" noOfLines={1}>{routeStart(route)}</Td><Td maxW="230px" noOfLines={1}>{routeEnd(route)}</Td><Td><Button size="xs" leftIcon={<FiEdit2 />} borderRadius="2px" onClick={() => openCourse(route)}>Modifier</Button></Td></Tr>) : <Tr><Td colSpan={7} color="gray.500">Aucune course enregistrée.</Td></Tr>}</Tbody></Table></Box>
