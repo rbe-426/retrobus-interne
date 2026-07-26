@@ -249,6 +249,7 @@ export default function App() {
         <Route path="/dashboard/team-rbe" element={<ProtectedRoute><TeamRBE /></ProtectedRoute>} />
 
         {/* 📱 Version mobile */}
+        <Route path="/vehicules/administratif/rbep/:vehicleReference" element={<MobileVehicle />} />
         <Route path="/mobile/v/:parc" element={<MobileVehicle />} />
         <Route path="/dashboard/mobile/v/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         <Route path="/dashboard/mobile/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />

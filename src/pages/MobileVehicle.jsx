@@ -43,12 +43,14 @@ const fetchJsonFirst = async (urls, init) => {
 
 /**
  * Page mobile d'accès via QR
- * - URL expected: /mobile/v/:parc?t=<token>
+ * - URLs accepted: /mobile/v/:parc?t=<token> and
+ *   /vehicules/administratif/rbep/:immatriculation-:parc?t=<token>
  * - If token valid, we fetch vehicle and allow anonymous writes via token header.
  * - If token invalid or absent, user must authenticate (matricule) via UserContext.
  */
 export default function MobileVehicle() {
-  const { parc } = useParams();
+  const { parc: legacyParc, vehicleReference } = useParams();
+  const parc = legacyParc || decodeURIComponent(vehicleReference || '').split('-').at(-1) || '';
   const [searchParams] = useSearchParams();
   const toast = useToast();
   const nav = useNavigate();

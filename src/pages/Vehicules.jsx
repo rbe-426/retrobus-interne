@@ -11,9 +11,15 @@ import { QRCodeCanvas } from "qrcode.react";
 import { FiEdit, FiPlus, FiGrid } from 'react-icons/fi';
 import { apiClient } from '../api/config.js'; // Import direct du client API
 
-const MOBILE_POINTAGE_BASE = (import.meta.env.VITE_MOBILE_POINTAGE_BASE || 'https://www.retrobus-interne.fr').replace(/\/+$/, '');
+const MOBILE_POINTAGE_BASE = (import.meta.env.VITE_MOBILE_POINTAGE_BASE || 'https://retrobus-interne.fr').replace(/\/+$/, '');
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
 const VEHICLES_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const getPointageUrl = (vehicle) => {
+  const immatriculation = String(vehicle?.immat || 'SANS-IMMATRICULATION').trim();
+  const parc = String(vehicle?.parc || '').trim();
+  return `${MOBILE_POINTAGE_BASE}/vehicules/administratif/rbep/${encodeURIComponent(immatriculation)}-${encodeURIComponent(parc)}`;
+};
 
 const Vehicules = () => {
   const [data, setData] = useState([]);
@@ -247,13 +253,13 @@ const Vehicules = () => {
             <VStack spacing={4}>
               <Box ref={qrCanvasRef}>
                 <QRCodeCanvas
-                  value={`${MOBILE_POINTAGE_BASE}/mobile/v/${encodeURIComponent(selectedVehicle?.parc || '')}`}
+                  value={getPointageUrl(selectedVehicle)}
                   size={200}
                   level="M"
                 />
               </Box>
               <Text fontSize="sm" color="gray.600" textAlign="center">
-                {`${MOBILE_POINTAGE_BASE}/mobile/v/${encodeURIComponent(selectedVehicle?.parc || '')}`}
+                {getPointageUrl(selectedVehicle)}
               </Text>
               <Button onClick={downloadQR} colorScheme="blue">
                 Télécharger
