@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, AlertIcon, Badge, Box, Button, FormControl, FormLabel, Grid, HStack, IconButton, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, Select, Spinner, Text, Textarea, VStack, useToast } from '@chakra-ui/react';
 import { FiMapPin, FiMinus, FiPlus, FiSave, FiSearch } from 'react-icons/fi';
 import RouteMap from '../components/RouteMap';
+import { ineoAPI } from '../api/ineo';
 import 'leaflet/dist/leaflet.css';
 
 const emptyStop = () => ({ label: '', scheduledTime: '', lat: null, lng: null });
@@ -27,6 +28,8 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
   const [form, setForm] = useState({ courseReference: '', lineName: '', routeName: '', vehicleParc: '', scheduledDeparture: '', scheduledArrival: '', stops: [emptyStop()], notes: '' });
   const [suggestions, setSuggestions] = useState({});
   const [searching, setSearching] = useState({});
+  const [referenceMatches, setReferenceMatches] = useState([]);
+  const [searchingReferences, setSearchingReferences] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -42,6 +45,7 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
       notes: initialRoute?.notes || '',
     });
     setSuggestions({});
+    setReferenceMatches([]);
   }, [initialRoute, isOpen]);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
@@ -55,6 +59,39 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
     widthM: selectedProfile.widthM ?? null,
     heightM: selectedProfile.heightM ?? null,
   } : initialRoute?.vehicleConstraints || null;
+
+  const searchReferences = async (value) => {
+    if (value.trim().length < 2) {
+      setReferenceMatches([]);
+      return;
+    }
+    try {
+      setSearchingReferences(true);
+      const data = await ineoAPI.searchRouteReferences(value);
+      setReferenceMatches(data?.matches || []);
+    } catch {
+      setReferenceMatches([]);
+    } finally {
+      setSearchingReferences(false);
+    }
+  };
+
+  const mergeReference = (match) => {
+    const route = match.route || {};
+    setForm((current) => ({
+      ...current,
+      courseReference: route.courseReference || current.courseReference,
+      lineName: route.lineName || current.lineName,
+      routeName: route.routeName || current.routeName,
+      vehicleParc: route.vehicleParc || current.vehicleParc,
+      scheduledDeparture: route.scheduledDeparture || current.scheduledDeparture,
+      scheduledArrival: route.scheduledArrival || current.scheduledArrival,
+      notes: route.notes || current.notes,
+      stops: current.stops.some((stop) => stop.label) ? current.stops : (route.stops?.length ? route.stops.map((stop) => ({ ...emptyStop(), ...stop })) : current.stops),
+    }));
+    setReferenceMatches([]);
+    toast({ status: 'success', title: 'Informations de référence fusionnées', description: match.source === 'mission' ? `Affectation ${match.assignment?.driverName || match.assignment?.driverIdentifier || 'conducteur'} conservée dans le service.` : 'Données de course et étapes reprises.' });
+  };
 
   const searchAddress = (index, query) => {
     clearTimeout(searchTimeouts.current[index]);
@@ -111,7 +148,7 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
   };
 
   return <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside"><ModalOverlay /><ModalContent maxW="1180px"><ModalHeader>Course, ligne et itinéraire</ModalHeader><ModalCloseButton /><ModalBody><VStack align="stretch" spacing={5}>
-    <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr' }} gap={4}><FormControl isRequired><FormLabel>Référence course</FormLabel><Input value={form.courseReference} onChange={(event) => update('courseReference', event.target.value)} placeholder="RBE-991-4826" /></FormControl><FormControl><FormLabel>Ligne</FormLabel><Input value={form.lineName} onChange={(event) => update('lineName', event.target.value)} placeholder="Ex. Ligne patrimoine" /></FormControl><FormControl isRequired><FormLabel>Nom de l’itinéraire</FormLabel><Input value={form.routeName} onChange={(event) => update('routeName', event.target.value)} placeholder="Ex. Gare - Musée" /></FormControl><FormControl><FormLabel>Véhicule et profil de circulation</FormLabel><Select value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule profilé">{profiles.map((profile) => <option key={profile.id} value={profile.vehicleParc}>{profile.vehicleParc} - {vehicles.find((vehicle) => vehicle.parc === profile.vehicleParc)?.immat || profile.vehicleType || 'Profil Inéo'}</option>)}</Select></FormControl><FormControl><FormLabel>Heure premier départ</FormLabel><Input type="time" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Heure dernière arrivée</FormLabel><Input type="time" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>
+    <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr' }} gap={4}><FormControl isRequired position="relative"><FormLabel>Référence course</FormLabel><Input value={form.courseReference} onChange={(event) => { update('courseReference', event.target.value); searchReferences(event.target.value); }} placeholder="RBE-991-4826" />{searchingReferences && <Spinner size="xs" position="absolute" right={3} top="38px" />}{referenceMatches.length > 0 && <Box position="absolute" zIndex={20} top="68px" w="full" maxH="190px" overflowY="auto" bg="white" border="1px solid" borderColor="gray.200" boxShadow="md">{referenceMatches.map((match) => <Button key={`${match.source}-${match.route.courseReference}`} variant="ghost" justifyContent="start" textAlign="left" whiteSpace="normal" h="auto" py={2} w="full" onClick={() => mergeReference(match)}><VStack align="start" spacing={0}><Text fontWeight="700">{match.route.courseReference} · {match.route.routeName}</Text><Text fontSize="xs">{match.source === 'mission' ? `Service affecté à ${match.assignment?.driverName || match.assignment?.driverIdentifier || 'conducteur'} · ` : 'Course configurée · '}{match.route.scheduledDeparture || '--:--'} → {match.route.scheduledArrival || '--:--'}</Text></VStack></Button>)}</Box>}</FormControl><FormControl><FormLabel>Ligne</FormLabel><Input value={form.lineName} onChange={(event) => update('lineName', event.target.value)} placeholder="Ex. Ligne patrimoine" /></FormControl><FormControl isRequired><FormLabel>Nom de l’itinéraire</FormLabel><Input value={form.routeName} onChange={(event) => update('routeName', event.target.value)} placeholder="Ex. Gare - Musée" /></FormControl><FormControl><FormLabel>Véhicule et profil de circulation</FormLabel><Select value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule profilé">{profiles.map((profile) => <option key={profile.id} value={profile.vehicleParc}>{profile.vehicleParc} - {vehicles.find((vehicle) => vehicle.parc === profile.vehicleParc)?.immat || profile.vehicleType || 'Profil Inéo'}</option>)}</Select></FormControl><FormControl><FormLabel>Heure premier départ</FormLabel><Input type="time" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Heure dernière arrivée</FormLabel><Input type="time" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>
     {vehicleConstraints && <Alert status="info" borderRadius="2px"><AlertIcon /><VStack align="start" spacing={1}><Text fontSize="sm" fontWeight="700">Contraintes appliquées au dossier de course</Text><HStack flexWrap="wrap"><Badge colorScheme="blue">{vehicleConstraints.vehicleType || 'BUS'}</Badge>{vehicleConstraints.maxSpeedKmh != null && <Badge colorScheme="orange">Vmax {vehicleConstraints.maxSpeedKmh} km/h</Badge>}{vehicleConstraints.lengthM != null && <Badge>Long. {vehicleConstraints.lengthM} m</Badge>}{vehicleConstraints.widthM != null && <Badge>Larg. {vehicleConstraints.widthM} m</Badge>}{vehicleConstraints.heightM != null && <Badge>Haut. {vehicleConstraints.heightM} m</Badge>}</HStack></VStack></Alert>}
     <Box border="1px solid" borderColor="gray.200" p={4}><HStack justify="space-between" mb={3}><Text fontWeight="700">Parcours</Text><Button leftIcon={<FiPlus />} size="sm" variant="outline" onClick={addStop}>Ajouter une étape</Button></HStack><VStack align="stretch" spacing={3}>{form.stops.map((stop, index) => <Box key={index} position="relative"><Grid templateColumns={{ base: '1fr', md: '100px 1fr 110px 34px' }} gap={3} alignItems="end"><FormControl><FormLabel>{index === 0 ? 'Premier départ' : `Étape ${index + 1}`}</FormLabel><Input type="time" value={stop.scheduledTime || ''} onChange={(event) => updateStop(index, { scheduledTime: event.target.value })} /></FormControl><FormControl isRequired={index === 0}><FormLabel>{index === 0 ? 'Lieu de départ' : 'Lieu / arrêt'}</FormLabel><Input value={stop.label} onChange={(event) => { updateStop(index, { label: event.target.value, lat: null, lng: null }); searchAddress(index, event.target.value); }} placeholder={index === 0 ? 'Ex. Gare d’Évry-Courcouronnes' : 'Ajouter un arrêt'} /></FormControl><HStack h="40px">{searching[index] && <Spinner size="sm" />} {Number.isFinite(stop.lat) && <Text fontSize="xs" color="green.600">Position trouvée</Text>}</HStack><IconButton aria-label="Retirer l’étape" icon={<FiMinus />} size="sm" colorScheme="red" variant="ghost" isDisabled={index === 0} onClick={() => removeStop(index)} /></Grid>{suggestions[index]?.length > 0 && <Box border="1px solid" borderColor="gray.200" bg="white" boxShadow="sm" mt={1} maxH="180px" overflowY="auto">{suggestions[index].map((place) => <Button key={`${place.place_id}-${place.lat}`} variant="ghost" justifyContent="start" whiteSpace="normal" textAlign="left" w="full" h="auto" py={2} px={3} fontSize="sm" onClick={() => choosePlace(index, place)}><FiSearch /><Text ml={2}>{place.display_name}</Text></Button>)}</Box>}</Box>)}</VStack></Box>
     <FormControl><FormLabel>Observations</FormLabel><Textarea value={form.notes} onChange={(event) => update('notes', event.target.value)} /></FormControl>
