@@ -1000,6 +1000,34 @@ export const useFinanceData = (currentUser = null) => {
     [updateExpenseReport]
   );
 
+  const uploadExpenseReportTransferProof = useCallback(
+    async (id, file) => {
+      try {
+        setLoading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetchWithCSRF(`${API_BASE}/api/finance/expense-reports/${id}/transfer-proof`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Impossible d'enregistrer la preuve de virement");
+
+        const updated = data.report || data;
+        setExpenseReports(expenseReports.map((report) => report.id === id ? updated : report));
+        await loadFinanceData();
+        return updated;
+      } catch (error) {
+        toast({ title: "Erreur", description: error.message, status: "error" });
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [expenseReports, loadFinanceData, toast]
+  );
+
   // ===== SIMULATIONS =====
   const createSimulationScenario = useCallback(
     async (scenario) => {
@@ -1418,6 +1446,7 @@ export const useFinanceData = (currentUser = null) => {
     createExpenseReport,
     updateExpenseReport,
     updateExpenseReportStatus,
+    uploadExpenseReportTransferProof,
     deleteExpenseReport,
     // Simulations
     simulationData,

@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box, VStack, HStack, Card, CardHeader, CardBody,
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
   Tr, Th, Td, Alert, AlertIcon, Select, Flex, SimpleGrid, Stat, StatLabel, StatNumber,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  FormControl, FormLabel, Textarea, useDisclosure, Icon, Link
+  FormControl, FormLabel, Textarea, useDisclosure, Icon, Link, Input
 } from "@chakra-ui/react";
-import { FiCheck, FiX, FiEye, FiDownload } from "react-icons/fi";
+import { FiCheck, FiX, FiEye, FiDownload, FiExternalLink, FiUpload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { useUserRoles } from "../../hooks/useUserRoles";
 import { membersAPI } from "../../api/members";
@@ -22,6 +22,8 @@ const LEGACY_EXPENSE_REPORT_TYPES = {
   "Note de frais avec justificatif": "NDF avec justificatif",
   "Frais de déplacement": "Frais KM"
 };
+const BANK_TRANSFER_URL = import.meta.env.VITE_BANK_TRANSFER_URL || "https://mabanque.bnpparibas/";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 /**
  * ExpenseReportsManagement - Gestion des notes de frais
@@ -33,6 +35,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     expenseReports,
     updateExpenseReport,
     updateExpenseReportStatus,
+    uploadExpenseReportTransferProof,
     loadFinanceData,
     loading
   } = useFinanceData();
@@ -43,6 +46,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [members, setMembers] = useState([]);
+  const [proofUploadReportId, setProofUploadReportId] = useState(null);
+  const proofInputRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
@@ -115,6 +120,45 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     onOpen();
   };
 
+  const handleOpenBank = () => {
+    window.open(BANK_TRANSFER_URL, "_blank", "noopener,noreferrer");
+  };
+
+  const handleProofSelection = async (event) => {
+    const file = event.target.files?.[0];
+    const reportId = proofUploadReportId;
+    event.target.value = "";
+    setProofUploadReportId(null);
+    if (!file || !reportId) return;
+
+    const acceptedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!acceptedTypes.includes(file.type)) {
+      toast({ title: "Format invalide", description: "La preuve doit être un PDF, JPG ou PNG.", status: "error" });
+      return;
+    }
+    const updated = await uploadExpenseReportTransferProof(reportId, file);
+    if (updated) {
+      toast({ title: "Virement validé", description: "La preuve est stockée de manière sécurisée.", status: "success" });
+    }
+  };
+
+  const handleViewTransferProof = async (report) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/finance/expense-reports/${report.id}/transfer-proof`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Impossible de consulter la preuve de virement");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      toast({ title: "Erreur", description: error.message, status: "error" });
+    }
+  };
+
   const handleRejectConfirm = async () => {
     if (!selectedReport) return;
     
@@ -176,7 +220,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
     
     const statusConfig = {
       PENDING: { colorScheme: "yellow", label: "✉️ Envoyée" },
-      APPROVED: { colorScheme: "blue", label: "⏳ En cours de traitement" },
+      APPROVED: { colorScheme: "blue", label: "⏳ En attente de preuve de virement" },
       PAID: { colorScheme: "green", label: "✅ Payée" },
       REJECTED: { colorScheme: "red", label: "❌ NDF refusée" }
     };
@@ -358,6 +402,13 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
 
   return (
     <VStack align="stretch" spacing={6}>
+      <Input
+        ref={proofInputRef}
+        type="file"
+        accept="application/pdf,image/jpeg,image/png"
+        display="none"
+        onChange={handleProofSelection}
+      />
       {/* Header */}
       <Box>
         <Heading size="lg">Gestion des notes de frais</Heading>
@@ -531,14 +582,41 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                         )}
 
                         {normalizeStatus(report.status) === "APPROVED" && (
+                          <>
+                            <Button
+                              size="xs"
+                              leftIcon={<FiExternalLink />}
+                              colorScheme="blue"
+                              variant="outline"
+                              onClick={handleOpenBank}
+                            >
+                              Ouvrir la banque
+                            </Button>
+                            <Button
+                              size="xs"
+                              leftIcon={<FiUpload />}
+                              colorScheme="green"
+                              onClick={() => {
+                                setProofUploadReportId(report.id);
+                                proofInputRef.current?.click();
+                              }}
+                              isLoading={loading}
+                            >
+                              Déposer la preuve et valider
+                            </Button>
+                          </>
+                        )}
+
+                        {report.transferProofFileName && (
                           <Button
                             size="xs"
-                            leftIcon={<FiCheck />}
+                            leftIcon={<FiDownload />}
+                            variant="ghost"
                             colorScheme="green"
-                            onClick={() => handleStatusChange(report.id, "paid")}
-                            isLoading={loading}
+                            onClick={() => handleViewTransferProof(report)}
+                            title={`Voir la preuve : ${report.transferProofFileName}`}
                           >
-                            Marquer payée
+                            Preuve
                           </Button>
                         )}
 
