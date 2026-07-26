@@ -79,6 +79,7 @@ export default function RetroStudio() {
   const { user, matricule } = useUser();
   const [request, setRequest] = useState(initialRequest);
   const [editingRequestId, setEditingRequestId] = useState(null);
+  const [editingRequestStatus, setEditingRequestStatus] = useState(null);
   const [activeSection, setActiveSection] = useState('request');
   const [savingRequest, setSavingRequest] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState('');
@@ -143,6 +144,7 @@ export default function RetroStudio() {
         ? await retroStudioApi.updateRequest(editingRequestId, requestPayload)
         : await retroStudioApi.createRequest(requestPayload);
       const requiresValidation = createdRequest?.validationRequired;
+      setEditingRequestStatus(createdRequest.status);
       if (saveAsDraft) {
         lastSavedDraftSignature.current = getRequestSignature(request);
         setEditingRequestId(createdRequest.id);
@@ -168,6 +170,7 @@ export default function RetroStudio() {
         });
         setRequest(initialRequest);
         setEditingRequestId(null);
+        setEditingRequestStatus(null);
         lastSavedDraftSignature.current = '';
         setDraftSaveState('idle');
       }
@@ -224,6 +227,7 @@ export default function RetroStudio() {
         const createdRequest = await retroStudioApi.createRequest({ ...request, saveAsDraft: true });
         requestId = createdRequest.id;
         setEditingRequestId(requestId);
+        setEditingRequestStatus(createdRequest.status);
       }
 
       const formData = new FormData();
@@ -273,6 +277,7 @@ export default function RetroStudio() {
     lastSavedDraftSignature.current = getRequestSignature(resumedRequest);
     setRequest(resumedRequest);
     setEditingRequestId(draft.id);
+    setEditingRequestStatus(draft.status);
     setDraftSaveState('saved');
     setActiveSection('request');
   };
@@ -298,9 +303,15 @@ export default function RetroStudio() {
 
   const contactDate = parseLocalDate(request.contactDate);
   const shootDate = parseLocalDate(request.shootDate);
-  const daysUntilShoot = contactDate && shootDate
+  const leadTimeDays = contactDate && shootDate
     ? Math.round((shootDate - contactDate) / (1000 * 60 * 60 * 24))
     : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const remainingDays = shootDate
+    ? Math.ceil((shootDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const isAcceptedRequest = editingRequestStatus === 'APPROVED';
 
   const sections = [
     { id: 'request', label: 'Saisie de demande', description: 'Nouveau besoin', icon: FiClipboard },
@@ -382,7 +393,7 @@ export default function RetroStudio() {
           </Breadcrumb>
 
           <Box>
-            <Text fontWeight="600">{editingRequestId ? 'Reprise du brouillon' : 'Premier fil Ariane : prise de contact'}</Text>
+            <Text fontWeight="600">{editingRequestId ? 'Reprise du dossier' : 'Premier fil Ariane : prise de contact'}</Text>
             <Text color="gray.600" fontSize="sm">
               Chaque information saisie est enregistrée automatiquement comme brouillon sur le serveur.
             </Text>
@@ -452,22 +463,44 @@ export default function RetroStudio() {
             </SimpleGrid>
           </Box>
 
-          {daysUntilShoot !== null && (
+          {isAcceptedRequest && remainingDays !== null ? (
+            <Box borderWidth="1px" borderColor="orange.300" bg="orange.50" p={4} borderRadius="md">
+              <HStack align="start" spacing={3}>
+                <Icon as={FiClock} boxSize={5} color="orange.500" mt={1} />
+                <Box>
+                  <Text fontWeight="600">Accord présidentiel obtenu - tournage dans {remainingDays} jour{Math.abs(remainingDays) > 1 ? 's' : ''}</Text>
+                  <Text color="orange.800">
+                    {remainingDays <= 0
+                      ? remainingDays === 0
+                        ? "Le D Day !! Bon tournage à l'équipe."
+                        : "La date de tournage est dépassée : faites un point sur le déroulement de l'opération."
+                      : remainingDays === 7
+                      ? "Tic... tac... plus qu'une semaine avant le tournage... est-ce que tout est prêt ?"
+                      : remainingDays >= 2 && remainingDays <= 6
+                      ? `Allez, dernière ligne droite, plus que ${remainingDays} jours avant ledit tournage : quelques préparatifs, un dernier coup de propre, on vérifie que tout va bien, et on y va !`
+                      : remainingDays === 1
+                      ? "Demain, c'est le grand jour : dernier contrôle des préparatifs et rendez-vous avec l'équipe."
+                      : `Accord présidentiel obtenu. Il reste ${remainingDays} jours pour préparer sereinement le tournage.`}
+                  </Text>
+                </Box>
+              </HStack>
+            </Box>
+          ) : leadTimeDays !== null && (
             <Box
               borderWidth="1px"
-              borderColor={daysUntilShoot <= 15 ? 'red.300' : 'green.300'}
-              bg={daysUntilShoot <= 15 ? 'red.50' : 'green.50'}
+              borderColor={leadTimeDays <= 15 ? 'red.300' : 'green.300'}
+              bg={leadTimeDays <= 15 ? 'red.50' : 'green.50'}
               p={4}
               borderRadius="md"
             >
               <HStack align="start" spacing={3}>
-                <Icon as={daysUntilShoot <= 15 ? FiXCircle : FiCheckCircle} boxSize={5} color={daysUntilShoot <= 15 ? 'red.500' : 'green.500'} mt={1} />
+                <Icon as={leadTimeDays <= 15 ? FiXCircle : FiCheckCircle} boxSize={5} color={leadTimeDays <= 15 ? 'red.500' : 'green.500'} mt={1} />
                 <Box>
-                  <Text fontWeight="600">Délai avant tournage : {daysUntilShoot} jour{Math.abs(daysUntilShoot) > 1 ? 's' : ''}</Text>
-                  <Text color={daysUntilShoot <= 15 ? 'red.700' : 'green.700'}>
-                    {daysUntilShoot <= 15
-                      ? `C'est tendu... ce tournage se déroulera à pile ou moins de 15 jours de la deadline (${daysUntilShoot} jours). Informer les Présidents pour la marche à suivre.`
-                      : `C'est ok, on a le temps de se préparer (${daysUntilShoot} jours).`}
+                  <Text fontWeight="600">Délai constaté à la prise de contact : {leadTimeDays} jour{Math.abs(leadTimeDays) > 1 ? 's' : ''}</Text>
+                  <Text color={leadTimeDays <= 15 ? 'red.700' : 'green.700'}>
+                    {leadTimeDays <= 15
+                      ? `C'est tendu... ce tournage se déroulera à pile ou moins de 15 jours de la deadline (${leadTimeDays} jours). Informer les Présidents pour la marche à suivre.`
+                      : `C'est ok, on a le temps de se préparer (${leadTimeDays} jours).`}
                   </Text>
                 </Box>
               </HStack>
