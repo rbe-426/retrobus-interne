@@ -4,7 +4,7 @@ import {
   Heading, Text, Button, Badge, useToast, Table, Thead, Tbody,
   Tr, Th, Td, Alert, AlertIcon, Select, Flex, SimpleGrid, Stat, StatLabel, StatNumber,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  FormControl, FormLabel, Textarea, useDisclosure, Icon, Link, Input
+  FormControl, FormLabel, Textarea, useDisclosure, Icon, Link, Input, Image
 } from "@chakra-ui/react";
 import { FiCheck, FiX, FiEye, FiDownload, FiExternalLink, FiUpload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -24,6 +24,7 @@ const LEGACY_EXPENSE_REPORT_TYPES = {
 };
 const BANK_TRANSFER_URL = import.meta.env.VITE_BANK_TRANSFER_URL || "https://mabanque.bnpparibas/";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const NDF_MANAGER_EMAIL = "belaidiw91@gmail.com";
 
 /**
  * ExpenseReportsManagement - Gestion des notes de frais
@@ -41,12 +42,14 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   } = useFinanceData();
 
   const userRolesHook = useUserRoles();
+  const canManageNdf = String(currentUser?.email || "").trim().toLowerCase() === NDF_MANAGER_EMAIL;
 
   const [filterStatus, setFilterStatus] = useState("PENDING");
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [members, setMembers] = useState([]);
   const [proofUploadReportId, setProofUploadReportId] = useState(null);
+  const [selectedAttachment, setSelectedAttachment] = useState(null);
   const proofInputRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
@@ -236,6 +239,18 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   const getAttachmentUrl = (report) => report.fileUrl || report.attachmentUrl || report.attachment;
 
   const getAttachmentLabel = (report) => report.fileName || report.attachmentFileName || "Voir la pièce jointe";
+
+  const isImageAttachment = (report) => /\.(jpe?g|png|gif|webp)$/i.test(getAttachmentUrl(report) || getAttachmentLabel(report));
+
+  const handleAttachmentView = (report) => {
+    const url = getAttachmentUrl(report);
+    if (!url) return;
+    if (isImageAttachment(report)) {
+      setSelectedAttachment({ url, label: getAttachmentLabel(report) });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   const getDepositor = (report) => {
     const identifiers = [report.userId, report.createdBy]
@@ -532,9 +547,8 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           <HStack spacing={2} mt={1}>
                             <Icon as={FiDownload} boxSize={3} color="blue.500" />
                             <Link
-                              href={getAttachmentUrl(report)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              as="button"
+                              onClick={() => handleAttachmentView(report)}
                               color="blue.500"
                               fontSize="xs"
                               fontWeight="500"
@@ -556,7 +570,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                     <Td>{getStatusBadge(report.status)}</Td>
                     <Td>
                       <HStack spacing={2} wrap="wrap">
-                        {normalizeStatus(report.status) === "PENDING" && (
+                        {canManageNdf && normalizeStatus(report.status) === "PENDING" && (
                           <>
                             <Button
                               size="xs"
@@ -581,7 +595,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           </>
                         )}
 
-                        {normalizeStatus(report.status) === "APPROVED" && (
+                        {canManageNdf && normalizeStatus(report.status) === "APPROVED" && (
                           <>
                             <Button
                               size="xs"
@@ -607,7 +621,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                           </>
                         )}
 
-                        {report.transferProofFileName && (
+                        {canManageNdf && report.transferProofFileName && (
                           <Button
                             size="xs"
                             leftIcon={<FiDownload />}
@@ -626,10 +640,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
                             leftIcon={<FiEye />}
                             variant="ghost"
                             colorScheme="blue"
-                            as="a"
-                            href={getAttachmentUrl(report)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            onClick={() => handleAttachmentView(report)}
                             title="Voir la pièce jointe"
                           >
                             PJ
@@ -690,6 +701,25 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
               Refuser et notifier
             </Button>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={Boolean(selectedAttachment)} onClose={() => setSelectedAttachment(null)} size="xl" isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{selectedAttachment?.label || "Pièce jointe"}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {selectedAttachment && (
+              <Image
+                src={selectedAttachment.url}
+                alt={selectedAttachment.label}
+                maxH="70vh"
+                w="full"
+                objectFit="contain"
+              />
+            )}
+          </ModalBody>
         </ModalContent>
       </Modal>
     </VStack>
