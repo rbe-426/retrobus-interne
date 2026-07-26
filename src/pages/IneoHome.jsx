@@ -11,6 +11,15 @@ const isIneoManager = ({ matricule, user }) => {
   return identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com';
 };
 
+const openIneoOperations = () => {
+  const operationsWindow = window.open(
+    '/dashboard/ineo-retrobus',
+    'ineo-retrobus-operations',
+    'popup=yes,width=1500,height=960,left=80,top=40,resizable=yes,scrollbars=yes'
+  );
+  operationsWindow?.focus();
+};
+
 const IneoManagementLauncher = () => (
   <Box minH={{ base: 'auto', md: 'calc(100vh - 220px)' }} display="flex" alignItems="center" justifyContent="center" py={{ base: 4, md: 10 }}>
     <VStack maxW="md" spacing={5} textAlign="center" bg="white" borderWidth="1px" borderColor="gray.200" borderRadius="md" p={{ base: 6, md: 9 }} boxShadow="sm">
@@ -19,7 +28,7 @@ const IneoManagementLauncher = () => (
         <Heading size="md">Gestion des services</Heading>
         <Text color="gray.600" fontSize="sm">Ouvrez le poste Inéo dédié pour créer les affectations, suivre les véhicules actifs, les horaires et les dernières positions GPS.</Text>
       </VStack>
-      <Button colorScheme="rbe" size="lg" leftIcon={<FiExternalLink />} onClick={() => window.open('/dashboard/ineo-retrobus', '_blank', 'noopener,noreferrer')}>
+      <Button colorScheme="rbe" size="lg" leftIcon={<FiExternalLink />} onClick={openIneoOperations}>
         Ouvrir Inéo RétroBus
       </Button>
     </VStack>
