@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Reinstall dependencies",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"ci"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

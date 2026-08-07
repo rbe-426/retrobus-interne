@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Debug CSRF Auto-Récupération</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    button { margin: 10px; padding: 10px; font-size: 14px; cursor: pointer; }
+    .success { color: #0f0; }
+    .error { color: #f00; }
+    .warning { color: #ff0; }
+    .info { color: #0af; }
+    pre { background: #000; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h2>🛡️ Test CSRF Token - Récupération Automatique</h2>
+  
+  <div>
+    <button onclick="checkToken()">1️⃣ Vérifier Token localStorage</button>
+    <button onclick="clearToken()">🗑️ Supprimer Token</button>
+    <button onclick="testMutation()">3️⃣ Test Mutation (devrait auto-récupérer)</button>
+  </div>
+  
+  <div id="output" style="margin-top: 20px;"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:8080';
+    const log = (msg, type = 'info') => {
+      const output = document.getElementById('output');
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+      output.innerHTML += `<div class="${className}">${msg}</div>`;
+    };
+
+    function checkToken() {
+      const token = localStorage.getItem('X-CSRF-Token');
+      const expiry = localStorage.getItem('CSRF-Token-Expiry');
+      
+      if (token) {
+        const expiryDate = new Date(parseInt(expiry));
+        const now = new Date();
+        const isExpired = now > expiryDate;
+        
+        log(`✅ Token trouvé: ${token.substring(0, 20)}...`, 'success');
+        log(`📅 Expire: ${expiryDate.toLocaleString()} (${isExpired ? 'EXPIRÉ' : 'VALIDE'})`, isExpired ? 'error' : 'success');
+      } else {
+        log('❌ Aucun token CSRF dans localStorage', 'error');
+      }
+    }
+
+    function clearToken() {
+      localStorage.removeItem('X-CSRF-Token');
+      localStorage.removeItem('CSRF-Token-Expiry');
+      log('🗑️ Token supprimé du localStorage', 'warning');
+    }
+
+    async function testMutation() {
+      log('🔍 Test mutation sans token (devrait déclencher auto-récupération)...', 'info');
+      
+      // Simuler apiClient.post
+      try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+          log('❌ Pas de authToken - veuillez vous connecter d\'abord', 'error');
+          return;
+        }
+
+        // Vérifier si on a un token CSRF
+        let csrfToken = localStorage.getItem('X-CSRF-Token');
+        
+        if (!csrfToken) {
+          log('⚠️ Pas de CSRF token, récupération automatique...', 'warning');
+          
+          // Récupérer le token
+          const response = await fetch(`${API_BASE}/api/csrf-token`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            csrfToken = data.csrfToken;
+            localStorage.setItem('X-CSRF-Token', csrfToken);
+            localStorage.setItem('CSRF-Token-Expiry', Date.now() + 24 * 60 * 60 * 1000);
+            log('✅ Token CSRF récupéré automatiquement', 'success');
+          } else {
+            log(`❌ Échec récupération token: ${response.status}`, 'error');
+            return;
+          }
+        } else {
+          log('✅ Token CSRF déjà présent', 'success');
+        }
+
+        // Maintenant faire un test POST
+        log('📤 Envoi requête POST de test...', 'info');
+        const testResponse = await fetch(`${API_BASE}/api/team`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-CSRF-Token': csrfToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: 'Test Member',
+            role: 'Test Role',
+            hierarchy: 4,
+            hierarchy2: 2
+          })
+        });
+
+        if (testResponse.ok) {
+          log('✅ Mutation réussie!', 'success');
+        } else {
+          const errorData = await testResponse.text();
+          log(`❌ Mutation échouée: ${testResponse.status} - ${errorData}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-check au chargement
+    setTimeout(checkToken, 500);
+  </script>
+</body>
+</html>

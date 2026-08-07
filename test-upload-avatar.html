@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Upload Avatar</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; max-width: 800px; margin: 0 auto; }
+    button { margin: 10px 5px; padding: 10px 15px; font-size: 14px; cursor: pointer; background: #333; color: #0f0; border: 1px solid #0f0; }
+    button:hover { background: #0f0; color: #000; }
+    input { margin: 10px 0; padding: 8px; background: #222; color: #0f0; border: 1px solid #0f0; width: 100%; }
+    .success { color: #0f0; background: #003300; padding: 5px; margin: 5px 0; }
+    .error { color: #f00; background: #330000; padding: 5px; margin: 5px 0; }
+    .warning { color: #ff0; background: #333300; padding: 5px; margin: 5px 0; }
+    .info { color: #0af; padding: 5px; margin: 5px 0; }
+    #output { margin-top: 20px; }
+    .step { border-left: 3px solid #0f0; padding-left: 10px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h2>🧪 Test Upload Avatar - Debug Complet</h2>
+  
+  <div class="step">
+    <h3>Étape 1 : Authentification</h3>
+    <input type="email" id="email" placeholder="Email" value="w.belaidi@retrobus-essonne.fr">
+    <input type="password" id="password" placeholder="Mot de passe">
+    <button onclick="login()">Se connecter</button>
+  </div>
+
+  <div class="step">
+    <h3>Étape 2 : Sélection du fichier</h3>
+    <input type="file" id="file" accept="image/*">
+    <button onclick="testUpload()">Upload Avatar</button>
+  </div>
+  
+  <div id="output"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:8080';
+    let authToken = null;
+    let csrfToken = null;
+
+    const log = (msg, type = 'info') => {
+      const output = document.getElementById('output');
+      const className = type;
+      output.innerHTML += `<div class="${className}">${msg}</div>`;
+      console.log(msg);
+    };
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      log('🔐 Tentative de connexion...', 'info');
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          log(`❌ Login échoué: ${response.status} - ${error}`, 'error');
+          return;
+        }
+
+        const data = await response.json();
+        authToken = data.token;
+        log(`✅ Login réussi`, 'success');
+        log(`   Token: ${authToken.substring(0, 30)}...`, 'info');
+
+        // Récupérer CSRF token
+        await fetchCSRFToken();
+
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+
+    async function fetchCSRFToken() {
+      log('🛡️ Récupération CSRF token...', 'info');
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/csrf-token`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) {
+          log(`❌ CSRF token échoué: ${response.status}`, 'error');
+          return;
+        }
+
+        const data = await response.json();
+        csrfToken = data.csrfToken;
+        localStorage.setItem('X-CSRF-Token', csrfToken);
+        localStorage.setItem('CSRF-Token-Expiry', Date.now() + 24 * 60 * 60 * 1000);
+        
+        log(`✅ CSRF token obtenu`, 'success');
+        log(`   Token: ${csrfToken.substring(0, 30)}...`, 'info');
+
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+
+    async function testUpload() {
+      if (!authToken) {
+        log('❌ Connectez-vous d\'abord!', 'error');
+        return;
+      }
+
+      if (!csrfToken) {
+        log('❌ CSRF token manquant!', 'error');
+        return;
+      }
+
+      const fileInput = document.getElementById('file');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        log('❌ Sélectionnez un fichier!', 'error');
+        return;
+      }
+
+      log(`📤 Upload de: ${file.name} (${file.size} bytes, ${file.type})`, 'info');
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      log(`📋 Headers à envoyer:`, 'info');
+      log(`   Authorization: Bearer ${authToken.substring(0, 30)}...`, 'info');
+      log(`   X-CSRF-Token: ${csrfToken.substring(0, 30)}...`, 'info');
+
+      try {
+        const response = await fetch(`${API_BASE}/api/team/team_1/upload-avatar`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-CSRF-Token': csrfToken
+          },
+          body: formData
+        });
+
+        log(`📊 Response status: ${response.status}`, response.ok ? 'success' : 'error');
+
+        const responseText = await response.text();
+        
+        if (response.ok) {
+          log(`✅ Upload réussi!`, 'success');
+          log(`   Response: ${responseText}`, 'info');
+        } else {
+          log(`❌ Upload échoué`, 'error');
+          log(`   Response: ${responseText}`, 'error');
+        }
+
+      } catch (error) {
+        log(`❌ Erreur: ${error.message}`, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug CSRF Token</title>
+</head>
+<body>
+    <h1>Debug CSRF Token</h1>
+    <button onclick="checkToken()">Vérifier Token CSRF</button>
+    <button onclick="fetchNewToken()">Récupérer Nouveau Token</button>
+    <button onclick="testDelete()">Test DELETE /team/5</button>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+
+        function checkToken() {
+            output.textContent = '';
+            const token = localStorage.getItem('X-CSRF-Token');
+            const expiry = localStorage.getItem('CSRF-Token-Expiry');
+            const authToken = localStorage.getItem('token');
+            
+            log('=== CSRF Token ===');
+            log('Token: ' + (token ? token.substring(0, 50) + '...' : 'NULL'));
+            log('Expiry: ' + expiry);
+            log('Valid: ' + (expiry && Date.now() < parseInt(expiry)));
+            log('');
+            log('=== Auth Token ===');
+            log('Bearer: ' + (authToken ? authToken.substring(0, 50) + '...' : 'NULL'));
+        }
+
+        async function fetchNewToken() {
+            output.textContent = '';
+            try {
+                log('Fetching new CSRF token...');
+                const response = await fetch('http://localhost:8080/api/csrf-token', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                
+                const data = await response.json();
+                log('Response: ' + JSON.stringify(data, null, 2));
+                
+                if (data.csrfToken) {
+                    localStorage.setItem('X-CSRF-Token', data.csrfToken);
+                    const expiry = Date.now() + (24 * 60 * 60 * 1000);
+                    localStorage.setItem('CSRF-Token-Expiry', expiry.toString());
+                    log('✅ Token stored!');
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+            }
+        }
+
+        async function testDelete() {
+            output.textContent = '';
+            try {
+                const csrfToken = localStorage.getItem('X-CSRF-Token');
+                const authToken = localStorage.getItem('token');
+                
+                log('Testing DELETE /team/5');
+                log('CSRF Token: ' + (csrfToken ? 'Present' : 'MISSING'));
+                log('Auth Token: ' + (authToken ? 'Present' : 'MISSING'));
+                log('');
+                
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+                
+                if (authToken) {
+                    headers['Authorization'] = 'Bearer ' + authToken;
+                    log('✅ Added Authorization header');
+                }
+                
+                if (csrfToken) {
+                    headers['X-CSRF-Token'] = csrfToken;
+                    log('✅ Added X-CSRF-Token header');
+                }
+                
+                log('');
+                log('Sending request...');
+                
+                const response = await fetch('http://localhost:8080/team/5', {
+                    method: 'DELETE',
+                    credentials: 'include',
+                    headers
+                });
+                
+                log('Status: ' + response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('Success: ' + JSON.stringify(data, null, 2));
+                } else {
+                    const error = await response.json();
+                    log('Error: ' + JSON.stringify(error, null, 2));
+                }
+            } catch (error) {
+                log('❌ Exception: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

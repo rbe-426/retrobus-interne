@@ -1,0 +1,341 @@
+/**
+ * TABLET.CSS - Optimisations pour tablettes haute résolution
+ * Cible principale : Surface Pro (2736x1824 @ 200% scaling = 1368x912 logical)
+ * 
+ * Ce fichier gère les adaptations spécifiques aux tablettes avec écrans haute densité
+ * pour garantir une expérience optimale sans zoom excessif ni éléments trop petits.
+ */
+
+/* ========================================
+   SURFACE PRO & TABLETTES HAUTE RÉSOLUTION
+   ======================================== */
+
+/* Surface Pro spécifique (1368x912 logical pixels) */
+@media screen and (min-width: 1024px) and (max-width: 1440px) {
+  /* Force le scaling approprié pour Surface Pro */
+  :root {
+    --tablet-scale: 1;
+    --touch-target-min: 44px; /* WCAG 2.1 AAA */
+    --font-size-base: 15px;
+    --spacing-unit: 4px;
+  }
+
+  /* Ajustement de la taille de base pour améliorer la lisibilité */
+  html {
+    font-size: 15px; /* Légèrement plus grand que 14px par défaut */
+  }
+
+  body {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Sidebar adaptée pour tablette */
+  [data-sidebar] {
+    width: 260px !important; /* Légèrement réduit de 280px */
+  }
+
+  /* Header ajusté pour tablette */
+  header {
+    height: 100px !important; /* Entre mobile (50px) et desktop (120px) */
+  }
+
+  /* Container optimisé pour Surface Pro */
+  .chakra-container {
+    max-width: 1280px !important; /* Légèrement réduit pour laisser de l'espace */
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  /* Cards avec espacement optimisé */
+  .chakra-card {
+    padding: 1.25rem !important; /* Entre mobile et desktop */
+  }
+
+  /* Boutons avec touch targets WCAG */
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.625rem 1rem;
+  }
+
+  /* Inputs plus accessibles au toucher */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 0.625rem 0.875rem;
+  }
+
+  /* Tables avec scroll horizontal sur tablette */
+  .chakra-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Modals adaptés */
+  .chakra-modal__content {
+    max-width: 90vw !important;
+    margin: 2rem auto;
+  }
+
+  /* Grids responsives pour tablette */
+  .chakra-simple-grid {
+    gap: 1.25rem !important;
+  }
+
+  /* Navigation drawer pour tablette */
+  .chakra-drawer__content {
+    max-width: 320px !important;
+  }
+
+  /* Tooltip plus visibles */
+  .chakra-tooltip {
+    font-size: 14px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Badges et tags lisibles */
+  .chakra-badge,
+  .chakra-tag {
+    font-size: 13px;
+    padding: 0.25rem 0.625rem;
+  }
+}
+
+/* ========================================
+   TABLETTE PORTRAIT (iPad Pro, Surface en portrait)
+   ======================================== */
+
+@media screen and (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
+  :root {
+    --tablet-scale: 1.1;
+    --touch-target-min: 48px;
+    --font-size-base: 16px;
+  }
+
+  html {
+    font-size: 16px;
+  }
+
+  /* Sidebar en overlay sur tablette portrait */
+  [data-sidebar] {
+    position: fixed;
+    z-index: 1000;
+  }
+
+  /* Header réduit */
+  header {
+    height: 80px !important;
+  }
+
+  /* Touch targets plus grands en portrait */
+  button,
+  a,
+  [role="button"] {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Grids en colonne unique */
+  .chakra-simple-grid[data-columns] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ========================================
+   OPTIMISATIONS TOUCH
+   ======================================== */
+
+@media (pointer: coarse) {
+  /* Appareils tactiles (tablettes, hybrides) */
+  
+  /* Scroll momentum iOS */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Désactivation du tap highlight */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Espacement entre éléments cliquables */
+  button + button,
+  a + a {
+    margin-left: 0.5rem;
+  }
+
+  /* Hover désactivé sur tactile */
+  *:hover {
+    transform: none !important;
+  }
+
+  /* Focus visible renforcé */
+  *:focus-visible {
+    outline: 3px solid #d30c4c;
+    outline-offset: 2px;
+  }
+
+  /* Dropdowns adaptés au toucher */
+  .chakra-menu__menu-list {
+    min-width: 240px;
+  }
+
+  .chakra-menu__menuitem {
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Select boxes plus accessibles */
+  .chakra-select__wrapper select {
+    min-height: 48px;
+    font-size: 16px; /* Évite le zoom sur iOS */
+  }
+}
+
+/* ========================================
+   HIGH DPI / RETINA DISPLAYS
+   ======================================== */
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Textes plus nets sur écrans Retina */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Images optimisées */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+
+  /* Bordures fines mais visibles */
+  .chakra-card,
+  .chakra-divider {
+    border-width: 0.5px;
+  }
+}
+
+/* ========================================
+   SURFACE PRO LANDSCAPE (MODE PRINCIPAL)
+   ======================================== */
+
+@media screen and (min-width: 1368px) and (max-width: 1440px) and (orientation: landscape) {
+  /* Configuration optimale pour Surface Pro en landscape */
+  
+  /* Container pleine largeur */
+  .chakra-container {
+    max-width: 1320px !important;
+  }
+
+  /* Sidebar visible par défaut */
+  [data-sidebar] {
+    display: flex !important;
+    position: relative;
+  }
+
+  /* Grids 3 colonnes optimales */
+  .chakra-simple-grid[data-columns="4"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Stats cards taille parfaite */
+  .chakra-stat {
+    padding: 1.5rem;
+  }
+
+  .chakra-stat__number {
+    font-size: 2rem;
+  }
+
+  .chakra-stat__label {
+    font-size: 0.875rem;
+  }
+}
+
+/* ========================================
+   PRINT (Surface Pro peut être utilisée pour imprimer)
+   ======================================== */
+
+@media print {
+  /* Sidebar cachée à l'impression */
+  [data-sidebar],
+  header,
+  footer,
+  .chakra-drawer,
+  .chakra-modal {
+    display: none !important;
+  }
+
+  /* Pleine largeur pour l'impression */
+  .chakra-container {
+    max-width: 100% !important;
+  }
+
+  /* Couleurs préservées */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITÉ RENFORCÉE TABLETTE
+   ======================================== */
+
+/* Focus visible sur tablette */
+@media (pointer: coarse) and (min-width: 768px) {
+  *:focus {
+    outline: 3px solid #d30c4c !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Skip links pour navigation clavier */
+  .skip-link:focus {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 9999;
+    padding: 1rem;
+    background: #d30c4c;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+  }
+}
+
+/* ========================================
+   PERFORMANCE TABLETTE
+   ======================================== */
+
+/* Optimisations GPU sur tablettes */
+@media screen and (min-width: 768px) and (max-width: 1440px) {
+  /* Force GPU acceleration pour animations fluides */
+  .chakra-card,
+  .chakra-button,
+  .chakra-modal {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  /* Transitions optimisées */
+  * {
+    transition-duration: 0.15s !important;
+  }
+
+  /* Scroll smooth natif */
+  html {
+    scroll-behavior: smooth;
+  }
+}
