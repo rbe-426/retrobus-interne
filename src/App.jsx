@@ -109,6 +109,7 @@ const RetroStudio = lazy(() => import("./pages/RetroStudio"));
 const IneoHome = lazy(() => import("./pages/IneoHome"));
 const IneoDriver = lazy(() => import("./pages/IneoDriver"));
 const IneoOperations = lazy(() => import("./pages/IneoOperations"));
+const LeMusee = lazy(() => import("./pages/LeMusee"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -179,7 +180,10 @@ export default function App() {
         {/* 👥 Gestion des Adhésions - DÉSACTIVÉE */}
         {/* <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} /> */}
         
-        {/* 🏛️ Le Musée (dev ou w.belaidi uniquement) */}
+        {/* 🏛️ Le Musée - Système d'authentification séparé */}
+        <Route path="/lemusee" element={<LeMusee />} />
+        
+        {/* 🏛️ Le Musée (dev ou w.belaidi uniquement) - ANCIENNE ROUTE */}
         {canAccessMuseum && (
           <Route path="/dashboard/rbe-lemusee" element={<ProtectedRoute><SubventionCampaign /></ProtectedRoute>} />
         )}
