@@ -114,7 +114,7 @@ export default function Header() {
   const navDrawer = useDisclosure();
   
   // Hook pour les emails non lus
-  const { unreadCount: mailUnreadCount } = useUnreadMailCount(30000); // Refresh toutes les 30s
+  const { unreadCount: mailUnreadCount } = useUnreadMailCount(60000); // Refresh toutes les 60s (optimisé)
   
   // Mobile detection using Chakra UI useMediaQuery hook (more reliable)
   const [isLessThan768] = useMediaQuery("(max-width: 768px)");

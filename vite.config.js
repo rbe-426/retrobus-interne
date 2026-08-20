@@ -16,16 +16,24 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       cors: true,
+      hmr: {
+        overlay: true,
+      },
+      watch: {
+        usePolling: false, // Plus performant sur Windows
+      },
       proxy: (() => {
         const common = {
           target: DEV_API_TARGET,
           changeOrigin: true,
           secure: isHttps,
+          timeout: 30000, // 30s timeout
+          proxyTimeout: 30000,
+          agent: false, // Désactive l'agent pour de meilleures performances
           configure: (proxy, _options) => {
             console.log(`[vite] API proxy -> ${DEV_API_TARGET}`);
-            proxy.on('error', (err, _req, _res) => console.log('proxy error', err));
-            proxy.on('proxyReq', (proxyReq, req, _res) => console.log('Sending Request to the Target:', req.method, req.url));
-            proxy.on('proxyRes', (proxyRes, req, _res) => console.log('Received Response from the Target:', proxyRes.statusCode, req.url));
+            // Logs d'erreurs uniquement (désactivation des logs verbeux pour performances)
+            proxy.on('error', (err, _req, _res) => console.error('[proxy error]', err));
           }
         };
         return {
