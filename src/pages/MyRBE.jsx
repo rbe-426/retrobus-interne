@@ -34,7 +34,7 @@ import ModernCard from '../components/Layout/ModernCard';
 const cards = [
   {
     title: "Le Musée",
-    description: "Espace sécurisé avec authentification dédiée",
+    description: "",
     to: "/lemusee",
     icon: null,
     titleImageSrc: "/myrbe_lemusee.png",
@@ -46,7 +46,6 @@ const cards = [
     color: "gray",
     resource: null,
     cardAccess: true,
-    badge: { label: "🔒 Sécurisé", color: "red" },
     cardProps: {
       bg: "black",
       borderColor: "gray.700",
