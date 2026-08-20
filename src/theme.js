@@ -74,7 +74,7 @@ const theme = extendTheme({
       800: '#9a3412',
       900: '#7c2d12',
     },
-    // Tons neutres modernes
+    // Tons neutres modernes (Palette Trilogy)
     gray: {
       50: '#f8fafc',
       100: '#f1f5f9',
@@ -85,7 +85,7 @@ const theme = extendTheme({
       600: '#475569',
       700: '#334155',
       800: '#1e293b',
-      900: '#0f172a',
+      900: '#0f172a', // Carbone RétroBus (couleur officielle Trilogy Interne)
     }
   },
   

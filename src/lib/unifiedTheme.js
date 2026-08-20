@@ -10,7 +10,7 @@ export const UNIFIED_THEME = {
 
   // Couleurs
   colors: {
-    header: "gray.900",
+    header: "gray.900", // Carbone RétroBus #0f172a
     headerText: "white",
     headerBorder: "gray.700",
     headerHover: "rbe.500",
