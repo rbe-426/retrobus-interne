@@ -4,6 +4,14 @@
 
 "Le Musée" est une section sécurisée de l'application RBE avec un système d'authentification séparé et indépendant du système principal. Cette séparation garantit une sécurité optimale.
 
+Le Musée intègre un système complet de gestion avec 6 modules principaux :
+1. **Dashboard** - Vue d'ensemble et check-in rapide
+2. **Stock** - Gestion d'inventaire des pièces
+3. **Facing** - Merchandising et disposition des collections
+4. **Floor** - Gestion des espaces (salles, étages, zones)
+5. **Staff** - Gestion de la main d'œuvre (personnel du musée)
+6. **Planning** - Affectations et plannings des équipes
+
 ## Architecture
 
 ### Frontend
@@ -15,6 +23,55 @@
 ### Backend
 - **Routes API**: `Interne/api/src/routes/musee.routes.js`
 - **Base URL**: `/api/musee`
+
+### Modules fonctionnels
+
+#### Dashboard
+- Vue d'ensemble des statistiques
+- Check-in rapide pour enregistrer sa présence
+- Raccourcis vers tous les modules
+- Statistiques : total visites, visites du mois, visites de la semaine
+
+#### Stock (🚧 En développement)
+- Catalogage des pièces du musée
+- Gestion des entrées/sorties
+- Alertes de stock bas
+- Historique des mouvements
+- Scan codes-barres
+- Rapports d'inventaire
+
+#### Facing (🚧 En développement)
+- Optimisation du merchandising
+- Plans de facing interactifs
+- Disposition des pièces
+- Rotations d'exposition
+- Mise en valeur des collections
+- Analytics de visibilité
+- Recommandations automatiques
+
+#### Floor Management (🚧 En développement)
+- Gestion des salles d'exposition
+- Plans des étages
+- Zones thématiques
+- Cartes interactives
+- Affectation des pièces aux zones
+- Statistiques de fréquentation par zone
+
+#### Staff (🚧 En développement)
+- Fiches personnel (guides, conservateurs, agents)
+- Gestion des compétences et certifications
+- Disponibilités
+- Historique des affectations
+- Évaluations de performance
+
+#### Planning (🚧 En développement)
+- Plannings des équipes
+- Affectations par zone
+- Rotations du personnel
+- Gestion des absences
+- Calendrier interactif
+- Génération automatique de plannings
+- Gestion des conflits d'horaires
 
 ### Endpoints API
 
