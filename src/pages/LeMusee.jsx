@@ -9,13 +9,14 @@ import {
   NumberDecrementStepper, Switch, Tabs, TabList, TabPanels, Tab, TabPanel, Avatar,
   Progress, Tag, TagLabel, TagCloseButton, Wrap, WrapItem, List, ListItem, ListIcon,
   Accordion, AccordionItem, AccordionButton, AccordionPanel, AccordionIcon,
-  Menu, MenuButton, MenuList, MenuItem, MenuDivider
+  Menu, MenuButton, MenuList, MenuItem, MenuDivider,
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink
 } from '@chakra-ui/react';
 import {
   FiLogOut, FiCheckCircle, FiClock, FiUser, FiPackage, FiLayers, FiUsers, FiCalendar,
   FiShoppingBag, FiTrendingUp, FiMapPin, FiPlus, FiEdit2, FiTrash2, FiAlertCircle,
   FiCheck, FiX, FiSave, FiSearch, FiFilter, FiTool, FiBook, FiAward, FiTruck, FiCamera,
-  FiFileText, FiSettings, FiActivity, FiHome
+  FiFileText, FiSettings, FiActivity, FiHome, FiUserCheck
 } from 'react-icons/fi';
 import MuseeLoginModal from '../components/MuseeLoginModal';
 import { useNavigate } from 'react-router-dom';
@@ -154,6 +155,11 @@ export default function LeMusee() {
   const [floors, setFloors] = useState(DEMO_FLOORS);
   const [staff, setStaff] = useState(DEMO_STAFF);
   const [planning, setPlanning] = useState(DEMO_PLANNING);
+
+  // États pour l'accueil visiteurs
+  const [visitorForm, setVisitorForm] = useState({ nom: '', nbPersonnes: 1, motif: 'Visite libre' });
+  const [visitorsToday, setVisitorsToday] = useState([]);
+  const [loadingVisitor, setLoadingVisitor] = useState(false);
 
   // Drawers (remplace les modals)
   const vehicleDrawer = useDisclosure();
@@ -306,11 +312,13 @@ export default function LeMusee() {
     setLoadingCheckIn(true);
     try {
       const token = localStorage.getItem('musee_token');
+      const csrfToken = getStoredCSRFToken();
       const response = await fetch('/api/musee/check-in', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         }
       });
 
@@ -346,6 +354,44 @@ export default function LeMusee() {
     } finally {
       setLoadingCheckIn(false);
     }
+  };
+
+  const handleVisitorCheckIn = () => {
+    if (!visitorForm.nom || !visitorForm.nbPersonnes) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez remplir tous les champs',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true
+      });
+      return;
+    }
+
+    setLoadingVisitor(true);
+    
+    const newVisitor = {
+      id: Date.now(),
+      nom: visitorForm.nom,
+      nbPersonnes: parseInt(visitorForm.nbPersonnes),
+      motif: visitorForm.motif,
+      heureArrivee: new Date().toLocaleTimeString('fr-FR'),
+      date: new Date().toLocaleDateString('fr-FR')
+    };
+
+    setVisitorsToday([newVisitor, ...visitorsToday]);
+    
+    toast({
+      title: 'Visiteur enregistré !',
+      description: `${visitorForm.nom} - ${visitorForm.nbPersonnes} personne(s)`,
+      status: 'success',
+      duration: 3000,
+      isClosable: true
+    });
+
+    // Réinitialiser le formulaire
+    setVisitorForm({ nom: '', nbPersonnes: 1, motif: 'Visite libre' });
+    setLoadingVisitor(false);
   };
 
   const handleLoginSuccess = () => {
@@ -590,9 +636,10 @@ export default function LeMusee() {
         {isAuthenticated ? (
           <VStack spacing={8} align="stretch">
             {/* Navigation modules */}
-            <SimpleGrid columns={{ base: 2, md: 4, lg: 8 }} gap={4}>
+            <SimpleGrid columns={{ base: 2, md: 4, lg: 9 }} gap={4}>
               {[
                 { key: 'dashboard', label: 'Dashboard', icon: FiTrendingUp },
+                { key: 'accueil', label: 'Accueil', icon: FiUserCheck },
                 { key: 'vehicles', label: 'Véhicules', icon: FiTruck },
                 { key: 'restorations', label: 'Restaurations', icon: FiTool },
                 { key: 'stock', label: 'Pièces', icon: FiPackage },
@@ -698,6 +745,185 @@ export default function LeMusee() {
                   ))}
                 </SimpleGrid>
               </VStack>
+            )}
+
+            {/* MODULE: Accueil Visiteurs */}
+            {activeModule === 'accueil' && (
+              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+                <VStack spacing={6} align="stretch">
+                  {/* Fil d'Ariane */}
+                  <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
+                    <BreadcrumbItem>
+                      <BreadcrumbLink onClick={() => setActiveModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
+                        <HStack spacing={1}>
+                          <FiHome />
+                          <Text>Musée</Text>
+                        </HStack>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbItem isCurrentPage>
+                      <BreadcrumbLink color="white">
+                        <HStack spacing={1}>
+                          <FiUserCheck />
+                          <Text>Accueil Visiteurs</Text>
+                        </HStack>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </Breadcrumb>
+
+                  <Divider borderColor="whiteAlpha.300" />
+
+                  {/* Header */}
+                  <Flex justify="space-between" align="center">
+                    <Heading size="lg" color="white">
+                      <HStack>
+                        <FiUserCheck />
+                        <Text>Accueil Visiteurs</Text>
+                      </HStack>
+                    </Heading>
+                    <Badge colorScheme="blue" fontSize="lg" p={2}>
+                      {visitorsToday.reduce((sum, v) => sum + v.nbPersonnes, 0)} visiteurs aujourd'hui
+                    </Badge>
+                  </Flex>
+
+                  {/* Contenu principal */}
+                  <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={6}>
+                    {/* Formulaire d'enregistrement */}
+                    <Card bg="gray.800" borderColor="whiteAlpha.300" borderWidth="1px">
+                      <CardHeader>
+                        <Heading size="md" color="white">Enregistrer une visite</Heading>
+                      </CardHeader>
+                      <CardBody>
+                        <VStack spacing={4} align="stretch">
+                          <FormControl>
+                            <FormLabel color="whiteAlpha.700">Nom / Groupe</FormLabel>
+                            <Input 
+                              value={visitorForm.nom} 
+                              onChange={(e) => setVisitorForm({...visitorForm, nom: e.target.value})}
+                              placeholder="Famille Dupont, École..."
+                              bg="gray.900"
+                              borderColor="whiteAlpha.300"
+                              color="white"
+                              size="lg"
+                            />
+                          </FormControl>
+                          <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+                            <FormControl>
+                              <FormLabel color="whiteAlpha.700">Nombre de personnes</FormLabel>
+                              <NumberInput 
+                                value={visitorForm.nbPersonnes} 
+                                onChange={(val) => setVisitorForm({...visitorForm, nbPersonnes: val})}
+                                min={1}
+                                bg="gray.900"
+                                size="lg"
+                              >
+                                <NumberInputField borderColor="whiteAlpha.300" color="white" />
+                                <NumberInputStepper>
+                                  <NumberIncrementStepper borderColor="whiteAlpha.300" color="white" />
+                                  <NumberDecrementStepper borderColor="whiteAlpha.300" color="white" />
+                                </NumberInputStepper>
+                              </NumberInput>
+                            </FormControl>
+                            <FormControl>
+                              <FormLabel color="whiteAlpha.700">Motif</FormLabel>
+                              <Select 
+                                value={visitorForm.motif} 
+                                onChange={(e) => setVisitorForm({...visitorForm, motif: e.target.value})}
+                                bg="gray.900"
+                                borderColor="whiteAlpha.300"
+                                color="white"
+                                size="lg"
+                                _hover={{ borderColor: 'whiteAlpha.400' }}
+                              >
+                                <option value="Visite libre" style={{background: '#1a202c'}}>Visite libre</option>
+                                <option value="Visite guidée" style={{background: '#1a202c'}}>Visite guidée</option>
+                                <option value="Événement" style={{background: '#1a202c'}}>Événement</option>
+                                <option value="Scolaire" style={{background: '#1a202c'}}>Scolaire</option>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                          <Button 
+                            colorScheme="blue" 
+                            size="lg" 
+                            leftIcon={<FiCheckCircle />}
+                            onClick={handleVisitorCheckIn}
+                            isLoading={loadingVisitor}
+                            w="full"
+                          >
+                            Enregistrer l'arrivée
+                          </Button>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* Liste des visiteurs aujourd'hui */}
+                    <Card bg="gray.800" borderColor="whiteAlpha.300" borderWidth="1px">
+                      <CardHeader>
+                        <HStack justifyContent="space-between">
+                          <Heading size="md" color="white">Visiteurs aujourd'hui</Heading>
+                          <Badge colorScheme="purple" fontSize="md">
+                            {visitorsToday.length} entrées
+                          </Badge>
+                        </HStack>
+                      </CardHeader>
+                      <CardBody>
+                        <Box 
+                          maxH="500px" 
+                          overflowY="auto" 
+                          bg="gray.900" 
+                          p={3} 
+                          borderRadius="md"
+                          borderWidth="1px"
+                          borderColor="whiteAlpha.300"
+                        >
+                          {visitorsToday.length === 0 ? (
+                            <Center py={8}>
+                              <VStack spacing={3}>
+                                <FiUsers size={48} color="gray" />
+                                <Text color="whiteAlpha.500" textAlign="center">
+                                  Aucun visiteur enregistré aujourd'hui
+                                </Text>
+                              </VStack>
+                            </Center>
+                          ) : (
+                            <VStack spacing={3} align="stretch">
+                              {visitorsToday.map(visitor => (
+                                <Box 
+                                  key={visitor.id} 
+                                  p={4} 
+                                  bg="whiteAlpha.100" 
+                                  borderRadius="md"
+                                  borderWidth="1px"
+                                  borderColor="whiteAlpha.200"
+                                  _hover={{ borderColor: 'purple.400', bg: 'whiteAlpha.200' }}
+                                  transition="all 0.2s"
+                                >
+                                  <HStack justifyContent="space-between">
+                                    <VStack align="start" spacing={2}>
+                                      <Text color="white" fontWeight="bold" fontSize="lg">{visitor.nom}</Text>
+                                      <HStack spacing={4} fontSize="sm">
+                                        <HStack color="whiteAlpha.700">
+                                          <FiUsers />
+                                          <Text>{visitor.nbPersonnes} pers.</Text>
+                                        </HStack>
+                                        <HStack color="whiteAlpha.700">
+                                          <FiClock />
+                                          <Text>{visitor.heureArrivee}</Text>
+                                        </HStack>
+                                      </HStack>
+                                    </VStack>
+                                    <Badge colorScheme="purple" fontSize="sm" p={2}>{visitor.motif}</Badge>
+                                  </HStack>
+                                </Box>
+                              ))}
+                            </VStack>
+                          )}
+                        </Box>
+                      </CardBody>
+                    </Card>
+                  </Grid>
+                </VStack>
+              </Box>
             )}
 
             {/* MODULE: Stock */}
@@ -1232,23 +1458,23 @@ export default function LeMusee() {
                       <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                         <FormControl>
                           <FormLabel>Constructeur</FormLabel>
-                          <Select value={formData.constructeur || ''} onChange={(e) => setFormData({...formData, constructeur: e.target.value})}>
-                            <option value="">Sélectionner...</option>
-                            <option value="Renault">Renault</option>
-                            <option value="Saviem">Saviem</option>
-                            <option value="Berliet">Berliet</option>
-                            <option value="Citroën">Citroën</option>
-                            <option value="Autre">Autre</option>
+                          <Select value={formData.constructeur || ''} onChange={(e) => setFormData({...formData, constructeur: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                            <option value="" style={{background: '#1a202c'}}>Sélectionner...</option>
+                            <option value="Renault" style={{background: '#1a202c'}}>Renault</option>
+                            <option value="Saviem" style={{background: '#1a202c'}}>Saviem</option>
+                            <option value="Berliet" style={{background: '#1a202c'}}>Berliet</option>
+                            <option value="Citroën" style={{background: '#1a202c'}}>Citroën</option>
+                            <option value="Autre" style={{background: '#1a202c'}}>Autre</option>
                           </Select>
                         </FormControl>
                         <FormControl>
                           <FormLabel>Carrossier</FormLabel>
-                          <Select value={formData.carrossier || ''} onChange={(e) => setFormData({...formData, carrossier: e.target.value})}>
-                            <option value="">Sélectionner...</option>
-                            <option value="Chausson">Chausson</option>
-                            <option value="Heuliez">Heuliez</option>
-                            <option value="Gruau">Gruau</option>
-                            <option value="Autre">Autre</option>
+                          <Select value={formData.carrossier || ''} onChange={(e) => setFormData({...formData, carrossier: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                            <option value="" style={{background: '#1a202c'}}>Sélectionner...</option>
+                            <option value="Chausson" style={{background: '#1a202c'}}>Chausson</option>
+                            <option value="Heuliez" style={{background: '#1a202c'}}>Heuliez</option>
+                            <option value="Gruau" style={{background: '#1a202c'}}>Gruau</option>
+                            <option value="Autre" style={{background: '#1a202c'}}>Autre</option>
                           </Select>
                         </FormControl>
                       </Grid>
@@ -1282,11 +1508,11 @@ export default function LeMusee() {
                       <VStack spacing={4}>
                         <FormControl>
                           <FormLabel>État</FormLabel>
-                          <Select value={formData.etat || ''} onChange={(e) => setFormData({...formData, etat: e.target.value})}>
-                            <option value="Restauré">Restauré</option>
-                            <option value="En restauration">En restauration</option>
-                            <option value="À restaurer">À restaurer</option>
-                            <option value="Pour pièces">Pour pièces</option>
+                          <Select value={formData.etat || ''} onChange={(e) => setFormData({...formData, etat: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                            <option value="Restauré" style={{background: '#1a202c'}}>Restauré</option>
+                            <option value="En restauration" style={{background: '#1a202c'}}>En restauration</option>
+                            <option value="À restaurer" style={{background: '#1a202c'}}>À restaurer</option>
+                            <option value="Pour pièces" style={{background: '#1a202c'}}>Pour pièces</option>
                           </Select>
                         </FormControl>
                         <FormControl display="flex" alignItems="center">
@@ -1295,10 +1521,10 @@ export default function LeMusee() {
                         </FormControl>
                         <FormControl>
                           <FormLabel>Localisation</FormLabel>
-                          <Select value={formData.localisation || ''} onChange={(e) => setFormData({...formData, localisation: e.target.value})}>
-                            <option value="Hangar A">Hangar A - Véhicules</option>
-                            <option value="Atelier B">Atelier B - Restauration</option>
-                            <option value="Extérieur">Extérieur</option>
+                          <Select value={formData.localisation || ''} onChange={(e) => setFormData({...formData, localisation: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                            <option value="Hangar A" style={{background: '#1a202c'}}>Hangar A - Véhicules</option>
+                            <option value="Atelier B" style={{background: '#1a202c'}}>Atelier B - Restauration</option>
+                            <option value="Extérieur" style={{background: '#1a202c'}}>Extérieur</option>
                           </Select>
                         </FormControl>
                       </VStack>
@@ -1360,14 +1586,14 @@ export default function LeMusee() {
                 <VStack spacing={4}>
                   <FormControl>
                     <FormLabel>Véhicule concerné</FormLabel>
-                    <Select value={formData.vehicule || ''} onChange={(e) => setFormData({...formData, vehicule: e.target.value})}>
+                    <Select value={formData.vehicule || ''} onChange={(e) => setFormData({...formData, vehicule: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                       <option value="">Sélectionner...</option>
                       {vehicles.map(v => <option key={v.id} value={v.nom}>{v.nom}</option>)}
                     </Select>
                   </FormControl>
                   <FormControl>
                     <FormLabel>Responsable</FormLabel>
-                    <Select value={formData.responsable || ''} onChange={(e) => setFormData({...formData, responsable: e.target.value})}>
+                    <Select value={formData.responsable || ''} onChange={(e) => setFormData({...formData, responsable: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                       <option value="">Sélectionner...</option>
                       {staff.map(s => <option key={s.id} value={s.nom}>{s.nom}</option>)}
                     </Select>
@@ -1449,11 +1675,11 @@ export default function LeMusee() {
               <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                 <FormControl>
                   <FormLabel>Type</FormLabel>
-                  <Select value={formData.type || ''} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                    <option value="Manuel">Manuel</option>
-                    <option value="Plans">Plans</option>
-                    <option value="Revue">Revue</option>
-                    <option value="Catalogue">Catalogue</option>
+                  <Select value={formData.type || ''} onChange={(e) => setFormData({...formData, type: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                    <option value="Manuel" style={{background: '#1a202c'}}>Manuel</option>
+                    <option value="Plans" style={{background: '#1a202c'}}>Plans</option>
+                    <option value="Revue" style={{background: '#1a202c'}}>Revue</option>
+                    <option value="Catalogue" style={{background: '#1a202c'}}>Catalogue</option>
                   </Select>
                 </FormControl>
                 <FormControl>
@@ -1540,16 +1766,16 @@ export default function LeMusee() {
                 <VStack spacing={4}>
                   <FormControl>
                     <FormLabel>Type d'événement</FormLabel>
-                    <Select value={formData.type || ''} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                      <option value="Exposition statique">Exposition statique</option>
-                      <option value="Sortie roulante">Sortie roulante</option>
-                      <option value="Visite guidée">Visite guidée</option>
-                      <option value="Rallye">Rallye</option>
+                    <Select value={formData.type || ''} onChange={(e) => setFormData({...formData, type: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                      <option value="Exposition statique" style={{background: '#1a202c'}}>Exposition statique</option>
+                      <option value="Sortie roulante" style={{background: '#1a202c'}}>Sortie roulante</option>
+                      <option value="Visite guidée" style={{background: '#1a202c'}}>Visite guidée</option>
+                      <option value="Rallye" style={{background: '#1a202c'}}>Rallye</option>
                     </Select>
                   </FormControl>
                   <FormControl>
                     <FormLabel>Véhicule(s)</FormLabel>
-                    <Select value={formData.vehicule || ''} onChange={(e) => setFormData({...formData, vehicule: e.target.value})}>
+                    <Select value={formData.vehicule || ''} onChange={(e) => setFormData({...formData, vehicule: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                       <option value="">Aucun</option>
                       {vehicles.map(v => <option key={v.id} value={v.nom}>{v.nom}</option>)}
                     </Select>
@@ -1563,10 +1789,10 @@ export default function LeMusee() {
                     </FormControl>
                     <FormControl>
                       <FormLabel>Statut</FormLabel>
-                      <Select value={formData.statut || ''} onChange={(e) => setFormData({...formData, statut: e.target.value})}>
-                        <option value="En préparation">En préparation</option>
-                        <option value="Confirmé">Confirmé</option>
-                        <option value="Annulé">Annulé</option>
+                      <Select value={formData.statut || ''} onChange={(e) => setFormData({...formData, statut: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                        <option value="En préparation" style={{background: '#1a202c'}}>En préparation</option>
+                        <option value="Confirmé" style={{background: '#1a202c'}}>Confirmé</option>
+                        <option value="Annulé" style={{background: '#1a202c'}}>Annulé</option>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -1613,12 +1839,12 @@ export default function LeMusee() {
                     </FormControl>
                     <FormControl>
                       <FormLabel>Catégorie</FormLabel>
-                      <Select value={formData.categorie || ''} onChange={(e) => setFormData({...formData, categorie: e.target.value})}>
-                        <option value="">Sélectionner...</option>
-                        <option value="Pièce mécanique">Pièce mécanique</option>
-                        <option value="Accessoire">Accessoire</option>
-                        <option value="Signalétique">Signalétique</option>
-                        <option value="Documentation">Documentation</option>
+                      <Select value={formData.categorie || ''} onChange={(e) => setFormData({...formData, categorie: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                        <option value="" style={{background: '#1a202c'}}>Sélectionner...</option>
+                        <option value="Pièce mécanique" style={{background: '#1a202c'}}>Pièce mécanique</option>
+                        <option value="Accessoire" style={{background: '#1a202c'}}>Accessoire</option>
+                        <option value="Signalétique" style={{background: '#1a202c'}}>Signalétique</option>
+                        <option value="Documentation" style={{background: '#1a202c'}}>Documentation</option>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -1642,11 +1868,11 @@ export default function LeMusee() {
                   </FormControl>
                   <FormControl>
                     <FormLabel>État</FormLabel>
-                    <Select value={formData.etat || 'Bon'} onChange={(e) => setFormData({...formData, etat: e.target.value})}>
-                      <option value="Neuf">Neuf</option>
-                      <option value="Excellent">Excellent</option>
-                      <option value="Bon">Bon</option>
-                      <option value="Moyen">Moyen</option>
+                    <Select value={formData.etat || 'Bon'} onChange={(e) => setFormData({...formData, etat: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                      <option value="Neuf" style={{background: '#1a202c'}}>Neuf</option>
+                      <option value="Excellent" style={{background: '#1a202c'}}>Excellent</option>
+                      <option value="Bon" style={{background: '#1a202c'}}>Bon</option>
+                      <option value="Moyen" style={{background: '#1a202c'}}>Moyen</option>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1703,20 +1929,20 @@ export default function LeMusee() {
                 </FormControl>
                 <FormControl>
                   <FormLabel>Rotation</FormLabel>
-                  <Select value={formData.rotation || ''} onChange={(e) => setFormData({...formData, rotation: e.target.value})}>
-                    <option value="Mensuelle">Mensuelle</option>
-                    <option value="Trimestrielle">Trimestrielle</option>
-                    <option value="Annuelle">Annuelle</option>
+                  <Select value={formData.rotation || ''} onChange={(e) => setFormData({...formData, rotation: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                    <option value="Mensuelle" style={{background: '#1a202c'}}>Mensuelle</option>
+                    <option value="Trimestrielle" style={{background: '#1a202c'}}>Trimestrielle</option>
+                    <option value="Annuelle" style={{background: '#1a202c'}}>Annuelle</option>
                   </Select>
                 </FormControl>
               </Grid>
 
               <FormControl>
                 <FormLabel>Priorité</FormLabel>
-                <Select value={formData.priorite || 'Moyenne'} onChange={(e) => setFormData({...formData, priorite: e.target.value})}>
-                  <option value="Haute">Haute</option>
-                  <option value="Moyenne">Moyenne</option>
-                  <option value="Basse">Basse</option>
+                <Select value={formData.priorite || 'Moyenne'} onChange={(e) => setFormData({...formData, priorite: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }}>
+                  <option value="Haute" style={{background: '#1a202c'}}>Haute</option>
+                  <option value="Moyenne" style={{background: '#1a202c'}}>Moyenne</option>
+                  <option value="Basse" style={{background: '#1a202c'}}>Basse</option>
                 </Select>
               </FormControl>
             </VStack>
@@ -1813,7 +2039,7 @@ export default function LeMusee() {
                 <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                   <FormControl>
                     <FormLabel>Rôle principal</FormLabel>
-                    <Select value={formData.role || ''} onChange={(e) => setFormData({...formData, role: e.target.value})}>
+                    <Select value={formData.role || ''} onChange={(e) => setFormData({...formData, role: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                       <option value="">Sélectionner...</option>
                       <option value="Mécanicien">Mécanicien</option>
                       <option value="Carrossier">Carrossier</option>
@@ -1863,7 +2089,7 @@ export default function LeMusee() {
             <VStack spacing={6} align="stretch" pt={4}>
               <FormControl>
                 <FormLabel>Personnel</FormLabel>
-                <Select value={formData.personnel || ''} onChange={(e) => setFormData({...formData, personnel: e.target.value})}>
+                <Select value={formData.personnel || ''} onChange={(e) => setFormData({...formData, personnel: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                   <option value="">Sélectionner...</option>
                   {staff.map(s => <option key={s.id} value={s.nom}>{s.nom}</option>)}
                 </Select>
@@ -1876,7 +2102,7 @@ export default function LeMusee() {
                 </FormControl>
                 <FormControl>
                   <FormLabel>Jour</FormLabel>
-                  <Select value={formData.jour || 'Lundi'} onChange={(e) => setFormData({...formData, jour: e.target.value})}>
+                  <Select value={formData.jour || 'Lundi'} onChange={(e) => setFormData({...formData, jour: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                     {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].map(j => <option key={j} value={j}>{j}</option>)}
                   </Select>
                 </FormControl>
