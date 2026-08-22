@@ -19,7 +19,7 @@ import {
   FiFileText, FiSettings, FiActivity, FiHome, FiUserCheck, FiDollarSign, FiTag, FiPercent
 } from 'react-icons/fi';
 import MuseeLoginModal from '../components/MuseeLoginModal';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 
 // ========== DONNÉES DE DÉMONSTRATION RÉTROBUS ESSONNE ==========
@@ -253,43 +253,34 @@ const DEMO_EXONERATIONS = [
   { id: 4, nom: 'Adhérent association', condition: 'Carte membre RBE', justificatif: 'Carte adhérent à jour', actif: true }
 ];
 
-const MUSEUM_LAYOUT_STORAGE_KEY = 'retrobuse-museum-layout-draft';
-
 const DEFAULT_MUSEUM_LAYOUT = {
-  logo: { top: 50, left: 50, size: 310, locked: true },
+  logo: { top: 51, left: 50, size: 900, locked: true },
   modules: {
-    accueil: { top: 16, left: 24 },
-    vehicles: { top: 22, left: 77 },
-    restorations: { top: 48, left: 90 },
-    stock: { top: 83, left: 77 },
-    docs: { top: 90, left: 24 },
-    events: { top: 75, left: 8 },
-    staff: { top: 48, left: 9 },
-    floor: { top: 10, left: 54 }
+    accueil: { top: 90, left: 58 },
+    vehicles: { top: 61, left: 74 },
+    restorations: { top: 11, left: 44 },
+    stock: { top: 20, left: 66 },
+    docs: { top: 35, left: 24 },
+    tarification: { top: 33, left: 90 },
+    staff: { top: 61, left: 7 },
+    floor: { top: 75, left: 31 },
+    procedures: { top: 14, left: 18 },
+    myrbe: { top: 86, left: 82 }
   }
 };
 
-const getSavedMuseumLayout = () => {
-  try {
-    const savedLayout = JSON.parse(localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY));
-    if (savedLayout?.logo && savedLayout?.modules) {
-      const { source: ignoredLogoSource, ...savedLogo } = savedLayout.logo;
-      return {
-        ...savedLayout,
-        logo: { ...savedLogo, locked: true }
-      };
-    }
-  } catch (error) {
-    console.warn('Impossible de lire la maquette du Musée :', error);
-  }
+const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'events', 'staff', 'floor', 'tarification', 'procedures'];
 
-  return DEFAULT_MUSEUM_LAYOUT;
+const getMuseumModuleFromPath = (pathname) => {
+  const moduleKey = pathname.replace(/^\/lemusee\/?/, '').split('/')[0];
+  return MUSEUM_MODULE_KEYS.includes(moduleKey) ? moduleKey : 'dashboard';
 };
 
 // ========== COMPOSANT PRINCIPAL ==========
 
 export default function LeMusee() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -299,7 +290,7 @@ export default function LeMusee() {
   const [stats, setStats] = useState(null);
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
   const [activeModule, setActiveModule] = useState('dashboard');
-  const [museumLayout, setMuseumLayout] = useState(getSavedMuseumLayout);
+  const [museumLayout, setMuseumLayout] = useState(DEFAULT_MUSEUM_LAYOUT);
   const [isLayoutMode, setIsLayoutMode] = useState(false);
   const [draggingItem, setDraggingItem] = useState(null);
   const [museumLogoSource, setMuseumLogoSource] = useState('/saturne_urbex.svg');
@@ -347,19 +338,22 @@ export default function LeMusee() {
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
 
+  const navigateToMuseumModule = (moduleKey) => {
+    if (moduleKey === 'myrbe') {
+      navigate('/dashboard/myrbe');
+      return;
+    }
+
+    setActiveModule(moduleKey);
+    navigate(moduleKey === 'dashboard' ? '/lemusee' : `/lemusee/${moduleKey}`);
+  };
+
   useEffect(() => {
-    localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
-  }, [museumLayout]);
+    setActiveModule(getMuseumModuleFromPath(location.pathname));
+  }, [location.pathname]);
 
   useEffect(() => {
     setIsLayoutMode(false);
-    setMuseumLayout((currentLayout) => ({
-      ...currentLayout,
-      logo: (() => {
-        const { source: ignoredLogoSource, ...savedLogo } = currentLayout.logo;
-        return { ...savedLogo, locked: true };
-      })()
-    }));
   }, []);
 
   const updateMuseumLayoutPosition = (itemKey, clientX, clientY) => {
@@ -927,9 +921,11 @@ export default function LeMusee() {
     { key: 'restorations', icon: FiTool, title: 'Restaurations', color: '#f97316' },
     { key: 'stock', icon: FiPackage, title: 'Pièces & stock', color: '#d97706' },
     { key: 'docs', icon: FiBook, title: 'Documentation', color: '#14b8a6' },
-    { key: 'events', icon: FiCalendar, title: 'Événements', color: '#e50046' },
+    { key: 'tarification', icon: FiDollarSign, title: 'Tarification & billetterie', color: '#e50046' },
     { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
-    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' }
+    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' },
+    { key: 'procedures', icon: FiFileText, title: 'Procédures', color: '#a855f7' },
+    { key: 'myrbe', icon: FiHome, title: 'myRBE', color: '#e50046' }
   ];
 
   if (isLoading) {
@@ -996,44 +992,13 @@ export default function LeMusee() {
       </Box>
 
       {/* Contenu principal */}
-      <Container maxW="container.xl" pt="120px" pb={8}>
+      <Container maxW="container.xl" pt="112px" pb={0}>
         {isAuthenticated ? (
-          <VStack spacing={8} align="stretch">
-            {/* Navigation modules */}
-            <SimpleGrid columns={{ base: 2, md: 4, lg: 9 }} gap={4}>
-              {[
-                { key: 'dashboard', label: 'Dashboard', icon: FiTrendingUp },
-                { key: 'accueil', label: 'Accueil', icon: FiUserCheck },
-                { key: 'vehicles', label: 'Véhicules', icon: FiTruck },
-                { key: 'restorations', label: 'Restaurations', icon: FiTool },
-                { key: 'stock', label: 'Pièces', icon: FiPackage },
-                { key: 'docs', label: 'Documentation', icon: FiBook },
-                { key: 'events', label: 'Événements', icon: FiCalendar },
-                { key: 'staff', label: 'Bénévoles', icon: FiUsers },
-                { key: 'floor', label: 'Espaces', icon: FiMapPin }
-              ].map(module => (
-                <Button
-                  key={module.key}
-                  leftIcon={<module.icon />}
-                  onClick={() => setActiveModule(module.key)}
-                  colorScheme={activeModule === module.key ? 'purple' : 'gray'}
-                  variant={activeModule === module.key ? 'solid' : 'outline'}
-                  size="lg"
-                  color={activeModule === module.key ? 'white' : 'whiteAlpha.800'}
-                  borderColor="whiteAlpha.300"
-                  _hover={{ borderColor: 'purple.400' }}
-                >
-                  {module.label}
-                </Button>
-              ))}
-            </SimpleGrid>
-
-            <Divider borderColor="whiteAlpha.300" />
-
+          <VStack spacing={0} align="stretch">
             {/* MODULE: Dashboard */}
             {activeModule === 'dashboard' && (
-              <VStack spacing={6} align="stretch" minH="calc(100vh - 180px)">
-                <VStack spacing={1} pt={{ base: 2, lg: 4 }}>
+              <VStack spacing={6} align="stretch">
+                <VStack spacing={1} pt={0}>
                   <Heading size="xl" color="white" textAlign="center">Le Musée RétroBus Essonne</Heading>
                   <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
                 </VStack>
@@ -1096,7 +1061,7 @@ export default function LeMusee() {
                           suppressModuleClickRef.current = false;
                           return;
                         }
-                        setActiveModule(module.key);
+                        navigateToMuseumModule(module.key);
                       }}
                       aria-label={`Ouvrir ${module.title}`}
                       _hover={{ bg: 'gray.700', borderColor: module.color, boxShadow: `0 0 22px ${module.color}` }}
@@ -1110,7 +1075,7 @@ export default function LeMusee() {
 
                 <SimpleGrid display={{ base: 'grid', lg: 'none' }} columns={{ base: 2, sm: 3 }} spacing={3}>
                   {museumModules.map((module) => (
-                    <Button key={module.key} h="112px" variant="outline" borderColor="whiteAlpha.300" bg="gray.800" color="white" display="flex" flexDirection="column" gap={2} onClick={() => setActiveModule(module.key)} aria-label={`Ouvrir ${module.title}`} _hover={{ bg: 'gray.700', borderColor: module.color }}>
+                    <Button key={module.key} h="112px" variant="outline" borderColor="whiteAlpha.300" bg="gray.800" color="white" display="flex" flexDirection="column" gap={2} onClick={() => navigateToMuseumModule(module.key)} aria-label={`Ouvrir ${module.title}`} _hover={{ bg: 'gray.700', borderColor: module.color }}>
                       <Box as={module.icon} boxSize={6} color={module.color} />
                       <Text fontSize="xs" whiteSpace="normal">{module.title}</Text>
                     </Button>
@@ -1126,14 +1091,65 @@ export default function LeMusee() {
               </VStack>
             )}
 
+            {/* MODULE: Procédures */}
+            {activeModule === 'procedures' && (
+              <Box bg="whiteAlpha.50" borderRadius="xl" p={{ base: 5, md: 8 }} border="1px solid" borderColor="whiteAlpha.200">
+                <VStack spacing={6} align="stretch">
+                  <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
+                    <BreadcrumbItem>
+                      <BreadcrumbLink onClick={() => navigateToMuseumModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
+                        <HStack spacing={1}><FiHome /><Text>Musée</Text></HStack>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbItem isCurrentPage>
+                      <BreadcrumbLink color="white"><HStack spacing={1}><FiFileText /><Text>Procédures</Text></HStack></BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </Breadcrumb>
+
+                  <Flex justify="space-between" align={{ base: 'start', md: 'center' }} direction={{ base: 'column', md: 'row' }} gap={3}>
+                    <VStack align="start" spacing={1}>
+                      <Heading size="lg" color="white"><HStack><FiFileText /><Text>Procédures</Text></HStack></Heading>
+                      <Text color="whiteAlpha.700">Référentiel des opérations du Musée RétroBus Essonne.</Text>
+                    </VStack>
+                    <Button leftIcon={<FiHome />} variant="outline" color="white" borderColor="whiteAlpha.400" onClick={() => navigate('/dashboard/myrbe')}>
+                      Ouvrir myRBE
+                    </Button>
+                  </Flex>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    {[
+                      { title: 'Accueil et billetterie', color: 'blue.300', steps: ['Vérifier la réservation ou créer une entrée visiteur.', 'Contrôler le tarif, les réductions et les exonérations.', 'Encaisser puis confirmer l’arrivée dans le registre.'] },
+                      { title: 'Réception d’une pièce', color: 'orange.300', steps: ['Identifier la pièce et sa provenance.', 'Créer l’article de stock avec sa référence unique.', 'Renseigner l’état, l’emplacement et les conditions de conservation.'] },
+                      { title: 'Démarrage d’une restauration', color: 'green.300', steps: ['Sélectionner le véhicule depuis le parc RétroBus.', 'Définir le responsable, le budget et les tâches.', 'Mettre à jour l’avancement à chaque intervention significative.'] },
+                      { title: 'Ouverture et fermeture', color: 'purple.300', steps: ['Effectuer le check-in de l’équipe présente.', 'Vérifier les espaces d’exposition et les zones de facing.', 'En fin de journée, clôturer les encaissements et signaler les anomalies.'] }
+                    ].map((procedure) => (
+                      <Card key={procedure.title} bg="gray.800" borderWidth="1px" borderColor="whiteAlpha.300" borderTopWidth="4px" borderTopColor={procedure.color}>
+                        <CardHeader pb={2}><Heading size="sm" color="white">{procedure.title}</Heading></CardHeader>
+                        <CardBody pt={2}>
+                          <List spacing={3}>
+                            {procedure.steps.map((step, index) => (
+                              <ListItem key={step} color="whiteAlpha.800" display="flex" alignItems="start" gap={3}>
+                                <Badge colorScheme="purple" borderRadius="full" minW="24px" textAlign="center">{index + 1}</Badge>
+                                <Text fontSize="sm">{step}</Text>
+                              </ListItem>
+                            ))}
+                          </List>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </VStack>
+              </Box>
+            )}
+
             {/* MODULE: Accueil Visiteurs */}
-            {activeModule === 'accueil' && (
+            {(activeModule === 'accueil' || activeModule === 'tarification') && (
               <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
                 <VStack spacing={6} align="stretch">
                   {/* Fil d'Ariane */}
                   <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
                     <BreadcrumbItem>
-                      <BreadcrumbLink onClick={() => setActiveModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
+                      <BreadcrumbLink onClick={() => navigateToMuseumModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
                         <HStack spacing={1}>
                           <FiHome />
                           <Text>Musée</Text>
@@ -1144,7 +1160,7 @@ export default function LeMusee() {
                       <BreadcrumbLink color="white">
                         <HStack spacing={1}>
                           <FiUserCheck />
-                          <Text>Accueil Visiteurs</Text>
+                          <Text>{activeModule === 'tarification' ? 'Tarification & billetterie' : 'Accueil Visiteurs'}</Text>
                         </HStack>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
@@ -1156,22 +1172,22 @@ export default function LeMusee() {
                   <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
                     <Heading size="lg" color="white">
                       <HStack>
-                        <FiUserCheck />
-                        <Text>Accueil Visiteurs</Text>
+                        {activeModule === 'tarification' ? <FiDollarSign /> : <FiUserCheck />}
+                        <Text>{activeModule === 'tarification' ? 'Tarification & billetterie' : 'Accueil Visiteurs'}</Text>
                       </HStack>
                     </Heading>
-                    <HStack spacing={3}>
+                    {activeModule === 'accueil' && <HStack spacing={3}>
                       <Badge colorScheme="orange" fontSize="md" p={2}>
                         {reservations.length} réservations
                       </Badge>
                       <Badge colorScheme="blue" fontSize="md" p={2}>
                         {visitorsToday.reduce((sum, v) => sum + v.nbPersonnes, 0)} visiteurs
                       </Badge>
-                    </HStack>
+                    </HStack>}
                   </Flex>
 
                   {/* Onglets principaux */}
-                  <Tabs index={accueilTab} onChange={setAccueilTab} colorScheme="purple" variant="soft-rounded">
+                  <Tabs index={activeModule === 'tarification' ? 1 : 0} onChange={(index) => navigateToMuseumModule(index === 0 ? 'accueil' : 'tarification')} colorScheme="purple" variant="soft-rounded">
                     <TabList bg="gray.800" p={2} borderRadius="lg">
                       <Tab color="white" _selected={{ bg: 'purple.500', color: 'white' }}>
                         <HStack spacing={2}>
@@ -1182,7 +1198,7 @@ export default function LeMusee() {
                       <Tab color="white" _selected={{ bg: 'purple.500', color: 'white' }}>
                         <HStack spacing={2}>
                           <FiDollarSign />
-                          <Text>Zone Tarifaire</Text>
+                          <Text>Tarification & billetterie</Text>
                         </HStack>
                       </Tab>
                     </TabList>

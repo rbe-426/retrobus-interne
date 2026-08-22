@@ -181,7 +181,7 @@ export default function App() {
         {/* <Route path="/dashboard/adhesion-management" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AdhesionManagement /></RoleProtectedRoute>} /> */}
         
         {/* 🏛️ Le Musée - Système d'authentification séparé */}
-        <Route path="/lemusee" element={<LeMusee />} />
+        <Route path="/lemusee/*" element={<LeMusee />} />
         
         {/* 🏛️ Le Musée (dev ou w.belaidi uniquement) - ANCIENNE ROUTE */}
         {canAccessMuseum && (
