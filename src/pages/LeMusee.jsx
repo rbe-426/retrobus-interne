@@ -256,7 +256,7 @@ const DEMO_EXONERATIONS = [
 const MUSEUM_LAYOUT_STORAGE_KEY = 'retrobuse-museum-layout-draft';
 
 const DEFAULT_MUSEUM_LAYOUT = {
-  logo: { top: 50, left: 50, size: 310, locked: false },
+  logo: { top: 50, left: 50, size: 310, locked: true },
   modules: {
     accueil: { top: 16, left: 24 },
     vehicles: { top: 22, left: 77 },
@@ -273,7 +273,11 @@ const getSavedMuseumLayout = () => {
   try {
     const savedLayout = JSON.parse(localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY));
     if (savedLayout?.logo && savedLayout?.modules) {
-      return savedLayout;
+      const { source: ignoredLogoSource, ...savedLogo } = savedLayout.logo;
+      return {
+        ...savedLayout,
+        logo: { ...savedLogo, locked: true }
+      };
     }
   } catch (error) {
     console.warn('Impossible de lire la maquette du Musée :', error);
@@ -296,7 +300,7 @@ export default function LeMusee() {
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
   const [activeModule, setActiveModule] = useState('dashboard');
   const [museumLayout, setMuseumLayout] = useState(getSavedMuseumLayout);
-  const [isLayoutMode, setIsLayoutMode] = useState(true);
+  const [isLayoutMode, setIsLayoutMode] = useState(false);
   const [draggingItem, setDraggingItem] = useState(null);
   const [museumLogoSource, setMuseumLogoSource] = useState('/saturne_urbex.svg');
   const museumCanvasRef = useRef(null);
@@ -346,6 +350,17 @@ export default function LeMusee() {
   useEffect(() => {
     localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
   }, [museumLayout]);
+
+  useEffect(() => {
+    setIsLayoutMode(false);
+    setMuseumLayout((currentLayout) => ({
+      ...currentLayout,
+      logo: (() => {
+        const { source: ignoredLogoSource, ...savedLogo } = currentLayout.logo;
+        return { ...savedLogo, locked: true };
+      })()
+    }));
+  }, []);
 
   const updateMuseumLayoutPosition = (itemKey, clientX, clientY) => {
     const canvas = museumCanvasRef.current;
@@ -440,7 +455,12 @@ export default function LeMusee() {
 
     const fileReader = new FileReader();
     fileReader.onload = () => {
-      setMuseumLogoSource(fileReader.result);
+      const logoSource = fileReader.result;
+      setMuseumLogoSource(logoSource);
+      setMuseumLayout((currentLayout) => ({
+        ...currentLayout,
+        logo: { ...currentLayout.logo, source: logoSource }
+      }));
       toast({ title: 'Logo mis à jour', description: `${logoFile.name} est utilisé dans l’atelier.`, status: 'success', duration: 2500, isClosable: true });
     };
     fileReader.readAsDataURL(logoFile);
@@ -1018,7 +1038,7 @@ export default function LeMusee() {
                   <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
                 </VStack>
 
-                <HStack justify="center" spacing={3} flexWrap="wrap">
+                <HStack justify="center" spacing={3} flexWrap="wrap" display={isLayoutMode ? 'flex' : 'none'}>
                   <Button size="sm" colorScheme={isLayoutMode ? 'red' : 'gray'} variant={isLayoutMode ? 'solid' : 'outline'} onClick={() => setIsLayoutMode((currentMode) => !currentMode)}>
                     {isLayoutMode ? 'Placement actif' : 'Reprendre le placement'}
                   </Button>
@@ -1043,7 +1063,7 @@ export default function LeMusee() {
                   <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" w="470px" h="470px" borderRadius="full" border="1px dashed" borderColor="whiteAlpha.300" opacity="0.7" pointerEvents="none" />
                   <Center position="absolute" top={`${museumLayout.logo.top}%`} left={`${museumLayout.logo.left}%`} transform="translate(-50%, -50%)" zIndex={museumLayout.logo.locked ? 1 : 3} cursor={isLayoutMode && !museumLayout.logo.locked ? 'grab' : 'default'} onPointerDown={(event) => handleLayoutPointerDown('logo', event)} onPointerMove={handleLayoutPointerMove} onPointerUp={handleLayoutPointerUp} onPointerCancel={handleLayoutPointerUp} onDoubleClick={() => !museumLayout.logo.locked && museumLogoInputRef.current?.click()} title={museumLayout.logo.locked ? 'Logo verrouillé derrière les pastilles' : 'Double-cliquez pour remplacer le logo SVG'}>
                     <Box w={`${museumLayout.logo.size ?? 310}px`} h={`${museumLayout.logo.size ?? 310}px`} userSelect="none">
-                      <Image src={museumLogoSource} alt="Logo central du Musée" w="full" h="full" objectFit="contain" />
+                      <Image src="/saturne_urbex.svg" alt="Saturne RétroBus" w="full" h="full" objectFit="contain" />
                     </Box>
                   </Center>
                   {museumModules.map((module) => (
