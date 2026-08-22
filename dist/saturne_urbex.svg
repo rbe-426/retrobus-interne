@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">Saturne RétroBus</title>
+  <desc id="desc">Planète rose entourée de ses anneaux</desc>
+  <defs>
+    <radialGradient id="planet" cx="34%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#ff7aa8"/>
+      <stop offset="0.55" stop-color="#e50046"/>
+      <stop offset="1" stop-color="#9f063a"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffbfd2"/>
+      <stop offset="0.5" stop-color="#e50046"/>
+      <stop offset="1" stop-color="#79022e"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="320" cy="334" rx="292" ry="86" fill="none" stroke="#e50046" stroke-opacity=".3" stroke-width="28" transform="rotate(-18 320 334)"/>
+  <circle cx="320" cy="320" r="184" fill="url(#planet)" filter="url(#glow)"/>
+  <path d="M85 399C148 489 461 473 574 263" fill="none" stroke="url(#ring)" stroke-width="42" stroke-linecap="round" transform="rotate(-18 320 334)"/>
+  <circle cx="258" cy="253" r="36" fill="#ff9dbe" fill-opacity=".34"/>
+  <circle cx="370" cy="381" r="52" fill="#85022f" fill-opacity=".28"/>
+  <path d="M135 415C231 461 439 432 544 281" fill="none" stroke="#ffb6ce" stroke-opacity=".8" stroke-width="5" transform="rotate(-18 320 334)"/>
+</svg>

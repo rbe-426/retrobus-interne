@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Container, VStack, HStack, Image, Center, useDisclosure, Spinner, Text, Button,
   Grid, GridItem, Heading, Badge, Divider, useToast, IconButton, Table, Thead, Tbody,
@@ -16,7 +16,7 @@ import {
   FiLogOut, FiCheckCircle, FiClock, FiUser, FiPackage, FiLayers, FiUsers, FiCalendar,
   FiShoppingBag, FiTrendingUp, FiMapPin, FiPlus, FiEdit2, FiTrash2, FiAlertCircle,
   FiCheck, FiX, FiSave, FiSearch, FiFilter, FiTool, FiBook, FiAward, FiTruck, FiCamera,
-  FiFileText, FiSettings, FiActivity, FiHome, FiUserCheck
+  FiFileText, FiSettings, FiActivity, FiHome, FiUserCheck, FiDollarSign, FiTag, FiPercent
 } from 'react-icons/fi';
 import MuseeLoginModal from '../components/MuseeLoginModal';
 import { useNavigate } from 'react-router-dom';
@@ -131,6 +131,157 @@ const DEMO_PLANNING = [
   { id: 4, personnel: 'Claire Lefebvre', zone: 'Salle C', jour: 'Vendredi', horaire: '09:00-13:00', tache: 'Numérisation documents' },
 ];
 
+// Pré-réservations visiteurs (depuis le site externe)
+const DEMO_RESERVATIONS = [
+  { 
+    id: 1, 
+    nom: 'Famille Martin', 
+    nbPersonnes: 4, 
+    motif: 'Visite libre',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '14:00',
+    email: 'martin.famille@email.com',
+    telephone: '06 12 34 56 78',
+    statut: 'Confirmée',
+    commentaire: 'Enfants de 8 et 12 ans',
+    paiementEffectue: true,
+    montantTotal: 36.00
+  },
+  { 
+    id: 2, 
+    nom: 'École Jean Macé - CM2', 
+    nbPersonnes: 28, 
+    motif: 'Scolaire',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '10:00',
+    email: 'ecole.jeanmace@education.fr',
+    telephone: '01 60 75 23 45',
+    statut: 'Confirmée',
+    commentaire: 'Visite pédagogique sur les transports anciens',
+    paiementEffectue: false,
+    montantTotal: 84.00
+  },
+  { 
+    id: 3, 
+    nom: 'Association Mémoire du 91', 
+    nbPersonnes: 15, 
+    motif: 'Visite guidée',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '15:30',
+    email: 'contact@memoire91.asso.fr',
+    telephone: '06 87 65 43 21',
+    statut: 'Confirmée',
+    commentaire: 'Seniors passionnés d\'histoire locale',
+    paiementEffectue: true,
+    montantTotal: 105.00
+  },
+  { 
+    id: 4, 
+    nom: 'M. Dubois', 
+    nbPersonnes: 2, 
+    motif: 'Visite libre',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '11:30',
+    email: 'j.dubois@email.com',
+    telephone: '06 23 45 67 89',
+    statut: 'En attente',
+    commentaire: 'Amateur de véhicules anciens',
+    paiementEffectue: false,
+    montantTotal: 18.00
+  },
+  { 
+    id: 5, 
+    nom: 'Club Photo Essonne', 
+    nbPersonnes: 8, 
+    motif: 'Événement',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '16:00',
+    email: 'club.photo.essonne@gmail.com',
+    telephone: '06 98 76 54 32',
+    statut: 'Confirmée',
+    commentaire: 'Séance photo des véhicules restaurés',
+    paiementEffectue: true,
+    montantTotal: 60.00
+  },
+  { 
+    id: 6, 
+    nom: 'Famille Lefebvre', 
+    nbPersonnes: 5, 
+    motif: 'Visite libre',
+    dateReservation: '2026-08-21',
+    creneauSouhaite: '13:30',
+    email: 'lefebvre.claire@outlook.com',
+    telephone: '07 12 34 56 78',
+    statut: 'Confirmée',
+    commentaire: '',
+    paiementEffectue: false,
+    montantTotal: 45.00
+  }
+];
+
+// Zone tarifaire
+const DEMO_BILLETS = [
+  { id: 1, nom: 'Adulte', prix: 9.00, description: 'À partir de 18 ans', actif: true },
+  { id: 2, nom: 'Enfant', prix: 5.00, description: '6-17 ans', actif: true },
+  { id: 3, nom: 'Senior', prix: 7.00, description: '65 ans et plus', actif: true },
+  { id: 4, nom: 'Famille', prix: 25.00, description: '2 adultes + 2 enfants', actif: true },
+  { id: 5, nom: 'Groupe', prix: 7.50, description: 'À partir de 10 personnes', actif: true },
+  { id: 6, nom: 'Scolaire', prix: 3.00, description: 'Par élève', actif: true }
+];
+
+const DEMO_OBJETS_BOUTIQUE = [
+  { id: 1, nom: 'Miniature Renault TN6C', prix: 25.00, stock: 15, categorie: 'Miniatures' },
+  { id: 2, nom: 'Carte postale collection', prix: 2.50, stock: 120, categorie: 'Papeterie' },
+  { id: 3, nom: 'Livre Histoire des Bus', prix: 18.00, stock: 8, categorie: 'Livres' },
+  { id: 4, nom: 'T-shirt RétroBus', prix: 20.00, stock: 25, categorie: 'Textiles' },
+  { id: 5, nom: 'Porte-clés métal', prix: 8.00, stock: 45, categorie: 'Accessoires' },
+  { id: 6, nom: 'Affiche vintage A3', prix: 12.00, stock: 30, categorie: 'Papeterie' }
+];
+
+const DEMO_REDUCTIONS = [
+  { id: 1, nom: 'Demandeur d\'emploi', pourcentage: 30, justificatif: 'Attestation Pôle Emploi', actif: true },
+  { id: 2, nom: 'Étudiant', pourcentage: 20, justificatif: 'Carte étudiante', actif: true },
+  { id: 3, nom: 'Famille nombreuse', pourcentage: 15, justificatif: 'Carte famille nombreuse', actif: true },
+  { id: 4, nom: 'PMR', pourcentage: 50, justificatif: 'Carte mobilité inclusion', actif: true },
+  { id: 5, nom: 'Pass Culture', pourcentage: 100, justificatif: 'Application Pass Culture', actif: true }
+];
+
+const DEMO_EXONERATIONS = [
+  { id: 1, nom: 'Enfant -6 ans', condition: 'Gratuité totale', justificatif: 'Pièce d\'identité', actif: true },
+  { id: 2, nom: 'Accompagnateur PMR', condition: '1 accompagnateur gratuit', justificatif: 'Accompagne une personne PMR', actif: true },
+  { id: 3, nom: 'Journaliste', condition: 'Sur présentation carte presse', justificatif: 'Carte de presse', actif: true },
+  { id: 4, nom: 'Adhérent association', condition: 'Carte membre RBE', justificatif: 'Carte adhérent à jour', actif: true }
+];
+
+const MUSEUM_LAYOUT_STORAGE_KEY = 'retrobuse-museum-layout-draft';
+
+const DEFAULT_MUSEUM_LAYOUT = {
+  logo: { top: 50, left: 50, size: 310, locked: false },
+  modules: {
+    accueil: { top: 16, left: 24 },
+    vehicles: { top: 22, left: 77 },
+    restorations: { top: 48, left: 90 },
+    stock: { top: 83, left: 77 },
+    docs: { top: 90, left: 24 },
+    events: { top: 75, left: 8 },
+    staff: { top: 48, left: 9 },
+    floor: { top: 10, left: 54 }
+  }
+};
+
+const getSavedMuseumLayout = () => {
+  try {
+    const savedLayout = JSON.parse(localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY));
+    if (savedLayout?.logo && savedLayout?.modules) {
+      return savedLayout;
+    }
+  } catch (error) {
+    console.warn('Impossible de lire la maquette du Musée :', error);
+  }
+
+  return DEFAULT_MUSEUM_LAYOUT;
+};
+
 // ========== COMPOSANT PRINCIPAL ==========
 
 export default function LeMusee() {
@@ -144,6 +295,13 @@ export default function LeMusee() {
   const [stats, setStats] = useState(null);
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [museumLayout, setMuseumLayout] = useState(getSavedMuseumLayout);
+  const [isLayoutMode, setIsLayoutMode] = useState(true);
+  const [draggingItem, setDraggingItem] = useState(null);
+  const [museumLogoSource, setMuseumLogoSource] = useState('/saturne_urbex.svg');
+  const museumCanvasRef = useRef(null);
+  const museumLogoInputRef = useRef(null);
+  const suppressModuleClickRef = useRef(false);
 
   // États pour les modules
   const [vehicles, setVehicles] = useState(DEMO_VEHICLES);
@@ -157,9 +315,18 @@ export default function LeMusee() {
   const [planning, setPlanning] = useState(DEMO_PLANNING);
 
   // États pour l'accueil visiteurs
-  const [visitorForm, setVisitorForm] = useState({ nom: '', nbPersonnes: 1, motif: 'Visite libre' });
+  const [visitorForm, setVisitorForm] = useState({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
   const [visitorsToday, setVisitorsToday] = useState([]);
   const [loadingVisitor, setLoadingVisitor] = useState(false);
+  const [reservations, setReservations] = useState(DEMO_RESERVATIONS);
+  const [loadingReservation, setLoadingReservation] = useState(null);
+  const [accueilTab, setAccueilTab] = useState(0);
+
+  // États pour la zone tarifaire
+  const [billets, setBillets] = useState(DEMO_BILLETS);
+  const [objetsBoutique, setObjetsBoutique] = useState(DEMO_OBJETS_BOUTIQUE);
+  const [reductions, setReductions] = useState(DEMO_REDUCTIONS);
+  const [exonerations, setExonerations] = useState(DEMO_EXONERATIONS);
 
   // Drawers (remplace les modals)
   const vehicleDrawer = useDisclosure();
@@ -175,6 +342,110 @@ export default function LeMusee() {
   // Forms
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
+
+  useEffect(() => {
+    localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
+  }, [museumLayout]);
+
+  const updateMuseumLayoutPosition = (itemKey, clientX, clientY) => {
+    const canvas = museumCanvasRef.current;
+    if (!canvas) return;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const left = Math.min(93, Math.max(7, ((clientX - canvasRect.left) / canvasRect.width) * 100));
+    const top = Math.min(90, Math.max(10, ((clientY - canvasRect.top) / canvasRect.height) * 100));
+
+    setMuseumLayout((currentLayout) => {
+      if (itemKey === 'logo') {
+        return { ...currentLayout, logo: { top, left } };
+      }
+
+      return {
+        ...currentLayout,
+        modules: {
+          ...currentLayout.modules,
+          [itemKey]: { top, left }
+        }
+      };
+    });
+  };
+
+  const handleLayoutPointerDown = (itemKey, event) => {
+    if (!isLayoutMode || (itemKey === 'logo' && museumLayout.logo.locked)) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    suppressModuleClickRef.current = false;
+    setDraggingItem({
+      key: itemKey,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY
+    });
+  };
+
+  const handleLayoutPointerMove = (event) => {
+    if (!draggingItem || draggingItem.pointerId !== event.pointerId) return;
+
+    if (Math.abs(event.clientX - draggingItem.startX) > 4 || Math.abs(event.clientY - draggingItem.startY) > 4) {
+      suppressModuleClickRef.current = true;
+    }
+
+    updateMuseumLayoutPosition(draggingItem.key, event.clientX, event.clientY);
+  };
+
+  const handleLayoutPointerUp = (event) => {
+    if (!draggingItem || draggingItem.pointerId !== event.pointerId) return;
+
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    setDraggingItem(null);
+  };
+
+  const resetMuseumLayout = () => {
+    setMuseumLayout(DEFAULT_MUSEUM_LAYOUT);
+    toast({ title: 'Maquette réinitialisée', description: 'Les positions d’origine ont été restaurées.', status: 'info', duration: 2500, isClosable: true });
+  };
+
+  const updateMuseumLogoSize = (_, logoSize) => {
+    if (Number.isNaN(logoSize)) return;
+
+    setMuseumLayout((currentLayout) => ({
+      ...currentLayout,
+      logo: {
+        ...currentLayout.logo,
+        size: Math.min(1000, Math.max(100, logoSize))
+      }
+    }));
+  };
+
+  const toggleMuseumLogoLock = () => {
+    setMuseumLayout((currentLayout) => ({
+      ...currentLayout,
+      logo: {
+        ...currentLayout.logo,
+        locked: !currentLayout.logo.locked
+      }
+    }));
+  };
+
+  const handleMuseumLogoChange = (event) => {
+    const [logoFile] = event.target.files;
+    if (!logoFile) return;
+
+    if (logoFile.type !== 'image/svg+xml' && !logoFile.name.toLowerCase().endsWith('.svg')) {
+      toast({ title: 'Format non pris en charge', description: 'Choisissez un fichier SVG pour le logo central.', status: 'warning', duration: 3000, isClosable: true });
+      event.target.value = '';
+      return;
+    }
+
+    const fileReader = new FileReader();
+    fileReader.onload = () => {
+      setMuseumLogoSource(fileReader.result);
+      toast({ title: 'Logo mis à jour', description: `${logoFile.name} est utilisé dans l’atelier.`, status: 'success', duration: 2500, isClosable: true });
+    };
+    fileReader.readAsDataURL(logoFile);
+    event.target.value = '';
+  };
 
   // Vérifier l'authentification
   useEffect(() => {
@@ -375,23 +646,85 @@ export default function LeMusee() {
       nom: visitorForm.nom,
       nbPersonnes: parseInt(visitorForm.nbPersonnes),
       motif: visitorForm.motif,
+      tarif: visitorForm.tarif,
+      montantPaye: visitorForm.montant,
       heureArrivee: new Date().toLocaleTimeString('fr-FR'),
-      date: new Date().toLocaleDateString('fr-FR')
+      date: new Date().toLocaleDateString('fr-FR'),
+      paiementEffectue: true
     };
 
     setVisitorsToday([newVisitor, ...visitorsToday]);
     
     toast({
       title: 'Visiteur enregistré !',
-      description: `${visitorForm.nom} - ${visitorForm.nbPersonnes} personne(s)`,
+      description: `${visitorForm.nom} - ${visitorForm.nbPersonnes} personne(s) - ${visitorForm.montant.toFixed(2)}€`,
       status: 'success',
       duration: 3000,
       isClosable: true
     });
 
     // Réinitialiser le formulaire
-    setVisitorForm({ nom: '', nbPersonnes: 1, motif: 'Visite libre' });
+    setVisitorForm({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
     setLoadingVisitor(false);
+  };
+
+  const handleReservationArrival = (reservation, paiementConfirme = false) => {
+    if (!paiementConfirme && !reservation.paiementEffectue) {
+      toast({
+        title: 'Paiement requis',
+        description: 'Veuillez confirmer le paiement avant d\'enregistrer l\'arrivée',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true
+      });
+      return;
+    }
+
+    setLoadingReservation(reservation.id);
+    
+    // Simuler un traitement (comme dans handleVisitorCheckIn)
+    setTimeout(() => {
+      // Ajouter aux visiteurs du jour
+      const newVisitor = {
+        id: Date.now(),
+        nom: reservation.nom,
+        nbPersonnes: reservation.nbPersonnes,
+        motif: reservation.motif,
+        heureArrivee: new Date().toLocaleTimeString('fr-FR'),
+        date: new Date().toLocaleDateString('fr-FR'),
+        isFromReservation: true,
+        creneauSouhaite: reservation.creneauSouhaite,
+        montantPaye: reservation.montantTotal,
+        paiementEffectue: true
+      };
+
+      setVisitorsToday([newVisitor, ...visitorsToday]);
+      
+      // Retirer de la liste des réservations
+      setReservations(reservations.filter(r => r.id !== reservation.id));
+      
+      toast({
+        title: 'Visiteur enregistré !',
+        description: `${reservation.nom} - ${reservation.nbPersonnes} personne(s) - ${reservation.montantTotal}€`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true
+      });
+      
+      setLoadingReservation(null);
+    }, 500);
+  };
+
+  const handleConfirmPayment = (reservationId) => {
+    setReservations(reservations.map(r => 
+      r.id === reservationId ? { ...r, paiementEffectue: true } : r
+    ));
+    toast({
+      title: 'Paiement confirmé',
+      status: 'success',
+      duration: 2000,
+      isClosable: true
+    });
   };
 
   const handleLoginSuccess = () => {
@@ -568,6 +901,17 @@ export default function LeMusee() {
     eventDrawer.onClose();
   };
 
+  const museumModules = [
+    { key: 'accueil', icon: FiUserCheck, title: 'Accueil visiteurs', color: '#0ea5e9' },
+    { key: 'vehicles', icon: FiTruck, title: 'Véhicules', color: '#16a34a' },
+    { key: 'restorations', icon: FiTool, title: 'Restaurations', color: '#f97316' },
+    { key: 'stock', icon: FiPackage, title: 'Pièces & stock', color: '#d97706' },
+    { key: 'docs', icon: FiBook, title: 'Documentation', color: '#14b8a6' },
+    { key: 'events', icon: FiCalendar, title: 'Événements', color: '#e50046' },
+    { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
+    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' }
+  ];
+
   if (isLoading) {
     return (
       <Box minH="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
@@ -668,81 +1012,96 @@ export default function LeMusee() {
 
             {/* MODULE: Dashboard */}
             {activeModule === 'dashboard' && (
-              <VStack spacing={6} align="stretch">
-                <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={6}>
-                  <Card bg="whiteAlpha.50" borderColor="whiteAlpha.200" borderWidth="1px">
-                    <CardHeader><Heading size="md" color="white"><HStack><FiCheckCircle /><Text>Check-in rapide</Text></HStack></Heading></CardHeader>
-                    <CardBody>
-                      <VStack spacing={4}>
-                        <Button colorScheme="green" size="lg" w="full" onClick={handleCheckIn} isLoading={loadingCheckIn} leftIcon={<FiCheckCircle />}>
-                          Enregistrer ma présence
-                        </Button>
-                        <Text color="whiteAlpha.600" fontSize="sm">
-                          Dernière visite : {checkIns[0] ? new Date(checkIns[0].timestamp).toLocaleDateString('fr-FR') : 'Jamais'}
-                        </Text>
-                      </VStack>
-                    </CardBody>
-                  </Card>
+              <VStack spacing={6} align="stretch" minH="calc(100vh - 180px)">
+                <VStack spacing={1} pt={{ base: 2, lg: 4 }}>
+                  <Heading size="xl" color="white" textAlign="center">Le Musée RétroBus Essonne</Heading>
+                  <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
+                </VStack>
 
-                  <Card bg="whiteAlpha.50" borderColor="whiteAlpha.200" borderWidth="1px">
-                    <CardHeader><Heading size="md" color="white"><HStack><FiClock /><Text>Statistiques</Text></HStack></Heading></CardHeader>
-                    <CardBody>
-                      <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
-                        {stats && (
-                          <>
-                            <Stat>
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Pointages</StatLabel>
-                              <StatNumber color="white">{stats.totalCheckIns}</StatNumber>
-                              <StatHelpText color="whiteAlpha.500" fontSize="xs">Total</StatHelpText>
-                            </Stat>
-                            <Stat>
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Véhicules</StatLabel>
-                              <StatNumber color="white">{vehicles.length}</StatNumber>
-                              <StatHelpText color="whiteAlpha.500" fontSize="xs">
-                                {vehicles.filter(v => v.fonctionnel).length} opérationnels
-                              </StatHelpText>
-                            </Stat>
-                            <Stat>
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Restaurations</StatLabel>
-                              <StatNumber color="white">{restorations.length}</StatNumber>
-                              <StatHelpText color="whiteAlpha.500" fontSize="xs">
-                                {restorations.length > 0 ? Math.round(restorations.reduce((sum, r) => sum + r.avancement, 0) / restorations.length) : 0}% moy.
-                              </StatHelpText>
-                            </Stat>
-                            <Stat>
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Événements</StatLabel>
-                              <StatNumber color="white">{events.filter(e => new Date(e.date) > new Date()).length}</StatNumber>
-                              <StatHelpText color="whiteAlpha.500" fontSize="xs">À venir</StatHelpText>
-                            </Stat>
-                          </>
-                        )}
-                      </SimpleGrid>
-                    </CardBody>
-                  </Card>
-                </Grid>
+                <HStack justify="center" spacing={3} flexWrap="wrap">
+                  <Button size="sm" colorScheme={isLayoutMode ? 'red' : 'gray'} variant={isLayoutMode ? 'solid' : 'outline'} onClick={() => setIsLayoutMode((currentMode) => !currentMode)}>
+                    {isLayoutMode ? 'Placement actif' : 'Reprendre le placement'}
+                  </Button>
+                  <Button size="sm" variant="outline" color="whiteAlpha.900" borderColor="whiteAlpha.400" onClick={resetMuseumLayout}>Réinitialiser</Button>
+                  <HStack spacing={2}>
+                    <Text color="whiteAlpha.800" fontSize="sm">Taille du logo</Text>
+                    <NumberInput size="sm" w="92px" min={100} max={1000} step={10} value={museumLayout.logo.size ?? 310} onChange={updateMuseumLogoSize} isDisabled={!isLayoutMode || museumLayout.logo.locked}>
+                      <NumberInputField color="white" borderColor="whiteAlpha.400" />
+                      <NumberInputStepper><NumberIncrementStepper color="white" borderColor="whiteAlpha.300" /><NumberDecrementStepper color="white" borderColor="whiteAlpha.300" /></NumberInputStepper>
+                    </NumberInput>
+                  </HStack>
+                  <HStack spacing={2}>
+                    <Switch size="sm" colorScheme="red" isChecked={Boolean(museumLayout.logo.locked)} onChange={toggleMuseumLogoLock} aria-label="Verrouiller le logo central" />
+                    <Text color="whiteAlpha.800" fontSize="sm">Verrouiller le logo</Text>
+                  </HStack>
+                  {isLayoutMode && <Text color="whiteAlpha.600" fontSize="sm">Les positions sont enregistrées sur cet appareil.</Text>}
+                </HStack>
 
-                {/* Cartes modules */}
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={6}>
-                  {[
-                    { key: 'vehicles', icon: FiTruck, title: 'Véhicules', desc: 'Collection, fiches techniques, état' },
-                    { key: 'restorations', icon: FiTool, title: 'Restaurations', desc: 'Projets en cours, avancement' },
-                    { key: 'stock', icon: FiPackage, title: 'Pièces & Stock', desc: 'Inventaire, pièces détachées' },
-                    { key: 'docs', icon: FiBook, title: 'Documentation', desc: 'Manuels, plans, archives' },
-                    { key: 'events', icon: FiCalendar, title: 'Événements', desc: 'Sorties, expositions, rallyes' },
-                    { key: 'staff', icon: FiUsers, title: 'Bénévoles', desc: 'Équipe, compétences' },
-                    { key: 'floor', icon: FiMapPin, title: 'Espaces', desc: 'Hangars, ateliers, salles' }
-                  ].map(mod => (
-                    <Card key={mod.key} bg="whiteAlpha.50" borderColor="whiteAlpha.200" borderWidth="1px" cursor="pointer" 
-                          onClick={() => setActiveModule(mod.key)} _hover={{ borderColor: 'purple.400', transform: 'translateY(-2px)' }} transition="all 0.2s">
-                      <CardBody>
-                        <VStack spacing={3}>
-                          <Box fontSize="4xl"><mod.icon /></Box>
-                          <Heading size="md" color="white">{mod.title}</Heading>
-                          <Text color="whiteAlpha.600" textAlign="center" fontSize="sm">{mod.desc}</Text>
-                        </VStack>
-                      </CardBody>
-                    </Card>
+                <Box ref={museumCanvasRef} display={{ base: 'none', lg: 'block' }} position="relative" w="full" maxW="900px" h="650px" mx="auto" overflow="hidden" cursor={isLayoutMode ? 'crosshair' : 'default'}>
+                  <input ref={museumLogoInputRef} type="file" accept="image/svg+xml,.svg" onChange={handleMuseumLogoChange} style={{ display: 'none' }} />
+                  <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" w="560px" h="560px" borderRadius="full" border="1px solid" borderColor="whiteAlpha.200" pointerEvents="none" />
+                  <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" w="470px" h="470px" borderRadius="full" border="1px dashed" borderColor="whiteAlpha.300" opacity="0.7" pointerEvents="none" />
+                  <Center position="absolute" top={`${museumLayout.logo.top}%`} left={`${museumLayout.logo.left}%`} transform="translate(-50%, -50%)" zIndex={museumLayout.logo.locked ? 1 : 3} cursor={isLayoutMode && !museumLayout.logo.locked ? 'grab' : 'default'} onPointerDown={(event) => handleLayoutPointerDown('logo', event)} onPointerMove={handleLayoutPointerMove} onPointerUp={handleLayoutPointerUp} onPointerCancel={handleLayoutPointerUp} onDoubleClick={() => !museumLayout.logo.locked && museumLogoInputRef.current?.click()} title={museumLayout.logo.locked ? 'Logo verrouillé derrière les pastilles' : 'Double-cliquez pour remplacer le logo SVG'}>
+                    <Box w={`${museumLayout.logo.size ?? 310}px`} h={`${museumLayout.logo.size ?? 310}px`} userSelect="none">
+                      <Image src={museumLogoSource} alt="Logo central du Musée" w="full" h="full" objectFit="contain" />
+                    </Box>
+                  </Center>
+                  {museumModules.map((module) => (
+                    <Button
+                      key={module.key}
+                      position="absolute"
+                      zIndex={2}
+                      top={`${museumLayout.modules[module.key]?.top ?? 50}%`}
+                      left={`${museumLayout.modules[module.key]?.left ?? 50}%`}
+                      transform="translate(-50%, -50%)"
+                      w="118px"
+                      h="118px"
+                      borderRadius="full"
+                      bg="gray.800"
+                      border="2px solid"
+                      borderColor="whiteAlpha.300"
+                      color="white"
+                      display="flex"
+                      flexDirection="column"
+                      gap={2}
+                      boxShadow="lg"
+                      cursor={isLayoutMode ? 'grab' : 'pointer'}
+                      userSelect="none"
+                      onPointerDown={(event) => handleLayoutPointerDown(module.key, event)}
+                      onPointerMove={handleLayoutPointerMove}
+                      onPointerUp={handleLayoutPointerUp}
+                      onPointerCancel={handleLayoutPointerUp}
+                      onClick={() => {
+                        if (isLayoutMode || suppressModuleClickRef.current) {
+                          suppressModuleClickRef.current = false;
+                          return;
+                        }
+                        setActiveModule(module.key);
+                      }}
+                      aria-label={`Ouvrir ${module.title}`}
+                      _hover={{ bg: 'gray.700', borderColor: module.color, boxShadow: `0 0 22px ${module.color}` }}
+                      _focusVisible={{ outline: '3px solid', outlineColor: 'white' }}
+                    >
+                      <Box as={module.icon} boxSize={7} color={module.color} />
+                      <Text fontSize="xs" whiteSpace="normal" lineHeight="short" textAlign="center">{module.title}</Text>
+                    </Button>
                   ))}
+                </Box>
+
+                <SimpleGrid display={{ base: 'grid', lg: 'none' }} columns={{ base: 2, sm: 3 }} spacing={3}>
+                  {museumModules.map((module) => (
+                    <Button key={module.key} h="112px" variant="outline" borderColor="whiteAlpha.300" bg="gray.800" color="white" display="flex" flexDirection="column" gap={2} onClick={() => setActiveModule(module.key)} aria-label={`Ouvrir ${module.title}`} _hover={{ bg: 'gray.700', borderColor: module.color }}>
+                      <Box as={module.icon} boxSize={6} color={module.color} />
+                      <Text fontSize="xs" whiteSpace="normal">{module.title}</Text>
+                    </Button>
+                  ))}
+                </SimpleGrid>
+
+                <SimpleGrid columns={{ base: 2, md: 4 }} gap={3} w="full">
+                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Check-ins</StatLabel><StatNumber color="white">{stats?.totalCheckIns ?? 0}</StatNumber></Stat>
+                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Véhicules</StatLabel><StatNumber color="white">{vehicles.length}</StatNumber></Stat>
+                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Visiteurs aujourd'hui</StatLabel><StatNumber color="white">{visitorsToday.reduce((sum, visitor) => sum + visitor.nbPersonnes, 0)}</StatNumber></Stat>
+                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Événements à venir</StatLabel><StatNumber color="white">{events.filter((event) => new Date(event.date) > new Date()).length}</StatNumber></Stat>
                 </SimpleGrid>
               </VStack>
             )}
@@ -774,20 +1133,44 @@ export default function LeMusee() {
                   <Divider borderColor="whiteAlpha.300" />
 
                   {/* Header */}
-                  <Flex justify="space-between" align="center">
+                  <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
                     <Heading size="lg" color="white">
                       <HStack>
                         <FiUserCheck />
                         <Text>Accueil Visiteurs</Text>
                       </HStack>
                     </Heading>
-                    <Badge colorScheme="blue" fontSize="lg" p={2}>
-                      {visitorsToday.reduce((sum, v) => sum + v.nbPersonnes, 0)} visiteurs aujourd'hui
-                    </Badge>
+                    <HStack spacing={3}>
+                      <Badge colorScheme="orange" fontSize="md" p={2}>
+                        {reservations.length} réservations
+                      </Badge>
+                      <Badge colorScheme="blue" fontSize="md" p={2}>
+                        {visitorsToday.reduce((sum, v) => sum + v.nbPersonnes, 0)} visiteurs
+                      </Badge>
+                    </HStack>
                   </Flex>
 
-                  {/* Contenu principal */}
-                  <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={6}>
+                  {/* Onglets principaux */}
+                  <Tabs index={accueilTab} onChange={setAccueilTab} colorScheme="purple" variant="soft-rounded">
+                    <TabList bg="gray.800" p={2} borderRadius="lg">
+                      <Tab color="white" _selected={{ bg: 'purple.500', color: 'white' }}>
+                        <HStack spacing={2}>
+                          <FiUserCheck />
+                          <Text>Accueil & Réservations</Text>
+                        </HStack>
+                      </Tab>
+                      <Tab color="white" _selected={{ bg: 'purple.500', color: 'white' }}>
+                        <HStack spacing={2}>
+                          <FiDollarSign />
+                          <Text>Zone Tarifaire</Text>
+                        </HStack>
+                      </Tab>
+                    </TabList>
+
+                    <TabPanels>
+                      {/* ONGLET 1: Accueil & Réservations */}
+                      <TabPanel p={0} pt={6}>
+                        <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap={6}>
                     {/* Formulaire d'enregistrement */}
                     <Card bg="gray.800" borderColor="whiteAlpha.300" borderWidth="1px">
                       <CardHeader>
@@ -812,7 +1195,11 @@ export default function LeMusee() {
                               <FormLabel color="whiteAlpha.700">Nombre de personnes</FormLabel>
                               <NumberInput 
                                 value={visitorForm.nbPersonnes} 
-                                onChange={(val) => setVisitorForm({...visitorForm, nbPersonnes: val})}
+                                onChange={(val) => {
+                                  const selectedBillet = billets.find(b => b.nom === visitorForm.tarif);
+                                  const prix = selectedBillet ? selectedBillet.prix : 0;
+                                  setVisitorForm({...visitorForm, nbPersonnes: val, montant: prix * val});
+                                }}
                                 min={1}
                                 bg="gray.900"
                                 size="lg"
@@ -825,23 +1212,53 @@ export default function LeMusee() {
                               </NumberInput>
                             </FormControl>
                             <FormControl>
-                              <FormLabel color="whiteAlpha.700">Motif</FormLabel>
+                              <FormLabel color="whiteAlpha.700">Type de billet</FormLabel>
                               <Select 
-                                value={visitorForm.motif} 
-                                onChange={(e) => setVisitorForm({...visitorForm, motif: e.target.value})}
+                                value={visitorForm.tarif} 
+                                onChange={(e) => {
+                                  const selectedBillet = billets.find(b => b.nom === e.target.value);
+                                  const prix = selectedBillet ? selectedBillet.prix : 0;
+                                  setVisitorForm({...visitorForm, tarif: e.target.value, montant: prix * visitorForm.nbPersonnes});
+                                }}
                                 bg="gray.900"
                                 borderColor="whiteAlpha.300"
                                 color="white"
                                 size="lg"
                                 _hover={{ borderColor: 'whiteAlpha.400' }}
                               >
-                                <option value="Visite libre" style={{background: '#1a202c'}}>Visite libre</option>
-                                <option value="Visite guidée" style={{background: '#1a202c'}}>Visite guidée</option>
-                                <option value="Événement" style={{background: '#1a202c'}}>Événement</option>
-                                <option value="Scolaire" style={{background: '#1a202c'}}>Scolaire</option>
+                                {billets.filter(b => b.actif).map(billet => (
+                                  <option key={billet.id} value={billet.nom} style={{background: '#1a202c'}}>
+                                    {billet.nom} - {billet.prix.toFixed(2)}€
+                                  </option>
+                                ))}
                               </Select>
                             </FormControl>
                           </Grid>
+                          <FormControl>
+                            <FormLabel color="whiteAlpha.700">Motif de la visite</FormLabel>
+                            <Select 
+                              value={visitorForm.motif} 
+                              onChange={(e) => setVisitorForm({...visitorForm, motif: e.target.value})}
+                              bg="gray.900"
+                              borderColor="whiteAlpha.300"
+                              color="white"
+                              size="lg"
+                              _hover={{ borderColor: 'whiteAlpha.400' }}
+                            >
+                              <option value="Visite libre" style={{background: '#1a202c'}}>Visite libre</option>
+                              <option value="Visite guidée" style={{background: '#1a202c'}}>Visite guidée</option>
+                              <option value="Événement" style={{background: '#1a202c'}}>Événement</option>
+                              <option value="Scolaire" style={{background: '#1a202c'}}>Scolaire</option>
+                            </Select>
+                          </FormControl>
+                          <Box bg="gray.900" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.300">
+                            <HStack justifyContent="space-between">
+                              <Text color="whiteAlpha.600" fontSize="sm">Montant à encaisser:</Text>
+                              <Text color="green.400" fontWeight="bold" fontSize="xl">
+                                {visitorForm.montant.toFixed(2)}€
+                              </Text>
+                            </HStack>
+                          </Box>
                           <Button 
                             colorScheme="blue" 
                             size="lg" 
@@ -898,22 +1315,185 @@ export default function LeMusee() {
                                   _hover={{ borderColor: 'purple.400', bg: 'whiteAlpha.200' }}
                                   transition="all 0.2s"
                                 >
-                                  <HStack justifyContent="space-between">
-                                    <VStack align="start" spacing={2}>
-                                      <Text color="white" fontWeight="bold" fontSize="lg">{visitor.nom}</Text>
-                                      <HStack spacing={4} fontSize="sm">
-                                        <HStack color="whiteAlpha.700">
-                                          <FiUsers />
-                                          <Text>{visitor.nbPersonnes} pers.</Text>
+                                  <VStack align="stretch" spacing={2}>
+                                    <HStack justifyContent="space-between">
+                                      <VStack align="start" spacing={2}>
+                                        <HStack spacing={2}>
+                                          <Text color="white" fontWeight="bold" fontSize="lg">{visitor.nom}</Text>
+                                          {visitor.isFromReservation && (
+                                            <Badge colorScheme="orange" fontSize="xs">Pré-réservation</Badge>
+                                          )}
                                         </HStack>
-                                        <HStack color="whiteAlpha.700">
-                                          <FiClock />
-                                          <Text>{visitor.heureArrivee}</Text>
+                                        <HStack spacing={4} fontSize="sm">
+                                          <HStack color="whiteAlpha.700">
+                                            <FiUsers />
+                                            <Text>{visitor.nbPersonnes} pers.</Text>
+                                          </HStack>
+                                          <HStack color="whiteAlpha.700">
+                                            <FiClock />
+                                            <Text>{visitor.heureArrivee}</Text>
+                                          </HStack>
+                                          {visitor.creneauSouhaite && (
+                                            <HStack color="whiteAlpha.500">
+                                              <Text fontSize="xs">(Créneau: {visitor.creneauSouhaite})</Text>
+                                            </HStack>
+                                          )}
+                                        </HStack>
+                                      </VStack>
+                                      <VStack align="end" spacing={1}>
+                                        <Badge colorScheme="purple" fontSize="sm" p={2}>{visitor.motif}</Badge>
+                                        {visitor.montantPaye && (
+                                          <Badge colorScheme="green" fontSize="sm" p={2}>
+                                            {visitor.montantPaye.toFixed(2)}€
+                                          </Badge>
+                                        )}
+                                      </VStack>
+                                    </HStack>
+                                    {visitor.tarif && (
+                                      <Text color="whiteAlpha.500" fontSize="xs">
+                                        Tarif: {visitor.tarif}
+                                      </Text>
+                                    )}
+                                  </VStack>
+                                </Box>
+                              ))}
+                            </VStack>
+                          )}
+                        </Box>
+                      </CardBody>
+                    </Card>
+
+                    {/* Pré-réservations (depuis le site externe) */}
+                    <Card bg="gray.800" borderColor="whiteAlpha.300" borderWidth="1px">
+                      <CardHeader>
+                        <HStack justifyContent="space-between">
+                          <Heading size="md" color="white">Pré-réservations</Heading>
+                          <Badge colorScheme="orange" fontSize="md">
+                            {reservations.length} en attente
+                          </Badge>
+                        </HStack>
+                        <Text fontSize="xs" color="whiteAlpha.500" mt={1}>
+                          Réservations effectuées via le site web
+                        </Text>
+                      </CardHeader>
+                      <CardBody>
+                        <Box 
+                          maxH="500px" 
+                          overflowY="auto" 
+                          bg="gray.900" 
+                          p={3} 
+                          borderRadius="md"
+                          borderWidth="1px"
+                          borderColor="whiteAlpha.300"
+                        >
+                          {reservations.length === 0 ? (
+                            <Center py={8}>
+                              <VStack spacing={3}>
+                                <FiCalendar size={48} color="gray" />
+                                <Text color="whiteAlpha.500" textAlign="center">
+                                  Aucune réservation en attente
+                                </Text>
+                              </VStack>
+                            </Center>
+                          ) : (
+                            <VStack spacing={3} align="stretch">
+                              {reservations.map(reservation => (
+                                <Box 
+                                  key={reservation.id} 
+                                  p={4} 
+                                  bg="whiteAlpha.100" 
+                                  borderRadius="md"
+                                  borderWidth="1px"
+                                  borderColor={reservation.statut === 'Confirmée' ? 'green.500' : 'orange.500'}
+                                  transition="all 0.2s"
+                                >
+                                  <VStack align="stretch" spacing={3}>
+                                    <HStack justifyContent="space-between">
+                                      <VStack align="start" spacing={1}>
+                                        <Text color="white" fontWeight="bold" fontSize="lg">
+                                          {reservation.nom}
+                                        </Text>
+                                        <HStack spacing={3} fontSize="sm">
+                                          <HStack color="whiteAlpha.700">
+                                            <FiUsers />
+                                            <Text>{reservation.nbPersonnes} pers.</Text>
+                                          </HStack>
+                                          <HStack color="whiteAlpha.700">
+                                            <FiClock />
+                                            <Text>{reservation.creneauSouhaite}</Text>
+                                          </HStack>
+                                        </HStack>
+                                      </VStack>
+                                      <Badge 
+                                        colorScheme={reservation.statut === 'Confirmée' ? 'green' : 'orange'}
+                                        fontSize="sm" 
+                                        p={2}
+                                      >
+                                        {reservation.statut}
+                                      </Badge>
+                                    </HStack>
+                                    
+                                    <Divider borderColor="whiteAlpha.200" />
+                                    
+                                    <VStack align="stretch" spacing={2} fontSize="sm">
+                                      <HStack color="whiteAlpha.600" justifyContent="space-between">
+                                        <Badge colorScheme="purple">{reservation.motif}</Badge>
+                                        <HStack spacing={1}>
+                                          <FiDollarSign />
+                                          <Text fontWeight="bold" color="white">{reservation.montantTotal.toFixed(2)}€</Text>
                                         </HStack>
                                       </HStack>
+                                      {reservation.commentaire && (
+                                        <Text fontSize="xs" color="whiteAlpha.500">
+                                          💬 {reservation.commentaire}
+                                        </Text>
+                                      )}
+                                      <HStack color="whiteAlpha.500" fontSize="xs">
+                                        <Text>📧 {reservation.email}</Text>
+                                      </HStack>
+                                      {reservation.telephone && (
+                                        <HStack color="whiteAlpha.500" fontSize="xs">
+                                          <Text>📱 {reservation.telephone}</Text>
+                                        </HStack>
+                                      )}
+                                      <HStack spacing={2} pt={2}>
+                                        <Badge 
+                                          colorScheme={reservation.paiementEffectue ? 'green' : 'red'}
+                                          fontSize="xs"
+                                        >
+                                          {reservation.paiementEffectue ? '✓ Payé' : '✗ Non payé'}
+                                        </Badge>
+                                      </HStack>
                                     </VStack>
-                                    <Badge colorScheme="purple" fontSize="sm" p={2}>{visitor.motif}</Badge>
+
+                                    <Divider borderColor="whiteAlpha.200" />
+
+                                    <HStack spacing={2}>
+                                      {!reservation.paiementEffectue && (
+                                        <Button 
+                                          colorScheme="orange" 
+                                          size="sm" 
+                                          leftIcon={<FiDollarSign />}
+                                          onClick={() => handleConfirmPayment(reservation.id)}
+                                          flex={1}
+                                        >
+                                          Confirmer paiement
+                                        </Button>
+                                      )}
+                                      <Button 
+                                        colorScheme={reservation.paiementEffectue ? 'green' : 'gray'} 
+                                        size="sm" 
+                                        leftIcon={<FiCheckCircle />}
+                                        onClick={() => handleReservationArrival(reservation, reservation.paiementEffectue)}
+                                        isLoading={loadingReservation === reservation.id}
+                                        loadingText="Validation..."
+                                        flex={1}
+                                        isDisabled={!reservation.paiementEffectue}
+                                      >
+                                        Valider l'arrivée
+                                      </Button>
                                   </HStack>
+                                  </VStack>
                                 </Box>
                               ))}
                             </VStack>
@@ -922,6 +1502,231 @@ export default function LeMusee() {
                       </CardBody>
                     </Card>
                   </Grid>
+                      </TabPanel>
+
+                      {/* ONGLET 2: Zone Tarifaire */}
+                      <TabPanel p={0} pt={6}>
+                        <VStack spacing={6} align="stretch">
+                          {/* Sous-onglets pour la zone tarifaire */}
+                          <Tabs colorScheme="purple" variant="enclosed">
+                            <TabList bg="gray.800" borderRadius="md" p={1}>
+                              <Tab color="white" _selected={{ bg: 'gray.700', borderColor: 'purple.400' }}>
+                                <HStack><FiTag /><Text>Billets</Text></HStack>
+                              </Tab>
+                              <Tab color="white" _selected={{ bg: 'gray.700', borderColor: 'purple.400' }}>
+                                <HStack><FiShoppingBag /><Text>Boutique</Text></HStack>
+                              </Tab>
+                              <Tab color="white" _selected={{ bg: 'gray.700', borderColor: 'purple.400' }}>
+                                <HStack><FiPercent /><Text>Réductions</Text></HStack>
+                              </Tab>
+                              <Tab color="white" _selected={{ bg: 'gray.700', borderColor: 'purple.400' }}>
+                                <HStack><FiCheckCircle /><Text>Exonérations</Text></HStack>
+                              </Tab>
+                            </TabList>
+
+                            <TabPanels>
+                              {/* Billets d'entrée */}
+                              <TabPanel>
+                                <Box bg="gray.800" p={6} borderRadius="lg" borderWidth="1px" borderColor="whiteAlpha.300">
+                                  <VStack spacing={4} align="stretch">
+                                    <Flex justify="space-between" align="center">
+                                      <Heading size="md" color="white">
+                                        <HStack><FiTag /><Text>Tarifs des billets</Text></HStack>
+                                      </Heading>
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                        Ajouter un tarif
+                                      </Button>
+                                    </Flex>
+                                    <Table variant="simple" size="sm">
+                                      <Thead>
+                                        <Tr>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Type de billet</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Prix</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Description</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Statut</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Actions</Th>
+                                        </Tr>
+                                      </Thead>
+                                      <Tbody>
+                                        {billets.map(billet => (
+                                          <Tr key={billet.id}>
+                                            <Td color="white" borderColor="whiteAlpha.200" fontWeight="bold">{billet.nom}</Td>
+                                            <Td color="white" borderColor="whiteAlpha.200">
+                                              <Badge colorScheme="green" fontSize="md" p={2}>
+                                                {billet.prix.toFixed(2)}€
+                                              </Badge>
+                                            </Td>
+                                            <Td color="whiteAlpha.600" borderColor="whiteAlpha.200" fontSize="sm">{billet.description}</Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <Badge colorScheme={billet.actif ? 'green' : 'red'}>
+                                                {billet.actif ? 'Actif' : 'Inactif'}
+                                              </Badge>
+                                            </Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <HStack spacing={1}>
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                              </HStack>
+                                            </Td>
+                                          </Tr>
+                                        ))}
+                                      </Tbody>
+                                    </Table>
+                                  </VStack>
+                                </Box>
+                              </TabPanel>
+
+                              {/* Objets boutique */}
+                              <TabPanel>
+                                <Box bg="gray.800" p={6} borderRadius="lg" borderWidth="1px" borderColor="whiteAlpha.300">
+                                  <VStack spacing={4} align="stretch">
+                                    <Flex justify="space-between" align="center">
+                                      <Heading size="md" color="white">
+                                        <HStack><FiShoppingBag /><Text>Articles de la boutique</Text></HStack>
+                                      </Heading>
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                        Ajouter un article
+                                      </Button>
+                                    </Flex>
+                                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+                                      {objetsBoutique.map(objet => (
+                                        <Card key={objet.id} bg="gray.900" borderColor="whiteAlpha.300" borderWidth="1px">
+                                          <CardBody>
+                                            <VStack align="stretch" spacing={3}>
+                                              <HStack justifyContent="space-between">
+                                                <Text color="white" fontWeight="bold">{objet.nom}</Text>
+                                                <Badge colorScheme="purple">{objet.categorie}</Badge>
+                                              </HStack>
+                                              <HStack justifyContent="space-between">
+                                                <Text color="whiteAlpha.600" fontSize="sm">Prix:</Text>
+                                                <Text color="green.400" fontWeight="bold">{objet.prix.toFixed(2)}€</Text>
+                                              </HStack>
+                                              <HStack justifyContent="space-between">
+                                                <Text color="whiteAlpha.600" fontSize="sm">Stock:</Text>
+                                                <Badge colorScheme={objet.stock > 10 ? 'green' : objet.stock > 0 ? 'orange' : 'red'}>
+                                                  {objet.stock} unités
+                                                </Badge>
+                                              </HStack>
+                                              <HStack spacing={2} pt={2}>
+                                                <IconButton icon={<FiEdit2 />} size="sm" colorScheme="blue" flex={1} />
+                                                <IconButton icon={<FiTrash2 />} size="sm" colorScheme="red" flex={1} />
+                                              </HStack>
+                                            </VStack>
+                                          </CardBody>
+                                        </Card>
+                                      ))}
+                                    </SimpleGrid>
+                                  </VStack>
+                                </Box>
+                              </TabPanel>
+
+                              {/* Réductions */}
+                              <TabPanel>
+                                <Box bg="gray.800" p={6} borderRadius="lg" borderWidth="1px" borderColor="whiteAlpha.300">
+                                  <VStack spacing={4} align="stretch">
+                                    <Flex justify="space-between" align="center">
+                                      <Heading size="md" color="white">
+                                        <HStack><FiPercent /><Text>Grille des réductions</Text></HStack>
+                                      </Heading>
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                        Ajouter une réduction
+                                      </Button>
+                                    </Flex>
+                                    <Table variant="simple" size="sm">
+                                      <Thead>
+                                        <Tr>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Type</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Réduction</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Justificatif requis</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Statut</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Actions</Th>
+                                        </Tr>
+                                      </Thead>
+                                      <Tbody>
+                                        {reductions.map(reduction => (
+                                          <Tr key={reduction.id}>
+                                            <Td color="white" borderColor="whiteAlpha.200" fontWeight="bold">{reduction.nom}</Td>
+                                            <Td color="white" borderColor="whiteAlpha.200">
+                                              <Badge colorScheme="orange" fontSize="md" p={2}>
+                                                -{reduction.pourcentage}%
+                                              </Badge>
+                                            </Td>
+                                            <Td color="whiteAlpha.600" borderColor="whiteAlpha.200" fontSize="sm">{reduction.justificatif}</Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <Badge colorScheme={reduction.actif ? 'green' : 'red'}>
+                                                {reduction.actif ? 'Actif' : 'Inactif'}
+                                              </Badge>
+                                            </Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <HStack spacing={1}>
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                              </HStack>
+                                            </Td>
+                                          </Tr>
+                                        ))}
+                                      </Tbody>
+                                    </Table>
+                                  </VStack>
+                                </Box>
+                              </TabPanel>
+
+                              {/* Exonérations */}
+                              <TabPanel>
+                                <Box bg="gray.800" p={6} borderRadius="lg" borderWidth="1px" borderColor="whiteAlpha.300">
+                                  <VStack spacing={4} align="stretch">
+                                    <Flex justify="space-between" align="center">
+                                      <Heading size="md" color="white">
+                                        <HStack><FiCheckCircle /><Text>Conditions d'exonération</Text></HStack>
+                                      </Heading>
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                        Ajouter une exonération
+                                      </Button>
+                                    </Flex>
+                                    <Table variant="simple" size="sm">
+                                      <Thead>
+                                        <Tr>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Type</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Condition</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Justificatif</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Statut</Th>
+                                          <Th color="whiteAlpha.600" borderColor="whiteAlpha.300">Actions</Th>
+                                        </Tr>
+                                      </Thead>
+                                      <Tbody>
+                                        {exonerations.map(exo => (
+                                          <Tr key={exo.id}>
+                                            <Td color="white" borderColor="whiteAlpha.200" fontWeight="bold">{exo.nom}</Td>
+                                            <Td color="white" borderColor="whiteAlpha.200">
+                                              <Badge colorScheme="green" fontSize="xs">
+                                                {exo.condition}
+                                              </Badge>
+                                            </Td>
+                                            <Td color="whiteAlpha.600" borderColor="whiteAlpha.200" fontSize="sm">{exo.justificatif}</Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <Badge colorScheme={exo.actif ? 'green' : 'red'}>
+                                                {exo.actif ? 'Actif' : 'Inactif'}
+                                              </Badge>
+                                            </Td>
+                                            <Td borderColor="whiteAlpha.200">
+                                              <HStack spacing={1}>
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                              </HStack>
+                                            </Td>
+                                          </Tr>
+                                        ))}
+                                      </Tbody>
+                                    </Table>
+                                  </VStack>
+                                </Box>
+                              </TabPanel>
+                            </TabPanels>
+                          </Tabs>
+                        </VStack>
+                      </TabPanel>
+                    </TabPanels>
+                  </Tabs>
                 </VStack>
               </Box>
             )}
