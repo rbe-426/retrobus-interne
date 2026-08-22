@@ -263,13 +263,11 @@ const DEFAULT_MUSEUM_LAYOUT = {
     docs: { top: 35, left: 24 },
     tarification: { top: 33, left: 90 },
     staff: { top: 61, left: 7 },
-    floor: { top: 75, left: 31 },
-    procedures: { top: 14, left: 18 },
-    myrbe: { top: 86, left: 82 }
+    floor: { top: 75, left: 31 }
   }
 };
 
-const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'events', 'staff', 'floor', 'tarification', 'procedures'];
+const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'events', 'staff', 'floor', 'tarification'];
 
 const getMuseumModuleFromPath = (pathname) => {
   const moduleKey = pathname.replace(/^\/lemusee\/?/, '').split('/')[0];
@@ -339,11 +337,6 @@ export default function LeMusee() {
   const [formData, setFormData] = useState({});
 
   const navigateToMuseumModule = (moduleKey) => {
-    if (moduleKey === 'myrbe') {
-      navigate('/dashboard/myrbe');
-      return;
-    }
-
     setActiveModule(moduleKey);
     navigate(moduleKey === 'dashboard' ? '/lemusee' : `/lemusee/${moduleKey}`);
   };
@@ -923,9 +916,7 @@ export default function LeMusee() {
     { key: 'docs', icon: FiBook, title: 'Documentation', color: '#14b8a6' },
     { key: 'tarification', icon: FiDollarSign, title: 'Tarification & billetterie', color: '#e50046' },
     { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
-    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' },
-    { key: 'procedures', icon: FiFileText, title: 'Procédures', color: '#a855f7' },
-    { key: 'myrbe', icon: FiHome, title: 'myRBE', color: '#e50046' }
+    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' }
   ];
 
   if (isLoading) {
@@ -1089,57 +1080,6 @@ export default function LeMusee() {
                   <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Événements à venir</StatLabel><StatNumber color="white">{events.filter((event) => new Date(event.date) > new Date()).length}</StatNumber></Stat>
                 </SimpleGrid>
               </VStack>
-            )}
-
-            {/* MODULE: Procédures */}
-            {activeModule === 'procedures' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={{ base: 5, md: 8 }} border="1px solid" borderColor="whiteAlpha.200">
-                <VStack spacing={6} align="stretch">
-                  <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
-                    <BreadcrumbItem>
-                      <BreadcrumbLink onClick={() => navigateToMuseumModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
-                        <HStack spacing={1}><FiHome /><Text>Musée</Text></HStack>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbItem isCurrentPage>
-                      <BreadcrumbLink color="white"><HStack spacing={1}><FiFileText /><Text>Procédures</Text></HStack></BreadcrumbLink>
-                    </BreadcrumbItem>
-                  </Breadcrumb>
-
-                  <Flex justify="space-between" align={{ base: 'start', md: 'center' }} direction={{ base: 'column', md: 'row' }} gap={3}>
-                    <VStack align="start" spacing={1}>
-                      <Heading size="lg" color="white"><HStack><FiFileText /><Text>Procédures</Text></HStack></Heading>
-                      <Text color="whiteAlpha.700">Référentiel des opérations du Musée RétroBus Essonne.</Text>
-                    </VStack>
-                    <Button leftIcon={<FiHome />} variant="outline" color="white" borderColor="whiteAlpha.400" onClick={() => navigate('/dashboard/myrbe')}>
-                      Ouvrir myRBE
-                    </Button>
-                  </Flex>
-
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                    {[
-                      { title: 'Accueil et billetterie', color: 'blue.300', steps: ['Vérifier la réservation ou créer une entrée visiteur.', 'Contrôler le tarif, les réductions et les exonérations.', 'Encaisser puis confirmer l’arrivée dans le registre.'] },
-                      { title: 'Réception d’une pièce', color: 'orange.300', steps: ['Identifier la pièce et sa provenance.', 'Créer l’article de stock avec sa référence unique.', 'Renseigner l’état, l’emplacement et les conditions de conservation.'] },
-                      { title: 'Démarrage d’une restauration', color: 'green.300', steps: ['Sélectionner le véhicule depuis le parc RétroBus.', 'Définir le responsable, le budget et les tâches.', 'Mettre à jour l’avancement à chaque intervention significative.'] },
-                      { title: 'Ouverture et fermeture', color: 'purple.300', steps: ['Effectuer le check-in de l’équipe présente.', 'Vérifier les espaces d’exposition et les zones de facing.', 'En fin de journée, clôturer les encaissements et signaler les anomalies.'] }
-                    ].map((procedure) => (
-                      <Card key={procedure.title} bg="gray.800" borderWidth="1px" borderColor="whiteAlpha.300" borderTopWidth="4px" borderTopColor={procedure.color}>
-                        <CardHeader pb={2}><Heading size="sm" color="white">{procedure.title}</Heading></CardHeader>
-                        <CardBody pt={2}>
-                          <List spacing={3}>
-                            {procedure.steps.map((step, index) => (
-                              <ListItem key={step} color="whiteAlpha.800" display="flex" alignItems="start" gap={3}>
-                                <Badge colorScheme="purple" borderRadius="full" minW="24px" textAlign="center">{index + 1}</Badge>
-                                <Text fontSize="sm">{step}</Text>
-                              </ListItem>
-                            ))}
-                          </List>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </SimpleGrid>
-                </VStack>
-              </Box>
             )}
 
             {/* MODULE: Accueil Visiteurs */}

@@ -22,7 +22,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
   FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool,
-  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag, FiVideo
+  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag, FiVideo, FiFileText
 } from "react-icons/fi";
 import { FaPaintBrush } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
@@ -155,6 +155,15 @@ const cards = [
     icon: FiLifeBuoy,
     color: "cyan",
     resource: "RETROSUPPORT",
+    cardAccess: true
+  },
+  {
+    title: "Procédures",
+    description: "Référentiel des procédures de l'association",
+    to: "/dashboard/procedures",
+    icon: FiFileText,
+    color: "purple",
+    resource: null,
     cardAccess: true
   },
   {
