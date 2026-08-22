@@ -15,12 +15,14 @@ import {
   FiUsers, FiPlus, FiSearch, FiEdit, FiTrash2, FiEye, FiMail,
   FiUserPlus, FiUserCheck, FiUserX, FiClock, FiTrendingUp,
   FiFilter, FiDownload, FiKey, FiShield, FiActivity, FiRefreshCw,
-  FiSettings, FiLock, FiUnlock, FiRotateCcw, FiLogIn, FiLogOut, FiBarChart
+  FiSettings, FiLock, FiUnlock, FiRotateCcw, FiLogIn, FiLogOut, FiBarChart, FiFolder
 } from 'react-icons/fi';
 import { membersAPI } from '../api/members.js';
 import CreateMember from '../components/CreateMember';
+import MemberDossierModal from '../components/MemberDossierModal';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
 import { fetchWithCSRF } from '../lib/csrfClient';
+import { useUser } from '../context/UserContext';
 
 // API base builder with relative fallback
 const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -239,7 +241,7 @@ const buildRbeEmail = (matricule) => {
 };
 
 // === COMPOSANTS MODERNES ===
-function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions }) {
+function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions, onOpenDossier, canManageDossier }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const statusConfig = MEMBERSHIP_STATUS[member.membershipStatus] || MEMBERSHIP_STATUS.PENDING;
   const roleConfig = MEMBER_ROLES[member.role] || MEMBER_ROLES.MEMBER;
@@ -310,6 +312,11 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
                 <MenuItem icon={<FiMail />} onClick={() => onBulletinActions(member)}>
                   Gestion bulletin
                 </MenuItem>
+                {canManageDossier && (
+                  <MenuItem icon={<FiFolder />} onClick={() => onOpenDossier(member)}>
+                    Dossier
+                  </MenuItem>
+                )}
                 {member.membershipStatus === 'CANCELLED' && (
                   <MenuItem icon={<FiTrash2 />} onClick={() => onDeleteMember(member)} color="red.600">
                     Effacer l'adhérent
@@ -437,6 +444,7 @@ function ConnectionLogsModal({ isOpen, onClose, member }) {
 
 // === COMPOSANT PRINCIPAL ===
 export default function MembersManagement() {
+  const { roles, user, matricule } = useUser();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -445,6 +453,7 @@ export default function MembersManagement() {
   const [showOnlyWithLogin, setShowOnlyWithLogin] = useState(false);
   
   const [selectedMember, setSelectedMember] = useState(null);
+  const [dossierMember, setDossierMember] = useState(null);
   const [stats, setStats] = useState({});
   const [bulletinStats, setBulletinStats] = useState({ active: 0, pending: 0, in_progress: 0, completed: 0 });
   const [recentCompletions, setRecentCompletions] = useState([]);
@@ -476,6 +485,23 @@ export default function MembersManagement() {
     onOpen: onEditOpen,
     onClose: onEditClose
   } = useDisclosure();
+  const {
+    isOpen: isDossierOpen,
+    onOpen: onDossierOpen,
+    onClose: onDossierClose
+  } = useDisclosure();
+
+  const isConfiguredPresident = (
+    String(matricule || '').toLowerCase() === 'w.belaidi' ||
+    String(user?.username || '').toLowerCase() === 'w.belaidi' ||
+    String(user?.email || '').toLowerCase() === 'belaidiw91@gmail.com'
+  );
+  const canManageDossier = isConfiguredPresident || roles?.some((role) => ['PRESIDENT', 'VICE_PRESIDENT'].includes(String(role).toUpperCase()));
+
+  const handleOpenDossier = (member) => {
+    setDossierMember(member);
+    onDossierOpen();
+  };
 
   const {
     isOpen: isTerminateOpen,
@@ -1359,6 +1385,8 @@ export default function MembersManagement() {
               onDeleteMember={handleDeleteMember}
               onActivateAdhesion={handleActivateAdhesion}
               onBulletinActions={handleBulletinActions}
+              onOpenDossier={handleOpenDossier}
+              canManageDossier={canManageDossier}
             />
           ))}
         </SimpleGrid>
@@ -1652,6 +1680,15 @@ export default function MembersManagement() {
         isOpen={isCreateOpen}
         onClose={onCreateClose}
         onMemberCreated={handleMemberCreated}
+      />
+
+      <MemberDossierModal
+        member={dossierMember}
+        isOpen={isDossierOpen}
+        onClose={() => {
+          onDossierClose();
+          setDossierMember(null);
+        }}
       />
 
       <Modal isOpen={isLinkOpen} onClose={onLinkClose}>
