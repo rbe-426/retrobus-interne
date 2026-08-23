@@ -18,7 +18,7 @@ import { FiMail, FiPhone, FiMapPin, FiExternalLink } from 'react-icons/fi';
 import logo from '../assets/rbe_footer.jpg';
 import packageJson from '../../package.json';
 
-export default function Footer() {
+export default function Footer({ flush = false }) {
   const bgColor = useColorModeValue('gray.900', 'gray.950');
   const borderColor = useColorModeValue('gray.700', 'gray.800');
   const textColor = useColorModeValue('gray.300', 'gray.400');
@@ -53,7 +53,7 @@ export default function Footer() {
       borderColor={borderColor}
       color={textColor}
       py={isMobile ? 6 : 4}
-      mt={isMobile ? 2 : 4}
+      mt={flush ? 0 : (isMobile ? 2 : 4)}
       px={isMobile ? 3 : undefined}
       _active={{ bg: bgColor }}
       _focus={{ bg: bgColor }}

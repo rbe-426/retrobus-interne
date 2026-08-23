@@ -919,6 +919,19 @@ export default function LeMusee() {
     { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' }
   ];
 
+  const renderMuseumBreadcrumb = (currentLabel) => (
+    <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
+      <BreadcrumbItem>
+        <BreadcrumbLink onClick={() => navigateToMuseumModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
+          Le Musée
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+      <BreadcrumbItem isCurrentPage>
+        <BreadcrumbLink color="whiteAlpha.800" cursor="default">{currentLabel}</BreadcrumbLink>
+      </BreadcrumbItem>
+    </Breadcrumb>
+  );
+
   if (isLoading) {
     return (
       <Box minH="100vh" bg="black" display="flex" alignItems="center" justifyContent="center">
@@ -935,9 +948,9 @@ export default function LeMusee() {
       {/* Header */}
       <Box
         position="fixed" top={0} left={0} right={0} zIndex={1000}
-        bg="rgba(0, 0, 0, 0.95)" borderBottom="1px solid" borderColor="whiteAlpha.200" backdropFilter="blur(10px)"
+        bg="black" borderBottom="1px solid" borderColor="whiteAlpha.200"
       >
-        <Container maxW="container.xl" py={4}>
+        <Box w="full" px={{ base: 4, md: 8, xl: 12 }} py={2}>
           <Flex justifyContent="space-between" alignItems="center">
             <Image src="/myrbe_lemusee.png" alt="RBE | Le Musée" height="80px" objectFit="contain" />
             {isAuthenticated && (
@@ -979,18 +992,18 @@ export default function LeMusee() {
               </HStack>
             )}
           </Flex>
-        </Container>
+        </Box>
       </Box>
 
       {/* Contenu principal */}
-      <Container maxW="container.xl" pt="112px" pb={0}>
+      <Box w="full" pt="112px" pb={0} px={{ base: 4, md: 8, xl: 12 }} minH="calc(100vh - 112px)">
         {isAuthenticated ? (
           <VStack spacing={0} align="stretch">
             {/* MODULE: Dashboard */}
             {activeModule === 'dashboard' && (
               <VStack spacing={6} align="stretch">
                 <VStack spacing={1} pt={0}>
-                  <Heading size="xl" color="white" textAlign="center">Le Musée RétroBus Essonne</Heading>
+                  <Heading size="xl" color="white" textAlign="center">RBE | Le Musée</Heading>
                   <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
                 </VStack>
 
@@ -1073,38 +1086,14 @@ export default function LeMusee() {
                   ))}
                 </SimpleGrid>
 
-                <SimpleGrid columns={{ base: 2, md: 4 }} gap={3} w="full">
-                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Check-ins</StatLabel><StatNumber color="white">{stats?.totalCheckIns ?? 0}</StatNumber></Stat>
-                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Véhicules</StatLabel><StatNumber color="white">{vehicles.length}</StatNumber></Stat>
-                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Visiteurs aujourd'hui</StatLabel><StatNumber color="white">{visitorsToday.reduce((sum, visitor) => sum + visitor.nbPersonnes, 0)}</StatNumber></Stat>
-                  <Stat bg="whiteAlpha.50" p={4} borderRadius="md" borderWidth="1px" borderColor="whiteAlpha.200"><StatLabel color="whiteAlpha.600" fontSize="xs">Événements à venir</StatLabel><StatNumber color="white">{events.filter((event) => new Date(event.date) > new Date()).length}</StatNumber></Stat>
-                </SimpleGrid>
               </VStack>
             )}
 
             {/* MODULE: Accueil Visiteurs */}
             {(activeModule === 'accueil' || activeModule === 'tarification') && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
-                  {/* Fil d'Ariane */}
-                  <Breadcrumb color="whiteAlpha.600" fontSize="sm" separator="›">
-                    <BreadcrumbItem>
-                      <BreadcrumbLink onClick={() => navigateToMuseumModule('dashboard')} _hover={{ color: 'white' }} cursor="pointer">
-                        <HStack spacing={1}>
-                          <FiHome />
-                          <Text>Musée</Text>
-                        </HStack>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbItem isCurrentPage>
-                      <BreadcrumbLink color="white">
-                        <HStack spacing={1}>
-                          <FiUserCheck />
-                          <Text>{activeModule === 'tarification' ? 'Tarification & billetterie' : 'Accueil Visiteurs'}</Text>
-                        </HStack>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  </Breadcrumb>
+                  {renderMuseumBreadcrumb(activeModule === 'tarification' ? 'Tarification & billetterie' : 'Accueil visiteurs')}
 
                   <Divider borderColor="whiteAlpha.300" />
 
@@ -1709,8 +1698,9 @@ export default function LeMusee() {
 
             {/* MODULE: Stock */}
             {activeModule === 'stock' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Pièces & Stocks')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiPackage /><Text>Gestion du Stock</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => openStockDrawer()}>Ajouter une pièce</Button>
@@ -1757,8 +1747,9 @@ export default function LeMusee() {
 
             {/* MODULE: Véhicules */}
             {activeModule === 'vehicles' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Véhicules')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiTruck /><Text>Collection de Véhicules</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => openVehicleDrawer()}>
@@ -1827,8 +1818,9 @@ export default function LeMusee() {
 
             {/* MODULE: Restaurations */}
             {activeModule === 'restorations' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Restaurations')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiTool /><Text>Restaurations en Cours</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => openRestorationDrawer()}>
@@ -1905,8 +1897,9 @@ export default function LeMusee() {
 
             {/* MODULE: Documentation */}
             {activeModule === 'docs' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Documentation')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiBook /><Text>Documentation Technique</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => openDocDrawer()}>
@@ -1959,8 +1952,9 @@ export default function LeMusee() {
 
             {/* MODULE: Événements */}
             {activeModule === 'events' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Événements & sorties')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiCalendar /><Text>Événements & Sorties</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => openEventDrawer()}>
@@ -2019,8 +2013,9 @@ export default function LeMusee() {
 
             {/* MODULE: Facing */}
             {activeModule === 'facing' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Facing')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiShoppingBag /><Text>Gestion du Facing</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => { setEditingItem(null); setFormData({ nom: '', pieces: 0, rotation: '', derniereMAJ: '', priorite: 'Moyenne' }); facingDrawer.onOpen(); }}>Ajouter une zone</Button>
@@ -2055,8 +2050,9 @@ export default function LeMusee() {
 
             {/* MODULE: Floor */}
             {activeModule === 'floor' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Espaces')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiMapPin /><Text>Floor Management</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => { setEditingItem(null); setFormData({ nom: '', salles: 0, capacite: 0, superficie: '', theme: '' }); floorDrawer.onOpen(); }}>Ajouter un espace</Button>
@@ -2089,8 +2085,9 @@ export default function LeMusee() {
 
             {/* MODULE: Staff */}
             {activeModule === 'staff' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Équipe')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiUsers /><Text>Gestion de la Main d'œuvre</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => { setEditingItem(null); setFormData({ nom: '', role: '', competences: [], disponibilite: 'Temps plein', tel: '' }); staffDrawer.onOpen(); }}>Ajouter un membre</Button>
@@ -2128,8 +2125,9 @@ export default function LeMusee() {
 
             {/* MODULE: Planning */}
             {activeModule === 'planning' && (
-              <Box bg="whiteAlpha.50" borderRadius="xl" p={8} border="1px solid" borderColor="whiteAlpha.200">
+              <Box w="full" pb={8}>
                 <VStack spacing={6} align="stretch">
+                  {renderMuseumBreadcrumb('Plannings & affectations')}
                   <Flex justify="space-between" align="center">
                     <Heading size="lg" color="white"><HStack><FiCalendar /><Text>Plannings & Affectations</Text></HStack></Heading>
                     <Button leftIcon={<FiPlus />} colorScheme="green" onClick={() => { setEditingItem(null); setFormData({ personnel: '', zone: '', jour: 'Lundi', horaire: '', tache: '' }); planningDrawer.onOpen(); }}>Nouvelle affectation</Button>
@@ -2179,7 +2177,7 @@ export default function LeMusee() {
             </VStack>
           </Center>
         )}
-      </Container>
+      </Box>
 
       {/* Drawers Latéraux - Organisation optimisée pour Rétrobus Essonne */}
 
