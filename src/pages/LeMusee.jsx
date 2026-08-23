@@ -267,7 +267,7 @@ const DEFAULT_MUSEUM_LAYOUT = {
   }
 };
 
-const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'events', 'staff', 'floor', 'tarification'];
+const MUSEUM_MODULE_KEYS = ['vehicles', 'stock'];
 
 const getMuseumModuleFromPath = (pathname) => {
   const moduleKey = pathname.replace(/^\/lemusee\/?/, '').split('/')[0];
@@ -297,29 +297,29 @@ export default function LeMusee() {
   const suppressModuleClickRef = useRef(false);
 
   // États pour les modules
-  const [vehicles, setVehicles] = useState(DEMO_VEHICLES);
-  const [stockItems, setStockItems] = useState(DEMO_STOCK_ITEMS);
-  const [restorations, setRestorations] = useState(DEMO_RESTORATIONS);
-  const [docs, setDocs] = useState(DEMO_DOCS);
-  const [events, setEvents] = useState(DEMO_EVENTS);
-  const [facingZones, setFacingZones] = useState(DEMO_FACING_ZONES);
-  const [floors, setFloors] = useState(DEMO_FLOORS);
-  const [staff, setStaff] = useState(DEMO_STAFF);
-  const [planning, setPlanning] = useState(DEMO_PLANNING);
+  const [vehicles, setVehicles] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
+  const [restorations, setRestorations] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [facingZones, setFacingZones] = useState([]);
+  const [floors, setFloors] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [planning, setPlanning] = useState([]);
 
   // États pour l'accueil visiteurs
   const [visitorForm, setVisitorForm] = useState({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
   const [visitorsToday, setVisitorsToday] = useState([]);
   const [loadingVisitor, setLoadingVisitor] = useState(false);
-  const [reservations, setReservations] = useState(DEMO_RESERVATIONS);
+  const [reservations, setReservations] = useState([]);
   const [loadingReservation, setLoadingReservation] = useState(null);
   const [accueilTab, setAccueilTab] = useState(0);
 
   // États pour la zone tarifaire
-  const [billets, setBillets] = useState(DEMO_BILLETS);
-  const [objetsBoutique, setObjetsBoutique] = useState(DEMO_OBJETS_BOUTIQUE);
-  const [reductions, setReductions] = useState(DEMO_REDUCTIONS);
-  const [exonerations, setExonerations] = useState(DEMO_EXONERATIONS);
+  const [billets, setBillets] = useState([]);
+  const [objetsBoutique, setObjetsBoutique] = useState([]);
+  const [reductions, setReductions] = useState([]);
+  const [exonerations, setExonerations] = useState([]);
 
   // Drawers (remplace les modals)
   const vehicleDrawer = useDisclosure();
@@ -479,7 +479,8 @@ export default function LeMusee() {
           setCurrentUser(data.user);
           loadCheckIns();
           loadStats();
-          loadVehicles(); // Charger les véhicules de la collection
+          loadVehicles();
+          loadStockItems();
         } else {
           localStorage.removeItem('musee_token');
           onOpen();
@@ -560,29 +561,34 @@ export default function LeMusee() {
           prochaineSortie: null
         }));
         
-        // Combiner avec les véhicules de démo (en ajoutant un offset aux IDs pour éviter les conflits)
-        const maxApiId = apiVehicles.length > 0 ? Math.max(...apiVehicles.map(v => v.id)) : 0;
-        const demoVehiclesWithOffset = DEMO_VEHICLES.map(v => ({
-          ...v,
-          id: v.id + maxApiId,
-          ref: `DEMO-${v.id}`
-        }));
-        
-        setVehicles([...mappedVehicles, ...demoVehiclesWithOffset]);
-        
-        toast({
-          title: 'Véhicules chargés',
-          description: `${mappedVehicles.length} véhicules depuis la base de données`,
-          status: 'success',
-          duration: 3000
-        });
+        setVehicles(mappedVehicles);
       } else {
-        console.warn('Impossible de charger les véhicules, utilisation des données de démo');
-        // Garder les données de démo en cas d'erreur
+        setVehicles([]);
+        console.warn('Impossible de charger les véhicules');
       }
     } catch (error) {
       console.error('Erreur chargement véhicules:', error);
-      // Garder les données de démo en cas d'erreur
+      setVehicles([]);
+    }
+  };
+
+  const loadStockItems = async () => {
+    try {
+      const normalToken = localStorage.getItem('token');
+      const response = await fetch('/api/stocks', {
+        headers: {
+          'Authorization': `Bearer ${normalToken}`,
+          'X-CSRF-Token': getStoredCSRFToken() || ''
+        }
+      });
+
+      if (!response.ok) throw new Error(`Erreur serveur ${response.status}`);
+
+      const data = await response.json();
+      setStockItems(Array.isArray(data?.stocks) ? data.stocks : []);
+    } catch (error) {
+      console.error('Erreur chargement stocks:', error);
+      setStockItems([]);
     }
   };
 
@@ -909,14 +915,8 @@ export default function LeMusee() {
   };
 
   const museumModules = [
-    { key: 'accueil', icon: FiUserCheck, title: 'Accueil visiteurs', color: '#0ea5e9' },
     { key: 'vehicles', icon: FiTruck, title: 'Véhicules', color: '#16a34a' },
-    { key: 'restorations', icon: FiTool, title: 'Restaurations', color: '#f97316' },
-    { key: 'stock', icon: FiPackage, title: 'Pièces & stock', color: '#d97706' },
-    { key: 'docs', icon: FiBook, title: 'Documentation', color: '#14b8a6' },
-    { key: 'tarification', icon: FiDollarSign, title: 'Tarification & billetterie', color: '#e50046' },
-    { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
-    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#0891b2' }
+    { key: 'stock', icon: FiPackage, title: 'Pièces & stocks', color: '#d97706' }
   ];
 
   const renderMuseumBreadcrumb = (currentLabel) => (
