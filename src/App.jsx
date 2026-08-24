@@ -110,6 +110,7 @@ const RetroStudio = lazy(() => import("./pages/RetroStudio"));
 const IneoHome = lazy(() => import("./pages/IneoHome"));
 const IneoDriver = lazy(() => import("./pages/IneoDriver"));
 const IneoOperations = lazy(() => import("./pages/IneoOperations"));
+const IneoFreeTracking = lazy(() => import("./pages/IneoFreeTracking"));
 const LeMusee = lazy(() => import("./pages/LeMusee"));
 
 export default function App() {
@@ -172,6 +173,7 @@ export default function App() {
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
   <Route path="/myrbe/ineo-retrobus" element={<ProtectedRoute><IneoHome /></ProtectedRoute>} />
   <Route path="/myrbe/ineo-retrobus/service" element={<ProtectedRoute><IneoDriver /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus/tracage-libre" element={<ProtectedRoute><IneoFreeTracking /></ProtectedRoute>} />
   <Route path="/dashboard/ineo-retrobus" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
