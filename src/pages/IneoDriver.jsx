@@ -8,8 +8,52 @@ import { ineoAPI } from '../api/ineo';
 import 'leaflet/dist/leaflet.css';
 
 const formatTime = (value) => value ? new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-const delayMinutes = (mission) => mission?.scheduledArrival ? Math.max(0, Math.floor((Date.now() - new Date(mission.scheduledArrival).getTime()) / 60000)) : 0;
 const stopIcon = L.divIcon({ className: '', html: '<div style="width:14px;height:14px;border:3px solid #005a9e;background:#fff;border-radius:50%"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+const toRadians = (value) => value * Math.PI / 180;
+const metersBetween = (origin, destination) => {
+  const earthRadius = 6371000;
+  const latitudeDelta = toRadians(destination.lat - origin.lat);
+  const longitudeDelta = toRadians(destination.lng - origin.lng);
+  const latitudeOrigin = toRadians(origin.lat);
+  const latitudeDestination = toRadians(destination.lat);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(latitudeOrigin) * Math.cos(latitudeDestination) * Math.sin(longitudeDelta / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+const routeProgress = (mission, route) => {
+  const stops = (Array.isArray(route?.stops) ? route.stops : []).filter((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lng));
+  if (!stops.length || mission.lastLatitude == null || mission.lastLongitude == null) return { stops, progress: 0, segmentIndex: 0, deviationMeters: null };
+  const position = { lat: mission.lastLatitude, lng: mission.lastLongitude };
+  if (stops.length === 1) return { stops, progress: 0, segmentIndex: 0, deviationMeters: metersBetween(position, stops[0]) };
+  const referenceLatitude = toRadians(position.lat);
+  const scaleX = 111320 * Math.cos(referenceLatitude);
+  const scaleY = 110540;
+  let closest = { distance: Infinity, segmentIndex: 0, ratio: 0 };
+  stops.slice(0, -1).forEach((start, segmentIndex) => {
+    const end = stops[segmentIndex + 1];
+    const endX = (end.lng - start.lng) * scaleX;
+    const endY = (end.lat - start.lat) * scaleY;
+    const pointX = (position.lng - start.lng) * scaleX;
+    const pointY = (position.lat - start.lat) * scaleY;
+    const denominator = endX ** 2 + endY ** 2;
+    const ratio = denominator ? Math.max(0, Math.min(1, (pointX * endX + pointY * endY) / denominator)) : 0;
+    const distance = Math.hypot(pointX - endX * ratio, pointY - endY * ratio);
+    if (distance < closest.distance) closest = { distance, segmentIndex, ratio };
+  });
+  return { stops, progress: ((closest.segmentIndex + closest.ratio) / (stops.length - 1)) * 100, segmentIndex: closest.segmentIndex, deviationMeters: closest.distance };
+};
+const scheduleCode = (mission, now = new Date()) => {
+  if (!mission?.scheduledArrival) return '0';
+  const deltaMinutes = Math.round((now.getTime() - new Date(mission.scheduledArrival).getTime()) / 60000);
+  if (deltaMinutes >= -2 && deltaMinutes <= 5) return '0';
+  return `${deltaMinutes < 0 ? 'A' : 'R'}${Math.abs(deltaMinutes)}`;
+};
+
+function MobileRouteProgress({ mission, route, clock }) {
+  const { stops, progress, segmentIndex, deviationMeters } = routeProgress(mission, route);
+  const offRoute = deviationMeters != null && deviationMeters > 120;
+  const statusCode = scheduleCode(mission, clock);
+  return <Box display={{ base: 'block', md: 'none' }} minH="48dvh" px={5} py={4} position="relative" overflow="hidden" bg="#121618" sx={{ backgroundImage: 'linear-gradient(27deg, rgba(255,255,255,0.025) 25%, transparent 25%), linear-gradient(207deg, rgba(255,255,255,0.02) 25%, transparent 25%), linear-gradient(90deg, rgba(0,0,0,0.28), rgba(255,255,255,0.02))', backgroundSize: '8px 8px, 8px 8px, auto' }}><HStack justify="space-between" align="start"><Box><Text fontSize="xs" color="#aeb7bb" fontWeight="700">INÉO · EN LIGNE</Text><Heading size="sm" mt={1} noOfLines={1}>{mission.serviceName}</Heading><Text mt={1} color="#c5cccf" fontSize="sm" noOfLines={1}>{route?.routeName || mission.serviceReference} · {mission.courseReference}</Text></Box><Box textAlign="right"><Text fontFamily="monospace" fontSize="24px" fontWeight="700">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text><Text color={statusCode === '0' ? '#38d39f' : statusCode.startsWith('R') ? '#ff718a' : '#78d9ff'} fontFamily="monospace" fontSize="18px" fontWeight="700">{statusCode}</Text></Box></HStack><Box mt={10} mb={8} position="relative" minH="174px"><Box position="absolute" top="42px" left="7%" right="7%" h="5px" bg="#d7194b" borderRadius="full" /><Box position="absolute" top="42px" left="7%" h="5px" w={`${Math.max(0, Math.min(86, progress * 0.86))}%`} bg="#54d9aa" borderRadius="full" transition="width 700ms ease" />{stops.length > 1 ? stops.map((stop, index) => { const left = 7 + (index / (stops.length - 1)) * 86; const affected = offRoute && index === segmentIndex + 1; return <Box key={`${stop.order}-${stop.lat}`} position="absolute" left={`${left}%`} top="0" transform="translateX(-50%)" w="78px" textAlign="center"><Text color={affected ? '#ffd84e' : '#e7ecee'} fontSize="10px" noOfLines={2} minH="30px">{stop.label}</Text><Box mx="auto" mt={2} w="18px" h="18px" borderRadius="full" bg={affected ? '#ffd84e' : '#182125'} border="3px solid" borderColor={affected ? '#ffd84e' : '#f2f5f5'} boxShadow={affected ? '0 0 16px #ffd84e' : 'none'} /></Box>; }) : <Text color="#aeb7bb" textAlign="center">Itinéraire sans arrêts géocodés</Text>} {stops.length > 1 && <Box position="absolute" top={offRoute ? '59px' : '33px'} left={`${7 + Math.max(0, Math.min(86, progress * 0.86))}%`} transform="translateX(-50%)" transition="left 700ms ease, top 300ms ease"><Box w="24px" h="24px" borderRadius="full" bg="#36d59d" border="3px solid white" boxShadow="0 0 0 5px rgba(54,213,157,0.22), 0 0 18px #36d59d" /><Icon as={FiNavigation} position="absolute" top="4px" left="4px" color="#0d1720" boxSize={3.5} /></Box>}</Box>{offRoute ? <Box borderLeft="4px solid" borderColor="#ffd84e" bg="rgba(255,216,78,0.13)" px={3} py={2}><Text color="#ffe88b" fontSize="sm" fontWeight="700">Écart d’itinéraire détecté</Text><Text color="#e9edf0" fontSize="xs">Retour attendu entre {stops[segmentIndex]?.label || 'l’arrêt précédent'} et {stops[segmentIndex + 1]?.label || 'l’arrêt suivant'} · {Math.round(deviationMeters)} m</Text></Box> : <HStack color="#9cadb4" fontSize="sm"><Icon as={FiMapPin} color="#36d59d" /><Text>{mission.lastPositionAt ? `Position reçue à ${formatTime(mission.lastPositionAt)}` : 'Recherche de position GPS'}</Text></HStack>}</Box>;
+}
 
 function DriverMap({ mission, route }) {
   const latitude = mission.lastLatitude ?? route?.stops?.[0]?.lat ?? 48.632;
@@ -27,8 +71,10 @@ export default function IneoDriver() {
   const [courseReference, setCourseReference] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
   const watchId = useRef(null);
   const lastSentAt = useRef(0);
+  const offRouteAlerted = useRef(false);
 
   const loadMission = async () => {
     try {
@@ -90,6 +136,43 @@ export default function IneoDriver() {
   }, [mission?.id, mission?.status]);
 
   useEffect(() => {
+    if (mission?.status !== 'ACTIVE') return undefined;
+    const intervalId = window.setInterval(() => setClock(new Date()), 15000);
+    return () => window.clearInterval(intervalId);
+  }, [mission?.status]);
+
+  useEffect(() => {
+    if (mission?.status !== 'ACTIVE') return undefined;
+    const progress = routeProgress(mission, route);
+    const offRoute = progress.deviationMeters != null && progress.deviationMeters > 120;
+    if (!offRoute) {
+      offRouteAlerted.current = false;
+      return undefined;
+    }
+    if (offRouteAlerted.current) return undefined;
+    offRouteAlerted.current = true;
+    const from = progress.stops[progress.segmentIndex]?.label || 'l’arrêt précédent';
+    const to = progress.stops[progress.segmentIndex + 1]?.label || 'l’arrêt suivant';
+    toast({ status: 'warning', title: 'Écart d’itinéraire détecté', description: `Retour attendu entre ${from} et ${to}.`, duration: null, isClosable: true, position: 'top' });
+    navigator.vibrate?.([180, 100, 180]);
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.25);
+      oscillator.onended = () => audioContext.close();
+    } catch { /* Audio can be blocked until a user gesture on some mobile browsers. */ }
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Inéo RétroBus', { body: `Écart d’itinéraire : retour entre ${from} et ${to}.` });
+    }
+    return undefined;
+  }, [mission?.id, mission?.status, mission?.lastLatitude, mission?.lastLongitude, route, toast]);
+
+  useEffect(() => {
     if (mission?.status !== 'ACTIVE' || !navigator.wakeLock?.request) return undefined;
     let wakeLock = null;
     let disposed = false;
@@ -127,6 +210,7 @@ export default function IneoDriver() {
       const data = await ineoAPI.startMission(mission.id, { serviceReference, courseReference: courseReference.trim().toUpperCase() });
       setMission(data.mission);
       setRoute(data.route || route);
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
       try { await document.documentElement.requestFullscreen?.(); await screen.orientation?.lock?.('landscape'); } catch { /* Browser permissions can prevent fullscreen or orientation. */ }
       toast({ status: 'success', title: 'Service démarré', description: 'Le GPS est maintenant actif.' });
     } catch (error) { toast({ status: 'error', title: 'Prise de service impossible', description: error.message }); }
@@ -149,8 +233,7 @@ export default function IneoDriver() {
 
   const active = mission.status === 'ACTIVE';
   const vehicle = mission.vehicle || {};
-  const late = delayMinutes(mission);
-  if (active) return <Box minH="100dvh" h={{ base: 'auto', md: '100vh' }} overflowY={{ base: 'auto', md: 'hidden' }} bg="#0d1720" color="white"><Grid minH="100dvh" h={{ base: 'auto', md: 'full' }} templateColumns={{ base: '1fr', md: 'minmax(0, 1fr) 330px' }}><Box h={{ base: '48dvh', md: 'auto' }} minH={{ base: '320px', md: '100vh' }}><DriverMap mission={mission} route={route} /></Box><VStack align="stretch" spacing={0} bg="#15232e" p={{ base: 4, md: 5 }} justify="space-between" minH={{ base: '52dvh', md: 'auto' }}><Box><Text fontSize="xs" fontWeight="700" color="#9db7c8">INÉO · SERVICE EN COURS</Text><Heading size="md" mt={1}>{mission.serviceName}</Heading><Text mt={1} color="#c7d5df">{mission.serviceReference || 'Code service non renseigné'} · {route?.courseReference || 'Code course non renseigné'}</Text><Divider my={5} borderColor="#3c5464" /><HStack><Icon as={FiTruck} color="#66b7e8" /><Text>{vehicle.immat || mission.vehicleParc} · {vehicle.modele || 'Véhicule affecté'}</Text></HStack><HStack mt={4}><Icon as={FiActivity} color="#66b7e8" /><Text>{mission.lastSpeedKmh == null ? 'Vitesse en attente' : `${Math.round(mission.lastSpeedKmh)} km/h`}</Text></HStack><HStack mt={4}><Icon as={FiMapPin} color="#66b7e8" /><Text>{mission.lastPositionAt ? `GPS reçu à ${formatTime(mission.lastPositionAt)}` : 'Recherche GPS en cours'}</Text></HStack></Box><Box mt={{ base: 6, md: 0 }}><HStack spacing={4} align="stretch"><Box w="12px" borderRadius="full" bg={late ? '#d7194b' : '#22a06b'} position="relative" minH="120px"><Icon as={FiNavigation} position="absolute" color="white" left="-6px" top="50%" transform="translateY(-50%)" boxSize={6} /></Box><VStack align="start" justify="center" spacing={1}><Text fontSize="xs" color="#9db7c8">PONCTUALITÉ</Text><Heading color={late ? '#ff6688' : '#63d39f'} size="lg">{late ? `+${late} min` : 'À l’heure'}</Heading><Text fontSize="sm">Arrivée prévue {formatTime(mission.scheduledArrival)}</Text></VStack></HStack><Button mt={6} w="full" minH="48px" colorScheme="red" leftIcon={<FiCheckCircle />} isLoading={submitting} onClick={complete}>Terminer le service</Button></Box></VStack></Grid></Box>;
+  if (active) return <Box minH="100dvh" h={{ base: 'auto', md: '100vh' }} overflowY={{ base: 'auto', md: 'hidden' }} bg="#0d1720" color="white"><MobileRouteProgress mission={mission} route={route} clock={clock} /><Grid display={{ base: 'none', md: 'grid' }} h="full" templateColumns="minmax(0, 1fr) 330px"><Box minH="100vh"><DriverMap mission={mission} route={route} /></Box><VStack align="stretch" spacing={0} bg="#15232e" p={5} justify="space-between"><Box><Text fontSize="xs" fontWeight="700" color="#9db7c8">INÉO · SERVICE EN COURS</Text><Heading size="md" mt={1}>{mission.serviceName}</Heading><Text mt={1} color="#c7d5df">{mission.serviceReference || 'Code service non renseigné'} · {route?.courseReference || 'Code course non renseigné'}</Text><Divider my={5} borderColor="#3c5464" /><HStack><Icon as={FiTruck} color="#66b7e8" /><Text>{vehicle.immat || mission.vehicleParc} · {vehicle.modele || 'Véhicule affecté'}</Text></HStack><HStack mt={4}><Icon as={FiActivity} color="#66b7e8" /><Text>{mission.lastSpeedKmh == null ? 'Vitesse en attente' : `${Math.round(mission.lastSpeedKmh)} km/h`}</Text></HStack></Box><Button mt={6} w="full" minH="48px" colorScheme="red" leftIcon={<FiCheckCircle />} isLoading={submitting} onClick={complete}>Terminer le service</Button></VStack></Grid><Box display={{ base: 'block', md: 'none' }} px={5} pb={5} bg="#121618"><Button w="full" minH="52px" colorScheme="red" leftIcon={<FiCheckCircle />} isLoading={submitting} onClick={complete}>Terminer le service</Button></Box></Box>;
 
   return <Box bg="gray.100" minH="100vh" py={8}><Container maxW="md"><VStack align="stretch" spacing={4}><Box bg="rbe.800" color="white" p={5} borderLeft="4px solid" borderColor="rbe.500"><Text fontWeight="bold" fontSize="xs" color="whiteAlpha.700">INÉO RÉTROBUS · CONDUCTEUR</Text><Heading mt={1} size="md">Bonjour, {driverName}</Heading><HStack mt={4} justify="space-between"><Text fontSize="sm">{mission.serviceName}</Text><Badge colorScheme="orange">À PRENDRE</Badge></HStack></Box><Box bg="white" p={5} boxShadow="sm"><HStack align="start" spacing={3}><Icon as={FiTruck} color="rbe.600" boxSize={6} /><VStack align="start" spacing={1}><Text fontSize="xs" color="gray.500" fontWeight="bold">SERVICE LE PLUS PROCHE</Text><Heading size="sm">{vehicle.modele || `Parc ${mission.vehicleParc}`}</Heading><Text fontSize="sm" color="gray.600">Départ prévu {formatTime(mission.scheduledDeparture)} · arrivée {formatTime(mission.scheduledArrival)}</Text></VStack></HStack><Divider my={5} /><VStack align="stretch" spacing={4}><FormControl isRequired><FormLabel>Code service</FormLabel><HStack><Box bg="gray.100" px={3} py={2} border="1px solid" borderColor="gray.200" fontWeight="700">RBE-</Box><Input value={serviceSuffix} onChange={(event) => setServiceSuffix(event.target.value.toUpperCase())} placeholder="999-999" inputMode="numeric" autoCapitalize="characters" /></HStack></FormControl><FormControl isRequired><FormLabel>Code course</FormLabel><Input value={courseReference} onChange={(event) => setCourseReference(event.target.value.toUpperCase())} placeholder="999-26726-920" inputMode="numeric" autoCapitalize="characters" /></FormControl></VStack></Box><Button colorScheme="orange" size="lg" leftIcon={<FiPlay />} isLoading={submitting} onClick={start}>Valider la prise de service</Button><Button as={RouterLink} to="/myrbe/ineo-retrobus/tracage-libre" variant="outline" colorScheme="orange" leftIcon={<FiActivity />}>Traçage libre</Button></VStack></Container></Box>;
 }
