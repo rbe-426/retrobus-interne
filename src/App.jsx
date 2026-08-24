@@ -137,10 +137,11 @@ export default function App() {
   
   const isRetromailWorkspace = location.pathname === '/auth/rmail/login' || location.pathname === '/myrbe/retromail';
   const isIneoOperationsWorkspace = location.pathname === '/dashboard/ineo-retrobus';
+  const isIneoDriverWorkspace = location.pathname === '/myrbe/ineo-retrobus/service';
   const isIneoFreeTrackingWorkspace = location.pathname === '/myrbe/ineo-retrobus/tracage-libre';
   const isMuseumWorkspace = location.pathname.startsWith('/lemusee');
-  const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoFreeTrackingWorkspace && !isMuseumWorkspace;
-  const showFooter = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoFreeTrackingWorkspace;
+  const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace && !isMuseumWorkspace;
+  const showFooter = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace;
 
   // 🔐 Initialize CSRF token after user authenticates (deferred from login to avoid interference)
   useEffect(() => {
