@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Button, Heading, Icon, Text, VStack } from '@chakra-ui/react';
 import { Navigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-import { FiActivity, FiExternalLink, FiMapPin, FiSettings, FiTruck } from 'react-icons/fi';
+import { FiActivity, FiExternalLink, FiSettings, FiTruck } from 'react-icons/fi';
 import WorkspaceLayout from '../components/Layout/WorkspaceLayout';
 import IneoDriver from './IneoDriver';
 
@@ -20,15 +20,6 @@ const openIneoOperations = () => {
   operationsWindow?.focus();
 };
 
-const openFreeTracking = () => {
-  const trackingWindow = window.open(
-    '/myrbe/ineo-retrobus/tracage-libre',
-    'ineo-free-tracking',
-    'popup=yes,width=680,height=820,left=140,top=70,resizable=yes,scrollbars=yes'
-  );
-  trackingWindow?.focus();
-};
-
 const IneoManagementLauncher = () => (
   <Box minH={{ base: 'auto', md: 'calc(100vh - 220px)' }} display="flex" alignItems="center" justifyContent="center" py={{ base: 4, md: 10 }}>
     <VStack maxW="md" spacing={5} textAlign="center" bg="white" borderWidth="1px" borderColor="gray.200" borderRadius="md" p={{ base: 6, md: 9 }} boxShadow="sm">
@@ -39,9 +30,6 @@ const IneoManagementLauncher = () => (
       </VStack>
       <Button colorScheme="rbe" size="lg" leftIcon={<FiExternalLink />} onClick={openIneoOperations}>
         Ouvrir Inéo RétroBus
-      </Button>
-      <Button colorScheme="orange" size="lg" leftIcon={<FiMapPin />} onClick={openFreeTracking}>
-        Traçage libre
       </Button>
     </VStack>
   </Box>
