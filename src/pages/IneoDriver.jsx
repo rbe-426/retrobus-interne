@@ -66,8 +66,27 @@ export default function IneoDriver() {
 
   useEffect(() => {
     if (mission?.status !== 'ACTIVE' || !navigator.geolocation) return undefined;
-    watchId.current = navigator.geolocation.watchPosition(sendPosition, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
-    return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); watchId.current = null; };
+    const stopWatchingPosition = () => {
+      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    };
+    const startWatchingPosition = () => {
+      stopWatchingPosition();
+      watchId.current = navigator.geolocation.watchPosition(sendPosition, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+    };
+    const resumePositionDetection = () => {
+      if (document.visibilityState === 'visible') startWatchingPosition();
+    };
+    startWatchingPosition();
+    document.addEventListener('visibilitychange', resumePositionDetection);
+    window.addEventListener('focus', resumePositionDetection);
+    window.addEventListener('pageshow', resumePositionDetection);
+    return () => {
+      document.removeEventListener('visibilitychange', resumePositionDetection);
+      window.removeEventListener('focus', resumePositionDetection);
+      window.removeEventListener('pageshow', resumePositionDetection);
+      stopWatchingPosition();
+    };
   }, [mission?.id, mission?.status]);
 
   useEffect(() => {
