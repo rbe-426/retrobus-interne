@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Badge, Box, Button, Flex, FormControl, FormLabel, Grid, Heading, HStack,
   Icon, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr,
@@ -12,6 +12,7 @@ import { Navigate } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import { ineoAPI } from '../api/ineo';
 import { useUser } from '../context/UserContext';
+import { readIneoLaunchCache, writeIneoLaunchCache } from '../utils/ineoLaunchCache';
 import IneoFreeTracking from './IneoFreeTracking';
 import IneoVehicleProfiles from './IneoVehicleProfiles';
 import IneoTransport from './IneoTransport';
@@ -57,31 +58,37 @@ export default function IneoOperations() {
 
 function IneoOperationsWorkstation() {
   const toast = useToast();
-  const [missions, setMissions] = useState([]);
-  const [routes, setRoutes] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const launchCache = useRef(readIneoLaunchCache()).current;
+  const [missions, setMissions] = useState(() => launchCache?.missions || []);
+  const [routes, setRoutes] = useState(() => launchCache?.routes || []);
+  const [vehicles, setVehicles] = useState(() => launchCache?.vehicles || []);
+  const [members, setMembers] = useState(() => launchCache?.members || []);
+  const [loading, setLoading] = useState(() => !launchCache);
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState('planning');
   const [planningTab, setPlanningTab] = useState(0);
   const [form, setForm] = useState(blankForm);
   const [editingMission, setEditingMission] = useState(null);
 
-  const load = async () => {
+  const load = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [missionData, routeData, vehicleData, memberData] = await Promise.all([ineoAPI.listMissions(), ineoAPI.listRoutes(), apiClient.get('/vehicles'), apiClient.get('/members?limit=500')]);
-      setMissions(missionData?.missions || []);
-      setRoutes(routeData?.routes || []);
-      setVehicles(vehicleData?.vehicles || vehicleData || []);
-      setMembers(memberData?.members || memberData || []);
+      const nextMissions = missionData?.missions || [];
+      const nextRoutes = routeData?.routes || [];
+      const nextVehicles = vehicleData?.vehicles || vehicleData || [];
+      const nextMembers = memberData?.members || memberData || [];
+      setMissions(nextMissions);
+      setRoutes(nextRoutes);
+      setVehicles(nextVehicles);
+      setMembers(nextMembers);
+      writeIneoLaunchCache({ missions: nextMissions, routes: nextRoutes, vehicles: nextVehicles, members: nextMembers });
     } catch (error) {
-      toast({ status: 'error', title: 'Ineo indisponible', description: error.message });
-    } finally { setLoading(false); }
+      if (!silent) toast({ status: 'error', title: 'Ineo indisponible', description: error.message });
+    } finally { if (!silent) setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load({ silent: Boolean(launchCache) }); }, []);
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const selectDriver = (identifier) => {
     const member = members.find((item) => (item.matricule || item.email) === identifier);
