@@ -70,6 +70,29 @@ export default function IneoDriver() {
     return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); watchId.current = null; };
   }, [mission?.id, mission?.status]);
 
+  useEffect(() => {
+    if (mission?.status !== 'ACTIVE' || !navigator.wakeLock?.request) return undefined;
+    let wakeLock = null;
+    let disposed = false;
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+      } catch (error) {
+        console.warn('Inéo Wake Lock:', error.message);
+      }
+    };
+    const restoreWakeLock = () => {
+      if (!disposed && document.visibilityState === 'visible') requestWakeLock();
+    };
+    requestWakeLock();
+    document.addEventListener('visibilitychange', restoreWakeLock);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', restoreWakeLock);
+      wakeLock?.release().catch(() => {});
+    };
+  }, [mission?.id, mission?.status]);
+
   const start = async () => {
     const serviceReference = `RBE-${serviceSuffix.trim().toUpperCase()}`;
     if (!serviceSuffix.trim() || !courseReference.trim()) {
