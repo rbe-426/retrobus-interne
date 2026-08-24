@@ -48,18 +48,10 @@ const scheduleCode = (mission, now = new Date()) => {
   return `${deltaMinutes < 0 ? 'A' : 'R'}${Math.abs(deltaMinutes)}`;
 };
 
-function MobileRouteProgress({ mission, route, clock, onShowGps }) {
-  const { stops, progress, segmentIndex, deviationMeters } = routeProgress(mission, route);
-  const offRoute = deviationMeters != null && deviationMeters > 120;
-  const statusCode = scheduleCode(mission, clock);
-  return <Box minH="100dvh" px={{ base: 4, md: 8 }} py={{ base: 4, md: 6 }} position="relative" overflow="hidden" bg="#121618" sx={{ backgroundImage: 'linear-gradient(27deg, rgba(255,255,255,0.025) 25%, transparent 25%), linear-gradient(207deg, rgba(255,255,255,0.02) 25%, transparent 25%), linear-gradient(90deg, rgba(0,0,0,0.28), rgba(255,255,255,0.02))', backgroundSize: '8px 8px, 8px 8px, auto' }}><HStack justify="space-between" align="start"><Box><Text fontSize="xs" color="#aeb7bb" fontWeight="700">INÉO · EN LIGNE</Text><Heading size="sm" mt={1} noOfLines={1}>{mission.serviceName}</Heading><Text mt={1} color="#c5cccf" fontSize="sm" noOfLines={1}>{route?.routeName || mission.serviceReference} · {mission.courseReference}</Text></Box><HStack spacing={4} align="start"><Box textAlign="right"><Text fontFamily="monospace" fontSize="24px" fontWeight="700">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text><Text color={statusCode === '0' ? '#38d39f' : statusCode.startsWith('R') ? '#ff718a' : '#78d9ff'} fontFamily="monospace" fontSize="18px" fontWeight="700">{statusCode}</Text></Box><Button size="sm" variant="outline" borderColor="#60727e" color="#f2f5f5" leftIcon={<FiMapPin />} onClick={onShowGps}>GPS</Button></HStack></HStack><Box mt={{ base: 8, md: 12 }} mb={6} position="relative" minH={{ base: '360px', md: '520px' }} maxW="560px" mx="auto">{stops.length > 1 ? <><Box position="absolute" top="7%" bottom="7%" left="36px" w="5px" bg="#d7194b" borderRadius="full" /><Box position="absolute" top="7%" left="36px" w="5px" h={`${Math.max(0, Math.min(86, progress * 0.86))}%`} bg="#54d9aa" borderRadius="full" transition="height 700ms ease" />{stops.map((stop, index) => { const top = 7 + (index / (stops.length - 1)) * 86; const affected = offRoute && index === segmentIndex + 1; return <Box key={`${stop.order}-${stop.lat}`} position="absolute" top={`${top}%`} left="0" right="0" transform="translateY(-50%)" minH="28px"><Box position="absolute" top="50%" left="27px" transform="translateY(-50%)" w="18px" h="18px" borderRadius="full" bg={affected ? '#ffd84e' : '#182125'} border="3px solid" borderColor={affected ? '#ffd84e' : '#f2f5f5'} boxShadow={affected ? '0 0 16px #ffd84e' : 'none'} /><Text pl="62px" pr={4} color={affected ? '#ffd84e' : '#e7ecee'} fontSize={{ base: 'sm', md: 'md' }} fontWeight={affected ? '700' : '500'} noOfLines={2}>{stop.label}</Text></Box>; })}<Box position="absolute" top={`${7 + Math.max(0, Math.min(86, progress * 0.86))}%`} left={offRoute ? '52px' : '24px'} transform="translateY(-50%)" transition="top 700ms ease, left 300ms ease"><Box w="24px" h="24px" borderRadius="full" bg="#36d59d" border="3px solid white" boxShadow="0 0 0 5px rgba(54,213,157,0.22), 0 0 18px #36d59d" /><Icon as={FiNavigation} position="absolute" top="4px" left="4px" color="#0d1720" boxSize={3.5} /></Box></> : <Text color="#aeb7bb" textAlign="center">Itinéraire sans arrêts géocodés</Text>}</Box>{offRoute ? <Box border="1px solid" borderColor="#ffd84e" bg="#342c0c" px={4} py={3} maxW="560px" mx="auto" boxShadow="0 12px 28px rgba(0,0,0,0.35)"><Text color="#ffe88b" fontSize="sm" fontWeight="700">Écart d’itinéraire détecté</Text><Text color="#e9edf0" fontSize="xs">Retour attendu entre {stops[segmentIndex]?.label || 'l’arrêt précédent'} et {stops[segmentIndex + 1]?.label || 'l’arrêt suivant'} · {Math.round(deviationMeters)} m</Text></Box> : <HStack justify="center" color="#9cadb4" fontSize="sm"><Icon as={FiMapPin} color="#36d59d" /><Text>{mission.lastPositionAt ? `Position reçue à ${formatTime(mission.lastPositionAt)}` : 'Recherche de position GPS'}</Text></HStack>}</Box>;
-}
-
 function TrilogyRouteLine({ mission, route, clock, onShowGps }) {
   const { stops, progress, segmentIndex, deviationMeters } = routeProgress(mission, route);
   const hasRecentGps = mission.lastPositionAt && Date.now() - new Date(mission.lastPositionAt).getTime() < 90000;
   const offRoute = hasRecentGps && progress > 1 && deviationMeters != null && deviationMeters > 250;
-  const statusCode = scheduleCode(mission, clock);
   const markerProgress = Math.max(0, Math.min(86, progress * 0.86));
   const segmentHeight = stops.length > 1 ? 86 / (stops.length - 1) : 0;
 
@@ -71,10 +63,7 @@ function TrilogyRouteLine({ mission, route, clock, onShowGps }) {
         <Text mt={1} color="gray.300" fontSize="sm" noOfLines={1}>{route?.routeName || mission.serviceReference} · {mission.courseReference}</Text>
       </Box>
       <HStack spacing={4} align="start">
-        <Box textAlign="right">
-          <Text fontFamily="monospace" fontSize="24px" fontWeight="700">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text>
-          <Text color={statusCode.startsWith('R') ? '#ff718a' : '#63d39f'} fontFamily="monospace" fontSize="18px" fontWeight="700">{statusCode}</Text>
-        </Box>
+        <Text fontFamily="monospace" fontSize="24px" fontWeight="700">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text>
         <Button size="sm" variant="outline" borderColor="gray.600" color="white" leftIcon={<FiMapPin />} onClick={onShowGps}>GPS</Button>
       </HStack>
     </HStack>
@@ -97,18 +86,6 @@ function TrilogyRouteLine({ mission, route, clock, onShowGps }) {
     </Box>
     {offRoute ? <Box borderLeft="4px solid" borderColor="#ffd84e" bg="rgba(214,158,46,.18)" px={4} py={3} maxW="560px" mx="auto"><Text color="#ffe88b" fontSize="sm" fontWeight="700">Écart d’itinéraire détecté</Text><Text color="gray.100" fontSize="xs">Retour attendu entre {stops[segmentIndex]?.label || 'l’arrêt précédent'} et {stops[segmentIndex + 1]?.label || 'l’arrêt suivant'} · {Math.round(deviationMeters)} m</Text></Box> : <HStack justify="center" color="gray.400" fontSize="sm"><Icon as={FiMapPin} color="#54d9aa" /><Text>{mission.lastPositionAt ? `Position reçue à ${formatTime(mission.lastPositionAt)}` : 'Recherche de position GPS'}</Text></HStack>}
   </Box>;
-}
-
-function LegacyTrilogyRouteLine({ mission, route, clock, onShowGps }) {
-  const { stops, progress, segmentIndex, deviationMeters } = routeProgress(mission, route);
-  const offRoute = deviationMeters != null && deviationMeters > 120;
-  const statusCode = scheduleCode(mission, clock);
-  const railHeight = 420;
-  const lineProgress = Math.max(0, Math.min(86, progress * 0.86));
-  const routeLineColor = 'rbe.500';
-  const segmentHeight = stops.length > 1 ? 86 / (stops.length - 1) : 0;
-
-  return <Box minH="100dvh" px={{ base: 4, md: 8 }} py={{ base: 4, md: 6 }} bg="gray.900" overflow="hidden"><HStack justify="space-between" align="start"><Box><Text fontSize="xs" color="gray.400" fontWeight="700">INÉO · EN LIGNE</Text><Heading size="sm" mt={1} noOfLines={1}>{mission.serviceName}</Heading><Text mt={1} color="gray.300" fontSize="sm" noOfLines={1}>{route?.routeName || mission.serviceReference} · {mission.courseReference}</Text></Box><HStack spacing={4} align="start"><Box textAlign="right"><Text fontFamily="monospace" fontSize="24px" fontWeight="700">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text><Text color={statusCode.startsWith('R') ? '#ff718a' : '#63d39f'} fontFamily="monospace" fontSize="18px" fontWeight="700">{statusCode}</Text></Box><Button size="sm" variant="outline" borderColor="gray.600" color="white" leftIcon={<FiMapPin />} onClick={onShowGps}>GPS</Button></HStack></HStack><Box position="relative" h={`${railHeight}px`} maxW="600px" mx="auto" mt={{ base: 8, md: 12 }}>{stops.length > 1 ? <><Box position="absolute" top="7%" bottom="7%" left="34%" w="7px" bg="rbe.500" borderRadius="full" /><Box position="absolute" top="7%" left="34%" w="7px" h={`${lineProgress}%`} bg="#54d9aa" borderRadius="full" transition="height 700ms ease" />{offRoute && <Box position="absolute" top={`${7 + segmentIndex * segmentHeight}%`} left="34%" w="7px" h={`${segmentHeight}%`} bg="#ffd84e" borderRadius="full" />}{stops.map((stop, index) => { const top = 7 + (index / (stops.length - 1)) * 86; const affected = offRoute && index === segmentIndex + 1; return <Box key={`${stop.order}-${stop.lat}`} position="absolute" top={`${top}%`} left="34%" right="0" transform="translateY(-50%)" minH="32px"><Box position="absolute" top="50%" left="-7px" transform="translateY(-50%)" w="21px" h="21px" borderRadius="full" bg="gray.900" border="4px solid" borderColor={affected ? '#ffd84e' : 'white'} boxShadow={affected ? '0 0 14px #ffd84e' : 'none'} /><Text ml="31px" pr={3} color={affected ? '#ffe88b' : 'white'} fontSize={{ base: 'sm', md: 'md' }} fontWeight="700" noOfLines={2}>{stop.label}</Text></Box>; })}<Box position="absolute" top={`${7 + lineProgress}%`} left={offRoute ? 'calc(34% + 28px)' : 'calc(34% - 13px)'} transform="translateY(-50%)" transition="top 700ms ease, left 300ms ease"><Icon as={FiNavigation} color="#9ae9ff" boxSize={9} transform="rotate(-45deg)" filter="drop-shadow(0 0 7px rgba(154,233,255,.8))" /></Box></> : <Text mt={16} color="gray.400" textAlign="center">Itinéraire sans arrêts géocodés</Text>}</Box>{offRoute ? <Box borderLeft="4px solid" borderColor="#ffd84e" bg="rgba(214,158,46,.18)" px={4} py={3} maxW="560px" mx="auto"><Text color="#ffe88b" fontSize="sm" fontWeight="700">Écart d’itinéraire détecté</Text><Text color="gray.100" fontSize="xs">Retour attendu entre {stops[segmentIndex]?.label || 'l’arrêt précédent'} et {stops[segmentIndex + 1]?.label || 'l’arrêt suivant'} · {Math.round(deviationMeters)} m</Text></Box> : <HStack justify="center" color="gray.400" fontSize="sm"><Icon as={FiMapPin} color="#54d9aa" /><Text>{mission.lastPositionAt ? `Position reçue à ${formatTime(mission.lastPositionAt)}` : 'Recherche de position GPS'}</Text></HStack>}</Box>;
 }
 
 function DriverMap({ mission, route }) {
@@ -148,14 +125,17 @@ export default function IneoDriver() {
 
   const sendPosition = async (position) => {
     if (!mission?.id) return;
+    const speedKmh = position.coords.speed == null ? null : Math.max(0, position.coords.speed * 3.6);
+    const lastPositionAt = new Date(position.timestamp).toISOString();
+    // Update the on-screen cursor instantly; the server call below stays throttled.
+    setMission((current) => current ? { ...current, lastLatitude: position.coords.latitude, lastLongitude: position.coords.longitude, lastSpeedKmh: speedKmh, lastPositionAt } : current);
     const now = Date.now();
     if (now - lastSentAt.current < 20000) return;
     lastSentAt.current = now;
     try {
       const updated = await ineoAPI.sendPosition(mission.id, {
         latitude: position.coords.latitude, longitude: position.coords.longitude,
-        speedKmh: position.coords.speed == null ? null : Math.max(0, position.coords.speed * 3.6),
-        accuracy: position.coords.accuracy, recordedAt: new Date(position.timestamp).toISOString(),
+        speedKmh, accuracy: position.coords.accuracy, recordedAt: lastPositionAt,
       });
       setMission((current) => current ? { ...current, ...updated.mission } : current);
     } catch (error) { console.warn('Inéo GPS:', error.message); }
