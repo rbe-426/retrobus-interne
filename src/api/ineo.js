@@ -20,6 +20,7 @@ export const ineoAPI = {
   findRouteByReference: (courseReference) => apiClient.get(`/ineo/routes/reference/${encodeURIComponent(courseReference)}`),
   createRoute: (data) => apiClient.post('/ineo/routes', data),
   saveRouteByReference: (courseReference, data) => apiClient.put(`/ineo/routes/reference/${encodeURIComponent(courseReference)}`, data),
+  removeRouteByReference: (courseReference) => apiClient.delete(`/ineo/routes/reference/${encodeURIComponent(courseReference)}`),
   getCurrentDriverMission: () => apiClient.get('/ineo/driver/current'),
   startMission: (id, data) => apiClient.post(`/ineo/missions/${id}/start`, data),
   sendPosition: (id, position) => apiClient.post(`/ineo/missions/${id}/position`, position),
