@@ -3,6 +3,8 @@ import { apiClient } from './config.js';
 export const ineoAPI = {
   listMissions: () => apiClient.get('/ineo/missions'),
   createMission: (data) => apiClient.post('/ineo/missions', data),
+  updateMission: (id, data) => apiClient.patch(`/ineo/missions/${encodeURIComponent(id)}`, data),
+  removeMission: (id) => apiClient.delete(`/ineo/missions/${encodeURIComponent(id)}`),
   updateMissionDriver: (id, data) => apiClient.patch(`/ineo/missions/${encodeURIComponent(id)}/driver`, data),
   listVehicleProfiles: () => apiClient.get('/ineo/vehicle-profiles'),
   saveVehicleProfile: (parc, data) => apiClient.put(`/ineo/vehicle-profiles/${encodeURIComponent(parc)}`, data),

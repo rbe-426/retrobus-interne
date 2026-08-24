@@ -37,6 +37,8 @@ export default function IneoDriver() {
       setMission(data?.mission || null);
       setRoute(data?.route || null);
       setDriverName(data?.driverName || 'Conducteur');
+      setServiceSuffix(String(data?.mission?.serviceReference || '').replace(/^RBE-/i, ''));
+      setCourseReference(String(data?.mission?.courseReference || ''));
     } catch (error) {
       toast({ status: 'error', title: 'Mission inaccessible', description: error.message });
     } finally { setLoading(false); }
