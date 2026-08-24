@@ -56,7 +56,7 @@ export default function IneoHome() {
       label: 'Votre Service',
       description: 'Cockpit conducteur',
       icon: FiTruck,
-      render: () => <IneoDriver embedded />,
+      render: () => <Navigate to="/myrbe/ineo-retrobus/service" replace />,
     },
   ];
 
