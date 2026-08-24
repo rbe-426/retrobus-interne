@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Badge, Box, Button, Center, Container, Divider, FormControl, FormLabel, Grid, Heading, HStack, Icon, Input, Spinner, Text, VStack, useToast } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
-import { FiActivity, FiCheckCircle, FiClock, FiMapPin, FiNavigation, FiPlay, FiTruck } from 'react-icons/fi';
+import { FiActivity, FiBell, FiCheckCircle, FiClock, FiMapPin, FiNavigation, FiPlay, FiTruck } from 'react-icons/fi';
 import { Link as RouterLink } from 'react-router-dom';
 import L from 'leaflet';
 import { ineoAPI } from '../api/ineo';
@@ -114,6 +114,26 @@ function DriverMap({ mission, route }) {
   return <MapContainer center={[latitude, longitude]} zoom={mission.lastLatitude == null ? 12 : 16} style={{ height: '100%', width: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />{stops.map((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lng) ? <Marker key={`${stop.order}-${stop.lat}`} position={[stop.lat, stop.lng]} icon={stopIcon}><Popup>{stop.label}</Popup></Marker> : null)}{mission.lastLatitude != null && <CircleMarker center={[mission.lastLatitude, mission.lastLongitude]} radius={12} pathOptions={{ color: '#fff', weight: 3, fillColor: '#d7194b', fillOpacity: 1 }}><Popup>Votre position<br />{formatTime(mission.lastPositionAt)}</Popup></CircleMarker>}</MapContainer>;
 }
 
+function DriverFlashOverlay({ flash, onAcknowledge }) {
+  const [submitting, setSubmitting] = useState(false);
+  const validate = async () => {
+    try {
+      setSubmitting(true);
+      await onAcknowledge(flash);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return <HStack position="fixed" inset={0} zIndex={2000} spacing={0} bg="gray.900" color="white">
+    <VStack flex="0 0 85%" spacing={6} justify="center" align="center" px={8} py={10} textAlign="center" overflowY="auto">
+      <Icon as={FiBell} boxSize={10} color="#ffd84e" />
+      <Text fontSize="xs" fontWeight="700" color="#9db7c8" letterSpacing="1px">MESSAGE FLASH INÉO · {formatTime(flash.broadcastAt)}</Text>
+      <Text fontSize={{ base: 'xl', md: '3xl' }} fontWeight="700" whiteSpace="pre-wrap">{flash.message}</Text>
+    </VStack>
+    <Button flex="0 0 15%" h="full" minW="90px" borderRadius="0" colorScheme="green" fontSize="lg" fontWeight="800" isLoading={submitting} onClick={validate} style={{ writingMode: 'vertical-rl' }} transform="rotate(180deg)">VALIDER</Button>
+  </HStack>;
+}
+
 export default function IneoDriver() {
   const toast = useToast();
   const [mission, setMission] = useState(null);
@@ -125,8 +145,11 @@ export default function IneoDriver() {
   const [submitting, setSubmitting] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const [activeView, setActiveView] = useState('service');
+  const [flashQueue, setFlashQueue] = useState([]);
   const watchId = useRef(null);
   const lastSentAt = useRef(0);
+  const missionRef = useRef(null);
+  missionRef.current = mission;
 
   const loadMission = async () => {
     try {
@@ -164,6 +187,35 @@ export default function IneoDriver() {
     loadMission();
     return () => { if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current); };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pollFlashes = async () => {
+      try {
+        const current = missionRef.current;
+        const position = current?.lastLatitude != null ? { lat: current.lastLatitude, lng: current.lastLongitude } : null;
+        const data = await ineoAPI.listDriverFlashes(position);
+        if (cancelled) return;
+        setFlashQueue((queue) => {
+          const knownIds = new Set(queue.map((item) => item.id));
+          const incoming = (data?.flashes || []).filter((item) => !knownIds.has(item.id));
+          return incoming.length ? [...queue, ...incoming] : queue;
+        });
+      } catch (error) { console.warn('Inéo flash:', error.message); }
+    };
+    pollFlashes();
+    const intervalId = window.setInterval(pollFlashes, 20000);
+    return () => { cancelled = true; window.clearInterval(intervalId); };
+  }, []);
+
+  const acknowledgeFlash = async (flash) => {
+    try {
+      await ineoAPI.acknowledgeFlash(flash.id, { missionId: missionRef.current?.id || null });
+      setFlashQueue((queue) => queue.filter((item) => item.id !== flash.id));
+    } catch (error) {
+      toast({ status: 'error', title: 'Validation impossible', description: error.message });
+    }
+  };
 
   useEffect(() => {
     if (mission?.status !== 'ACTIVE' || !navigator.geolocation) return undefined;
@@ -251,8 +303,11 @@ export default function IneoDriver() {
     finally { setSubmitting(false); }
   };
 
+  const pendingFlash = flashQueue[0] || null;
+  const flashOverlay = pendingFlash ? <DriverFlashOverlay flash={pendingFlash} onAcknowledge={acknowledgeFlash} /> : null;
+
   if (loading) return <Center minH="70vh"><Spinner size="lg" color="rbe.500" /></Center>;
-  if (!mission) return <Container maxW="md" py={8}><VStack align="stretch" spacing={4}><Box bg="white" borderLeft="4px solid" borderColor="rbe.500" p={5}><HStack align="start"><Icon as={FiClock} boxSize={6} color="rbe.600" /><VStack align="start" spacing={1}><Heading size="sm">Aucun service à prendre</Heading><Text fontSize="sm" color="gray.600">Votre prochain service apparaîtra ici dès son affectation.</Text></VStack></HStack></Box><Button as={RouterLink} to="/myrbe/ineo-retrobus/tracage-libre" variant="outline" colorScheme="orange" leftIcon={<FiActivity />}>Traçage libre</Button></VStack></Container>;
+  if (!mission) return <>{flashOverlay}<Container maxW="md" py={8}><VStack align="stretch" spacing={4}><Box bg="white" borderLeft="4px solid" borderColor="rbe.500" p={5}><HStack align="start"><Icon as={FiClock} boxSize={6} color="rbe.600" /><VStack align="start" spacing={1}><Heading size="sm">Aucun service à prendre</Heading><Text fontSize="sm" color="gray.600">Votre prochain service apparaîtra ici dès son affectation.</Text></VStack></HStack></Box><Button as={RouterLink} to="/myrbe/ineo-retrobus/tracage-libre" variant="outline" colorScheme="orange" leftIcon={<FiActivity />}>Traçage libre</Button></VStack></Container></>;
 
   const active = mission.status === 'ACTIVE';
   const vehicle = mission.vehicle || {};
@@ -261,7 +316,7 @@ export default function IneoDriver() {
   const isLate = statusCode.startsWith('R');
   const awaitingDeparture = statusCode === '0' && progressSegmentIndex === 0 && !hasDetectedDeparture(mission);
   const displayCode = awaitingDeparture ? 'DEPART' : statusCode;
-  if (active) return <Box minH="100dvh" h="100dvh" overflow="hidden" bg="gray.900" color="white"><Grid h="full" templateColumns={{ base: 'minmax(0, 1fr) 280px', md: 'minmax(0, 1fr) 330px' }}><Box minW="0" minH="0" overflow="hidden">{activeView === 'service' ? <TrilogyRouteLine mission={mission} route={route} clock={clock} onShowGps={() => setActiveView('gps')} /> : <Box h="full" display="grid" gridTemplateRows="auto minmax(0, 1fr)"><HStack px={{ base: 4, md: 6 }} py={3} bg="gray.800" justify="space-between"><Button size="sm" variant="outline" borderColor="gray.600" color="white" leftIcon={<FiNavigation />} onClick={() => setActiveView('service')}>Service</Button><Text fontWeight="700">GPS</Text><Text fontFamily="monospace">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text></HStack><Box minH="0"><DriverMap mission={mission} route={route} /></Box></Box>}</Box><VStack align="stretch" spacing={0} bg="gray.800" p={5} justify="space-between" overflowY="auto"><Box><Text fontSize="xs" fontWeight="700" color="#9db7c8">INÉO · SERVICE EN COURS</Text><Heading size="md" mt={1}>{mission.serviceName}</Heading><Text mt={1} color="#c7d5df">{mission.serviceReference || 'Code service non renseigné'} · {route?.courseReference || 'Code course non renseigné'}</Text><Divider my={5} borderColor="#3c5464" /><HStack><Icon as={FiTruck} color="#66b7e8" /><Text>{vehicle.immat || mission.vehicleParc} · {vehicle.modele || 'Véhicule affecté'}</Text></HStack><HStack mt={4}><Icon as={FiActivity} color="#66b7e8" /><Text>{mission.lastSpeedKmh == null ? 'Vitesse en attente' : `${Math.round(mission.lastSpeedKmh)} km/h`}</Text></HStack><HStack mt={4}><Icon as={FiMapPin} color="#66b7e8" /><Text>{mission.lastPositionAt ? `GPS reçu à ${formatTime(mission.lastPositionAt)}` : 'Recherche GPS en cours'}</Text></HStack><Divider my={5} borderColor="#3c5464" /><HStack align="center" spacing={4}><Box w="12px" h="116px" borderRadius="full" bg={isLate ? '#d7194b' : '#22a06b'} position="relative"><Icon as={FiNavigation} position="absolute" color="white" left="-6px" top="50%" transform="translateY(-50%)" boxSize={6} /></Box><Text color={isLate ? '#ff718a' : '#63d39f'} fontFamily="monospace" fontSize={awaitingDeparture ? '26px' : '30px'} fontWeight="700" sx={awaitingDeparture ? { animation: `${departBlink} 1s ease-in-out infinite` } : undefined}>{displayCode}</Text></HStack></Box><Button mt={6} w="full" minH="52px" colorScheme="red" leftIcon={<FiCheckCircle />} isLoading={submitting} onClick={complete}>Terminer le service</Button></VStack></Grid></Box>;
+  if (active) return <>{flashOverlay}<Box minH="100dvh" h="100dvh" overflow="hidden" bg="gray.900" color="white"><Grid h="full" templateColumns={{ base: 'minmax(0, 1fr) 280px', md: 'minmax(0, 1fr) 330px' }}><Box minW="0" minH="0" overflow="hidden">{activeView === 'service' ? <TrilogyRouteLine mission={mission} route={route} clock={clock} onShowGps={() => setActiveView('gps')} /> : <Box h="full" display="grid" gridTemplateRows="auto minmax(0, 1fr)"><HStack px={{ base: 4, md: 6 }} py={3} bg="gray.800" justify="space-between"><Button size="sm" variant="outline" borderColor="gray.600" color="white" leftIcon={<FiNavigation />} onClick={() => setActiveView('service')}>Service</Button><Text fontWeight="700">GPS</Text><Text fontFamily="monospace">{clock.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text></HStack><Box minH="0"><DriverMap mission={mission} route={route} /></Box></Box>}</Box><VStack align="stretch" spacing={0} bg="gray.800" p={5} justify="space-between" overflowY="auto"><Box><Text fontSize="xs" fontWeight="700" color="#9db7c8">INÉO · SERVICE EN COURS</Text><Heading size="md" mt={1}>{mission.serviceName}</Heading><Text mt={1} color="#c7d5df">{mission.serviceReference || 'Code service non renseigné'} · {route?.courseReference || 'Code course non renseigné'}</Text><Divider my={5} borderColor="#3c5464" /><HStack><Icon as={FiTruck} color="#66b7e8" /><Text>{vehicle.immat || mission.vehicleParc} · {vehicle.modele || 'Véhicule affecté'}</Text></HStack><HStack mt={4}><Icon as={FiActivity} color="#66b7e8" /><Text>{mission.lastSpeedKmh == null ? 'Vitesse en attente' : `${Math.round(mission.lastSpeedKmh)} km/h`}</Text></HStack><HStack mt={4}><Icon as={FiMapPin} color="#66b7e8" /><Text>{mission.lastPositionAt ? `GPS reçu à ${formatTime(mission.lastPositionAt)}` : 'Recherche GPS en cours'}</Text></HStack><Divider my={5} borderColor="#3c5464" /><HStack align="center" spacing={4}><Box w="12px" h="116px" borderRadius="full" bg={isLate ? '#d7194b' : '#22a06b'} position="relative"><Icon as={FiNavigation} position="absolute" color="white" left="-6px" top="50%" transform="translateY(-50%)" boxSize={6} /></Box><Text color={isLate ? '#ff718a' : '#63d39f'} fontFamily="monospace" fontSize={awaitingDeparture ? '26px' : '30px'} fontWeight="700" sx={awaitingDeparture ? { animation: `${departBlink} 1s ease-in-out infinite` } : undefined}>{displayCode}</Text></HStack></Box><Button mt={6} w="full" minH="52px" colorScheme="red" leftIcon={<FiCheckCircle />} isLoading={submitting} onClick={complete}>Terminer le service</Button></VStack></Grid></Box></>;
 
-  return <Box bg="gray.100" minH="100vh" py={8}><Container maxW="md"><VStack align="stretch" spacing={4}><Box bg="rbe.800" color="white" p={5} borderLeft="4px solid" borderColor="rbe.500"><Text fontWeight="bold" fontSize="xs" color="whiteAlpha.700">INÉO RÉTROBUS · CONDUCTEUR</Text><Heading mt={1} size="md">Bonjour, {driverName}</Heading><HStack mt={4} justify="space-between"><Text fontSize="sm">{mission.serviceName}</Text><Badge colorScheme="orange">À PRENDRE</Badge></HStack></Box><Box bg="white" p={5} boxShadow="sm"><HStack align="start" spacing={3}><Icon as={FiTruck} color="rbe.600" boxSize={6} /><VStack align="start" spacing={1}><Text fontSize="xs" color="gray.500" fontWeight="bold">SERVICE LE PLUS PROCHE</Text><Heading size="sm">{vehicle.modele || `Parc ${mission.vehicleParc}`}</Heading><Text fontSize="sm" color="gray.600">Départ prévu {formatTime(mission.scheduledDeparture)} · arrivée {formatTime(mission.scheduledArrival)}</Text></VStack></HStack><Divider my={5} /><VStack align="stretch" spacing={4}><FormControl isRequired><FormLabel>Code service</FormLabel><HStack><Box bg="gray.100" px={3} py={2} border="1px solid" borderColor="gray.200" fontWeight="700">RBE-</Box><Input value={serviceSuffix} onChange={(event) => setServiceSuffix(event.target.value.toUpperCase())} placeholder="999-999" inputMode="numeric" autoCapitalize="characters" /></HStack></FormControl><FormControl isRequired><FormLabel>Code course</FormLabel><Input value={courseReference} onChange={(event) => setCourseReference(event.target.value.toUpperCase())} placeholder="999-26726-920" inputMode="numeric" autoCapitalize="characters" /></FormControl></VStack></Box><Button colorScheme="orange" size="lg" leftIcon={<FiPlay />} isLoading={submitting} onClick={start}>Valider la prise de service</Button><Button as={RouterLink} to="/myrbe/ineo-retrobus/tracage-libre" variant="outline" colorScheme="orange" leftIcon={<FiActivity />}>Traçage libre</Button></VStack></Container></Box>;
+  return <>{flashOverlay}<Box bg="gray.100" minH="100vh" py={8}><Container maxW="md"><VStack align="stretch" spacing={4}><Box bg="rbe.800" color="white" p={5} borderLeft="4px solid" borderColor="rbe.500"><Text fontWeight="bold" fontSize="xs" color="whiteAlpha.700">INÉO RÉTROBUS · CONDUCTEUR</Text><Heading mt={1} size="md">Bonjour, {driverName}</Heading><HStack mt={4} justify="space-between"><Text fontSize="sm">{mission.serviceName}</Text><Badge colorScheme="orange">À PRENDRE</Badge></HStack></Box><Box bg="white" p={5} boxShadow="sm"><HStack align="start" spacing={3}><Icon as={FiTruck} color="rbe.600" boxSize={6} /><VStack align="start" spacing={1}><Text fontSize="xs" color="gray.500" fontWeight="bold">SERVICE LE PLUS PROCHE</Text><Heading size="sm">{vehicle.modele || `Parc ${mission.vehicleParc}`}</Heading><Text fontSize="sm" color="gray.600">Départ prévu {formatTime(mission.scheduledDeparture)} · arrivée {formatTime(mission.scheduledArrival)}</Text></VStack></HStack><Divider my={5} /><VStack align="stretch" spacing={4}><FormControl isRequired><FormLabel>Code service</FormLabel><HStack><Box bg="gray.100" px={3} py={2} border="1px solid" borderColor="gray.200" fontWeight="700">RBE-</Box><Input value={serviceSuffix} onChange={(event) => setServiceSuffix(event.target.value.toUpperCase())} placeholder="999-999" inputMode="numeric" autoCapitalize="characters" /></HStack></FormControl><FormControl isRequired><FormLabel>Code course</FormLabel><Input value={courseReference} onChange={(event) => setCourseReference(event.target.value.toUpperCase())} placeholder="999-26726-920" inputMode="numeric" autoCapitalize="characters" /></FormControl></VStack></Box><Button colorScheme="orange" size="lg" leftIcon={<FiPlay />} isLoading={submitting} onClick={start}>Valider la prise de service</Button><Button as={RouterLink} to="/myrbe/ineo-retrobus/tracage-libre" variant="outline" colorScheme="orange" leftIcon={<FiActivity />}>Traçage libre</Button></VStack></Container></Box></>;
 }
