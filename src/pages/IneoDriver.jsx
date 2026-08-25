@@ -273,6 +273,23 @@ export default function IneoDriver() {
     };
   }, [mission?.id, mission?.status]);
 
+  useEffect(() => {
+    if (mission?.status !== 'ACTIVE') return undefined;
+    const endServiceButton = Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Terminer le service');
+    if (!endServiceButton) return undefined;
+    const previousWidth = endServiceButton.style.width;
+    const previousAlignSelf = endServiceButton.style.alignSelf;
+    const previousMinHeight = endServiceButton.style.minHeight;
+    endServiceButton.style.width = 'auto';
+    endServiceButton.style.alignSelf = 'flex-end';
+    endServiceButton.style.minHeight = '44px';
+    return () => {
+      endServiceButton.style.width = previousWidth;
+      endServiceButton.style.alignSelf = previousAlignSelf;
+      endServiceButton.style.minHeight = previousMinHeight;
+    };
+  }, [mission?.status, stopByStop]);
+
   const start = async () => {
     const serviceReference = `RBE-${serviceSuffix.trim().toUpperCase()}`;
     if (!serviceSuffix.trim() || !courseReference.trim()) {
@@ -295,19 +312,6 @@ export default function IneoDriver() {
   };
 
   const complete = async () => {
-      const markStop = async () => {
-        if ((mission?.lastSpeedKmh ?? 0) > 3) {
-          toast({ status: 'warning', title: 'Véhicule en mouvement', description: 'Immobilisez le véhicule avant de marquer un arrêt.' });
-          return;
-        }
-        try {
-          setSubmitting(true);
-          const data = await ineoAPI.markMissionStop(mission.id);
-          toast({ status: 'success', title: `Arrêt ${data.stop.sequence} marqué`, description: data.stop.sequence > 1 ? `${Math.round(data.stop.distanceMeters)} m depuis l’arrêt précédent.` : 'Point de départ enregistré.' });
-        } catch (error) {
-          toast({ status: 'error', title: 'Marquage impossible', description: error.message });
-        } finally { setSubmitting(false); }
-      };
     try {
       setSubmitting(true);
       const data = await ineoAPI.completeMission(mission.id);
@@ -316,6 +320,20 @@ export default function IneoDriver() {
       toast({ status: 'success', title: 'Service terminé' });
     } catch (error) { toast({ status: 'error', title: 'Fin de service impossible', description: error.message }); }
     finally { setSubmitting(false); }
+  };
+
+  const markStop = async () => {
+    if ((mission?.lastSpeedKmh ?? 0) > 3) {
+      toast({ status: 'warning', title: 'Véhicule en mouvement', description: 'Immobilisez le véhicule avant de marquer un arrêt.' });
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const data = await ineoAPI.markMissionStop(mission.id);
+      toast({ status: 'success', title: `Arrêt ${data.stop.sequence} marqué`, description: data.stop.sequence > 1 ? `${Math.round(data.stop.distanceMeters)} m depuis l’arrêt précédent.` : 'Point de départ enregistré.' });
+    } catch (error) {
+      toast({ status: 'error', title: 'Marquage impossible', description: error.message });
+    } finally { setSubmitting(false); }
   };
 
   const pendingFlash = flashQueue[0] || null;
