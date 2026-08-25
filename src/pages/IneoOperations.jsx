@@ -64,7 +64,7 @@ function IneoOperationsWorkstation() {
   const [routes, setRoutes] = useState(() => launchCache?.routes || []);
   const [vehicles, setVehicles] = useState(() => launchCache?.vehicles || []);
   const [members, setMembers] = useState(() => launchCache?.members || []);
-  const [driverProfiles, setDriverProfiles] = useState([]);
+  const [driverProfiles, setDriverProfiles] = useState(() => launchCache?.driverProfiles || []);
   const [loading, setLoading] = useState(() => !launchCache);
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState('planning');
@@ -85,7 +85,7 @@ function IneoOperationsWorkstation() {
       setVehicles(nextVehicles);
       setMembers(nextMembers);
       setDriverProfiles(driverProfileData?.profiles || []);
-      writeIneoLaunchCache({ missions: nextMissions, routes: nextRoutes, vehicles: nextVehicles, members: nextMembers });
+      writeIneoLaunchCache({ missions: nextMissions, routes: nextRoutes, vehicles: nextVehicles, members: nextMembers, driverProfiles: driverProfileData?.profiles || [] });
     } catch (error) {
       if (!silent) toast({ status: 'error', title: 'Ineo indisponible', description: error.message });
     } finally { if (!silent) setLoading(false); }
