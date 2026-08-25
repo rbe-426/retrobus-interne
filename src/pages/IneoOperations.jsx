@@ -14,6 +14,7 @@ import { ineoAPI } from '../api/ineo';
 import { useUser } from '../context/UserContext';
 import { readIneoLaunchCache, writeIneoLaunchCache } from '../utils/ineoLaunchCache';
 import IneoFreeTracking from './IneoFreeTracking';
+import IneoDriverProfiles from './IneoDriverProfiles';
 import IneoVehicleProfiles from './IneoVehicleProfiles';
 import IneoTransport from './IneoTransport';
 import IneoFlashPanel from './IneoFlashPanel';
@@ -63,6 +64,7 @@ function IneoOperationsWorkstation() {
   const [routes, setRoutes] = useState(() => launchCache?.routes || []);
   const [vehicles, setVehicles] = useState(() => launchCache?.vehicles || []);
   const [members, setMembers] = useState(() => launchCache?.members || []);
+  const [driverProfiles, setDriverProfiles] = useState([]);
   const [loading, setLoading] = useState(() => !launchCache);
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState('planning');
@@ -73,7 +75,7 @@ function IneoOperationsWorkstation() {
   const load = async ({ silent = false } = {}) => {
     try {
       if (!silent) setLoading(true);
-      const [missionData, routeData, vehicleData, memberData] = await Promise.all([ineoAPI.listMissions(), ineoAPI.listRoutes(), apiClient.get('/vehicles'), apiClient.get('/members?limit=500')]);
+      const [missionData, routeData, vehicleData, memberData, driverProfileData] = await Promise.all([ineoAPI.listMissions(), ineoAPI.listRoutes(), apiClient.get('/vehicles'), apiClient.get('/members?limit=500'), ineoAPI.listDriverProfiles()]);
       const nextMissions = missionData?.missions || [];
       const nextRoutes = routeData?.routes || [];
       const nextVehicles = vehicleData?.vehicles || vehicleData || [];
@@ -82,6 +84,7 @@ function IneoOperationsWorkstation() {
       setRoutes(nextRoutes);
       setVehicles(nextVehicles);
       setMembers(nextMembers);
+      setDriverProfiles(driverProfileData?.profiles || []);
       writeIneoLaunchCache({ missions: nextMissions, routes: nextRoutes, vehicles: nextVehicles, members: nextMembers });
     } catch (error) {
       if (!silent) toast({ status: 'error', title: 'Ineo indisponible', description: error.message });
@@ -90,7 +93,13 @@ function IneoOperationsWorkstation() {
 
   useEffect(() => { load({ silent: Boolean(launchCache) }); }, []);
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const profileForDriver = (identifier) => driverProfiles.find((profile) => profile.driverIdentifier === String(identifier || '').trim().toLowerCase());
+  const isAssignableDriver = (identifier) => {
+    const profile = profileForDriver(identifier);
+    return Boolean(profile?.hasCategoryDLicense && profile?.hasDriverCard);
+  };
   const selectDriver = (identifier) => {
+    if (!isAssignableDriver(identifier)) return;
     const member = members.find((item) => (item.matricule || item.email) === identifier);
     setForm((current) => ({ ...current, driverIdentifier: identifier, driverName: member ? `${member.firstName || ''} ${member.lastName || ''}`.trim() : '' }));
   };
@@ -152,10 +161,25 @@ function IneoOperationsWorkstation() {
       resetForm();
       toast({ status: 'success', title: editingMission ? 'Service modifié' : 'Service créé et affecté' });
       load();
-    } catch (error) { showMissionError(error); } finally { setSaving(false); }
+    } catch (error) {
+      if (String(error.message).includes('FIMO') && window.confirm('La FIMO de ce conducteur n’est plus valable. Seules les courses à vide peuvent être affectées. Êtes-vous sûr de vouloir continuer ?')) {
+        try {
+          const payload = { ...form, allowExpiredFimo: true, scheduledDeparture: form.scheduledDeparture ? new Date(form.scheduledDeparture).toISOString() : null, scheduledArrival: form.scheduledArrival ? new Date(form.scheduledArrival).toISOString() : null };
+          if (editingMission) await ineoAPI.updateMission(editingMission.id, payload);
+          else await ineoAPI.createMission(payload);
+          resetForm();
+          toast({ status: 'warning', title: 'Service affecté avec FIMO expirée', description: 'Course à vide uniquement.' });
+          load();
+        } catch (retryError) { showMissionError(retryError); }
+      } else showMissionError(error);
+    } finally { setSaving(false); }
   };
 
   const changeMissionDriver = async (mission, driverIdentifier) => {
+    if (!isAssignableDriver(driverIdentifier)) {
+      toast({ status: 'warning', title: 'Conducteur non affectable', description: 'Permis D et carte conducteur valides sont requis.' });
+      return;
+    }
     const member = members.find((item) => (item.matricule || item.email) === driverIdentifier);
     if (!member) return;
     try {
@@ -164,7 +188,14 @@ function IneoOperationsWorkstation() {
       setMissions((current) => current.map((item) => item.id === data.mission.id ? data.mission : item));
       toast({ status: 'success', title: 'Conducteur modifié', description: driverName || driverIdentifier });
     } catch (error) {
-      toast({ status: 'error', title: 'Modification impossible', description: error.message });
+      if (String(error.message).includes('FIMO') && window.confirm('La FIMO de ce conducteur n’est plus valable. Seules les courses à vide peuvent être affectées. Êtes-vous sûr de vouloir continuer ?')) {
+        try {
+          const driverName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+          const data = await ineoAPI.updateMissionDriver(mission.id, { driverIdentifier, driverName, allowExpiredFimo: true });
+          setMissions((current) => current.map((item) => item.id === data.mission.id ? data.mission : item));
+          toast({ status: 'warning', title: 'Conducteur modifié avec FIMO expirée', description: 'Course à vide uniquement.' });
+        } catch (retryError) { toast({ status: 'error', title: 'Modification impossible', description: retryError.message }); }
+      } else toast({ status: 'error', title: 'Modification impossible', description: error.message });
     }
   };
 
@@ -184,9 +215,9 @@ function IneoOperationsWorkstation() {
     } finally { setSaving(false); }
   };
 
-  const assignment = <Box as="form" onSubmit={create} border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={5}><HStack justify="space-between" mb={4} flexWrap="wrap"><Box><Heading fontSize="16px">{editingMission ? 'Modifier l’affectation' : 'Affecter un trajet du jour'}</Heading><Text fontSize="sm" color="#60727e">{editingMission?.status === 'ACTIVE' ? 'Le changement est appliqué au service en cours.' : 'Choisissez un code course préparé, puis le véhicule et le conducteur.'}</Text></Box>{editingMission && <Button size="sm" variant="ghost" leftIcon={<FiX />} onClick={resetForm}>Annuler la modification</Button>}</HStack><Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4}><FormControl isRequired gridColumn={{ md: 'span 2' }}><FormLabel>Trajet / code course préparé</FormLabel><Select bg="white" value={form.courseReference} onChange={(event) => selectRoute(event.target.value)} placeholder={routes.length ? 'Choisir un trajet préparé' : 'Aucun trajet préparé'}>{routes.map((route) => <option key={route.id} value={route.courseReference}>{route.courseReference} · {route.serviceReference || 'Sans code service'} · {route.routeName}</option>)}</Select></FormControl><FormControl><FormLabel>Code service</FormLabel><Input bg="gray.100" value={form.serviceReference} isReadOnly /></FormControl><FormControl><FormLabel>Code course</FormLabel><Input bg="gray.100" value={form.courseReference} isReadOnly /></FormControl><FormControl isRequired><FormLabel>Véhicule</FormLabel><Select bg="white" value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule">{vehicles.map((vehicle) => <option key={vehicle.parc} value={vehicle.parc}>{vehicle.parc} - {vehicle.immat || vehicle.modele}</option>)}</Select></FormControl><FormControl isRequired><FormLabel>Conducteur</FormLabel><Select bg="white" value={form.driverIdentifier} onChange={(event) => selectDriver(event.target.value)} placeholder="Choisir un conducteur">{members.map((member) => { const identifier = member.matricule || member.email; return identifier && <option key={member.id || identifier} value={identifier}>{member.firstName} {member.lastName} - {identifier}</option>; })}</Select></FormControl><FormControl><FormLabel>Départ prévu</FormLabel><Input bg="white" type="datetime-local" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Arrivée prévue</FormLabel><Input bg="white" type="datetime-local" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>{!routes.length && <Text mt={4} fontSize="sm" color="red.600">Préparez d’abord un trajet et son code course dans le premier onglet.</Text>}<HStack justify="flex-end" mt={5}><Button type="submit" isLoading={saving} isDisabled={!form.courseReference} colorScheme="blue" borderRadius="2px" leftIcon={editingMission ? <FiEdit2 /> : <FiPlus />}>{editingMission ? 'Enregistrer les modifications' : 'Créer l’affectation'}</Button></HStack></Box>;
+  const assignment = <Box as="form" onSubmit={create} border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={5}><HStack justify="space-between" mb={4} flexWrap="wrap"><Box><Heading fontSize="16px">{editingMission ? 'Modifier l’affectation' : 'Affecter un trajet du jour'}</Heading><Text fontSize="sm" color="#60727e">{editingMission?.status === 'ACTIVE' ? 'Le changement est appliqué au service en cours.' : 'Choisissez un code course préparé, puis le véhicule et le conducteur.'}</Text></Box>{editingMission && <Button size="sm" variant="ghost" leftIcon={<FiX />} onClick={resetForm}>Annuler la modification</Button>}</HStack><Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4}><FormControl isRequired gridColumn={{ md: 'span 2' }}><FormLabel>Trajet / code course préparé</FormLabel><Select bg="white" value={form.courseReference} onChange={(event) => selectRoute(event.target.value)} placeholder={routes.length ? 'Choisir un trajet préparé' : 'Aucun trajet préparé'}>{routes.map((route) => <option key={route.id} value={route.courseReference}>{route.courseReference} · {route.serviceReference || 'Sans code service'} · {route.routeName}</option>)}</Select></FormControl><FormControl><FormLabel>Code service</FormLabel><Input bg="gray.100" value={form.serviceReference} isReadOnly /></FormControl><FormControl><FormLabel>Code course</FormLabel><Input bg="gray.100" value={form.courseReference} isReadOnly /></FormControl><FormControl isRequired><FormLabel>Véhicule</FormLabel><Select bg="white" value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule">{vehicles.map((vehicle) => <option key={vehicle.parc} value={vehicle.parc}>{vehicle.parc} - {vehicle.immat || vehicle.modele}</option>)}</Select></FormControl><FormControl isRequired><FormLabel>Conducteur</FormLabel><Select bg="white" value={form.driverIdentifier} onChange={(event) => selectDriver(event.target.value)} placeholder="Choisir un conducteur">{members.map((member) => { const identifier = member.matricule || member.email; const assignable = isAssignableDriver(identifier); return identifier && <option key={member.id || identifier} value={identifier} disabled={!assignable}>{member.firstName} {member.lastName} - {assignable ? identifier : 'non affectable'}</option>; })}</Select></FormControl><FormControl><FormLabel>Départ prévu</FormLabel><Input bg="white" type="datetime-local" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Arrivée prévue</FormLabel><Input bg="white" type="datetime-local" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>{!routes.length && <Text mt={4} fontSize="sm" color="red.600">Préparez d’abord un trajet et son code course dans le premier onglet.</Text>}<HStack justify="flex-end" mt={5}><Button type="submit" isLoading={saving} isDisabled={!form.courseReference || !isAssignableDriver(form.driverIdentifier)} colorScheme="blue" borderRadius="2px" leftIcon={editingMission ? <FiEdit2 /> : <FiPlus />}>{editingMission ? 'Enregistrer les modifications' : 'Créer l’affectation'}</Button></HStack></Box>;
   const planning = <VStack align="stretch" spacing={5}><SectionHeader title="Planification des services" detail="Préparez les trajets récurrents, créez les codes course du jour, puis affectez le véhicule et le conducteur." /><Tabs index={planningTab} onChange={setPlanningTab} colorScheme="blue" variant="enclosed"><TabList overflowX="auto"><Tab whiteSpace="nowrap">1. Trajets et codes course</Tab><Tab whiteSpace="nowrap">2. Affectations du jour</Tab></TabList><TabPanels><TabPanel px={0} pt={5}><IneoTransport key="route-planning" vehicles={vehicles} initialTab="routes" showTabSelector={false} routeWorkspace /></TabPanel><TabPanel px={0} pt={5}><VStack align="stretch" spacing={5}>{assignment}<Box><Text fontWeight="700" mb={3}>Services enregistrés</Text><MissionTable missions={missions} members={members} loading={loading} onChangeDriver={changeMissionDriver} onEdit={editMission} onRemove={removeMission} /></Box></VStack></TabPanel></TabPanels></Tabs></VStack>;
-  const content = section === 'planning' ? planning : section === 'map' ? <><SectionHeader title="Carte de transport" detail="Suivi des vehicules actuellement en exploitation" /><Box border="1px solid" borderColor="#c6d0d8" bg="#f4f7f8" p={4} mb={4} fontSize="sm">Les positions recues depuis les terminaux conducteur sont listees ci-dessous. Le lien Voir ouvre la position dans la carte.</Box><MissionTable missions={missions.filter((mission) => mission.status === 'ACTIVE' || mission.lastLatitude != null || mission.latestPosition)} loading={loading} compact /></> : section === 'vehicles' ? <><SectionHeader title="Parc materiel" detail={`${vehicles.length} vehicule${vehicles.length > 1 ? 's' : ''} disponible${vehicles.length > 1 ? 's' : ''}`} /><Box overflowX="auto" border="1px solid" borderColor="#c6d0d8"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Parc</Th><Th>Immatriculation</Th><Th>Modele</Th><Th>Services affectes</Th></Tr></Thead><Tbody>{vehicles.map((vehicle) => <Tr key={vehicle.parc}><Td fontWeight="600">{vehicle.parc}</Td><Td>{vehicle.immat || '-'}</Td><Td>{vehicle.modele || '-'}</Td><Td>{missions.filter((mission) => mission.vehicleParc === vehicle.parc && mission.status !== 'COMPLETED').length}</Td></Tr>)}</Tbody></Table></Box></> : <><SectionHeader title="Conducteurs" detail={`${members.length} membre${members.length > 1 ? 's' : ''} charge${members.length > 1 ? 's' : ''}`} /><Box overflowX="auto" border="1px solid" borderColor="#c6d0d8"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Nom</Th><Th>Identifiant</Th><Th>Service actif</Th></Tr></Thead><Tbody>{members.map((member) => { const identifier = member.matricule || member.email; const currentMission = missions.find((mission) => mission.driverIdentifier === identifier && mission.status === 'ACTIVE'); return <Tr key={member.id || identifier}><Td fontWeight="600">{member.firstName} {member.lastName}</Td><Td>{identifier || '-'}</Td><Td>{currentMission ? currentMission.serviceName : '-'}</Td></Tr>; })}</Tbody></Table></Box></>;
+  const content = section === 'planning' ? planning : section === 'map' ? <><SectionHeader title="Carte de transport" detail="Suivi des vehicules actuellement en exploitation" /><Box border="1px solid" borderColor="#c6d0d8" bg="#f4f7f8" p={4} mb={4} fontSize="sm">Les positions recues depuis les terminaux conducteur sont listees ci-dessous. Le lien Voir ouvre la position dans la carte.</Box><MissionTable missions={missions.filter((mission) => mission.status === 'ACTIVE' || mission.lastLatitude != null || mission.latestPosition)} loading={loading} compact /></> : section === 'vehicles' ? <><SectionHeader title="Parc materiel" detail={`${vehicles.length} vehicule${vehicles.length > 1 ? 's' : ''} disponible${vehicles.length > 1 ? 's' : ''}`} /><Box overflowX="auto" border="1px solid" borderColor="#c6d0d8"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Parc</Th><Th>Immatriculation</Th><Th>Modele</Th><Th>Services affectes</Th></Tr></Thead><Tbody>{vehicles.map((vehicle) => <Tr key={vehicle.parc}><Td fontWeight="600">{vehicle.parc}</Td><Td>{vehicle.immat || '-'}</Td><Td>{vehicle.modele || '-'}</Td><Td>{missions.filter((mission) => mission.vehicleParc === vehicle.parc && mission.status !== 'COMPLETED').length}</Td></Tr>)}</Tbody></Table></Box></> : <IneoDriverProfiles members={members} profiles={driverProfiles} onSaved={() => load({ silent: true })} />;
 
   const activeContent = section === 'vehicle-profiles'
     ? <IneoVehicleProfiles vehicles={vehicles} />
