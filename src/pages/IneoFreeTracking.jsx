@@ -105,23 +105,7 @@ export default function IneoFreeTracking() {
   };
 
   const createSession = async () => {
-    if (!selectedTrackerId || !selectedDriverIdentifier) {
-      toast({ status: 'warning', title: 'Véhicule et conducteur requis' });
-      return;
-    }
-    try {
-      setStarting(true);
-      const driver = members.find((member) => String(member.matricule || member.email || '').toLowerCase() === selectedDriverIdentifier);
-      const data = await ineoAPI.createFreeTrackingSession({ trackerId: selectedTrackerId, driverIdentifier: selectedDriverIdentifier, driverName: `${driver?.firstName || ''} ${driver?.lastName || ''}`.trim() });
-      setCreatedSession({ ...data.session, tracker: data.tracker });
-      setSelectedSessionId(data.session.id);
-      setSessions((current) => [data.session, ...current]);
-      toast({ status: 'success', title: 'Traçage libre affecté' });
-    } catch (error) {
-      toast({ status: 'error', title: 'Création impossible', description: error.message });
-    } finally {
-      setStarting(false);
-    }
+    toast({ status: 'info', title: 'Création déplacée', description: 'Générez le code course libre dans « Trajets et codes course », puis affectez-le dans « Affectations du jour ».' });
   };
 
   const startSession = async () => {

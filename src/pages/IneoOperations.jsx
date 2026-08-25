@@ -223,9 +223,7 @@ function IneoOperationsWorkstation() {
     ? <IneoVehicleProfiles vehicles={vehicles} />
     : section === 'live-tracking'
       ? <IneoTransport key="live-tracking" vehicles={vehicles} initialTab="positions" showTabSelector={false} />
-      : section === 'free-tracking'
-          ? <IneoFreeTracking />
-          : section === 'flash'
+      : section === 'flash'
               ? <IneoFlashPanel />
               : content;
 
