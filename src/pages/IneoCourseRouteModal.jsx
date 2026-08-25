@@ -174,27 +174,15 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
   const toggleFreeTracking = async (checked) => {
     setIsFreeTracking(checked);
     if (!checked) return;
-    try {
-      setGeneratingFreeCode(true);
-      const data = await ineoAPI.createFreeTrackingSession();
-      const session = data?.session;
-      setForm((current) => ({
-        ...current,
-        serviceReference: session.serviceReference,
-        courseReference: session.courseCode,
-        routeName: current.routeName || 'Traçage libre - sans trajet défini',
-        lineName: '',
-        scheduledDeparture: '',
-        scheduledArrival: '',
-        stops: [emptyStop()],
-      }));
-      toast({ status: 'success', title: 'Code course libre généré', description: `${session.serviceReference} · ${session.courseCode}` });
-    } catch (error) {
-      setIsFreeTracking(false);
-      toast({ status: 'error', title: 'Génération impossible', description: error.message });
-    } finally {
-      setGeneratingFreeCode(false);
-    }
+    setForm((current) => ({
+      ...current,
+      serviceReference: 'RBE-999-999',
+      routeName: current.routeName || 'Traçage libre - sans trajet défini',
+      lineName: '',
+      scheduledDeparture: '',
+      scheduledArrival: '',
+      stops: [emptyStop()],
+    }));
   };
 
   const save = async () => {
@@ -217,7 +205,7 @@ export default function IneoCourseRouteModal({ isOpen, onClose, initialRoute, pr
 
   return <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside"><ModalOverlay /><ModalContent maxW="1180px"><ModalHeader>Course, ligne et itinéraire</ModalHeader><ModalCloseButton /><ModalBody><VStack align="stretch" spacing={5}>
     <Checkbox isChecked={isFreeTracking} isDisabled={generatingFreeCode} onChange={(event) => toggleFreeTracking(event.target.checked)}>Code course libre</Checkbox>
-    {isFreeTracking && <Alert status="info" borderRadius="2px"><AlertIcon /><Text fontSize="sm">Code course libre généré. Aucun trajet n’est défini; affectez ensuite le véhicule et le conducteur dans « Affectations du jour ».</Text></Alert>}
+    {isFreeTracking && <Alert status="info" borderRadius="2px"><AlertIcon /><Text fontSize="sm">Saisissez le code généré dans « Traçage libre ». Aucun trajet n’est défini; affectez ensuite le véhicule et le conducteur dans « Affectations du jour ».</Text></Alert>}
     <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 1fr' }} gap={4}><FormControl isRequired position="relative"><FormLabel>Code service</FormLabel><Input value={form.serviceReference} onChange={(event) => { update('serviceReference', event.target.value); searchReferences(event.target.value); }} placeholder="RBE-999-999" />{searchingReferences && <Spinner size="xs" position="absolute" right={3} top="38px" />}{referenceMatches.length > 0 && <Box position="absolute" zIndex={20} top="68px" w="full" maxH="190px" overflowY="auto" bg="white" border="1px solid" borderColor="gray.200" boxShadow="md">{referenceMatches.map((match) => <Button key={`${match.source}-${match.route.courseReference || match.route.serviceReference}`} variant="ghost" justifyContent="start" textAlign="left" whiteSpace="normal" h="auto" py={2} w="full" onClick={() => mergeReference(match)}><VStack align="start" spacing={0}><Text fontWeight="700">{match.route.serviceReference || 'Service non renseigné'} · {match.route.routeName}</Text><Text fontSize="xs">{match.route.courseReference ? `Course ${match.route.courseReference} · ` : ''}{match.source === 'mission' ? `Service affecté à ${match.assignment?.driverName || match.assignment?.driverIdentifier || 'conducteur'} · ` : 'Course configurée · '}{match.route.scheduledDeparture || '--:--'} → {match.route.scheduledArrival || '--:--'}</Text></VStack></Button>)}</Box>}</FormControl><FormControl isRequired><FormLabel>Code course</FormLabel><Input value={form.courseReference} onChange={(event) => update('courseReference', event.target.value)} placeholder="999-26726-920" /></FormControl><FormControl><FormLabel>Ligne</FormLabel><Input value={form.lineName} onChange={(event) => update('lineName', event.target.value)} placeholder="Ex. Ligne patrimoine" /></FormControl><FormControl isRequired><FormLabel>Nom de l’itinéraire</FormLabel><Input value={form.routeName} onChange={(event) => update('routeName', event.target.value)} placeholder="Ex. Gare - Musée" /></FormControl><FormControl><FormLabel>Véhicule et profil de circulation</FormLabel><Select value={form.vehicleParc} onChange={(event) => update('vehicleParc', event.target.value)} placeholder="Choisir un véhicule profilé">{profiles.map((profile) => <option key={profile.id} value={profile.vehicleParc}>{profile.vehicleParc} - {vehicles.find((vehicle) => vehicle.parc === profile.vehicleParc)?.immat || profile.vehicleType || 'Profil Inéo'}</option>)}</Select></FormControl><FormControl><FormLabel>Heure premier départ</FormLabel><Input type="time" value={form.scheduledDeparture} onChange={(event) => update('scheduledDeparture', event.target.value)} /></FormControl><FormControl><FormLabel>Heure dernière arrivée</FormLabel><Input type="time" value={form.scheduledArrival} onChange={(event) => update('scheduledArrival', event.target.value)} /></FormControl></Grid>
     {vehicleConstraints && <Alert status="info" borderRadius="2px"><AlertIcon /><VStack align="start" spacing={1}><Text fontSize="sm" fontWeight="700">Contraintes appliquées au dossier de course</Text><HStack flexWrap="wrap"><Badge colorScheme="blue">{vehicleConstraints.vehicleType || 'BUS'}</Badge>{vehicleConstraints.maxSpeedKmh != null && <Badge colorScheme="orange">Vmax {vehicleConstraints.maxSpeedKmh} km/h</Badge>}{vehicleConstraints.lengthM != null && <Badge>Long. {vehicleConstraints.lengthM} m</Badge>}{vehicleConstraints.widthM != null && <Badge>Larg. {vehicleConstraints.widthM} m</Badge>}{vehicleConstraints.heightM != null && <Badge>Haut. {vehicleConstraints.heightM} m</Badge>}</HStack></VStack></Alert>}
     {estimatingDeparture && <HStack fontSize="sm" color="gray.600"><Spinner size="xs" /><Text>Calcul de l’heure de départ avec le trajet et la Vmax…</Text></HStack>}

@@ -3,11 +3,11 @@ import { Badge, Box, Button, Center, Container, Divider, FormControl, FormLabel,
 import { keyframes } from '@emotion/react';
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { FiActivity, FiBell, FiCheckCircle, FiClock, FiMapPin, FiNavigation, FiPlay, FiTruck } from 'react-icons/fi';
-import { Link as RouterLink } from 'react-router-dom';
 import L from 'leaflet';
 import { ineoAPI } from '../api/ineo';
 import 'leaflet/dist/leaflet.css';
 
+const RouterLink = () => null;
 const formatTime = (value) => value ? new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
 const stopIcon = L.divIcon({ className: '', html: '<div style="width:14px;height:14px;border:3px solid #005a9e;background:#fff;border-radius:50%"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
 const toRadians = (value) => value * Math.PI / 180;

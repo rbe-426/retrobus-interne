@@ -105,7 +105,18 @@ export default function IneoFreeTracking() {
   };
 
   const createSession = async () => {
-    toast({ status: 'info', title: 'Création déplacée', description: 'Générez le code course libre dans « Trajets et codes course », puis affectez-le dans « Affectations du jour ».' });
+    try {
+      setStarting(true);
+      const data = await ineoAPI.createFreeTrackingSession();
+      setCreatedSession(data.session);
+      setSelectedSessionId(data.session.id);
+      setSessions((current) => [data.session, ...current]);
+      toast({ status: 'success', title: 'Code course libre généré', description: `${data.session.serviceReference} · ${data.session.courseCode}` });
+    } catch (error) {
+      toast({ status: 'error', title: 'Génération impossible', description: error.message });
+    } finally {
+      setStarting(false);
+    }
   };
 
   const startSession = async () => {
@@ -144,6 +155,13 @@ export default function IneoFreeTracking() {
   };
 
   const selectedManagedSession = sessions.find((item) => item.id === selectedSessionId) || sessions.find((item) => item.status === 'ACTIVE') || createdSession;
+
+  if (manager) return <Container maxW="4xl" py={8}><VStack align="stretch" spacing={5}>
+    <Box borderBottom="1px solid" borderColor="gray.200" pb={4}><HStack><Icon as={FiActivity} color="#005a9e" boxSize={6} /><Box><Heading size="md">Traçage libre</Heading><Text color="gray.600">Générez un code course libre, puis utilisez-le dans « Trajets et codes course » avant de créer l’affectation du jour.</Text></Box></HStack></Box>
+    <Box border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={5}><HStack justify="space-between" flexWrap="wrap" gap={4}><Box><Text fontWeight="700">Nouveau code course libre</Text><Text fontSize="sm" color="gray.600">Service fixe : RBE-999-999</Text></Box><Button colorScheme="blue" leftIcon={<FiPlay />} isLoading={starting} onClick={createSession}>Générer le code course</Button></HStack></Box>
+    {createdSession && <Box border="1px solid" borderColor="#8bc7a1" bg="#f0fff4" p={5}><Text fontSize="sm" color="gray.600">Code à renseigner dans la modale « Trajets et codes course »</Text><Heading mt={1} fontFamily="monospace">{createdSession.serviceReference} · {createdSession.courseCode}</Heading></Box>}
+    <Box border="1px solid" borderColor="#c6d0d8" overflowY="auto" maxH="340px"><Text px={4} py={3} fontWeight="700" bg="#e9eff3">Codes libres générés</Text>{sessions.length ? sessions.map((item) => <Box key={item.id} px={4} py={3} borderTop="1px solid" borderColor="#e2e8f0"><HStack justify="space-between"><Text fontFamily="monospace">{item.serviceReference} · {item.courseCode}</Text><Badge colorScheme={item.status === 'ACTIVE' ? 'green' : item.status === 'PENDING' ? 'orange' : 'gray'}>{item.status}</Badge></HStack></Box>) : <Text px={4} py={5} color="gray.500">Aucun code course libre généré.</Text>}</Box>
+  </VStack></Container>;
 
   if (manager) return <Container maxW="6xl" py={8}><VStack align="stretch" spacing={5}>
     <Box borderBottom="1px solid" borderColor="gray.200" pb={4}><HStack><Icon as={FiActivity} color="#005a9e" boxSize={6} /><Box><Heading size="md">Traçage libre</Heading><Text color="gray.600">Créez une course sans trajet, affectez son véhicule et son conducteur, puis suivez sa trace en temps réel.</Text></Box></HStack></Box>
