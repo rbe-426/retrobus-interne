@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Badge, Box, Button, Container, FormControl, FormLabel, Grid, Heading, HStack, Icon, Input, Select, Stat, StatLabel, StatNumber, Tab, TabList, TabPanel, TabPanels, Tabs, Text, VStack, useToast } from '@chakra-ui/react';
 import { FiActivity, FiCheckCircle, FiMapPin, FiPlay, FiSmartphone, FiStopCircle } from 'react-icons/fi';
-import { CircleMarker, MapContainer, Polyline, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, TileLayer, useMap } from 'react-leaflet';
 import { ineoAPI } from '../api/ineo';
 import { apiClient } from '../api/config';
 import { useUser } from '../context/UserContext';
@@ -15,11 +15,30 @@ const isIneoManager = ({ matricule, user }) => [matricule, user?.username, user?
 const formatDistance = (meters = 0) => meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
 const formatSpeed = (speed) => speed == null ? '--' : `${Math.round(speed)} km/h`;
 
+function FreeTrackingMapViewport({ position }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const refreshMap = () => {
+      map.invalidateSize();
+      map.setView(position, map.getZoom(), { animate: false });
+    };
+    const animationFrame = window.requestAnimationFrame(refreshMap);
+    const timeoutId = window.setTimeout(refreshMap, 150);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(timeoutId);
+    };
+  }, [map, position]);
+
+  return null;
+}
+
 function FreeTrackingMap({ session, points = [] }) {
   const trace = points.filter((point) => point.latitude != null && point.longitude != null).map((point) => [point.latitude, point.longitude]);
   const latest = trace.at(-1) || (session?.lastLatitude != null ? [session.lastLatitude, session.lastLongitude] : null);
   if (!latest) return <Box h="340px" bg="gray.100" display="flex" alignItems="center" justifyContent="center" color="gray.500">En attente de la première position GPS.</Box>;
-  return <Box h="340px" overflow="hidden" border="1px solid" borderColor="#c6d0d8"><MapContainer center={latest} zoom={15} style={{ height: '100%', width: '100%' }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />{trace.length > 1 && <Polyline positions={trace} pathOptions={{ color: '#d7194b', weight: 5 }} />}{latest && <CircleMarker center={latest} radius={10} pathOptions={{ color: '#fff', weight: 3, fillColor: '#005a9e', fillOpacity: 1 }} />}</MapContainer></Box>;
+  return <Box h="340px" overflow="hidden" border="1px solid" borderColor="#c6d0d8"><MapContainer center={latest} zoom={15} style={{ height: '100%', width: '100%' }}><FreeTrackingMapViewport position={latest} /><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />{trace.length > 1 && <Polyline positions={trace} pathOptions={{ color: '#d7194b', weight: 5 }} />}{latest && <CircleMarker center={latest} radius={10} pathOptions={{ color: '#fff', weight: 3, fillColor: '#005a9e', fillOpacity: 1 }} />}</MapContainer></Box>;
 }
 
 export default function IneoFreeTracking() {
