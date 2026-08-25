@@ -14,14 +14,11 @@ const isIneoManager = ({ matricule, user }) => {
   return identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com';
 };
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const LAUNCH_STEPS = [
-  { label: 'Appel de l’application...', run: async () => { await wait(400); } },
-  { label: 'Récupération serveur...', run: async () => { await apiClient.get('/health'); } },
-  { label: 'Chargement des mains-d’œuvre...', run: async (cache) => { const data = await apiClient.get('/members?limit=500'); cache.members = data?.members || data || []; } },
-  { label: 'Chargement des circuits et des IMEI...', run: async (cache) => { const [routeData, trackerData] = await Promise.all([ineoAPI.listRoutes(), ineoAPI.listVehicleTrackers()]); cache.routes = routeData?.routes || []; cache.trackers = trackerData?.trackers || []; } },
-  { label: 'Ouverture de l’application RétroNéo...', run: async (cache) => { const [missionData, vehicleData] = await Promise.all([ineoAPI.listMissions(), apiClient.get('/vehicles')]); cache.missions = missionData?.missions || []; cache.vehicles = vehicleData?.vehicles || vehicleData || []; } },
+  { label: 'Connexion au serveur Inéo...', run: async () => { await apiClient.get('/health'); } },
+  { label: 'Chargement des mains-d’œuvre...', run: async (cache) => { const [memberData, profileData] = await Promise.all([apiClient.get('/members?limit=500'), ineoAPI.listDriverProfiles()]); cache.members = memberData?.members || memberData || []; cache.driverProfiles = profileData?.profiles || []; } },
+  { label: 'Chargement des circuits et des IMEI...', run: async (cache) => { const [routeData, trackerData, vehicleProfileData] = await Promise.all([ineoAPI.listRoutes(), ineoAPI.listVehicleTrackers(), ineoAPI.listVehicleProfiles()]); cache.routes = routeData?.routes || []; cache.trackers = trackerData?.trackers || []; cache.vehicleProfiles = vehicleProfileData?.profiles || []; } },
+  { label: 'Chargement des services et véhicules...', run: async (cache) => { const [missionData, vehicleData] = await Promise.all([ineoAPI.listMissions(), apiClient.get('/vehicles')]); cache.missions = missionData?.missions || []; cache.vehicles = vehicleData?.vehicles || vehicleData || []; } },
 ];
 
 const IneoManagementLauncher = () => {
@@ -39,14 +36,16 @@ const IneoManagementLauncher = () => {
         await LAUNCH_STEPS[index].run(cache);
       }
       writeIneoLaunchCache(cache);
+      setStepIndex(LAUNCH_STEPS.length);
       const operationsWindow = window.open(
         '/dashboard/ineo-retrobus',
         'ineo-retrobus-operations',
         'popup=yes,width=1500,height=960,left=80,top=40,resizable=yes,scrollbars=yes'
       );
+      if (!operationsWindow) throw new Error('[RBE-POPUP-001] La fenetre Inéo a ete bloquee par le navigateur. Autorisez les popups puis relancez la commande.');
       operationsWindow?.focus();
     } catch (launchError) {
-      setError(launchError.message || 'Ouverture impossible, réessayez.');
+      setError(launchError.message || '[RBE-INEO-000] Erreur inconnue lors du chargement Inéo.');
     } finally {
       setLaunching(false);
       setStepIndex(-1);
@@ -67,10 +66,10 @@ const IneoManagementLauncher = () => {
         {launching && stepIndex >= 0 && (
           <HStack spacing={3} color="gray.600" fontSize="sm">
             <Spinner size="sm" color="rbe.500" />
-            <Text>{LAUNCH_STEPS[stepIndex].label}</Text>
+            <Text>{LAUNCH_STEPS[stepIndex]?.label || 'Ouverture de l’application RétroNéo...'}</Text>
           </HStack>
         )}
-        {error && <Text color="red.600" fontSize="sm">{error}</Text>}
+        {error && <VStack align="stretch" spacing={1} w="full" bg="red.50" borderLeft="3px solid" borderColor="red.500" px={3} py={2} textAlign="left"><Text color="red.700" fontWeight="700" fontSize="sm">Problème serveur - impossible d'executer la commande...</Text><Text color="red.700" fontSize="xs">{error}</Text></VStack>}
       </VStack>
     </Box>
   );
