@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => {
           '/newsletter': { ...common },
           '/finance': { ...common },
           '/documents': { ...common },
+          '/procedures': { ...common },
           '/members': { ...common },
           '/site-users': { ...common },
           '/flashes': { ...common },
