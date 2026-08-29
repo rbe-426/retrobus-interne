@@ -256,18 +256,21 @@ const DEMO_EXONERATIONS = [
 const DEFAULT_MUSEUM_LAYOUT = {
   logo: { top: 51, left: 50, size: 900, locked: true },
   modules: {
-    accueil: { top: 90, left: 58 },
-    vehicles: { top: 61, left: 74 },
-    restorations: { top: 11, left: 44 },
-    stock: { top: 20, left: 66 },
-    docs: { top: 35, left: 24 },
-    tarification: { top: 33, left: 90 },
-    staff: { top: 61, left: 7 },
-    floor: { top: 75, left: 31 }
+    accueil: { top: 87, left: 50 },
+    vehicles: { top: 72, left: 76 },
+    restorations: { top: 43, left: 87 },
+    stock: { top: 18, left: 73 },
+    docs: { top: 10, left: 50 },
+    tarification: { top: 18, left: 27 },
+    events: { top: 43, left: 13 },
+    facing: { top: 72, left: 24 },
+    floor: { top: 62, left: 50 },
+    staff: { top: 32, left: 31 },
+    planning: { top: 32, left: 69 }
   }
 };
 
-const MUSEUM_MODULE_KEYS = ['vehicles', 'stock'];
+const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'tarification', 'events', 'facing', 'floor', 'staff', 'planning'];
 
 const getMuseumModuleFromPath = (pathname) => {
   const moduleKey = pathname.replace(/^\/lemusee\/?/, '').split('/')[0];
@@ -915,8 +918,17 @@ export default function LeMusee() {
   };
 
   const museumModules = [
+    { key: 'accueil', icon: FiUserCheck, title: 'Accueil visiteurs', color: '#3b82f6' },
     { key: 'vehicles', icon: FiTruck, title: 'Véhicules', color: '#16a34a' },
-    { key: 'stock', icon: FiPackage, title: 'Pièces & stocks', color: '#d97706' }
+    { key: 'restorations', icon: FiTool, title: 'Restaurations', color: '#e11d48' },
+    { key: 'stock', icon: FiPackage, title: 'Pièces & stocks', color: '#d97706' },
+    { key: 'docs', icon: FiBook, title: 'Documentation', color: '#8b5cf6' },
+    { key: 'tarification', icon: FiDollarSign, title: 'Billetterie', color: '#0d9488' },
+    { key: 'events', icon: FiCalendar, title: 'Événements', color: '#ec4899' },
+    { key: 'facing', icon: FiShoppingBag, title: 'Exposition', color: '#f59e0b' },
+    { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#06b6d4' },
+    { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
+    { key: 'planning', icon: FiTrendingUp, title: 'Planning', color: '#84cc16' }
   ];
 
   const renderMuseumBreadcrumb = (currentLabel) => (
