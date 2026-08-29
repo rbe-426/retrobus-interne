@@ -1,20 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Badge, Box, Button, Card, CardBody, CardHeader, Heading, HStack, IconButton,
+  Badge, Box, Button, Card, CardBody, CardHeader, Divider, Heading, HStack, Icon, IconButton,
   Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader,
   ModalOverlay, SimpleGrid, Text, Textarea, VStack, useDisclosure, useToast,
 } from '@chakra-ui/react';
-import { FiArrowLeft, FiBook, FiCheckCircle, FiFileText, FiShield, FiTool, FiTrash2, FiUpload, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiBook, FiCheckCircle, FiFileText, FiFolder, FiShield, FiTool, FiTrash2, FiUpload, FiUsers } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageLayout from '../components/Layout/PageLayout';
 import { apiClient } from '../api/config';
 import { fetchCSRFToken, getStoredCSRFToken } from '../lib/csrfClient';
 
 const procedures = [
-  { id: 'vehicules', title: 'Procédures véhicules', icon: FiUsers, color: 'blue' },
-  { id: 'commerciales', title: 'Procédures commerciales', icon: FiFileText, color: 'teal' },
-  { id: 'tournage-safe', title: 'Procédures TOURNAGE & SAFE', icon: FiTool, color: 'orange' },
-  { id: 'securite', title: 'Procédures Sécurité', icon: FiShield, color: 'purple' },
+  { id: 'vehicules', code: 'PARC', title: 'Procédures véhicules', description: 'Exploitation, entretien et suivi du parc.', icon: FiUsers, color: 'blue' },
+  { id: 'commerciales', code: 'COM', title: 'Procédures commerciales', description: 'Demandes, prestations et relation partenaires.', icon: FiFileText, color: 'teal' },
+  { id: 'tournage-safe', code: 'SAFE', title: 'Procédures TOURNAGE & SAFE', description: 'Préparation terrain, tournage et prévention.', icon: FiTool, color: 'orange' },
+  { id: 'securite', code: 'SEC', title: 'Procédures Sécurité', description: "Consignes, contrôles et remontées d'incidents.", icon: FiShield, color: 'purple' },
 ];
 const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 
@@ -118,10 +118,105 @@ export default function Procedures() {
     } catch (error) { toast({ status: 'error', title: 'Suppression impossible', description: error.message }); }
   };
 
-  return <PageLayout title={selectedCategory?.title || 'Procédures'} subtitle={selectedCategory ? 'Documents associés à cette catégorie' : 'Référentiel opérationnel RétroBus Essonne'} breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Procédures', href: '/dashboard/procedures' }]} bgGradient="linear(to-r, rbe.600, rbe.800)" titleSize="lg"><VStack spacing={6} align="stretch">
-    {selectedCategory ? <><HStack justify="space-between"><Button leftIcon={<FiArrowLeft />} variant="ghost" onClick={() => navigate('/dashboard/procedures')}>Toutes les catégories</Button>{canPublish && <Button colorScheme="blue" leftIcon={<FiUpload />} onClick={onOpen}>Importer un PDF</Button>}</HStack>
-      {loading ? <Text color="gray.500">Chargement des procédures...</Text> : documents.length ? <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>{documents.map((document) => <Card key={document.id} overflow="hidden" borderWidth="1px" borderTopWidth="3px" borderTopColor="rbe.500" bg="white" _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: 'rbe.300' }} transition="all .2s"><Box as="a" href={`${API_BASE}${document.filePath}`} target="_blank" rel="noreferrer" display="block"><PdfThumbnail document={document} /></Box><CardBody p={3}><Heading size="xs" color="gray.800" noOfLines={2}>{document.title}</Heading>{document.description && <Text mt={1} fontSize="xs" color="gray.600" noOfLines={3}>{document.description}</Text>}<HStack mt={3} pt={2} borderTop="1px solid" borderColor="gray.100" justify="space-between"><Text fontSize="xs" color="gray.500" noOfLines={1}>{document.fileName}</Text>{canPublish && <IconButton size="xs" colorScheme="red" variant="ghost" aria-label={`Supprimer ${document.title}`} icon={<FiTrash2 />} onClick={() => deleteDocument(document)} />}</HStack></CardBody></Card>)}</SimpleGrid> : <Box py={12} textAlign="center" border="1px dashed" borderColor="gray.300" bg="gray.50"><FiBook size={28} color="#d30c4c" /><Text mt={3} color="gray.600">Aucune procédure publiée dans cette catégorie.</Text></Box>}<ProcedureUploadModal category={selectedCategory} isOpen={isOpen} onClose={onClose} onPublished={(document) => setDocuments((current) => [document, ...current])} /></>
-      : <><Box borderLeft="4px solid" borderColor="rbe.500" pl={4}><Heading size="md" mb={2}>Référentiels par activité</Heading><Text color="gray.600">Choisissez la catégorie correspondant à votre opération.</Text></Box><SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>{procedures.map((procedure) => <Card key={procedure.id} cursor="pointer" borderWidth="1px" borderColor="gray.200" borderLeftWidth="4px" borderLeftColor="rbe.500" bg="white" onClick={() => navigate(`/dashboard/procedures/${procedure.id}`)} _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: 'rbe.300' }} transition="all .2s"><CardHeader pb={2}><HStack><Box color="rbe.500"><procedure.icon size={22} /></Box><Heading size="sm">{procedure.title}</Heading></HStack></CardHeader><CardBody pt={2}><Text fontSize="sm" color="gray.600">Consulter les documents de la catégorie</Text></CardBody></Card>)}</SimpleGrid></>}
-    <HStack color="gray.600" fontSize="sm"><FiCheckCircle /><Text>Les procédures détaillées et leurs mises à jour sont centralisées ici.</Text></HStack>
-  </VStack></PageLayout>;
+  return (
+    <PageLayout
+      title={selectedCategory?.title || 'Procédures'}
+      subtitle={selectedCategory ? 'Bibliothèque documentaire opérationnelle' : 'Référentiel opérationnel RétroBus Essonne'}
+      breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Procédures', href: '/dashboard/procedures' }]}
+      bgGradient="linear(to-r, rbe.600, rbe.800)"
+      titleSize="lg"
+    >
+      <VStack spacing={6} align="stretch">
+        {selectedCategory ? (
+          <>
+            <HStack justify="space-between" flexWrap="wrap" spacing={3}>
+              <Button leftIcon={<FiArrowLeft />} variant="ghost" onClick={() => navigate('/dashboard/procedures')}>
+                Référentiels
+              </Button>
+              {canPublish && (
+                <Button colorScheme="blue" leftIcon={<FiUpload />} onClick={onOpen}>
+                  Importer un PDF
+                </Button>
+              )}
+            </HStack>
+
+            <Box bg="gray.50" borderWidth="1px" borderColor="gray.200" borderLeftWidth="4px" borderLeftColor={`${selectedCategory.color}.500`} p={{ base: 4, md: 5 }}>
+              <HStack justify="space-between" align="start" spacing={4} flexWrap="wrap">
+                <HStack spacing={3}>
+                  <Box p={2} bg={`${selectedCategory.color}.100`} color={`${selectedCategory.color}.600`} borderRadius="md">
+                    <Icon as={selectedCategory.icon} boxSize={5} />
+                  </Box>
+                  <Box>
+                    <HStack spacing={2} mb={1}>
+                      <Badge colorScheme={selectedCategory.color} variant="subtle">{selectedCategory.code}</Badge>
+                      <Text fontSize="xs" color="gray.500">Collection active</Text>
+                    </HStack>
+                    <Heading size="sm" color="gray.800">{selectedCategory.title}</Heading>
+                    <Text mt={1} fontSize="sm" color="gray.600">{selectedCategory.description}</Text>
+                  </Box>
+                </HStack>
+                <Badge colorScheme="gray" px={2} py={1}>{documents.length} document{documents.length > 1 ? 's' : ''}</Badge>
+              </HStack>
+            </Box>
+
+            <Divider />
+            {loading ? (
+              <Text color="gray.500">Chargement des procédures...</Text>
+            ) : documents.length ? (
+              <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
+                {documents.map((document) => (
+                  <Card key={document.id} overflow="hidden" borderWidth="1px" borderTopWidth="4px" borderTopColor={`${selectedCategory.color}.500`} bg="white" _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${selectedCategory.color}.300` }} transition="all .2s">
+                    <Box as="a" href={`${API_BASE}${document.filePath}`} target="_blank" rel="noreferrer" display="block" aria-label={`Ouvrir ${document.title}`}>
+                      <PdfThumbnail document={document} />
+                    </Box>
+                    <CardBody p={3}>
+                      <Heading size="xs" color="gray.800" noOfLines={2}>{document.title}</Heading>
+                      {document.description && <Text mt={1} fontSize="xs" color="gray.600" noOfLines={3}>{document.description}</Text>}
+                      <HStack mt={3} pt={2} borderTop="1px solid" borderColor="gray.100" justify="space-between">
+                        <Text fontSize="xs" color="gray.500" noOfLines={1}>{document.fileName}</Text>
+                        {canPublish && <IconButton size="xs" colorScheme="red" variant="ghost" aria-label={`Supprimer ${document.title}`} icon={<FiTrash2 />} onClick={() => deleteDocument(document)} />}
+                      </HStack>
+                    </CardBody>
+                  </Card>
+                ))}
+              </SimpleGrid>
+            ) : (
+              <Box py={12} textAlign="center" border="1px dashed" borderColor="gray.300" bg="gray.50">
+                <Icon as={FiBook} boxSize={7} color="rbe.500" />
+                <Heading mt={3} size="sm" color="gray.700">Collection vide</Heading>
+                <Text mt={1} color="gray.600" fontSize="sm">Aucune procédure publiée dans cette catégorie.</Text>
+              </Box>
+            )}
+            <ProcedureUploadModal category={selectedCategory} isOpen={isOpen} onClose={onClose} onPublished={(document) => setDocuments((current) => [document, ...current])} />
+          </>
+        ) : (
+          <>
+            <Box borderLeft="4px solid" borderColor="rbe.500" pl={4}>
+              <HStack spacing={2} mb={2}><Icon as={FiFolder} color="rbe.500" /><Heading size="md">Référentiels par activité</Heading></HStack>
+              <Text color="gray.600">Accédez aux consignes et documents utiles selon votre domaine d’intervention.</Text>
+            </Box>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              {procedures.map((procedure) => (
+                <Card key={procedure.id} cursor="pointer" borderWidth="1px" borderColor="gray.200" borderLeftWidth="4px" borderLeftColor={`${procedure.color}.500`} bg="white" onClick={() => navigate(`/dashboard/procedures/${procedure.id}`)} _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${procedure.color}.300` }} transition="all .2s">
+                  <CardBody p={5}>
+                    <HStack justify="space-between" align="start" mb={4}>
+                      <HStack spacing={3}>
+                        <Box p={2} bg={`${procedure.color}.100`} color={`${procedure.color}.600`} borderRadius="md"><Icon as={procedure.icon} boxSize={5} /></Box>
+                        <Box><Badge colorScheme={procedure.color} mb={1}>{procedure.code}</Badge><Heading size="sm">{procedure.title}</Heading></Box>
+                      </HStack>
+                    </HStack>
+                    <Text fontSize="sm" color="gray.600" minH={{ md: '40px' }}>{procedure.description}</Text>
+                    <Button mt={4} size="sm" variant="outline" colorScheme={procedure.color} onClick={(event) => { event.stopPropagation(); navigate(`/dashboard/procedures/${procedure.id}`); }}>
+                      Consulter la collection
+                    </Button>
+                  </CardBody>
+                </Card>
+              ))}
+            </SimpleGrid>
+          </>
+        )}
+        <HStack color="gray.600" fontSize="sm" pt={1}><Icon as={FiCheckCircle} color="green.500" /><Text>Les versions publiées constituent le référentiel consultable par les équipes.</Text></HStack>
+      </VStack>
+    </PageLayout>
+  );
 }
