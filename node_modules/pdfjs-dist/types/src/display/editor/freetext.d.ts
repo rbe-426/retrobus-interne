@@ -31,6 +31,8 @@ export class FreeTextEditor extends AnnotationEditor {
      * @param {number} y in page units.
      */
     _translateEmpty(x: number, y: number): void;
+    /** @inheritdoc */
+    onceAdded(focus: any): void;
     /**
      * Commit the content we have in this editor.
      * @returns {undefined}
