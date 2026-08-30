@@ -311,6 +311,7 @@ export default function LeMusee() {
   const museumLogoInputRef = useRef(null);
   const suppressModuleClickRef = useRef(false);
   const loadedMuseumSections = useRef(new Set());
+  const museumLayoutRecordId = useRef(null);
 
   // États pour les modules
   const [vehicles, setVehicles] = useState([]);
@@ -369,26 +370,46 @@ export default function LeMusee() {
   }, []);
 
   useEffect(() => {
-    const restoreMuseumLayout = () => {
+    let cancelled = false;
+
+    const restoreMuseumLayout = async () => {
+      try {
+        const response = await museumAPI.workspace.list('layout');
+        const savedLayout = response?.records?.[0];
+        if (savedLayout?.id && !cancelled) {
+          museumLayoutRecordId.current = savedLayout.id;
+          setMuseumLayout(normalizeMuseumLayout(savedLayout));
+          return;
+        }
+      } catch (error) {
+        console.warn('Impossible de restaurer le placement partagé du Musée:', error);
+      }
+
       try {
         const savedLayout = localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY);
-        if (savedLayout) setMuseumLayout(normalizeMuseumLayout(JSON.parse(savedLayout)));
+        if (savedLayout && !cancelled) setMuseumLayout(normalizeMuseumLayout(JSON.parse(savedLayout)));
       } catch (error) {
         console.warn('Impossible de restaurer le placement local du Musée:', error);
       }
     };
 
     restoreMuseumLayout();
+
+    return () => { cancelled = true; };
   }, []);
 
-  const saveMuseumLayout = () => {
+  const saveMuseumLayout = async () => {
     try {
       localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
+      const response = museumLayoutRecordId.current
+        ? await museumAPI.workspace.update('layout', museumLayoutRecordId.current, museumLayout)
+        : await museumAPI.workspace.create('layout', museumLayout);
+      museumLayoutRecordId.current = response?.record?.id || museumLayoutRecordId.current;
       setIsLayoutMode(false);
-      toast({ title: 'Placement sauvegardé', description: 'La mise en page est enregistrée sur cet appareil.', status: 'success', duration: 2500, isClosable: true });
+      toast({ title: 'Placement sauvegardé', description: 'La mise en page est disponible sur tous les appareils.', status: 'success', duration: 2500, isClosable: true });
     } catch (error) {
-      console.error('Impossible de sauvegarder le placement du Musée:', error);
-      toast({ title: 'Enregistrement impossible', description: 'Le placement n’a pas pu être conservé sur cet appareil.', status: 'error', duration: 3000, isClosable: true });
+      console.error('Impossible de sauvegarder le placement partagé du Musée:', error);
+      toast({ title: 'Sauvegarde serveur impossible', description: 'Le placement est gardé localement mais le mode placement reste actif.', status: 'error', duration: 3000, isClosable: true });
     }
   };
 
