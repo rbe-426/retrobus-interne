@@ -269,7 +269,8 @@ const DEFAULT_MUSEUM_LAYOUT = {
     facing: { top: 72, left: 24 },
     floor: { top: 62, left: 50 },
     staff: { top: 32, left: 31 },
-    planning: { top: 32, left: 69 }
+    planning: { top: 32, left: 69 },
+    finances: { top: 51, left: 50 }
   }
 };
 
@@ -310,7 +311,6 @@ export default function LeMusee() {
   const museumLogoInputRef = useRef(null);
   const suppressModuleClickRef = useRef(false);
   const loadedMuseumSections = useRef(new Set());
-  const museumLayoutRestored = useRef(false);
 
   // États pour les modules
   const [vehicles, setVehicles] = useState([]);
@@ -369,31 +369,26 @@ export default function LeMusee() {
   }, []);
 
   useEffect(() => {
-    try {
-      const savedLayout = localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY);
-      if (savedLayout) setMuseumLayout(normalizeMuseumLayout(JSON.parse(savedLayout)));
-    } catch (error) {
-      console.warn('Impossible de restaurer le placement du Musée:', error);
-    } finally {
-      museumLayoutRestored.current = true;
-    }
-  }, []);
+    const restoreMuseumLayout = () => {
+      try {
+        const savedLayout = localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY);
+        if (savedLayout) setMuseumLayout(normalizeMuseumLayout(JSON.parse(savedLayout)));
+      } catch (error) {
+        console.warn('Impossible de restaurer le placement local du Musée:', error);
+      }
+    };
 
-  useEffect(() => {
-    if (!museumLayoutRestored.current) return;
-    try {
-      localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
-    } catch (error) {
-      console.warn('Impossible de sauvegarder le placement du Musée:', error);
-    }
-  }, [museumLayout]);
+    restoreMuseumLayout();
+  }, []);
 
   const saveMuseumLayout = () => {
     try {
       localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
-      toast({ title: 'Placement sauvegardé', description: 'Les pastilles seront restaurées sur cet appareil.', status: 'success', duration: 2500, isClosable: true });
+      setIsLayoutMode(false);
+      toast({ title: 'Placement sauvegardé', description: 'La mise en page est enregistrée sur cet appareil.', status: 'success', duration: 2500, isClosable: true });
     } catch (error) {
-      toast({ title: 'Sauvegarde impossible', description: 'Le navigateur a refusé l’accès au stockage local.', status: 'error', duration: 3000, isClosable: true });
+      console.error('Impossible de sauvegarder le placement du Musée:', error);
+      toast({ title: 'Enregistrement impossible', description: 'Le placement n’a pas pu être conservé sur cet appareil.', status: 'error', duration: 3000, isClosable: true });
     }
   };
 
@@ -1011,7 +1006,8 @@ export default function LeMusee() {
     { key: 'facing', icon: FiShoppingBag, title: 'Exposition', color: '#f59e0b' },
     { key: 'floor', icon: FiMapPin, title: 'Espaces', color: '#06b6d4' },
     { key: 'staff', icon: FiUsers, title: 'Équipe', color: '#6366f1' },
-    { key: 'planning', icon: FiTrendingUp, title: 'Planning', color: '#84cc16' }
+    { key: 'planning', icon: FiTrendingUp, title: 'Planning', color: '#84cc16' },
+    { key: 'finances', icon: FiDollarSign, title: 'Finances', color: '#facc15', onOpen: financeModal.onOpen }
   ];
 
   const renderMuseumBreadcrumb = (currentLabel) => (
@@ -1102,20 +1098,15 @@ export default function LeMusee() {
                   <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
                 </VStack>
 
-                <HStack justify="center" spacing={3} flexWrap="wrap">
-                  <Button size="sm" colorScheme={isLayoutMode ? 'red' : 'gray'} variant={isLayoutMode ? 'solid' : 'outline'} onClick={() => setIsLayoutMode((currentMode) => !currentMode)}>
-                    {isLayoutMode ? 'Placement actif' : 'Reprendre le placement'}
-                  </Button>
+                {isLayoutMode && (
+                  <HStack justify="center" spacing={3} flexWrap="wrap">
                   <Button size="sm" leftIcon={<FiSave />} colorScheme="green" variant="outline" onClick={saveMuseumLayout}>
                     Sauvegarder le placement
-                  </Button>
-                  <Button size="sm" leftIcon={<FiDollarSign />} colorScheme="yellow" variant="outline" onClick={financeModal.onOpen}>
-                    Finances Musée
                   </Button>
                   <Button size="sm" variant="outline" color="whiteAlpha.900" borderColor="whiteAlpha.400" onClick={resetMuseumLayout}>Réinitialiser</Button>
                   <HStack spacing={2}>
                     <Text color="whiteAlpha.800" fontSize="sm">Taille du logo</Text>
-                    <NumberInput size="sm" w="92px" min={100} max={1000} step={10} value={museumLayout.logo.size ?? 310} onChange={updateMuseumLogoSize} isDisabled={!isLayoutMode || museumLayout.logo.locked}>
+                    <NumberInput size="sm" w="92px" min={100} max={1000} step={10} value={museumLayout.logo.size ?? 310} onChange={updateMuseumLogoSize} isDisabled={museumLayout.logo.locked}>
                       <NumberInputField color="white" borderColor="whiteAlpha.400" />
                       <NumberInputStepper><NumberIncrementStepper color="white" borderColor="whiteAlpha.300" /><NumberDecrementStepper color="white" borderColor="whiteAlpha.300" /></NumberInputStepper>
                     </NumberInput>
@@ -1124,8 +1115,8 @@ export default function LeMusee() {
                     <Switch size="sm" colorScheme="red" isChecked={Boolean(museumLayout.logo.locked)} onChange={toggleMuseumLogoLock} aria-label="Verrouiller le logo central" />
                     <Text color="whiteAlpha.800" fontSize="sm">Verrouiller le logo</Text>
                   </HStack>
-                  {isLayoutMode && <Text color="whiteAlpha.600" fontSize="sm">Les positions sont enregistrées sur cet appareil.</Text>}
-                </HStack>
+                  </HStack>
+                )}
 
                 <Box ref={museumCanvasRef} display={{ base: 'none', lg: 'block' }} position="relative" w="full" maxW="900px" h="650px" mx="auto" overflow="hidden" cursor={isLayoutMode ? 'crosshair' : 'default'}>
                   <input ref={museumLogoInputRef} type="file" accept="image/svg+xml,.svg" onChange={handleMuseumLogoChange} style={{ display: 'none' }} />
@@ -1166,6 +1157,10 @@ export default function LeMusee() {
                           suppressModuleClickRef.current = false;
                           return;
                         }
+                        if (module.onOpen) {
+                          module.onOpen();
+                          return;
+                        }
                         navigateToMuseumModule(module.key);
                       }}
                       aria-label={`Ouvrir ${module.title}`}
@@ -1180,7 +1175,7 @@ export default function LeMusee() {
 
                 <SimpleGrid display={{ base: 'grid', lg: 'none' }} columns={{ base: 2, sm: 3 }} spacing={3}>
                   {museumModules.map((module) => (
-                    <Button key={module.key} h="112px" variant="outline" borderColor="whiteAlpha.300" bg="gray.800" color="white" display="flex" flexDirection="column" gap={2} onClick={() => navigateToMuseumModule(module.key)} aria-label={`Ouvrir ${module.title}`} _hover={{ bg: 'gray.700', borderColor: module.color }}>
+                    <Button key={module.key} h="112px" variant="outline" borderColor="whiteAlpha.300" bg="gray.800" color="white" display="flex" flexDirection="column" gap={2} onClick={() => module.onOpen ? module.onOpen() : navigateToMuseumModule(module.key)} aria-label={`Ouvrir ${module.title}`} _hover={{ bg: 'gray.700', borderColor: module.color }}>
                       <Box as={module.icon} boxSize={6} color={module.color} />
                       <Text fontSize="xs" whiteSpace="normal">{module.title}</Text>
                     </Button>
