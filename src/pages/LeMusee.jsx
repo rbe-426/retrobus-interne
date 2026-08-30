@@ -24,6 +24,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 import { museumAPI } from '../api/museum';
 import { membersAPI } from '../api/members';
+import { stocksAPI } from '../api/stocks';
+import { apiClient } from '../api/config';
 
 // ========== DONNÉES DE DÉMONSTRATION RÉTROBUS ESSONNE ==========
 
@@ -351,10 +353,19 @@ export default function LeMusee() {
   const floorDrawer = useDisclosure();
   const staffDrawer = useDisclosure();
   const planningDrawer = useDisclosure();
+  const catalogDrawer = useDisclosure();
 
   // Forms
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
+  const [catalogSection, setCatalogSection] = useState('tickets');
+
+  const catalogConfigs = {
+    tickets: { title: 'tarif', defaults: { nom: '', prix: 0, description: '', actif: true }, setItems: setBillets, createdTitle: 'Tarif ajouté', updatedTitle: 'Tarif modifié' },
+    'shop-items': { title: 'article', defaults: { nom: '', prix: 0, stock: 0, categorie: '' }, setItems: setObjetsBoutique, createdTitle: 'Article ajouté', updatedTitle: 'Article modifié' },
+    reductions: { title: 'réduction', defaults: { nom: '', pourcentage: 0, justificatif: '', actif: true }, setItems: setReductions, createdTitle: 'Réduction ajoutée', updatedTitle: 'Réduction modifiée' },
+    exonerations: { title: 'exonération', defaults: { nom: '', condition: '', justificatif: '', actif: true }, setItems: setExonerations, createdTitle: 'Exonération ajoutée', updatedTitle: 'Exonération modifiée' },
+  };
 
   const navigateToMuseumModule = (moduleKey) => {
     setActiveModule(moduleKey);
@@ -594,19 +605,8 @@ export default function LeMusee() {
 
   const loadVehicles = async () => {
     try {
-      // Utiliser le token normal de l'application, pas le token musée
-      const normalToken = localStorage.getItem('token');
-      const csrfToken = getStoredCSRFToken();
-      
-      const response = await fetch('/api/vehicles', {
-        headers: {
-          'Authorization': `Bearer ${normalToken}`,
-          'X-CSRF-Token': csrfToken || ''
-        }
-      });
-      
-      if (response.ok) {
-        const apiVehicles = await response.json();
+      const apiVehicles = await apiClient.get('/api/vehicles');
+      if (Array.isArray(apiVehicles)) {
         
         // Mapper les véhicules de l'API vers le format Le Musée
         const mappedVehicles = apiVehicles.map(v => ({
@@ -640,18 +640,17 @@ export default function LeMusee() {
 
   const loadStockItems = async () => {
     try {
-      const normalToken = localStorage.getItem('token');
-      const response = await fetch('/api/stocks', {
-        headers: {
-          'Authorization': `Bearer ${normalToken}`,
-          'X-CSRF-Token': getStoredCSRFToken() || ''
-        }
-      });
-
-      if (!response.ok) throw new Error(`Erreur serveur ${response.status}`);
-
-      const data = await response.json();
-      setStockItems(Array.isArray(data?.stocks) ? data.stocks : []);
+      const data = await stocksAPI.getAll();
+      const stocks = Array.isArray(data?.stocks) ? data.stocks : [];
+      setStockItems(stocks.map((stock) => ({
+        ...stock,
+        nom: stock.name,
+        ref: stock.reference,
+        categorie: stock.category,
+        quantite: stock.quantity,
+        etat: stock.status,
+        emplacement: stock.location,
+      })));
     } catch (error) {
       console.error('Erreur chargement stocks:', error);
       setStockItems([]);
@@ -745,6 +744,27 @@ export default function LeMusee() {
     await museumAPI.workspace.remove(section, id);
     setItems((current) => current.filter((item) => item.id !== id));
     toast({ title, status: 'success', duration: 2000 });
+  };
+
+  const openCatalogDrawer = (section, item = null) => {
+    const config = catalogConfigs[section];
+    setCatalogSection(section);
+    setEditingItem(item);
+    setFormData(item || config.defaults);
+    catalogDrawer.onOpen();
+  };
+
+  const saveCatalogItem = async () => {
+    const config = catalogConfigs[catalogSection];
+    if (!formData.nom?.trim()) {
+      toast({ title: 'Le nom est requis', status: 'warning', duration: 2500 });
+      return;
+    }
+    try {
+      await saveMuseumRecord(catalogSection, { ...formData, id: editingItem?.id }, config.setItems, catalogDrawer.onClose, config.createdTitle, config.updatedTitle);
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000 });
+    }
   };
 
   const handleCheckIn = async () => {
@@ -904,21 +924,39 @@ export default function LeMusee() {
     stockDrawer.onOpen();
   };
 
-  const saveStockItem = () => {
-    if (editingItem) {
-      setStockItems(stockItems.map(i => i.id === editingItem.id ? { ...formData, id: editingItem.id } : i));
-      toast({ title: 'Pièce modifiée', status: 'success', duration: 2000 });
-    } else {
-      setStockItems([...stockItems, { ...formData, id: Date.now() }]);
-      toast({ title: 'Pièce ajoutée', status: 'success', duration: 2000 });
+  const saveStockItem = async () => {
+    if (!formData.nom?.trim()) {
+      toast({ title: 'Le nom est requis', status: 'warning', duration: 2500 });
+      return;
     }
-    stockDrawer.onClose();
+    const payload = {
+      name: formData.nom,
+      reference: formData.ref,
+      category: formData.categorie,
+      quantity: Number(formData.quantite) || 0,
+      location: formData.emplacement,
+      status: formData.etat,
+    };
+    try {
+      if (editingItem) await stocksAPI.update(editingItem.id, payload);
+      else await stocksAPI.create(payload);
+      await loadStockItems();
+      stockDrawer.onClose();
+      toast({ title: editingItem ? 'Pièce modifiée' : 'Pièce ajoutée', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000 });
+    }
   };
 
-  const deleteStockItem = (id) => {
+  const deleteStockItem = async (id) => {
     if (confirm('Supprimer cette pièce ?')) {
-      setStockItems(stockItems.filter(i => i.id !== id));
-      toast({ title: 'Pièce supprimée', status: 'info', duration: 2000 });
+      try {
+        await stocksAPI.delete(id);
+        setStockItems((items) => items.filter((item) => item.id !== id));
+        toast({ title: 'Pièce supprimée', status: 'info', duration: 2000 });
+      } catch (error) {
+        toast({ title: 'Suppression impossible', description: error.message, status: 'error', duration: 4000 });
+      }
     }
   };
 
@@ -958,20 +996,41 @@ export default function LeMusee() {
     vehicleDrawer.onOpen();
   };
 
-  const saveVehicle = () => {
-    if (editingItem) {
-      setVehicles(vehicles.map(v => v.id === editingItem.id ? { ...formData, id: editingItem.id } : v));
-      toast({ title: 'Véhicule modifié', status: 'success', duration: 2000 });
-    } else {
-      setVehicles([...vehicles, { ...formData, id: Date.now() }]);
-      toast({ title: 'Véhicule ajouté', status: 'success', duration: 2000 });
+  const saveVehicle = async () => {
+    if (!formData.nom?.trim() || !formData.ref?.trim()) {
+      toast({ title: 'Le nom et la référence sont requis', status: 'warning', duration: 2500 });
+      return;
     }
-    vehicleDrawer.onClose();
+    const payload = {
+      parc: formData.ref,
+      modele: formData.nom,
+      marque: formData.constructeur,
+      immat: formData.immatriculation,
+      etat: formData.etat,
+      miseEnCirculation: formData.annee ? `${formData.annee}-01-01` : null,
+      description: formData.commentaires,
+      mileage: Number(formData.kmCompteur) || 0,
+    };
+    try {
+      if (editingItem) await apiClient.put(`/api/vehicles/${encodeURIComponent(editingItem.ref)}`, payload);
+      else await apiClient.post('/api/vehicles', payload);
+      await loadVehicles();
+      vehicleDrawer.onClose();
+      toast({ title: editingItem ? 'Véhicule modifié' : 'Véhicule ajouté', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000 });
+    }
   };
 
-  const deleteVehicle = (id) => {
-    setVehicles(vehicles.filter(v => v.id !== id));
-    toast({ title: 'Véhicule supprimé', status: 'warning', duration: 2000 });
+  const deleteVehicle = async (vehicle) => {
+    if (!confirm(`Supprimer ${vehicle.nom} ?`)) return;
+    try {
+      await apiClient.delete(`/api/vehicles/${encodeURIComponent(vehicle.ref)}`);
+      setVehicles((items) => items.filter((item) => item.id !== vehicle.id));
+      toast({ title: 'Véhicule supprimé', status: 'warning', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Suppression impossible', description: error.message, status: 'error', duration: 4000 });
+    }
   };
 
   const openRestorationDrawer = (resto = null) => {
@@ -1080,6 +1139,18 @@ export default function LeMusee() {
                     aria-label="Paramètres"
                   />
                   <MenuList bg="gray.900" borderColor="whiteAlpha.300">
+                    <MenuItem
+                      icon={<FiSettings />}
+                      onClick={() => {
+                        navigateToMuseumModule('dashboard');
+                        setIsLayoutMode(true);
+                      }}
+                      bg="gray.900"
+                      color="white"
+                      _hover={{ bg: 'whiteAlpha.200' }}
+                    >
+                      Modifier la disposition
+                    </MenuItem>
                     <MenuItem 
                       icon={<FiHome />} 
                       onClick={() => navigate('/dashboard/home')}
@@ -1615,7 +1686,7 @@ export default function LeMusee() {
                                       <Heading size="md" color="white">
                                         <HStack><FiTag /><Text>Tarifs des billets</Text></HStack>
                                       </Heading>
-                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm" onClick={() => openCatalogDrawer('tickets')}>
                                         Ajouter un tarif
                                       </Button>
                                     </Flex>
@@ -1646,8 +1717,8 @@ export default function LeMusee() {
                                             </Td>
                                             <Td borderColor="whiteAlpha.200">
                                               <HStack spacing={1}>
-                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
-                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" onClick={() => openCatalogDrawer('tickets', billet)} aria-label={`Modifier ${billet.nom}`} />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" onClick={() => removeMuseumRecord('tickets', billet.id, setBillets, 'Tarif supprimé').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' }))} aria-label={`Supprimer ${billet.nom}`} />
                                               </HStack>
                                             </Td>
                                           </Tr>
@@ -1666,7 +1737,7 @@ export default function LeMusee() {
                                       <Heading size="md" color="white">
                                         <HStack><FiShoppingBag /><Text>Articles de la boutique</Text></HStack>
                                       </Heading>
-                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm" onClick={() => openCatalogDrawer('shop-items')}>
                                         Ajouter un article
                                       </Button>
                                     </Flex>
@@ -1690,8 +1761,8 @@ export default function LeMusee() {
                                                 </Badge>
                                               </HStack>
                                               <HStack spacing={2} pt={2}>
-                                                <IconButton icon={<FiEdit2 />} size="sm" colorScheme="blue" flex={1} />
-                                                <IconButton icon={<FiTrash2 />} size="sm" colorScheme="red" flex={1} />
+                                                <IconButton icon={<FiEdit2 />} size="sm" colorScheme="blue" flex={1} onClick={() => openCatalogDrawer('shop-items', objet)} aria-label={`Modifier ${objet.nom}`} />
+                                                <IconButton icon={<FiTrash2 />} size="sm" colorScheme="red" flex={1} onClick={() => removeMuseumRecord('shop-items', objet.id, setObjetsBoutique, 'Article supprimé').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' }))} aria-label={`Supprimer ${objet.nom}`} />
                                               </HStack>
                                             </VStack>
                                           </CardBody>
@@ -1710,7 +1781,7 @@ export default function LeMusee() {
                                       <Heading size="md" color="white">
                                         <HStack><FiPercent /><Text>Grille des réductions</Text></HStack>
                                       </Heading>
-                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm" onClick={() => openCatalogDrawer('reductions')}>
                                         Ajouter une réduction
                                       </Button>
                                     </Flex>
@@ -1741,8 +1812,8 @@ export default function LeMusee() {
                                             </Td>
                                             <Td borderColor="whiteAlpha.200">
                                               <HStack spacing={1}>
-                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
-                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" onClick={() => openCatalogDrawer('reductions', reduction)} aria-label={`Modifier ${reduction.nom}`} />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" onClick={() => removeMuseumRecord('reductions', reduction.id, setReductions, 'Réduction supprimée').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' }))} aria-label={`Supprimer ${reduction.nom}`} />
                                               </HStack>
                                             </Td>
                                           </Tr>
@@ -1761,7 +1832,7 @@ export default function LeMusee() {
                                       <Heading size="md" color="white">
                                         <HStack><FiCheckCircle /><Text>Conditions d'exonération</Text></HStack>
                                       </Heading>
-                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm">
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" size="sm" onClick={() => openCatalogDrawer('exonerations')}>
                                         Ajouter une exonération
                                       </Button>
                                     </Flex>
@@ -1792,8 +1863,8 @@ export default function LeMusee() {
                                             </Td>
                                             <Td borderColor="whiteAlpha.200">
                                               <HStack spacing={1}>
-                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" />
-                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" />
+                                                <IconButton icon={<FiEdit2 />} size="xs" colorScheme="blue" onClick={() => openCatalogDrawer('exonerations', exo)} aria-label={`Modifier ${exo.nom}`} />
+                                                <IconButton icon={<FiTrash2 />} size="xs" colorScheme="red" onClick={() => removeMuseumRecord('exonerations', exo.id, setExonerations, 'Exonération supprimée').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' }))} aria-label={`Supprimer ${exo.nom}`} />
                                               </HStack>
                                             </Td>
                                           </Tr>
@@ -1922,7 +1993,7 @@ export default function LeMusee() {
                                 Modifier
                               </Button>
                               <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="outline"
-                                          onClick={() => deleteVehicle(vehicle.id)} />
+                                          onClick={() => deleteVehicle(vehicle)} />
                             </HStack>
                           </VStack>
                         </CardBody>
@@ -1959,37 +2030,6 @@ export default function LeMusee() {
                         <CardBody>
                           <VStack align="stretch" spacing={4}>
                             <Box>
-
-                            <Modal isOpen={financeModal.isOpen} onClose={financeModal.onClose} size="lg">
-                              <ModalOverlay />
-                              <ModalContent bg="gray.900" color="white">
-                                <ModalHeader>Finances opérationnelles du Musée</ModalHeader>
-                                <ModalCloseButton />
-                                <ModalBody>
-                                  <VStack align="stretch" spacing={5}>
-                                    <Box borderWidth="1px" borderColor="whiteAlpha.300" p={4} borderRadius="md">
-                                      <Text color="whiteAlpha.700" fontSize="sm">Solde opérationnel Musée</Text>
-                                      <Heading size="lg" color={museumFinanceBalance >= 0 ? 'green.300' : 'red.300'}>
-                                        {museumFinanceBalance.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                                      </Heading>
-                                    </Box>
-                                    <Grid templateColumns={{ base: '1fr', md: '1.3fr 0.8fr 0.7fr auto' }} gap={3} alignItems="end">
-                                      <FormControl><FormLabel>Libellé</FormLabel><Input value={museumFinanceForm.label} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, label: event.target.value })} placeholder="Billetterie, achat pièce..." /></FormControl>
-                                      <FormControl><FormLabel>Montant</FormLabel><NumberInput min={0} precision={2} value={museumFinanceForm.amount} onChange={(value) => setMuseumFinanceForm({ ...museumFinanceForm, amount: value })}><NumberInputField /></NumberInput></FormControl>
-                                      <FormControl><FormLabel>Type</FormLabel><Select value={museumFinanceForm.type} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, type: event.target.value })}><option value="CREDIT">Recette</option><option value="DEBIT">Dépense</option></Select></FormControl>
-                                      <Button leftIcon={<FiPlus />} colorScheme="green" onClick={saveMuseumFinanceEntry}>Ajouter</Button>
-                                    </Grid>
-                                    <Box maxH="260px" overflowY="auto">
-                                      <Table size="sm">
-                                        <Thead><Tr><Th color="whiteAlpha.600">Libellé</Th><Th color="whiteAlpha.600">Date</Th><Th color="whiteAlpha.600" isNumeric>Montant</Th></Tr></Thead>
-                                        <Tbody>{museumFinanceEntries.map((entry) => <Tr key={entry.id}><Td>{entry.label}</Td><Td>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('fr-FR') : '-'}</Td><Td isNumeric color={entry.type === 'DEBIT' ? 'red.300' : 'green.300'}>{entry.type === 'DEBIT' ? '-' : '+'}{Number(entry.amount || 0).toFixed(2)} EUR</Td></Tr>)}</Tbody>
-                                      </Table>
-                                    </Box>
-                                  </VStack>
-                                </ModalBody>
-                                <ModalFooter><Button variant="outline" onClick={financeModal.onClose}>Fermer</Button></ModalFooter>
-                              </ModalContent>
-                            </Modal>
                               <HStack justify="space-between" mb={2}>
                                 <Text color="whiteAlpha.800" fontSize="sm">Avancement</Text>
                                 <Text color="white" fontWeight="bold">{resto.avancement}%</Text>
@@ -2326,6 +2366,37 @@ export default function LeMusee() {
           </Center>
         )}
       </Box>
+
+      <Modal isOpen={financeModal.isOpen} onClose={financeModal.onClose} size="lg">
+        <ModalOverlay />
+        <ModalContent bg="gray.900" color="white">
+          <ModalHeader>Finances opérationnelles du Musée</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={5}>
+              <Box borderWidth="1px" borderColor="whiteAlpha.300" p={4} borderRadius="md">
+                <Text color="whiteAlpha.700" fontSize="sm">Solde opérationnel Musée</Text>
+                <Heading size="lg" color={museumFinanceBalance >= 0 ? 'green.300' : 'red.300'}>
+                  {museumFinanceBalance.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </Heading>
+              </Box>
+              <Grid templateColumns={{ base: '1fr', md: '1.3fr 0.8fr 0.7fr auto' }} gap={3} alignItems="end">
+                <FormControl><FormLabel>Libellé</FormLabel><Input value={museumFinanceForm.label} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, label: event.target.value })} placeholder="Billetterie, achat pièce..." /></FormControl>
+                <FormControl><FormLabel>Montant</FormLabel><NumberInput min={0} precision={2} value={museumFinanceForm.amount} onChange={(value) => setMuseumFinanceForm({ ...museumFinanceForm, amount: value })}><NumberInputField /></NumberInput></FormControl>
+                <FormControl><FormLabel>Type</FormLabel><Select value={museumFinanceForm.type} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, type: event.target.value })}><option value="CREDIT">Recette</option><option value="DEBIT">Dépense</option></Select></FormControl>
+                <Button leftIcon={<FiPlus />} colorScheme="green" onClick={saveMuseumFinanceEntry}>Ajouter</Button>
+              </Grid>
+              <Box maxH="260px" overflowY="auto">
+                <Table size="sm">
+                  <Thead><Tr><Th color="whiteAlpha.600">Libellé</Th><Th color="whiteAlpha.600">Date</Th><Th color="whiteAlpha.600" isNumeric>Montant</Th></Tr></Thead>
+                  <Tbody>{museumFinanceEntries.map((entry) => <Tr key={entry.id}><Td>{entry.label}</Td><Td>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('fr-FR') : '-'}</Td><Td isNumeric color={entry.type === 'DEBIT' ? 'red.300' : 'green.300'}>{entry.type === 'DEBIT' ? '-' : '+'}{Number(entry.amount || 0).toFixed(2)} EUR</Td></Tr>)}</Tbody>
+                </Table>
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter><Button variant="outline" onClick={financeModal.onClose}>Fermer</Button></ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Drawers Latéraux - Organisation optimisée pour Rétrobus Essonne */}
 
@@ -2825,6 +2896,29 @@ export default function LeMusee() {
               Enregistrer
             </Button>
           </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer isOpen={catalogDrawer.isOpen} placement="right" onClose={catalogDrawer.onClose} size="md">
+        <DrawerOverlay />
+        <DrawerContent bg="gray.900" color="white">
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px" borderColor="whiteAlpha.200">
+            {editingItem ? `Modifier ${catalogConfigs[catalogSection].title}` : `Ajouter ${catalogConfigs[catalogSection].title}`}
+          </DrawerHeader>
+          <DrawerBody>
+            <VStack spacing={5} align="stretch">
+              <FormControl isRequired><FormLabel>Nom</FormLabel><Input value={formData.nom || ''} onChange={(event) => setFormData({ ...formData, nom: event.target.value })} /></FormControl>
+              {(catalogSection === 'tickets' || catalogSection === 'shop-items') && <FormControl><FormLabel>Prix</FormLabel><NumberInput min={0} precision={2} value={formData.prix ?? 0} onChange={(value) => setFormData({ ...formData, prix: Number(value) || 0 })}><NumberInputField /></NumberInput></FormControl>}
+              {catalogSection === 'shop-items' && <><FormControl><FormLabel>Stock</FormLabel><NumberInput min={0} value={formData.stock ?? 0} onChange={(value) => setFormData({ ...formData, stock: Number(value) || 0 })}><NumberInputField /></NumberInput></FormControl><FormControl><FormLabel>Catégorie</FormLabel><Input value={formData.categorie || ''} onChange={(event) => setFormData({ ...formData, categorie: event.target.value })} /></FormControl></>}
+              {catalogSection === 'tickets' && <FormControl><FormLabel>Description</FormLabel><Textarea value={formData.description || ''} onChange={(event) => setFormData({ ...formData, description: event.target.value })} /></FormControl>}
+              {catalogSection === 'reductions' && <FormControl><FormLabel>Réduction (%)</FormLabel><NumberInput min={0} max={100} value={formData.pourcentage ?? 0} onChange={(value) => setFormData({ ...formData, pourcentage: Number(value) || 0 })}><NumberInputField /></NumberInput></FormControl>}
+              {catalogSection === 'exonerations' && <FormControl><FormLabel>Condition</FormLabel><Input value={formData.condition || ''} onChange={(event) => setFormData({ ...formData, condition: event.target.value })} /></FormControl>}
+              {catalogSection !== 'shop-items' && <FormControl><FormLabel>Justificatif</FormLabel><Input value={formData.justificatif || ''} onChange={(event) => setFormData({ ...formData, justificatif: event.target.value })} /></FormControl>}
+              {catalogSection !== 'shop-items' && <FormControl display="flex" alignItems="center"><FormLabel mb="0">Actif</FormLabel><Switch isChecked={Boolean(formData.actif)} onChange={(event) => setFormData({ ...formData, actif: event.target.checked })} /></FormControl>}
+            </VStack>
+          </DrawerBody>
+          <DrawerFooter borderTopWidth="1px" borderColor="whiteAlpha.200"><Button variant="outline" mr={3} onClick={catalogDrawer.onClose}>Annuler</Button><Button colorScheme="green" leftIcon={<FiSave />} onClick={saveCatalogItem}>Enregistrer</Button></DrawerFooter>
         </DrawerContent>
       </Drawer>
 
