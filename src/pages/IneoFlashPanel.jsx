@@ -5,7 +5,7 @@ import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
   Tab, TabList, TabPanel, TabPanels, Tabs,
 } from '@chakra-ui/react';
-import { FiBell, FiEdit2, FiMapPin, FiPlus, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
+import { FiBell, FiEdit2, FiMapPin, FiPlus, FiRefreshCw, FiSend, FiTrash2 } from 'react-icons/fi';
 import { ineoAPI } from '../api/ineo';
 
 const MODE_LABEL = {
@@ -108,6 +108,15 @@ export default function IneoFlashPanel() {
     } catch (error) { toast({ status: 'error', title: 'Modification impossible', description: error.message }); }
   };
 
+  const rebroadcast = async (flash) => {
+    if (!window.confirm('Rediffuser immédiatement ce flash à tous les conducteurs ?')) return;
+    try {
+      await ineoAPI.rebroadcastFlash(flash.id);
+      toast({ status: 'success', title: 'Flash rediffusé', description: 'Une nouvelle diffusion immédiate a été créée.' });
+      load();
+    } catch (error) { toast({ status: 'error', title: 'Rediffusion impossible', description: error.message }); }
+  };
+
   const removeFlash = async (flash) => {
     if (!window.confirm(`Supprimer le flash « ${flash.message.slice(0, 40)}... » ?`)) return;
     try {
@@ -127,7 +136,7 @@ export default function IneoFlashPanel() {
       <TabPanels>
         <TabPanel px={0} pt={5}>
           <Box overflowX="auto" border="1px solid" borderColor="#c6d0d8"><Table size="sm"><Thead bg="#e9eff3"><Tr><Th>Message</Th><Th>Diffusion</Th><Th>Détail</Th><Th>Statut</Th><Th>Validations</Th><Th></Th></Tr></Thead><Tbody>
-            {loading ? <Tr><Td colSpan={6}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : flashes.length ? flashes.map((flash) => <Tr key={flash.id}><Td maxW="320px" whiteSpace="normal">{flash.message}</Td><Td><Badge colorScheme="blue">{MODE_LABEL[flash.scheduleMode]}</Badge></Td><Td><ScheduleDetail flash={flash} /></Td><Td><Badge colorScheme={flash.active ? 'green' : 'gray'}>{flash.active ? 'Actif' : 'Suspendu'}</Badge></Td><Td>{flash.acknowledgements?.length || 0}</Td><Td><HStack spacing={1}><Button size="xs" onClick={() => toggleActive(flash)}>{flash.active ? 'Suspendre' : 'Réactiver'}</Button><Button size="xs" leftIcon={<FiEdit2 />} onClick={() => openEdit(flash)}>Modifier</Button><Button size="xs" colorScheme="red" variant="ghost" leftIcon={<FiTrash2 />} onClick={() => removeFlash(flash)}>Supprimer</Button></HStack></Td></Tr>) : <Tr><Td colSpan={6} color="gray.500">Aucun flash conducteur enregistré.</Td></Tr>}
+            {loading ? <Tr><Td colSpan={6}><HStack justify="center" py={5}><Spinner color="#005a9e" /></HStack></Td></Tr> : flashes.length ? flashes.map((flash) => <Tr key={flash.id}><Td maxW="320px" whiteSpace="normal">{flash.message}</Td><Td><Badge colorScheme="blue">{MODE_LABEL[flash.scheduleMode]}</Badge></Td><Td><ScheduleDetail flash={flash} /></Td><Td><Badge colorScheme={flash.active ? 'green' : 'gray'}>{flash.active ? 'Actif' : 'Suspendu'}</Badge></Td><Td>{flash.acknowledgements?.length || 0}</Td><Td><HStack spacing={1}><Button size="xs" onClick={() => toggleActive(flash)}>{flash.active ? 'Suspendre' : 'Réactiver'}</Button><Button size="xs" colorScheme="orange" leftIcon={<FiSend />} onClick={() => rebroadcast(flash)}>Rediffuser</Button><Button size="xs" leftIcon={<FiEdit2 />} onClick={() => openEdit(flash)}>Modifier</Button><Button size="xs" colorScheme="red" variant="ghost" leftIcon={<FiTrash2 />} onClick={() => removeFlash(flash)}>Supprimer</Button></HStack></Td></Tr>) : <Tr><Td colSpan={6} color="gray.500">Aucun flash conducteur enregistré.</Td></Tr>}
           </Tbody></Table></Box>
         </TabPanel>
         <TabPanel px={0} pt={5}>

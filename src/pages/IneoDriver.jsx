@@ -150,6 +150,8 @@ export default function IneoDriver() {
   const watchId = useRef(null);
   const lastSentAt = useRef(0);
   const missionRef = useRef(null);
+  const flashPollInFlight = useRef(false);
+  const acknowledgedFlashIds = useRef(new Set());
   missionRef.current = mission;
 
   const loadMission = async () => {
@@ -193,6 +195,8 @@ export default function IneoDriver() {
   useEffect(() => {
     let cancelled = false;
     const pollFlashes = async () => {
+      if (flashPollInFlight.current) return;
+      flashPollInFlight.current = true;
       try {
         const current = missionRef.current;
         const position = current?.lastLatitude != null ? { lat: current.lastLatitude, lng: current.lastLongitude } : null;
@@ -200,19 +204,29 @@ export default function IneoDriver() {
         if (cancelled) return;
         setFlashQueue((queue) => {
           const knownIds = new Set(queue.map((item) => item.id));
-          const incoming = (data?.flashes || []).filter((item) => !knownIds.has(item.id));
+          const incoming = (data?.flashes || []).filter((item) => !knownIds.has(item.id) && !acknowledgedFlashIds.current.has(item.id));
           return incoming.length ? [...queue, ...incoming] : queue;
         });
       } catch (error) { console.warn('Inéo flash:', error.message); }
+      finally { flashPollInFlight.current = false; }
     };
     pollFlashes();
-    const intervalId = window.setInterval(pollFlashes, 20000);
-    return () => { cancelled = true; window.clearInterval(intervalId); };
-  }, []);
+    const intervalId = window.setInterval(pollFlashes, mission?.status === 'ACTIVE' ? 5000 : 15000);
+    const refreshWhenVisible = () => { if (document.visibilityState === 'visible') pollFlashes(); };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
+  }, [mission?.status]);
 
   const acknowledgeFlash = async (flash) => {
     try {
       await ineoAPI.acknowledgeFlash(flash.id, { missionId: missionRef.current?.id || null });
+      acknowledgedFlashIds.current.add(flash.id);
       setFlashQueue((queue) => queue.filter((item) => item.id !== flash.id));
     } catch (error) {
       toast({ status: 'error', title: 'Validation impossible', description: error.message });

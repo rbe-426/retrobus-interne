@@ -33,6 +33,7 @@ export const ineoAPI = {
   listFlashes: () => apiClient.get('/ineo/flashes'),
   createFlash: (data) => apiClient.post('/ineo/flashes', data),
   updateFlash: (id, data) => apiClient.patch(`/ineo/flashes/${encodeURIComponent(id)}`, data),
+  rebroadcastFlash: (id) => apiClient.post(`/ineo/flashes/${encodeURIComponent(id)}/rebroadcast`, {}),
   removeFlash: (id) => apiClient.delete(`/ineo/flashes/${encodeURIComponent(id)}`),
   listDriverFlashes: (position) => apiClient.get(`/ineo/driver/flashes${position?.lat != null ? `?lat=${position.lat}&lng=${position.lng}` : ''}`),
   acknowledgeFlash: (id, data) => apiClient.post(`/ineo/driver/flashes/${encodeURIComponent(id)}/ack`, data),
