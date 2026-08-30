@@ -5,6 +5,7 @@ import {
   Tr, Th, Td, Flex, SimpleGrid, Stat, StatLabel, StatNumber, StatHelpText, Card,
   CardHeader, CardBody, Input, Select, Textarea, FormControl, FormLabel,
   Drawer, DrawerBody, DrawerFooter, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton,
   NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper,
   NumberDecrementStepper, Switch, Tabs, TabList, TabPanels, Tab, TabPanel, Avatar,
   Progress, Tag, TagLabel, TagCloseButton, Wrap, WrapItem, List, ListItem, ListIcon,
@@ -21,6 +22,8 @@ import {
 import MuseeLoginModal from '../components/MuseeLoginModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getStoredCSRFToken } from '../lib/csrfClient';
+import { museumAPI } from '../api/museum';
+import { membersAPI } from '../api/members';
 
 // ========== DONNÉES DE DÉMONSTRATION RÉTROBUS ESSONNE ==========
 
@@ -270,6 +273,13 @@ const DEFAULT_MUSEUM_LAYOUT = {
   }
 };
 
+const MUSEUM_LAYOUT_STORAGE_KEY = 'rbe-museum-layout';
+
+const normalizeMuseumLayout = (layout) => ({
+  logo: { ...DEFAULT_MUSEUM_LAYOUT.logo, ...(layout?.logo || {}) },
+  modules: { ...DEFAULT_MUSEUM_LAYOUT.modules, ...(layout?.modules || {}) },
+});
+
 const MUSEUM_MODULE_KEYS = ['accueil', 'vehicles', 'restorations', 'stock', 'docs', 'tarification', 'events', 'facing', 'floor', 'staff', 'planning'];
 
 const getMuseumModuleFromPath = (pathname) => {
@@ -293,11 +303,14 @@ export default function LeMusee() {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [museumLayout, setMuseumLayout] = useState(DEFAULT_MUSEUM_LAYOUT);
   const [isLayoutMode, setIsLayoutMode] = useState(false);
+  const financeModal = useDisclosure();
   const [draggingItem, setDraggingItem] = useState(null);
   const [museumLogoSource, setMuseumLogoSource] = useState('/saturne_urbex.svg');
   const museumCanvasRef = useRef(null);
   const museumLogoInputRef = useRef(null);
   const suppressModuleClickRef = useRef(false);
+  const loadedMuseumSections = useRef(new Set());
+  const museumLayoutRestored = useRef(false);
 
   // États pour les modules
   const [vehicles, setVehicles] = useState([]);
@@ -309,6 +322,7 @@ export default function LeMusee() {
   const [floors, setFloors] = useState([]);
   const [staff, setStaff] = useState([]);
   const [planning, setPlanning] = useState([]);
+  const [rbeMembers, setRbeMembers] = useState([]);
 
   // États pour l'accueil visiteurs
   const [visitorForm, setVisitorForm] = useState({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
@@ -323,6 +337,8 @@ export default function LeMusee() {
   const [objetsBoutique, setObjetsBoutique] = useState([]);
   const [reductions, setReductions] = useState([]);
   const [exonerations, setExonerations] = useState([]);
+  const [museumFinanceEntries, setMuseumFinanceEntries] = useState([]);
+  const [museumFinanceForm, setMuseumFinanceForm] = useState({ label: '', amount: '', type: 'CREDIT' });
 
   // Drawers (remplace les modals)
   const vehicleDrawer = useDisclosure();
@@ -351,6 +367,35 @@ export default function LeMusee() {
   useEffect(() => {
     setIsLayoutMode(false);
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedLayout = localStorage.getItem(MUSEUM_LAYOUT_STORAGE_KEY);
+      if (savedLayout) setMuseumLayout(normalizeMuseumLayout(JSON.parse(savedLayout)));
+    } catch (error) {
+      console.warn('Impossible de restaurer le placement du Musée:', error);
+    } finally {
+      museumLayoutRestored.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!museumLayoutRestored.current) return;
+    try {
+      localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
+    } catch (error) {
+      console.warn('Impossible de sauvegarder le placement du Musée:', error);
+    }
+  }, [museumLayout]);
+
+  const saveMuseumLayout = () => {
+    try {
+      localStorage.setItem(MUSEUM_LAYOUT_STORAGE_KEY, JSON.stringify(museumLayout));
+      toast({ title: 'Placement sauvegardé', description: 'Les pastilles seront restaurées sur cet appareil.', status: 'success', duration: 2500, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Sauvegarde impossible', description: 'Le navigateur a refusé l’accès au stockage local.', status: 'error', duration: 3000, isClosable: true });
+    }
+  };
 
   const updateMuseumLayoutPosition = (itemKey, clientX, clientY) => {
     const canvas = museumCanvasRef.current;
@@ -484,6 +529,8 @@ export default function LeMusee() {
           loadStats();
           loadVehicles();
           loadStockItems();
+          loadMuseumWorkspace();
+          loadRbeMembers();
         } else {
           localStorage.removeItem('musee_token');
           onOpen();
@@ -595,6 +642,95 @@ export default function LeMusee() {
     }
   };
 
+  const loadRbeMembers = async () => {
+    try {
+      const { members = [] } = await membersAPI.getAll();
+      setRbeMembers(members.map((member) => ({
+        id: member.id,
+        name: [member.firstName, member.lastName].filter(Boolean).join(' ') || member.name || member.email,
+        email: member.email || '',
+        phone: member.phone || member.telephone || '',
+      })));
+    } catch (error) {
+      console.error('Erreur chargement adhérents RBE:', error);
+      setRbeMembers([]);
+    }
+  };
+
+  const loadMuseumSection = async (section, setItems, defaults = []) => {
+    if (loadedMuseumSections.current.has(section)) return;
+    loadedMuseumSections.current.add(section);
+    try {
+      const data = await museumAPI.workspace.list(section);
+      const records = Array.isArray(data?.records) ? data.records : [];
+      if (records.length || !defaults.length) {
+        setItems(records);
+        return;
+      }
+      const seeded = await Promise.all(defaults.map((item) => museumAPI.workspace.create(section, item)));
+      setItems(seeded.map((result) => result.record));
+    } catch (error) {
+      console.error(`Erreur chargement Musée ${section}:`, error);
+      loadedMuseumSections.current.delete(section);
+      setItems(defaults);
+    }
+  };
+
+  const loadMuseumWorkspace = () => Promise.all([
+    loadMuseumSection('restorations', setRestorations, DEMO_RESTORATIONS),
+    loadMuseumSection('docs', setDocs, DEMO_DOCS),
+    loadMuseumSection('events', setEvents, DEMO_EVENTS),
+    loadMuseumSection('facing', setFacingZones, DEMO_FACING_ZONES),
+    loadMuseumSection('floor', setFloors, DEMO_FLOORS),
+    loadMuseumSection('staff', setStaff, DEMO_STAFF),
+    loadMuseumSection('planning', setPlanning, DEMO_PLANNING),
+    loadMuseumSection('visitors', setVisitorsToday),
+    loadMuseumSection('reservations', setReservations, DEMO_RESERVATIONS),
+    loadMuseumSection('tickets', setBillets, DEMO_BILLETS),
+    loadMuseumSection('shop-items', setObjetsBoutique, DEMO_OBJETS_BOUTIQUE),
+    loadMuseumSection('reductions', setReductions, DEMO_REDUCTIONS),
+    loadMuseumSection('exonerations', setExonerations, DEMO_EXONERATIONS),
+    loadMuseumSection('museum-finance', setMuseumFinanceEntries),
+  ]);
+
+  const saveMuseumFinanceEntry = async () => {
+    const amount = Number(museumFinanceForm.amount);
+    if (!museumFinanceForm.label.trim() || !Number.isFinite(amount) || amount <= 0) {
+      toast({ title: 'Saisissez un libellé et un montant positif', status: 'warning', duration: 3000 });
+      return;
+    }
+    try {
+      const { record } = await museumAPI.workspace.create('museum-finance', {
+        ...museumFinanceForm,
+        amount,
+        createdAt: new Date().toISOString(),
+      });
+      setMuseumFinanceEntries((current) => [record, ...current]);
+      setMuseumFinanceForm({ label: '', amount: '', type: 'CREDIT' });
+      toast({ title: 'Écriture Musée enregistrée', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000 });
+    }
+  };
+
+  const museumFinanceBalance = museumFinanceEntries.reduce((total, entry) => (
+    total + (entry.type === 'DEBIT' ? -Number(entry.amount || 0) : Number(entry.amount || 0))
+  ), 0);
+
+  const saveMuseumRecord = async (section, item, setItems, closeDrawer, createdTitle, updatedTitle) => {
+    const { id, ...data } = item;
+    const result = id ? await museumAPI.workspace.update(section, id, data) : await museumAPI.workspace.create(section, data);
+    setItems((current) => id ? current.map((entry) => entry.id === id ? result.record : entry) : [...current, result.record]);
+    toast({ title: id ? updatedTitle : createdTitle, status: 'success', duration: 2000 });
+    closeDrawer();
+  };
+
+  const removeMuseumRecord = async (section, id, setItems, title) => {
+    await museumAPI.workspace.remove(section, id);
+    setItems((current) => current.filter((item) => item.id !== id));
+    toast({ title, status: 'success', duration: 2000 });
+  };
+
   const handleCheckIn = async () => {
     setLoadingCheckIn(true);
     try {
@@ -643,7 +779,7 @@ export default function LeMusee() {
     }
   };
 
-  const handleVisitorCheckIn = () => {
+  const handleVisitorCheckIn = async () => {
     if (!visitorForm.nom || !visitorForm.nbPersonnes) {
       toast({
         title: 'Erreur',
@@ -658,7 +794,6 @@ export default function LeMusee() {
     setLoadingVisitor(true);
     
     const newVisitor = {
-      id: Date.now(),
       nom: visitorForm.nom,
       nbPersonnes: parseInt(visitorForm.nbPersonnes),
       motif: visitorForm.motif,
@@ -669,22 +804,19 @@ export default function LeMusee() {
       paiementEffectue: true
     };
 
-    setVisitorsToday([newVisitor, ...visitorsToday]);
-    
-    toast({
-      title: 'Visiteur enregistré !',
-      description: `${visitorForm.nom} - ${visitorForm.nbPersonnes} personne(s) - ${visitorForm.montant.toFixed(2)}€`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true
-    });
-
-    // Réinitialiser le formulaire
-    setVisitorForm({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
-    setLoadingVisitor(false);
+    try {
+      const { record } = await museumAPI.workspace.create('visitors', newVisitor);
+      setVisitorsToday((current) => [record, ...current]);
+      toast({ title: 'Visiteur enregistré !', description: `${visitorForm.nom} - ${visitorForm.nbPersonnes} personne(s) - ${Number(visitorForm.montant).toFixed(2)}€`, status: 'success', duration: 3000, isClosable: true });
+      setVisitorForm({ nom: '', nbPersonnes: 1, motif: 'Visite libre', tarif: 'Adulte', montant: 9.00 });
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setLoadingVisitor(false);
+    }
   };
 
-  const handleReservationArrival = (reservation, paiementConfirme = false) => {
+  const handleReservationArrival = async (reservation, paiementConfirme = false) => {
     if (!paiementConfirme && !reservation.paiementEffectue) {
       toast({
         title: 'Paiement requis',
@@ -698,11 +830,8 @@ export default function LeMusee() {
 
     setLoadingReservation(reservation.id);
     
-    // Simuler un traitement (comme dans handleVisitorCheckIn)
-    setTimeout(() => {
-      // Ajouter aux visiteurs du jour
+    try {
       const newVisitor = {
-        id: Date.now(),
         nom: reservation.nom,
         nbPersonnes: reservation.nbPersonnes,
         motif: reservation.motif,
@@ -713,34 +842,30 @@ export default function LeMusee() {
         montantPaye: reservation.montantTotal,
         paiementEffectue: true
       };
-
-      setVisitorsToday([newVisitor, ...visitorsToday]);
-      
-      // Retirer de la liste des réservations
-      setReservations(reservations.filter(r => r.id !== reservation.id));
-      
-      toast({
-        title: 'Visiteur enregistré !',
-        description: `${reservation.nom} - ${reservation.nbPersonnes} personne(s) - ${reservation.montantTotal}€`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      });
-      
+      const [{ record: visitor }, { record: updatedReservation }] = await Promise.all([
+        museumAPI.workspace.create('visitors', newVisitor),
+        museumAPI.workspace.update('reservations', reservation.id, { ...reservation, paiementEffectue: true, arrivedAt: new Date().toISOString() }),
+      ]);
+      setVisitorsToday((current) => [visitor, ...current]);
+      setReservations((current) => current.map((item) => item.id === updatedReservation.id ? updatedReservation : item).filter((item) => !item.arrivedAt));
+      toast({ title: 'Visiteur enregistré !', description: `${reservation.nom} - ${reservation.nbPersonnes} personne(s) - ${reservation.montantTotal}€`, status: 'success', duration: 3000, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Enregistrement impossible', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    } finally {
       setLoadingReservation(null);
-    }, 500);
+    }
   };
 
-  const handleConfirmPayment = (reservationId) => {
-    setReservations(reservations.map(r => 
-      r.id === reservationId ? { ...r, paiementEffectue: true } : r
-    ));
-    toast({
-      title: 'Paiement confirmé',
-      status: 'success',
-      duration: 2000,
-      isClosable: true
-    });
+  const handleConfirmPayment = async (reservationId) => {
+    const reservation = reservations.find((item) => item.id === reservationId);
+    if (!reservation) return;
+    try {
+      const { record } = await museumAPI.workspace.update('reservations', reservationId, { ...reservation, paiementEffectue: true });
+      setReservations((current) => current.map((item) => item.id === reservationId ? record : item));
+      toast({ title: 'Paiement confirmé', status: 'success', duration: 2000, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Paiement impossible', description: error.message, status: 'error', duration: 4000, isClosable: true });
+    }
   };
 
   const handleLoginSuccess = () => {
@@ -782,51 +907,27 @@ export default function LeMusee() {
   };
 
   // Gestion Facing (similaire)
-  const saveFacingZone = () => {
-    if (editingItem) {
-      setFacingZones(facingZones.map(z => z.id === editingItem.id ? { ...formData, id: editingItem.id } : z));
-      toast({ title: 'Zone modifiée', status: 'success', duration: 2000 });
-    } else {
-      setFacingZones([...facingZones, { ...formData, id: Date.now() }]);
-      toast({ title: 'Zone ajoutée', status: 'success', duration: 2000 });
-    }
-    facingDrawer.onClose();
+  const saveFacingZone = async () => {
+    try { await saveMuseumRecord('facing', { ...formData, id: editingItem?.id }, setFacingZones, facingDrawer.onClose, 'Zone ajoutée', 'Zone modifiée'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   // Gestion Floor
-  const saveFloor = () => {
-    if (editingItem) {
-      setFloors(floors.map(f => f.id === editingItem.id ? { ...formData, id: editingItem.id } : f));
-      toast({ title: 'Espace modifié', status: 'success', duration: 2000 });
-    } else {
-      setFloors([...floors, { ...formData, id: Date.now() }]);
-      toast({ title: 'Espace ajouté', status: 'success', duration: 2000 });
-    }
-    floorDrawer.onClose();
+  const saveFloor = async () => {
+    try { await saveMuseumRecord('floor', { ...formData, id: editingItem?.id }, setFloors, floorDrawer.onClose, 'Espace ajouté', 'Espace modifié'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   // Gestion Staff
-  const saveStaff = () => {
-    if (editingItem) {
-      setStaff(staff.map(s => s.id === editingItem.id ? { ...formData, id: editingItem.id } : s));
-      toast({ title: 'Personnel modifié', status: 'success', duration: 2000 });
-    } else {
-      setStaff([...staff, { ...formData, id: Date.now() }]);
-      toast({ title: 'Personnel ajouté', status: 'success', duration: 2000 });
-    }
-    staffDrawer.onClose();
+  const saveStaff = async () => {
+    try { await saveMuseumRecord('staff', { ...formData, id: editingItem?.id }, setStaff, staffDrawer.onClose, 'Membre ajouté', 'Membre modifié'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   // Gestion Planning
-  const savePlanning = () => {
-    if (editingItem) {
-      setPlanning(planning.map(p => p.id === editingItem.id ? { ...formData, id: editingItem.id } : p));
-      toast({ title: 'Affectation modifiée', status: 'success', duration: 2000 });
-    } else {
-      setPlanning([...planning, { ...formData, id: Date.now() }]);
-      toast({ title: 'Affectation ajoutée', status: 'success', duration: 2000 });
-    }
-    planningDrawer.onClose();
+  const savePlanning = async () => {
+    try { await saveMuseumRecord('planning', { ...formData, id: editingItem?.id }, setPlanning, planningDrawer.onClose, 'Affectation ajoutée', 'Affectation modifiée'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   // ========== FONCTIONS NOUVEAUX MODULES ==========
@@ -866,15 +967,9 @@ export default function LeMusee() {
     restorationDrawer.onOpen();
   };
 
-  const saveRestoration = () => {
-    if (editingItem) {
-      setRestorations(restorations.map(r => r.id === editingItem.id ? { ...formData, id: editingItem.id } : r));
-      toast({ title: 'Restauration modifiée', status: 'success', duration: 2000 });
-    } else {
-      setRestorations([...restorations, { ...formData, id: Date.now(), taches: [] }]);
-      toast({ title: 'Restauration créée', status: 'success', duration: 2000 });
-    }
-    restorationDrawer.onClose();
+  const saveRestoration = async () => {
+    try { await saveMuseumRecord('restorations', { ...formData, id: editingItem?.id, taches: editingItem?.taches || [] }, setRestorations, restorationDrawer.onClose, 'Restauration créée', 'Restauration modifiée'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   const openDocDrawer = (doc = null) => {
@@ -886,15 +981,9 @@ export default function LeMusee() {
     docDrawer.onOpen();
   };
 
-  const saveDoc = () => {
-    if (editingItem) {
-      setDocs(docs.map(d => d.id === editingItem.id ? { ...formData, id: editingItem.id } : d));
-      toast({ title: 'Document modifié', status: 'success', duration: 2000 });
-    } else {
-      setDocs([...docs, { ...formData, id: Date.now() }]);
-      toast({ title: 'Document ajouté', status: 'success', duration: 2000 });
-    }
-    docDrawer.onClose();
+  const saveDoc = async () => {
+    try { await saveMuseumRecord('docs', { ...formData, id: editingItem?.id }, setDocs, docDrawer.onClose, 'Document ajouté', 'Document modifié'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   const openEventDrawer = (event = null) => {
@@ -906,15 +995,9 @@ export default function LeMusee() {
     eventDrawer.onOpen();
   };
 
-  const saveEvent = () => {
-    if (editingItem) {
-      setEvents(events.map(e => e.id === editingItem.id ? { ...formData, id: editingItem.id } : e));
-      toast({ title: 'Événement modifié', status: 'success', duration: 2000 });
-    } else {
-      setEvents([...events, { ...formData, id: Date.now() }]);
-      toast({ title: 'Événement créé', status: 'success', duration: 2000 });
-    }
-    eventDrawer.onClose();
+  const saveEvent = async () => {
+    try { await saveMuseumRecord('events', { ...formData, id: editingItem?.id }, setEvents, eventDrawer.onClose, 'Événement créé', 'Événement modifié'); }
+    catch (error) { toast({ title: 'Enregistrement impossible', description: error.message, status: 'error' }); }
   };
 
   const museumModules = [
@@ -1019,9 +1102,15 @@ export default function LeMusee() {
                   <Text color="whiteAlpha.700" textAlign="center">{isLayoutMode ? 'Atelier de placement : déplacez le logo et les pastilles sur les lignes rouges.' : 'Choisissez votre espace de travail'}</Text>
                 </VStack>
 
-                <HStack justify="center" spacing={3} flexWrap="wrap" display={isLayoutMode ? 'flex' : 'none'}>
+                <HStack justify="center" spacing={3} flexWrap="wrap">
                   <Button size="sm" colorScheme={isLayoutMode ? 'red' : 'gray'} variant={isLayoutMode ? 'solid' : 'outline'} onClick={() => setIsLayoutMode((currentMode) => !currentMode)}>
                     {isLayoutMode ? 'Placement actif' : 'Reprendre le placement'}
+                  </Button>
+                  <Button size="sm" leftIcon={<FiSave />} colorScheme="green" variant="outline" onClick={saveMuseumLayout}>
+                    Sauvegarder le placement
+                  </Button>
+                  <Button size="sm" leftIcon={<FiDollarSign />} colorScheme="yellow" variant="outline" onClick={financeModal.onOpen}>
+                    Finances Musée
                   </Button>
                   <Button size="sm" variant="outline" color="whiteAlpha.900" borderColor="whiteAlpha.400" onClick={resetMuseumLayout}>Réinitialiser</Button>
                   <HStack spacing={2}>
@@ -1854,6 +1943,37 @@ export default function LeMusee() {
                         <CardBody>
                           <VStack align="stretch" spacing={4}>
                             <Box>
+
+                            <Modal isOpen={financeModal.isOpen} onClose={financeModal.onClose} size="lg">
+                              <ModalOverlay />
+                              <ModalContent bg="gray.900" color="white">
+                                <ModalHeader>Finances opérationnelles du Musée</ModalHeader>
+                                <ModalCloseButton />
+                                <ModalBody>
+                                  <VStack align="stretch" spacing={5}>
+                                    <Box borderWidth="1px" borderColor="whiteAlpha.300" p={4} borderRadius="md">
+                                      <Text color="whiteAlpha.700" fontSize="sm">Solde opérationnel Musée</Text>
+                                      <Heading size="lg" color={museumFinanceBalance >= 0 ? 'green.300' : 'red.300'}>
+                                        {museumFinanceBalance.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                      </Heading>
+                                    </Box>
+                                    <Grid templateColumns={{ base: '1fr', md: '1.3fr 0.8fr 0.7fr auto' }} gap={3} alignItems="end">
+                                      <FormControl><FormLabel>Libellé</FormLabel><Input value={museumFinanceForm.label} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, label: event.target.value })} placeholder="Billetterie, achat pièce..." /></FormControl>
+                                      <FormControl><FormLabel>Montant</FormLabel><NumberInput min={0} precision={2} value={museumFinanceForm.amount} onChange={(value) => setMuseumFinanceForm({ ...museumFinanceForm, amount: value })}><NumberInputField /></NumberInput></FormControl>
+                                      <FormControl><FormLabel>Type</FormLabel><Select value={museumFinanceForm.type} onChange={(event) => setMuseumFinanceForm({ ...museumFinanceForm, type: event.target.value })}><option value="CREDIT">Recette</option><option value="DEBIT">Dépense</option></Select></FormControl>
+                                      <Button leftIcon={<FiPlus />} colorScheme="green" onClick={saveMuseumFinanceEntry}>Ajouter</Button>
+                                    </Grid>
+                                    <Box maxH="260px" overflowY="auto">
+                                      <Table size="sm">
+                                        <Thead><Tr><Th color="whiteAlpha.600">Libellé</Th><Th color="whiteAlpha.600">Date</Th><Th color="whiteAlpha.600" isNumeric>Montant</Th></Tr></Thead>
+                                        <Tbody>{museumFinanceEntries.map((entry) => <Tr key={entry.id}><Td>{entry.label}</Td><Td>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('fr-FR') : '-'}</Td><Td isNumeric color={entry.type === 'DEBIT' ? 'red.300' : 'green.300'}>{entry.type === 'DEBIT' ? '-' : '+'}{Number(entry.amount || 0).toFixed(2)} EUR</Td></Tr>)}</Tbody>
+                                      </Table>
+                                    </Box>
+                                  </VStack>
+                                </ModalBody>
+                                <ModalFooter><Button variant="outline" onClick={financeModal.onClose}>Fermer</Button></ModalFooter>
+                              </ModalContent>
+                            </Modal>
                               <HStack justify="space-between" mb={2}>
                                 <Text color="whiteAlpha.800" fontSize="sm">Avancement</Text>
                                 <Text color="white" fontWeight="bold">{resto.avancement}%</Text>
@@ -2049,7 +2169,7 @@ export default function LeMusee() {
                             <Text color="whiteAlpha.600" fontSize="xs">Dernière MAJ: {zone.derniereMAJ}</Text>
                             <HStack spacing={2} mt={2}>
                               <IconButton size="sm" icon={<FiEdit2 />} colorScheme="blue" variant="ghost" onClick={() => { setEditingItem(zone); setFormData(zone); facingDrawer.onOpen(); }} />
-                              <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if(confirm('Supprimer cette zone ?')) { setFacingZones(facingZones.filter(z => z.id !== zone.id)); toast({ title: 'Zone supprimée', status: 'info', duration: 2000 }); }}} />
+                              <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if (confirm('Supprimer cette zone ?')) removeMuseumRecord('facing', zone.id, setFacingZones, 'Zone supprimée').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' })); }} />
                             </HStack>
                           </VStack>
                         </CardBody>
@@ -2084,7 +2204,7 @@ export default function LeMusee() {
                             <Text color="whiteAlpha.600" fontSize="xs" fontStyle="italic">Thème: {floor.theme}</Text>
                             <HStack spacing={2} mt={2}>
                               <IconButton size="sm" icon={<FiEdit2 />} colorScheme="blue" variant="ghost" onClick={() => { setEditingItem(floor); setFormData(floor); floorDrawer.onOpen(); }} />
-                              <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if(confirm('Supprimer cet espace ?')) { setFloors(floors.filter(f => f.id !== floor.id)); toast({ title: 'Espace supprimé', status: 'info', duration: 2000 }); }}} />
+                              <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if (confirm('Supprimer cet espace ?')) removeMuseumRecord('floor', floor.id, setFloors, 'Espace supprimé').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' })); }} />
                             </HStack>
                           </VStack>
                         </CardBody>
@@ -2123,7 +2243,7 @@ export default function LeMusee() {
                               <Badge colorScheme={member.disponibilite === 'Temps plein' ? 'green' : 'orange'}>{member.disponibilite}</Badge>
                               <HStack spacing={2} mt={2}>
                                 <IconButton size="sm" icon={<FiEdit2 />} colorScheme="blue" variant="ghost" onClick={() => { setEditingItem(member); setFormData(member); staffDrawer.onOpen(); }} />
-                                <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if(confirm('Supprimer ce membre ?')) { setStaff(staff.filter(s => s.id !== member.id)); toast({ title: 'Membre supprimé', status: 'info', duration: 2000 }); }}} />
+                                <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if (confirm('Supprimer ce membre ?')) removeMuseumRecord('staff', member.id, setStaff, 'Membre supprimé').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' })); }} />
                               </HStack>
                             </VStack>
                           </Flex>
@@ -2168,7 +2288,7 @@ export default function LeMusee() {
                             <Td borderColor="whiteAlpha.200">
                               <HStack spacing={2}>
                                 <IconButton size="sm" icon={<FiEdit2 />} colorScheme="blue" variant="ghost" onClick={() => { setEditingItem(p); setFormData(p); planningDrawer.onOpen(); }} />
-                                <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if(confirm('Supprimer cette affectation ?')) { setPlanning(planning.filter(pl => pl.id !== p.id)); toast({ title: 'Affectation supprimée', status: 'info', duration: 2000 }); }}} />
+                                <IconButton size="sm" icon={<FiTrash2 />} colorScheme="red" variant="ghost" onClick={() => { if (confirm('Supprimer cette affectation ?')) removeMuseumRecord('planning', p.id, setPlanning, 'Affectation supprimée').catch((error) => toast({ title: 'Suppression impossible', description: error.message, status: 'error' })); }} />
                               </HStack>
                             </Td>
                           </Tr>
@@ -2818,8 +2938,14 @@ export default function LeMusee() {
               <Box>
                 <Heading size="sm" mb={3} color="whiteAlpha.800">Identité</Heading>
                 <FormControl>
-                  <FormLabel>Nom complet</FormLabel>
-                  <Input value={formData.nom || ''} onChange={(e) => setFormData({...formData, nom: e.target.value})} />
+                  <FormLabel>Adhérent RBE</FormLabel>
+                  <Select value={formData.memberId || ''} onChange={(e) => {
+                    const member = rbeMembers.find((item) => item.id === e.target.value);
+                    setFormData({ ...formData, memberId: member?.id || '', nom: member?.name || '', tel: member?.phone || formData.tel || '' });
+                  }} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
+                    <option value="">Sélectionner un adhérent...</option>
+                    {rbeMembers.map((member) => <option key={member.id} value={member.id}>{member.name}{member.email ? ` - ${member.email}` : ''}</option>)}
+                  </Select>
                 </FormControl>
               </Box>
 
@@ -2882,7 +3008,7 @@ export default function LeMusee() {
                 <FormLabel>Personnel</FormLabel>
                 <Select value={formData.personnel || ''} onChange={(e) => setFormData({...formData, personnel: e.target.value})} bg="gray.800" borderColor="whiteAlpha.300" color="white" _hover={{ borderColor: 'whiteAlpha.400' }} sx={{'option': {background: '#1a202c'}}}>
                   <option value="">Sélectionner...</option>
-                  {staff.map(s => <option key={s.id} value={s.nom}>{s.nom}</option>)}
+                  {rbeMembers.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}
                 </Select>
               </FormControl>
               

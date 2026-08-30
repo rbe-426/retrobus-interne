@@ -12,6 +12,13 @@ const toQuery = (params = {}) => {
 };
 
 export const museumAPI = {
+  workspace: {
+    list: (section) => apiClient.get(`/api/museum/workspace/${encodeURIComponent(section)}`),
+    create: (section, data) => apiClient.post(`/api/museum/workspace/${encodeURIComponent(section)}`, { data }),
+    update: (section, id, data) => apiClient.patch(`/api/museum/workspace/${encodeURIComponent(section)}/${encodeURIComponent(id)}`, { data }),
+    remove: (section, id) => apiClient.delete(`/api/museum/workspace/${encodeURIComponent(section)}/${encodeURIComponent(id)}`),
+  },
+
   // Statistiques globales du musée
   getStats: () => apiClient.get('/api/museum/stats'),
 
