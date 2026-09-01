@@ -358,6 +358,20 @@ const FinanceScheduledOps = () => {
     return current.toISOString().split("T")[0];
   };
 
+  const getInstallmentAmount = (operation) => {
+    const totalAmount = Number(operation.totalAmount || 0);
+    const remainingAmount = Number(operation.remainingTotalAmount || 0);
+    const paymentCount = Number(operation.paymentsCount || 0);
+    const paidAmount = totalAmount - remainingAmount;
+
+    // Older schedules can store their total in amount instead of the installment.
+    if (totalAmount > 0 && paymentCount > 0 && paidAmount > 0) {
+      return paidAmount / paymentCount;
+    }
+
+    return Number(operation.amount || 0);
+  };
+
   const calculateTheoreticalEnd = (operation) => {
     if (!operation) return null;
 
@@ -369,7 +383,7 @@ const FinanceScheduledOps = () => {
     // Cas 1: Si totalAmount est défini, calculer simplement
     if (Number.isFinite(operation.totalAmount) && operation.totalAmount > 0) {
       const remaining = operation.remainingTotalAmount ?? operation.totalAmount;
-      const monthlyAmount = Math.abs(operation.amount || 0);
+      const monthlyAmount = Math.abs(getInstallmentAmount(operation));
 
       if (monthlyAmount <= 0) return null;
 
@@ -408,7 +422,8 @@ const FinanceScheduledOps = () => {
   const totalMonthlyImpact = activeOps.reduce((sum, op) => {
     const multiplier =
       op.frequency === "MONTHLY" ? 1 : op.frequency === "WEEKLY" ? 4.33 : 1;
-    const impact = op.type === "SCHEDULED_CREDIT" ? op.amount : -op.amount;
+    const installmentAmount = getInstallmentAmount(op);
+    const impact = op.type === "SCHEDULED_CREDIT" ? installmentAmount : -installmentAmount;
     return sum + impact * multiplier;
   }, 0);
 
@@ -489,6 +504,8 @@ const FinanceScheduledOps = () => {
           {ops.map((op, idx) => {
             const hasTotal = Number.isFinite(op.totalAmount) && op.totalAmount > 0;
             const paid = hasTotal ? Math.max(op.totalAmount - (op.remainingTotalAmount || 0), 0) : null;
+            const installmentAmount = getInstallmentAmount(op);
+            const hasDerivedInstallment = hasTotal && Number(op.paymentsCount || 0) > 0;
             const hasYearPlan = Number.isFinite(op.plannedCountYear) && op.plannedCountYear > 0;
             const yearPaidCount = hasYearPlan ? Math.max((op.plannedCountYear || 0) - (op.remainingCountYear || 0), 0) : null;
             const percentYear = hasYearPlan ? Math.max(0, Math.min(1, yearPaidCount / op.plannedCountYear)) : null;
@@ -520,9 +537,11 @@ const FinanceScheduledOps = () => {
                     <VStack align="start" spacing={1} flex={1}>
                       <Text fontSize="sm" color="gray.600">Prochaine date</Text>
                       <Text fontWeight="medium">{op.nextDate ? formatDate(calculateDynamicNextDate(op)) : '—'}</Text>
-                      <Text fontSize="sm" color="gray.600">Montant</Text>
+                      <Text fontSize="sm" color="gray.600">
+                        {hasDerivedInstallment ? "Mensualité moyenne" : "Montant par échéance"}
+                      </Text>
                       <Text fontWeight="bold" color={op.type === 'SCHEDULED_CREDIT' ? 'green.600' : 'red.600'}>
-                        {op.type === 'SCHEDULED_CREDIT' ? '+' : '-'} {formatCurrency(Math.abs(op.amount))}
+                        {op.type === 'SCHEDULED_CREDIT' ? '+' : '-'} {formatCurrency(Math.abs(installmentAmount))}
                       </Text>
                       <HStack spacing={3} flexWrap="wrap">
                         {op.paymentsCount !== undefined && (
@@ -621,7 +640,7 @@ const FinanceScheduledOps = () => {
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel>Montant (€)</FormLabel>
+                <FormLabel>Montant d'une échéance (€)</FormLabel>
                 <NumberInput
                   value={formData.amount}
                   onChange={(value) =>
@@ -639,6 +658,9 @@ const FinanceScheduledOps = () => {
                     <NumberDecrementStepper />
                   </NumberInputStepper>
                 </NumberInput>
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Pour 4 000 € répartis sur 8 mois, indiquez 500 € ici.
+                </Text>
               </FormControl>
 
               <FormControl isRequired>
@@ -693,7 +715,7 @@ const FinanceScheduledOps = () => {
               </FormControl>
 
               <FormControl>
-                <FormLabel>Montant total à amortir (optionnel)</FormLabel>
+                <FormLabel>Montant total à répartir (optionnel)</FormLabel>
                 <NumberInput
                   value={formData.totalAmount}
                   onChange={(value) =>
