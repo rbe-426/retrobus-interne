@@ -91,11 +91,11 @@ const FinanceDashboard = () => {
         <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
           <CardBody>
             <Stat>
-              <StatLabel>Solde actuel</StatLabel>
+              <StatLabel>Solde BNP rapproché</StatLabel>
               <StatNumber fontSize="2xl" color="blue.500">
                 {balance.toFixed(2)} €
               </StatNumber>
-              <StatHelpText>Trésorerie générale</StatHelpText>
+              <StatHelpText>Solde réel du compte bancaire</StatHelpText>
             </Stat>
           </CardBody>
         </Card>

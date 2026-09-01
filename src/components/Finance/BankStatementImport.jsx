@@ -28,6 +28,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
   const [rows, setRows] = useState([]); // transactions avec selected + category editables
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [importStats, setImportStats] = useState({ created: 0, duplicates: 0, errors: 0 });
   const [parsedFiles, setParsedFiles] = useState([]); // Liste des fichiers parsés
 
   const reset = () => {
@@ -37,6 +38,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
     setParsing(false);
     setImporting(false);
     setProgress(0);
+    setImportStats({ created: 0, duplicates: 0, errors: 0 });
     setParsedFiles([]);
     if (fileRef.current) fileRef.current.value = '';
   };
@@ -170,7 +172,9 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
     }
     setImporting(true);
     setProgress(0);
-    let ok = 0;
+    setImportStats({ created: 0, duplicates: 0, errors: 0 });
+    let created = 0;
+    let duplicates = 0;
     let errors = 0;
 
     // Récupérer un nouveau token CSRF avant de commencer l'import
@@ -202,18 +206,28 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
         // Mettre à jour le token CSRF depuis la réponse pour la prochaine requête
         updateCSRFTokenFromResponse(res);
         
-        if (res.ok) ok++; else errors++;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.duplicate) {
+            duplicates++;
+          } else {
+            created++;
+          }
+        } else {
+          errors++;
+        }
       } catch {
         errors++;
       }
       setProgress(Math.round(((i + 1) / selectedRows.length) * 100));
+      setImportStats({ created, duplicates, errors });
     }
 
     setImporting(false);
     toast({
       status: errors === 0 ? 'success' : 'warning',
       title: `Import terminé`,
-      description: `${ok} transaction(s) importée(s)${errors > 0 ? `, ${errors} erreur(s)` : ''}.`,
+      description: `${created} ajoutée(s), ${duplicates} déjà présente(s) ignorée(s)${errors > 0 ? `, ${errors} erreur(s)` : ''}.`,
       duration: 5000,
     });
     if (onImported) onImported();
@@ -282,7 +296,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
           )}
 
           {/* ── Étape 2 : Révision ── */}
-          {step === 'review' && (
+          {step === 'review' && !importing && (
             <VStack spacing={4} align="stretch">
               {/* Résumé */}
               <HStack spacing={4} bg="blue.50" borderRadius="md" p={3} flexWrap="wrap">
@@ -404,15 +418,23 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
           {importing && (
             <VStack spacing={4} py={8}>
               <Spinner size="xl" color="blue.500" />
-              <Text>Import en cours… {progress}%</Text>
+              <Text fontWeight="600">Import des transactions en cours</Text>
+              <Text fontSize="sm" color="gray.600">
+                {Math.round((progress / 100) * selectedRows.length)} / {selectedRows.length} traitée(s)
+              </Text>
               <Progress value={progress} w="100%" colorScheme="blue" borderRadius="md" />
+              <HStack spacing={3} fontSize="sm" wrap="wrap" justify="center">
+                <Tag colorScheme="green"><TagLabel>{importStats.created} ajoutée(s)</TagLabel></Tag>
+                <Tag colorScheme="orange"><TagLabel>{importStats.duplicates} doublon(s) ignoré(s)</TagLabel></Tag>
+                {importStats.errors > 0 && <Tag colorScheme="red"><TagLabel>{importStats.errors} erreur(s)</TagLabel></Tag>}
+              </HStack>
             </VStack>
           )}
         </ModalBody>
 
         <ModalFooter>
           <HStack justify="space-between" w="100%">
-            <Button variant="ghost" onClick={handleClose}>Annuler</Button>
+            <Button variant="ghost" onClick={handleClose} isDisabled={importing}>Annuler</Button>
             {step === 'review' && rows.length > 0 && !importing && (
               <HStack>
                 <Button variant="outline" size="sm" onClick={reset}>
