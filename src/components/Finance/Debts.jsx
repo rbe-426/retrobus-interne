@@ -713,7 +713,7 @@ const FinanceDebts = () => {
                 <HStack>
                   <Icon as={FiInfo} color="blue.500" />
                   <Text fontSize="xs" color="blue.700">
-                    Pour enregistrer un remboursement, créez une transaction depuis l'onglet <b>Transactions</b> et liez-la à cette dette. Le montant réglé sera mis à jour automatiquement.
+                    Depuis l'onglet <b>Transactions</b>, un débit creuse une créance et règle une dette ; un crédit règle une créance et creuse une dette. Les règlements de caisse se saisissent sans transaction bancaire.
                   </Text>
                 </HStack>
               </Box>
