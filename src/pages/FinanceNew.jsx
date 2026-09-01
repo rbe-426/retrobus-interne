@@ -14,7 +14,7 @@ import {
   FiRefreshCw
 } from "react-icons/fi";
 import {
-  Box, VStack, HStack, Heading, Text, Button, Icon, Flex
+  Box, VStack, HStack, Heading, Text, Button, Icon, Flex, Divider
 } from "@chakra-ui/react";
 
 import SidebarLayout from "../components/SidebarLayout";
@@ -63,15 +63,15 @@ const FinanceNew = () => {
 
   // Sections principales
   const sections = [
-    { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Situation financière et indicateurs clés" },
-    { id: "transactions", label: "Transactions", icon: FiCreditCard, description: "Recettes, dépenses et rapprochement" },
-    { id: "scheduled", label: "Opérations programmées", icon: FiCalendar, description: "Paiements récurrents et échéanciers" },
-    { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Documents commerciaux et encaissements" },
-    { id: "debts", label: "Dettes", icon: FiAlertCircle, description: "Créances, dettes et échéances" },
-    { id: "ndf", label: "Notes de frais", icon: FiShoppingCart, description: "Validation et remboursement" },
-    { id: "simulations", label: "Simulations", icon: FiActivity, description: "Prévisions de trésorerie" },
-    { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyse des opérations enregistrées" },
-    { id: "settings", label: "Paramètres", icon: FiSettings, description: "Solde de référence et audit" }
+    { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Situation financière et indicateurs clés", group: "Suivre" },
+    { id: "transactions", label: "Transactions", icon: FiCreditCard, description: "Recettes, dépenses et rapprochement", group: "Suivre" },
+    { id: "scheduled", label: "Échéances", icon: FiCalendar, description: "Paiements récurrents et échéanciers", group: "Suivre" },
+    { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Documents commerciaux et encaissements", group: "Traiter" },
+    { id: "debts", label: "Dettes & créances", icon: FiAlertCircle, description: "Créances, dettes et échéances", group: "Traiter" },
+    { id: "ndf", label: "Notes de frais", icon: FiShoppingCart, description: "Validation et remboursement", group: "Traiter" },
+    { id: "simulations", label: "Simulations", icon: FiActivity, description: "Prévisions de trésorerie", group: "Analyser" },
+    { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyse des opérations enregistrées", group: "Analyser" },
+    { id: "settings", label: "Paramètres", icon: FiSettings, description: "Solde de référence et audit", group: "Analyser" }
   ];
 
   useEffect(() => {
@@ -130,34 +130,43 @@ const FinanceNew = () => {
       </Box>
 
       {/* Navigation principale */}
-      <VStack align="stretch" spacing={0} px={3} py={4} flex={1}>
-        {sections.map((section) => {
-          const isActive = section.id === activeMainSection;
-          const SectionIcon = section.icon;
-          return (
-            <Box key={section.id}>
-              <Button
-                leftIcon={<Icon as={SectionIcon} />}
-                variant="ghost"
-                justifyContent="flex-start"
-                w="full"
-                bg={isActive ? "blue.50" : "transparent"}
-                borderLeft="3px"
-                borderColor={isActive ? "blue.500" : "transparent"}
-                borderRadius={0}
-                px={4}
-                py={3}
-                fontSize="sm"
-                fontWeight={isActive ? "600" : "500"}
-                color={isActive ? "blue.500" : "inherit"}
-                _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
-                onClick={() => selectSection(section.id)}
-              >
-                <Text>{section.label}</Text>
-              </Button>
-            </Box>
-          );
-        })}
+      <VStack align="stretch" spacing={4} px={3} py={4} flex={1} overflowY="auto">
+        {["Suivre", "Traiter", "Analyser"].map((group, groupIndex) => (
+          <Box key={group}>
+            {groupIndex > 0 && <Divider mb={3} />}
+            <Text px={3} mb={1} fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase">
+              {group}
+            </Text>
+            <VStack align="stretch" spacing={1}>
+              {sections.filter((section) => section.group === group).map((section) => {
+                const isActive = section.id === activeMainSection;
+                const SectionIcon = section.icon;
+                return (
+                  <Button
+                    key={section.id}
+                    leftIcon={<Icon as={SectionIcon} />}
+                    variant="ghost"
+                    justifyContent="flex-start"
+                    w="full"
+                    minH="42px"
+                    bg={isActive ? "blue.50" : "transparent"}
+                    borderLeft="3px"
+                    borderColor={isActive ? "blue.500" : "transparent"}
+                    borderRadius={0}
+                    px={4}
+                    fontSize="sm"
+                    fontWeight={isActive ? "600" : "500"}
+                    color={isActive ? "blue.600" : "inherit"}
+                    _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
+                    onClick={() => selectSection(section.id)}
+                  >
+                    <Text noOfLines={1}>{section.label}</Text>
+                  </Button>
+                );
+              })}
+            </VStack>
+          </Box>
+        ))}
       </VStack>
 
       {/* Footer du sidebar */}
@@ -171,10 +180,10 @@ const FinanceNew = () => {
     <SidebarLayout sidebar={sidebarContent}>
       <VStack align="stretch" spacing={0} h="full" w="full">
         {/* Header */}
-        <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
+        <Box px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }} borderBottom="1px" borderColor="gray.200" bg="white">
           <HStack justify="space-between" align="center" wrap="wrap" gap={3}>
             <Box>
-              <Heading size="lg">{activeSection.label}</Heading>
+              <Heading size={{ base: "md", md: "lg" }}>{activeSection.label}</Heading>
               <Text fontSize="sm" color="gray.500">
                 {activeSection.description}
               </Text>
@@ -186,7 +195,7 @@ const FinanceNew = () => {
         </Box>
 
         {/* Contenu */}
-        <Box flex={1} overflowY="auto" p={6} w="full">
+        <Box flex={1} overflowY="auto" p={{ base: 4, md: 6 }} w="full">
           {renderMainContent()}
         </Box>
       </VStack>
