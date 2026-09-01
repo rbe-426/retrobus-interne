@@ -10,7 +10,7 @@ import {
 } from "@chakra-ui/react";
 import {
   FiPlus, FiEdit2, FiTrash2, FiAlertCircle, FiChevronDown,
-  FiChevronUp, FiLink, FiCheckCircle, FiClock, FiXCircle, FiInfo
+  FiChevronUp, FiLink, FiCheckCircle, FiClock, FiXCircle, FiInfo, FiDollarSign
 } from "react-icons/fi";
 import { fetchWithCSRF } from "../../lib/csrfClient";
 
@@ -43,6 +43,7 @@ const EMPTY_FORM = {
 const FinanceDebts = () => {
   const toast = useToast();
   const { isOpen: isFormOpen, onOpen: onFormOpen, onClose: onFormClose } = useDisclosure();
+  const { isOpen: isCashPaymentOpen, onOpen: onCashPaymentOpen, onClose: onCashPaymentClose } = useDisclosure();
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,6 +52,8 @@ const FinanceDebts = () => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [filterType, setFilterType] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [cashPaymentDebt, setCashPaymentDebt] = useState(null);
+  const [cashPaymentForm, setCashPaymentForm] = useState({ amount: "", date: "", description: "", notes: "" });
 
   const loadDebts = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -175,6 +178,58 @@ const FinanceDebts = () => {
       await loadDebts();
     } catch (e) {
       toast({ title: "Erreur mise à jour statut", status: "error", duration: 3000 });
+    }
+  };
+
+  const openCashPayment = (debt) => {
+    const remainingAmount = debt.remainingAmount ?? Math.max(0, debt.amount - (debt.paidAmount || 0));
+    if (remainingAmount <= 0) return;
+    setCashPaymentDebt(debt);
+    setCashPaymentForm({
+      amount: "",
+      date: new Date().toISOString().slice(0, 10),
+      description: `Règlement de ${debt.description}`,
+      notes: ""
+    });
+    onCashPaymentOpen();
+  };
+
+  const handleCashPaymentSave = async () => {
+    const amount = Number(cashPaymentForm.amount);
+    if (!cashPaymentDebt || !Number.isFinite(amount) || amount <= 0) {
+      toast({ title: "Montant invalide", description: "Saisissez un montant positif.", status: "warning", duration: 3000 });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetchWithCSRF(`${API_BASE}/api/finance/debts/${cashPaymentDebt.id}/cash-payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...cashPaymentForm, amount })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Impossible d'enregistrer le règlement");
+      toast({ title: "Règlement hors compte enregistré", status: "success", duration: 3000 });
+      onCashPaymentClose();
+      await loadDebts();
+    } catch (e) {
+      toast({ title: "Erreur", description: e.message, status: "error", duration: 4000 });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCashPaymentDelete = async (debt, payment) => {
+    if (!window.confirm(`Annuler le règlement hors compte de ${Number(payment.amount).toFixed(2)} € ?`)) return;
+    try {
+      const res = await fetchWithCSRF(`${API_BASE}/api/finance/debts/${debt.id}/cash-payments/${payment.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Impossible d'annuler le règlement");
+      toast({ title: "Règlement hors compte annulé", status: "success", duration: 3000 });
+      await loadDebts();
+    } catch (e) {
+      toast({ title: "Erreur", description: e.message, status: "error", duration: 4000 });
     }
   };
 
@@ -365,6 +420,17 @@ const FinanceDebts = () => {
                                 aria-label="Transactions"
                               />
                             </Tooltip>
+                            <Tooltip label={remaining > 0 ? "Enregistrer un règlement hors compte" : "Aucun montant restant"}>
+                              <IconButton
+                                size="xs"
+                                icon={<FiDollarSign />}
+                                variant="ghost"
+                                colorScheme="green"
+                                onClick={() => openCashPayment(debt)}
+                                isDisabled={remaining <= 0 || debt.status === "ANNULÉE"}
+                                aria-label="Règlement hors compte"
+                              />
+                            </Tooltip>
                             <Tooltip label="Modifier">
                               <IconButton
                                 size="xs"
@@ -393,7 +459,7 @@ const FinanceDebts = () => {
                               <HStack>
                                 <Icon as={FiLink} color="blue.500" />
                                 <Text fontWeight="600" fontSize="sm" color="blue.700">
-                                  Transactions liées ({(debt.linkedTransactions || []).length})
+                                  Mouvements bancaires liés ({(debt.linkedTransactions || []).length})
                                 </Text>
                               </HStack>
                               {debt.notes && (
@@ -433,6 +499,47 @@ const FinanceDebts = () => {
                                   </Tbody>
                                 </Table>
                               )}
+                              <HStack pt={2} justify="space-between">
+                                <HStack>
+                                  <Icon as={FiDollarSign} color="green.500" />
+                                  <Text fontWeight="600" fontSize="sm" color="green.700">
+                                    Règlements hors compte / caisse ({(debt.cashPayments || []).length})
+                                  </Text>
+                                </HStack>
+                                <Button size="xs" leftIcon={<FiDollarSign />} colorScheme="green" onClick={() => openCashPayment(debt)} isDisabled={remaining <= 0 || debt.status === "ANNULÉE"}>
+                                  Ajouter
+                                </Button>
+                              </HStack>
+                              {(debt.cashPayments || []).length === 0 ? (
+                                <Text fontSize="sm" color="gray.500">Aucun règlement hors compte enregistré.</Text>
+                              ) : (
+                                <Table size="sm" variant="simple" bg="white" borderRadius="md">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Date</Th>
+                                      <Th>Libellé</Th>
+                                      <Th>Note</Th>
+                                      <Th isNumeric>Montant</Th>
+                                      <Th />
+                                    </Tr>
+                                  </Thead>
+                                  <Tbody>
+                                    {debt.cashPayments.map((payment) => (
+                                      <Tr key={payment.id}>
+                                        <Td fontSize="xs">{new Date(payment.date).toLocaleDateString("fr-FR")}</Td>
+                                        <Td fontSize="xs">{payment.description}</Td>
+                                        <Td fontSize="xs" color="gray.600">{payment.notes || "—"}</Td>
+                                        <Td isNumeric fontSize="xs" fontWeight="bold" color="green.600">{Number(payment.amount).toFixed(2)} €</Td>
+                                        <Td>
+                                          <Tooltip label="Annuler ce règlement">
+                                            <IconButton size="xs" icon={<FiTrash2 />} variant="ghost" colorScheme="red" onClick={() => handleCashPaymentDelete(debt, payment)} aria-label="Annuler le règlement hors compte" />
+                                          </Tooltip>
+                                        </Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              )}
                             </VStack>
                           </Td>
                         </Tr>
@@ -459,6 +566,42 @@ const FinanceDebts = () => {
           </CardBody>
         </Card>
       )}
+
+      <Modal isOpen={isCashPaymentOpen} onClose={onCashPaymentClose} size="md">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Règlement hors compte</ModalHeader>
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text fontSize="sm" color="gray.600">
+                Ce règlement sera conservé dans la caisse de l'association et ne créera aucune transaction bancaire.
+              </Text>
+              <FormControl isRequired>
+                <FormLabel>Montant (€)</FormLabel>
+                <NumberInput value={cashPaymentForm.amount} onChange={(value) => setCashPaymentForm({ ...cashPaymentForm, amount: value })} min={0.01} precision={2}>
+                  <NumberInputField placeholder="0.00" />
+                </NumberInput>
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Date</FormLabel>
+                <Input type="date" value={cashPaymentForm.date} onChange={(e) => setCashPaymentForm({ ...cashPaymentForm, date: e.target.value })} />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Libellé</FormLabel>
+                <Input value={cashPaymentForm.description} onChange={(e) => setCashPaymentForm({ ...cashPaymentForm, description: e.target.value })} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Note</FormLabel>
+                <Textarea value={cashPaymentForm.notes} onChange={(e) => setCashPaymentForm({ ...cashPaymentForm, notes: e.target.value })} rows={2} />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCashPaymentClose}>Annuler</Button>
+            <Button colorScheme="green" leftIcon={<FiDollarSign />} onClick={handleCashPaymentSave} isLoading={saving}>Enregistrer</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Modal ajout/édition */}
       <Modal isOpen={isFormOpen} onClose={onFormClose} size="lg">
