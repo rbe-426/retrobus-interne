@@ -83,7 +83,7 @@ const FinanceTransactions = () => {
 
   useEffect(() => {
     loadTransactions();
-  }, [currentPage, pageSize, filterCategory, searchTerm, dateFrom, dateTo, amountMin, amountMax, linkFilter]);
+  }, [currentPage, pageSize, filterCategory, searchTerm, dateFrom, dateTo, amountMin, amountMax]);
 
   const loadTransactions = async () => {
     setTransactionsLoading(true);

@@ -13,7 +13,7 @@ import {
   useColorModeValue
 } from "@chakra-ui/react";
 import { 
-  FiDownload, FiEye, FiPlus, FiEdit2, FiTrash2, 
+  FiPlus, FiTrash2,
   FiMoreHorizontal, FiTrendingUp, FiFileText, FiDollarSign 
 } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -239,25 +239,6 @@ const FinanceInvoicing = () => {
     }
   };
 
-  // Helper pour télécharger un PDF (TODO: implémenter avec les templates)
-  const handleDownloadPDF = (doc) => {
-    toast({
-      title: 'Fonctionnalité à venir',
-      description: 'La génération de PDF sera disponible prochainement',
-      status: 'info',
-      duration: 2000
-    });
-  };
-
-  const handleViewPDF = (doc) => {
-    toast({
-      title: 'Fonctionnalité à venir',
-      description: 'La visualisation PDF sera disponible prochainement',
-      status: 'info',
-      duration: 2000
-    });
-  };
-
   return (
     <VStack align="stretch" spacing={6}>
       {/* Header avec bouton unique */}
@@ -446,15 +427,6 @@ const FinanceInvoicing = () => {
                             Actions
                           </MenuButton>
                           <MenuList>
-                            <MenuItem icon={<FiEye />} onClick={() => handleViewPDF(doc)}>
-                              Visualiser
-                            </MenuItem>
-                            <MenuItem icon={<FiDownload />} onClick={() => handleDownloadPDF(doc)}>
-                              Télécharger PDF
-                            </MenuItem>
-                            <MenuItem icon={<FiEdit2 />}>
-                              Modifier
-                            </MenuItem>
                             <MenuItem 
                               icon={<FiTrash2 />} 
                               color="red.500"

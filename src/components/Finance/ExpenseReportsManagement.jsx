@@ -24,7 +24,6 @@ const LEGACY_EXPENSE_REPORT_TYPES = {
 };
 const BANK_TRANSFER_URL = import.meta.env.VITE_BANK_TRANSFER_URL || "https://mabanque.bnpparibas/";
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const NDF_MANAGER_EMAIL = "belaidiw91@gmail.com";
 
 /**
  * ExpenseReportsManagement - Gestion des notes de frais
@@ -42,7 +41,7 @@ const ExpenseReportsManagement = ({ currentUser, userRoles }) => {
   } = useFinanceData();
 
   const userRolesHook = useUserRoles();
-  const canManageNdf = String(currentUser?.email || "").trim().toLowerCase() === NDF_MANAGER_EMAIL;
+  const canManageNdf = userRolesHook.hasFinanceAccess();
 
   const [filterStatus, setFilterStatus] = useState("PENDING");
   const [rejectionReason, setRejectionReason] = useState("");

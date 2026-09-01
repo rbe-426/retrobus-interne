@@ -78,9 +78,41 @@ const FinanceReports = () => {
   const monthlyReport = calculateMonthlyReport();
 
   const handleDownloadReport = () => {
+    const formatAmount = (amount) => Number(amount || 0).toFixed(2).replace('.', ',');
+    const csvRows = [
+      ['Rapport financier', reportYear],
+      [],
+      ['Par catégorie'],
+      ['Catégorie', 'Crédits EUR', 'Débits EUR', 'Bilan EUR'],
+      ...Object.entries(categoryReport).map(([category, data]) => [
+        category || 'Non catégorisé',
+        formatAmount(data.credits),
+        formatAmount(data.debits),
+        formatAmount(data.credits - data.debits)
+      ]),
+      [],
+      ['Par mois'],
+      ['Mois', 'Crédits EUR', 'Débits EUR', 'Bilan EUR'],
+      ...monthlyReport.map((month) => [
+        month.month,
+        formatAmount(month.credits),
+        formatAmount(month.debits),
+        formatAmount(month.balance)
+      ])
+    ];
+    const csv = csvRows
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';'))
+      .join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `rapport-financier-${reportYear}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
     toast({
       title: "Rapport généré",
-      description: `Rapport ${reportYear} téléchargé`,
+      description: `Rapport ${reportYear} téléchargé au format CSV`,
       status: "success",
       duration: 3000
     });
