@@ -72,8 +72,6 @@ const FinanceTransactions = () => {
     onOpen: onBankImportOpen, 
     onClose: onBankImportClose 
   } = useDisclosure();
-  const [bankSyncLoading, setBankSyncLoading] = useState(false);
-  
   const [bulkLinkDebtId, setBulkLinkDebtId] = useState("");
 
   // Charger les documents disponibles au montage
@@ -138,35 +136,6 @@ const FinanceTransactions = () => {
       }
     } catch (error) {
       console.error("Erreur chargement documents:", error);
-    }
-  };
-
-  const handleBnpSync = async () => {
-    setBankSyncLoading(true);
-    try {
-      const response = await fetchWithCSRF(
-        `${API_BASE}/api/finance/bank-sync/connect-bank`,
-        {
-          method: "POST",
-          body: JSON.stringify({ bankId: "BNP_PARIBAS_SA_00000000000000000000" })
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Impossible de démarrer la connexion BNP");
-      }
-
-      const { linkUrl } = await response.json();
-      window.location.assign(linkUrl);
-    } catch (error) {
-      toast({
-        title: "Synchro BNP indisponible",
-        description: error.message,
-        status: "error",
-        duration: 5000
-      });
-      setBankSyncLoading(false);
     }
   };
 
@@ -481,17 +450,6 @@ const FinanceTransactions = () => {
                 onClick={onBankImportOpen}
               >
                 Importer
-              </Button>
-              <Button
-                leftIcon={<FiLink />}
-                variant="outline"
-                colorScheme="blue"
-                size="sm"
-                isLoading={bankSyncLoading}
-                loadingText="Connexion BNP"
-                onClick={handleBnpSync}
-              >
-                Synchro BNP
               </Button>
               <Button
                 leftIcon={<FiPlus />}

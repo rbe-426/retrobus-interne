@@ -43,15 +43,14 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
 
   const handleClose = () => { reset(); onClose(); };
 
-  // ─── Étape 1 : Upload + parsing (multiple PDFs) ──────────────────────────────────────────
+  // ─── Étape 1 : Upload + parsing de relevés structurés ─────────────────────
   const handleFile = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // Vérifier que tous les fichiers sont des PDFs
-    const invalidFiles = files.filter(f => !f.name.endsWith('.pdf') && f.type !== 'application/pdf');
+    const invalidFiles = files.filter(file => !/\.(ofx|csv|xls|xlsx)$/i.test(file.name));
     if (invalidFiles.length > 0) {
-      toast({ status: 'error', title: 'Fichier(s) invalide(s)', description: 'Sélectionnez uniquement des fichiers PDF.' });
+      toast({ status: 'error', title: 'Fichier(s) invalide(s)', description: 'Sélectionnez des relevés OFX, CSV, XLS ou XLSX.' });
       return;
     }
 
@@ -66,14 +65,14 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
       // Récupérer un nouveau token CSRF
       await fetchCSRFToken(API_BASE);
       
-      // Parser chaque PDF
+      // Analyser chaque relevé
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setProgress(Math.round((i / files.length) * 100));
         
         try {
           const formData = new FormData();
-          formData.append('pdf', file);
+          formData.append('statement', file);
 
           const res = await fetch(`${API_BASE}/api/finance/import-bank-statement`, {
             method: 'POST',
@@ -228,7 +227,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
         <ModalHeader>
           <HStack>
             <FiUpload />
-            <Text>Import relevé bancaire PDF</Text>
+            <Text>Import relevé bancaire</Text>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -252,7 +251,7 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
                 {parsing ? (
                   <VStack spacing={3}>
                     <Spinner size="xl" color="blue.500" />
-                    <Text color="blue.600">Analyse des PDFs en cours…</Text>
+                    <Text color="blue.600">Analyse des relevés en cours…</Text>
                     {progress > 0 && (
                       <Box w="80%">
                         <Progress value={progress} colorScheme="blue" size="sm" borderRadius="md" />
@@ -264,19 +263,19 @@ export default function BankStatementImport({ isOpen, onClose, onImported }) {
                   <VStack spacing={3}>
                     <Text fontSize="3xl">📄</Text>
                     <Heading size="md" color="blue.600">Glissez ou cliquez pour sélectionner</Heading>
-                    <Text color="gray.500">Relevés bancaires au format PDF (sélection multiple possible)</Text>
+                    <Text color="gray.500">Relevés OFX, CSV, XLS ou XLSX (sélection multiple possible)</Text>
                     <Button colorScheme="blue" variant="outline" size="sm">Choisir un ou plusieurs fichiers</Button>
                   </VStack>
                 )}
               </Box>
 
-              <input ref={fileRef} type="file" accept=".pdf,application/pdf" multiple style={{ display: 'none' }} onChange={handleFile} />
+              <input ref={fileRef} type="file" accept=".ofx,.csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple style={{ display: 'none' }} onChange={handleFile} />
 
               <Alert status="info" borderRadius="md" maxW="500px">
                 <AlertIcon />
                 <Box fontSize="sm">
-                  <Text fontWeight="bold">Banques compatibles</Text>
-                  <Text>Crédit Agricole, LCL, BNP Paribas, Société Générale, CIC, Caisse d'Épargne, La Banque Postale, Boursorama…</Text>
+                  <Text fontWeight="bold">Exports BNP Paribas compatibles</Text>
+                  <Text>OFX XML ou SGML, CSV avec séparateur point-virgule, Excel XLS ou XLSX.</Text>
                 </Box>
               </Alert>
             </VStack>
