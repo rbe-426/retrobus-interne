@@ -165,6 +165,7 @@ const FinanceTransactions = () => {
     setSavingPendingLinks(true);
     let successCount = 0;
     let errorCount = 0;
+    const errorMessages = [];
 
     for (const [transactionId, link] of links) {
       try {
@@ -172,9 +173,16 @@ const FinanceTransactions = () => {
           `${API_BASE}/api/finance/transactions/${transactionId}/link`,
           { method: "POST", body: JSON.stringify(link) }
         );
-        if (response.ok) successCount++; else errorCount++;
-      } catch {
+        if (response.ok) {
+          successCount++;
+        } else {
+          const data = await response.json().catch(() => ({}));
+          errorCount++;
+          errorMessages.push(data.error || `Transaction ${transactionId} non liée`);
+        }
+      } catch (error) {
         errorCount++;
+        errorMessages.push(error.message || `Transaction ${transactionId} non liée`);
       }
     }
 
@@ -185,7 +193,9 @@ const FinanceTransactions = () => {
     }
     toast({
       title: "Liaisons enregistrées",
-      description: `${successCount} liaison(s) enregistrée(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+      description: errorCount > 0
+        ? `${successCount} liaison(s) enregistrée(s), ${errorCount} erreur(s) : ${[...new Set(errorMessages)].join(" ")}`
+        : `${successCount} liaison(s) enregistrée(s)`,
       status: errorCount === 0 ? "success" : "warning",
       duration: 4000
     });
