@@ -18,7 +18,7 @@ import {
 } from "../utils/financeBusinessRules";
 import { fetchWithCSRF } from "../lib/csrfClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 export const useFinanceData = (currentUser = null) => {
   const toast = useToast();
@@ -130,12 +130,10 @@ export const useFinanceData = (currentUser = null) => {
         });
         if (transRes.ok) {
           const data = await transRes.json();
-          setTransactions(data.transactions || []);
+          const loadedTransactions = data.transactions || [];
+          setTransactions(loadedTransactions);
           // Calculer les stats depuis les transactions
-          if (data.transactions && data.transactions.length > 0) {
-            const stats = calculateFinancialStats(data.transactions, []);
-            setStats(stats);
-          }
+          setStats(calculateFinancialStats(loadedTransactions, []));
         }
       } catch (err) {
         console.warn("⚠️ Erreur chargement transactions:", err.message);
