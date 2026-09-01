@@ -9,7 +9,7 @@ import {
   NumberDecrementStepper, Alert, AlertIcon, IconButton, Tooltip, Spinner,
   Checkbox, Stack, Divider, Tag, SimpleGrid, Textarea
 } from "@chakra-ui/react";
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload, FiLink, FiX, FiCheck, FiChevronDown, FiChevronUp, FiSave } from "react-icons/fi";
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiAlertTriangle, FiUpload, FiLink, FiX, FiCheck, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiSave } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBusinessRules";
 import BankStatementImport from "./BankStatementImport";
@@ -28,6 +28,8 @@ const FinanceTransactions = () => {
   const [transactionsTotal, setTransactionsTotal] = useState(0);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [availableDocuments, setAvailableDocuments] = useState([]);
+  const [pendingLinks, setPendingLinks] = useState({});
+  const [savingPendingLinks, setSavingPendingLinks] = useState(false);
 
   // Sélection multiple
   const [selectedTxIds, setSelectedTxIds] = useState(new Set());
@@ -139,39 +141,54 @@ const FinanceTransactions = () => {
     }
   };
 
-  const handleLinkDocument = async (transactionId, documentId, documentType, documentNumber) => {
-    try {
-      const response = await fetchWithCSRF(
-        `${API_BASE}/api/finance/transactions/${transactionId}/link`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            linkedDocumentId: documentId,
-            linkedDocumentType: documentType,
-            linkedDocumentNumber: documentNumber
-          })
-        }
-      );
-
-      if (response.ok) {
-        toast({
-          title: "Document lié",
-          description: `Transaction liée au ${documentType} ${documentNumber}`,
-          status: "success",
-          duration: 3000
-        });
-        await loadTransactions();
+  const queueLinkDocument = (transactionId, documentId) => {
+    const document = availableDocuments.find((item) => item.id === documentId);
+    setPendingLinks((links) => {
+      const nextLinks = { ...links };
+      if (document) {
+        nextLinks[transactionId] = {
+          linkedDocumentId: document.id,
+          linkedDocumentType: document.displayType,
+          linkedDocumentNumber: document.number
+        };
       } else {
-        throw new Error("Erreur liaison");
+        delete nextLinks[transactionId];
       }
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de lier le document",
-        status: "error",
-        duration: 3000
-      });
+      return nextLinks;
+    });
+  };
+
+  const savePendingLinks = async () => {
+    const links = Object.entries(pendingLinks);
+    if (links.length === 0) return;
+
+    setSavingPendingLinks(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const [transactionId, link] of links) {
+      try {
+        const response = await fetchWithCSRF(
+          `${API_BASE}/api/finance/transactions/${transactionId}/link`,
+          { method: "POST", body: JSON.stringify(link) }
+        );
+        if (response.ok) successCount++; else errorCount++;
+      } catch {
+        errorCount++;
+      }
     }
+
+    setSavingPendingLinks(false);
+    if (successCount > 0) {
+      setPendingLinks({});
+      await loadTransactions();
+    }
+    toast({
+      title: "Liaisons enregistrées",
+      description: `${successCount} liaison(s) enregistrée(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+      status: errorCount === 0 ? "success" : "warning",
+      duration: 4000
+    });
   };
 
   const handleUnlinkDocument = async (transactionId) => {
@@ -227,7 +244,7 @@ const FinanceTransactions = () => {
     setSelectedTxIds(new Set());
   };
 
-  const handleBulkLink = async () => {
+  const handleBulkLink = () => {
     if (!bulkLinkDebtId || selectedTxIds.size === 0) {
       toast({
         title: "Erreur",
@@ -238,54 +255,37 @@ const FinanceTransactions = () => {
       return;
     }
 
-    try {
-      const selectedDoc = availableDocuments.find(d => d.id === bulkLinkDebtId);
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (const txId of selectedTxIds) {
-        try {
-          const response = await fetchWithCSRF(
-            `${API_BASE}/api/finance/transactions/${txId}/link`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                linkedDocumentId: selectedDoc.id,
-                linkedDocumentType: selectedDoc.displayType,
-                linkedDocumentNumber: selectedDoc.number
-              })
-            }
-          );
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch (error) {
-          errorCount++;
-        }
-      }
-
-      await loadTransactions();
-      clearSelection();
-      setBulkLinkDebtId("");
-      onBulkLinkClose();
-
-      toast({
-        title: "Liaison terminée",
-        description: `${successCount} transaction(s) liée(s), ${errorCount} erreur(s)`,
-        status: successCount > 0 ? "success" : "error",
-        duration: 4000
-      });
-    } catch (error) {
+    const selectedDocument = availableDocuments.find((document) => document.id === bulkLinkDebtId);
+    if (!selectedDocument) {
       toast({
         title: "Erreur",
-        description: "Erreur lors de la liaison groupée",
+        description: "Document introuvable",
         status: "error",
         duration: 3000
       });
+      return;
     }
+
+    setPendingLinks((links) => {
+      const nextLinks = { ...links };
+      selectedTxIds.forEach((transactionId) => {
+        nextLinks[transactionId] = {
+          linkedDocumentId: selectedDocument.id,
+          linkedDocumentType: selectedDocument.displayType,
+          linkedDocumentNumber: selectedDocument.number
+        };
+      });
+      return nextLinks;
+    });
+    clearSelection();
+    setBulkLinkDebtId("");
+    onBulkLinkClose();
+    toast({
+      title: "Liaisons préparées",
+      description: "Utilisez « Enregistrer les liaisons » pour confirmer.",
+      status: "info",
+      duration: 3000
+    });
   };
 
   const handleBulkUnlink = async () => {
@@ -435,6 +435,7 @@ const FinanceTransactions = () => {
   });
 
   const selectedTransactions = filteredTransactions.filter(t => selectedTxIds.has(t.id));
+  const totalPages = Math.max(1, Math.ceil(transactionsTotal / pageSize));
 
   return (
     <Box>
@@ -502,11 +503,37 @@ const FinanceTransactions = () => {
               </Alert>
             )}
 
+            {Object.keys(pendingLinks).length > 0 && (
+              <Alert status="warning" borderRadius="md">
+                <AlertIcon />
+                <Flex flex={1} justify="space-between" align="center" wrap="wrap" gap={3}>
+                  <Text fontWeight="600">
+                    {Object.keys(pendingLinks).length} liaison{Object.keys(pendingLinks).length > 1 ? "s" : ""} en attente
+                  </Text>
+                  <HStack>
+                    <Button
+                      size="sm"
+                      leftIcon={<FiSave />}
+                      colorScheme="blue"
+                      onClick={savePendingLinks}
+                      isLoading={savingPendingLinks}
+                      loadingText="Enregistrement"
+                    >
+                      Enregistrer les liaisons
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPendingLinks({})} isDisabled={savingPendingLinks}>
+                      Annuler
+                    </Button>
+                  </HStack>
+                </Flex>
+              </Alert>
+            )}
+
             {/* Filtres */}
             <HStack spacing={3} wrap="wrap">
               <Select
                 value={linkFilter}
-                onChange={(e) => setLinkFilter(e.target.value)}
+                onChange={(e) => { setLinkFilter(e.target.value); setCurrentPage(1); }}
                 maxW="200px"
                 size="sm"
               >
@@ -517,7 +544,7 @@ const FinanceTransactions = () => {
 
               <Select
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
+                onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
                 maxW="200px"
                 size="sm"
               >
@@ -532,7 +559,7 @@ const FinanceTransactions = () => {
                 <Input
                   placeholder="Rechercher..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 />
               </InputGroup>
             </HStack>
@@ -619,14 +646,8 @@ const FinanceTransactions = () => {
                               size="xs"
                               placeholder="Lier..."
                               fontSize="xs"
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  const doc = availableDocuments.find(d => d.id === e.target.value);
-                                  if (doc) {
-                                    handleLinkDocument(t.id, doc.id, doc.displayType, doc.number);
-                                  }
-                                }
-                              }}
+                              value={pendingLinks[t.id]?.linkedDocumentId || ""}
+                              onChange={(e) => queueLinkDocument(t.id, e.target.value)}
                             >
                               {availableDocuments.map(doc => (
                                 <option key={doc.id} value={doc.id}>
@@ -813,14 +834,8 @@ const FinanceTransactions = () => {
                                   <Select
                                     size="sm"
                                     placeholder="Lier à un document..."
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        const doc = availableDocuments.find(d => d.id === e.target.value);
-                                        if (doc) {
-                                          handleLinkDocument(t.id, doc.id, doc.displayType, doc.number);
-                                        }
-                                      }
-                                    }}
+                                    value={pendingLinks[t.id]?.linkedDocumentId || ""}
+                                    onChange={(e) => queueLinkDocument(t.id, e.target.value)}
                                   >
                                     {availableDocuments.map(doc => (
                                       <option key={doc.id} value={doc.id}>
@@ -851,6 +866,45 @@ const FinanceTransactions = () => {
                   </Box>
                 )}
               </Box>
+            )}
+
+            {transactionsTotal > 0 && (
+              <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
+                <Text fontSize="sm" color="gray.600">
+                  {transactionsTotal} opération{transactionsTotal > 1 ? "s" : ""} - page {currentPage} sur {totalPages}
+                </Text>
+                <HStack>
+                  <Select
+                    aria-label="Opérations par page"
+                    size="sm"
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                    w="120px"
+                  >
+                    <option value={20}>20 par page</option>
+                    <option value={50}>50 par page</option>
+                    <option value={100}>100 par page</option>
+                  </Select>
+                  <Tooltip label="Page précédente">
+                    <IconButton
+                      aria-label="Page précédente"
+                      icon={<FiChevronLeft />}
+                      size="sm"
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                      isDisabled={currentPage === 1}
+                    />
+                  </Tooltip>
+                  <Tooltip label="Page suivante">
+                    <IconButton
+                      aria-label="Page suivante"
+                      icon={<FiChevronRight />}
+                      size="sm"
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                      isDisabled={currentPage === totalPages}
+                    />
+                  </Tooltip>
+                </HStack>
+              </Flex>
             )}
           </VStack>
         </CardBody>

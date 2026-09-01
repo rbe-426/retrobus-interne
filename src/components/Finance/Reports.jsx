@@ -26,10 +26,14 @@ const FinanceReports = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-  // Calculer les rapports par catégorie
+  const yearTransactions = (transactions || []).filter((transaction) => (
+    new Date(transaction.date).getFullYear() === reportYear
+  ));
+
+  // Calculer les rapports par catégorie pour l'année sélectionnée
   const calculateCategoryReport = () => {
     const categories = {};
-    (transactions || []).forEach(t => {
+    yearTransactions.forEach(t => {
       if (!categories[t.category]) {
         categories[t.category] = { credits: 0, debits: 0 };
       }
@@ -51,7 +55,7 @@ const FinanceReports = () => {
       balance: 0
     }));
 
-    (transactions || []).forEach(t => {
+    yearTransactions.forEach(t => {
       const tDate = new Date(t.date);
       if (tDate.getFullYear() === reportYear) {
         const monthIndex = tDate.getMonth();
@@ -130,7 +134,7 @@ const FinanceReports = () => {
             <Box>
               <Stat>
                 <StatLabel>Transactions</StatLabel>
-                <StatNumber>{(transactions || []).length}</StatNumber>
+                <StatNumber>{yearTransactions.length}</StatNumber>
               </Stat>
             </Box>
             <Box>

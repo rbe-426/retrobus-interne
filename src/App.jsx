@@ -198,7 +198,8 @@ export default function App() {
         
         {/* 💰 Route gestion financière */}
         <Route path="/admin/finance" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><AdminFinance /></RoleProtectedRoute>} />
-        <Route path="/admin/finance-v2" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'TRESORIER']}><FinanceNew /></RoleProtectedRoute>} />
+        <Route path="/myrbe/gestion-financiere" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'TRESORIER']}><FinanceNew /></RoleProtectedRoute>} />
+        <Route path="/admin/finance-v2" element={<Navigate to="/myrbe/gestion-financiere" replace />} />
         <Route path="/dashboard/ndf" element={<ProtectedRoute><NDF /></ProtectedRoute>} />
         
         {/* 🚗 Routes des véhicules */}

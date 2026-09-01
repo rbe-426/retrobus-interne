@@ -88,7 +88,7 @@ const cards = [
   {
     title: "Gestion Financière",
     description: "Recettes, dépenses et opérations programmées",
-    to: "/admin/finance-v2",
+    to: "/myrbe/gestion-financiere",
     icon: FiDollarSign,
     color: "rbe",
     resource: "FINANCE",

@@ -31,11 +31,11 @@ export const useFinanceData = (currentUser = null) => {
         return userStr ? JSON.parse(userStr) : null;
       })();
       
-      if (user && typeof getPrimaryRole === "function") {
-        return getPrimaryRole(user);
-      } else if (user?.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-        return user.roles[0];
-      } else if (user?.role) {
+      if (Array.isArray(user?.roles) && user.roles.length > 0) {
+        const primaryRole = user.roles[0];
+        return typeof primaryRole === "string" ? primaryRole : primaryRole?.name || primaryRole?.role || "MEMBER";
+      }
+      if (user?.role) {
         return user.role;
       }
     } catch (e) {
@@ -123,7 +123,7 @@ export const useFinanceData = (currentUser = null) => {
 
       // Charger les transactions
       try {
-        const transRes = await fetch(`${API_BASE}/api/finance/transactions`, {
+        const transRes = await fetch(`${API_BASE}/api/finance/transactions?limit=1000`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
