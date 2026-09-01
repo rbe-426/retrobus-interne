@@ -15,7 +15,7 @@ import { TRANSACTION_CATEGORIES, getCategoryLabel } from "../../utils/financeBus
 import BankStatementImport from "./BankStatementImport";
 import { fetchWithCSRF } from "../../lib/csrfClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 const FinanceTransactions = () => {
   const {

@@ -23,7 +23,7 @@ const LEGACY_EXPENSE_REPORT_TYPES = {
   "Frais de déplacement": "Frais KM"
 };
 const BANK_TRANSFER_URL = import.meta.env.VITE_BANK_TRANSFER_URL || "https://mabanque.bnpparibas/";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const NDF_MANAGER_EMAIL = "belaidiw91@gmail.com";
 
 /**

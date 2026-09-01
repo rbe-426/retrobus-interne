@@ -14,7 +14,7 @@ import {
 } from "react-icons/fi";
 import { fetchWithCSRF } from "../../lib/csrfClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 const TYPE_LABELS = { DETTE: "Dette", CRÉANCE: "Créance" };
 const DEBTOR_TYPE_LABELS = { MEMBER: "Membre", ASSOCIATION: "Association", OTHER: "Autre" };

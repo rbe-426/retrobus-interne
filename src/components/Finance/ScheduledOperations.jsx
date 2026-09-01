@@ -10,7 +10,7 @@ import {
 import { FiCheck, FiX, FiPlus, FiTrash2, FiClock, FiTrendingUp, FiMoreVertical } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 /**
  * ScheduledOperations - Opérations programmées avec progression visuelle

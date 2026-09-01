@@ -19,6 +19,8 @@ import {
 import { useFinanceData } from "../../hooks/useFinanceData";
 import DevisWizard from "./DevisWizard";
 
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+
 const FinanceInvoicing = () => {
   const {
     documents,
@@ -155,7 +157,7 @@ const FinanceInvoicing = () => {
 
           for (let i = 0; i < linesPayload.length; i++) {
             const response = await fetch(
-              (import.meta.env.VITE_API_URL || "http://localhost:4000") + `/api/${lineEndpoint}`,
+              `${API_BASE}/api/${lineEndpoint}`,
               {
                 method: 'POST',
                 headers: {

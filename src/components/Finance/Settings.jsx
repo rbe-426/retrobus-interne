@@ -8,6 +8,8 @@ import {
 import { FiSave, FiLock } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+
 const FinanceSettings = () => {
   const {
     balance,
@@ -23,16 +25,22 @@ const FinanceSettings = () => {
   const [auditLog, setAuditLog] = useState([]);
   const toast = useToast();
 
-  // Charger l'historique d'audit depuis localStorage
+  // L'historique est partagé entre les utilisateurs et persiste côté serveur.
   useEffect(() => {
-    const stored = localStorage.getItem("financeAuditLog");
-    if (stored) {
+    const loadAuditLog = async () => {
       try {
-        setAuditLog(JSON.parse(stored));
-      } catch (e) {
-        console.warn("Erreur lecture audit log");
+        const response = await fetch(`${API_BASE}/api/finance/balance/history`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+        if (!response.ok) throw new Error("Historique indisponible");
+        const data = await response.json();
+        setAuditLog(data.history || []);
+      } catch (error) {
+        console.error("Erreur chargement historique solde:", error);
+        setAuditLog([]);
       }
-    }
+    };
+    loadAuditLog();
   }, []);
 
   // Garder newBalance synchronisé avec balance
@@ -64,22 +72,14 @@ const FinanceSettings = () => {
       const success = await updateBalance(parseFloat(newBalance), balanceReason);
       
       if (success) {
-        // Ajouter à l'historique d'audit local
-        const newEntry = {
-          id: Date.now(),
-          timestamp: new Date().toLocaleString('fr-FR'),
-          user: localStorage.getItem('userName') || "Utilisateur",
-          action: "Modification solde",
-          oldValue: balance.toFixed(2),
-          newValue: newBalance,
-          reason: balanceReason || "Mise à jour manuelle"
-        };
-        
-        const updated = [newEntry, ...auditLog];
-        setAuditLog(updated);
-        localStorage.setItem("financeAuditLog", JSON.stringify(updated));
-        
         setBalanceReason("");
+        const historyResponse = await fetch(`${API_BASE}/api/finance/balance/history`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        });
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setAuditLog(data.history || []);
+        }
         toast({
           title: "Succès",
           description: "Solde mis à jour",
@@ -206,13 +206,13 @@ const FinanceSettings = () => {
               <Tbody>
                 {auditLog.map(entry => (
                   <Tr key={entry.id} _hover={{ bg: "gray.50" }}>
-                    <Td fontSize="xs">{entry.timestamp}</Td>
-                    <Td fontWeight="500">{entry.user}</Td>
+                    <Td fontSize="xs">{new Date(entry.createdAt).toLocaleString('fr-FR')}</Td>
+                    <Td fontWeight="500">Rapprochement bancaire</Td>
                     <Td>
-                      <Badge colorScheme="blue">{entry.action}</Badge>
+                      <Badge colorScheme="blue">Modification solde</Badge>
                     </Td>
-                    <Td isNumeric fontSize="sm">{entry.oldValue} €</Td>
-                    <Td isNumeric fontSize="sm" fontWeight="600">{entry.newValue} €</Td>
+                    <Td isNumeric fontSize="sm">{Number(entry.oldBalance || 0).toFixed(2)} €</Td>
+                    <Td isNumeric fontSize="sm" fontWeight="600">{Number(entry.newBalance || 0).toFixed(2)} €</Td>
                     <Td fontSize="sm" color="gray.600">{entry.reason}</Td>
                   </Tr>
                 ))}

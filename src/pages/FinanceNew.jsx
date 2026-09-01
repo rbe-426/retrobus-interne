@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FiDollarSign,
   FiTrendingUp,
@@ -9,7 +10,8 @@ import {
   FiFileText,
   FiActivity,
   FiShoppingCart,
-  FiAlertCircle
+  FiAlertCircle,
+  FiRefreshCw
 } from "react-icons/fi";
 import {
   Box, VStack, HStack, Heading, Text, Button, Icon, Flex
@@ -20,7 +22,6 @@ import { useSidebar } from "../context/SidebarContext";
 import FinanceDashboard from "../components/Finance/Dashboard";
 import FinanceTransactions from "../components/Finance/TransactionsImproved";
 import FinanceScheduledOps from "../components/Finance/ScheduledOperations";
-import FinanceQuotes from "../components/Finance/Quotes";
 import FinanceInvoicing from "../components/Finance/Invoicing";
 import FinanceReports from "../components/Finance/Reports";
 import FinanceSettings from "../components/Finance/Settings";
@@ -38,12 +39,13 @@ import { useUser } from "../context/UserContext";
 const FinanceNew = () => {
   // États de navigation
   const [activeMainSection, setActiveMainSection] = useState("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Récupérer le contexte sidebar pour fermer automatiquement sur mobile après clic
   const { closeOnMobile } = useSidebar();
 
   // Charger les données Finance une fois au mount
-  const { loadFinanceData } = useFinanceData();
+  const { loadFinanceData, loading } = useFinanceData();
   const { user, roles } = useUser(); // Récupérer l'utilisateur et ses rôles
 
   useEffect(() => {
@@ -61,16 +63,31 @@ const FinanceNew = () => {
 
   // Sections principales
   const sections = [
-    { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Vue d'ensemble" },
-    { id: "transactions", label: "Transactions", icon: FiCreditCard, description: "Mouvements financiers" },
-    { id: "scheduled", label: "Opérations programmées", icon: FiCalendar, description: "Paiements récurrents" },
-    { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Gestion documents" },
-    { id: "debts", label: "Dettes", icon: FiAlertCircle, description: "Créanciers & échéances" },
-    { id: "ndf", label: "Suivi NDF", icon: FiShoppingCart, description: "Validation & remboursements" },
-    { id: "simulations", label: "Simulations", icon: FiActivity, description: "Projections" },
-    { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyses" },
-    { id: "settings", label: "Paramètres", icon: FiSettings, description: "Configuration" }
+    { id: "dashboard", label: "Tableau de bord", icon: FiBarChart, description: "Situation financière et indicateurs clés" },
+    { id: "transactions", label: "Transactions", icon: FiCreditCard, description: "Recettes, dépenses et rapprochement" },
+    { id: "scheduled", label: "Opérations programmées", icon: FiCalendar, description: "Paiements récurrents et échéanciers" },
+    { id: "invoicing", label: "Devis & Factures", icon: FiFileText, description: "Documents commerciaux et encaissements" },
+    { id: "debts", label: "Dettes", icon: FiAlertCircle, description: "Créances, dettes et échéances" },
+    { id: "ndf", label: "Notes de frais", icon: FiShoppingCart, description: "Validation et remboursement" },
+    { id: "simulations", label: "Simulations", icon: FiActivity, description: "Prévisions de trésorerie" },
+    { id: "reports", label: "Rapports & KPI", icon: FiTrendingUp, description: "Analyse des opérations enregistrées" },
+    { id: "settings", label: "Paramètres", icon: FiSettings, description: "Solde de référence et audit" }
   ];
+
+  useEffect(() => {
+    const requestedSection = searchParams.get("section");
+    if (sections.some((section) => section.id === requestedSection)) {
+      setActiveMainSection(requestedSection);
+    }
+  }, [searchParams]);
+
+  const selectSection = (sectionId) => {
+    setActiveMainSection(sectionId);
+    setSearchParams(sectionId === "dashboard" ? {} : { section: sectionId });
+    closeOnMobile();
+  };
+
+  const activeSection = sections.find((section) => section.id === activeMainSection) || sections[0];
 
   // Rendu du contenu selon la section active
   const renderMainContent = () => {
@@ -110,7 +127,6 @@ const FinanceNew = () => {
             <Text fontSize="sm" color="gray.500">Pilotage budgétaire</Text>
           </Box>
         </HStack>
-        <Text fontSize="xs" color="gray.500">Finance v2</Text>
       </Box>
 
       {/* Navigation principale */}
@@ -130,23 +146,14 @@ const FinanceNew = () => {
                 borderColor={isActive ? "blue.500" : "transparent"}
                 borderRadius={0}
                 px={4}
-                py={6}
+                py={3}
                 fontSize="sm"
                 fontWeight={isActive ? "600" : "500"}
                 color={isActive ? "blue.500" : "inherit"}
                 _hover={{ bg: "gray.100", borderLeftColor: "blue.500" }}
-                onClick={() => {
-                  setActiveMainSection(section.id);
-                  // Fermer la sidebar sur mobile après sélection
-                  closeOnMobile();
-                }}
+                onClick={() => selectSection(section.id)}
               >
-                <Flex direction="column" align="flex-start" w="full">
-                  <Text>{section.label}</Text>
-                  {section.description && (
-                    <Text fontSize="xs" color="gray.500">{section.description}</Text>
-                  )}
-                </Flex>
+                <Text>{section.label}</Text>
               </Button>
             </Box>
           );
@@ -155,7 +162,7 @@ const FinanceNew = () => {
 
       {/* Footer du sidebar */}
       <Box p={4} borderTop="1px" borderColor="gray.200" fontSize="xs" color="gray.500" textAlign="center" w="full">
-        MyRBE Finance
+        Gestion financière
       </Box>
     </VStack>
   );
@@ -165,31 +172,16 @@ const FinanceNew = () => {
       <VStack align="stretch" spacing={0} h="full" w="full">
         {/* Header */}
         <Box p={6} borderBottom="1px" borderColor="gray.200" bg="white">
-          <HStack justify="space-between">
+          <HStack justify="space-between" align="center" wrap="wrap" gap={3}>
             <Box>
-              <Heading size="lg">
-                {activeMainSection === "dashboard" && "Tableau de bord"}
-                {activeMainSection === "transactions" && "Transactions"}
-                {activeMainSection === "scheduled" && "Opérations programmées"}
-                {activeMainSection === "invoicing" && "Devis & Factures"}
-                {activeMainSection === "debts" && "Dettes"}
-                {activeMainSection === "ndf" && "Suivi NDF"}
-                {activeMainSection === "simulations" && "Simulations"}
-                {activeMainSection === "reports" && "Rapports & KPI"}
-                {activeMainSection === "settings" && "Paramètres"}
-              </Heading>
+              <Heading size="lg">{activeSection.label}</Heading>
               <Text fontSize="sm" color="gray.500">
-                {activeMainSection === "dashboard" && "Vue d'ensemble de votre situation financière"}
-                {activeMainSection === "transactions" && "Gérez vos recettes et dépenses"}
-                {activeMainSection === "scheduled" && "Paiements et prélèvements récurrents"}
-                {activeMainSection === "invoicing" && "Gestion des devis et factures"}
-                {activeMainSection === "debts" && "Suivi des créanciers et échéances"}
-                {activeMainSection === "ndf" && "Validation, suivi et remboursement des notes de frais"}
-                {activeMainSection === "simulations" && "Simulations financières"}
-                {activeMainSection === "reports" && "Rapports et indicateurs clés"}
-                {activeMainSection === "settings" && "Configuration de votre espace Finance"}
+                {activeSection.description}
               </Text>
             </Box>
+            <Button leftIcon={<FiRefreshCw />} variant="outline" size="sm" onClick={loadFinanceData} isLoading={loading}>
+              Actualiser
+            </Button>
           </HStack>
         </Box>
 
