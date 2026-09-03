@@ -4,7 +4,7 @@ import {
   Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader,
   ModalOverlay, SimpleGrid, Text, Textarea, VStack, useDisclosure, useToast,
 } from '@chakra-ui/react';
-import { FiArrowLeft, FiBook, FiCheckCircle, FiFileText, FiFolder, FiShield, FiTool, FiTrash2, FiUpload, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiBook, FiCheckCircle, FiEdit2, FiFileText, FiFolder, FiShield, FiTool, FiTrash2, FiUpload, FiUsers } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageLayout from '../components/Layout/PageLayout';
 import { apiClient } from '../api/config';
@@ -83,15 +83,44 @@ function ProcedureUploadModal({ category, isOpen, onClose, onPublished }) {
   return <Modal isOpen={isOpen} onClose={close} isCentered><ModalOverlay /><ModalContent><ModalHeader>Ajouter une procédure</ModalHeader><ModalCloseButton /><ModalBody><VStack align="stretch" spacing={4}><Box><Text fontSize="sm" fontWeight="700">Catégorie</Text><Text color="gray.600">{category.title}</Text></Box><Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Titre de la procédure" /><Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description courte" resize="vertical" /><Input ref={fileRef} type="file" accept="application/pdf,.pdf" p={1} onChange={(event) => setFile(event.target.files?.[0] || null)} /></VStack></ModalBody><ModalFooter><Button variant="ghost" onClick={close}>Annuler</Button><Button colorScheme="blue" leftIcon={<FiUpload />} isLoading={submitting} onClick={publish}>Publier</Button></ModalFooter></ModalContent></Modal>;
 }
 
+function ProcedureReplaceModal({ document, isOpen, onClose, onUpdated }) {
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [file, setFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const close = () => { setFile(null); if (fileRef.current) fileRef.current.value = ''; onClose(); };
+  const replace = async () => {
+    if (!file) return toast({ status: 'warning', title: 'PDF requis' });
+    if (file.type !== 'application/pdf') return toast({ status: 'error', title: 'Format invalide', description: 'Sélectionnez un fichier PDF.' });
+    try {
+      setSubmitting(true);
+      await fetchCSRFToken(API_BASE);
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${API_BASE}/api/procedures/documents/${document.id}`, { method: 'PUT', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'X-CSRF-Token': getStoredCSRFToken() || '' }, body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Mise à jour impossible');
+      toast({ status: 'success', title: 'Procédure mise à jour' });
+      onUpdated(data.document);
+      close();
+    } catch (error) { toast({ status: 'error', title: 'Mise à jour impossible', description: error.message }); }
+    finally { setSubmitting(false); }
+  };
+  if (!document) return null;
+  return <Modal isOpen={isOpen} onClose={close} isCentered><ModalOverlay /><ModalContent><ModalHeader>Mettre à jour la procédure</ModalHeader><ModalCloseButton /><ModalBody><VStack align="stretch" spacing={4}><Box><Text fontSize="sm" fontWeight="700">{document.title}</Text><Text fontSize="sm" color="gray.600">Le PDF actuel sera remplacé. Le titre et la description sont conservés.</Text></Box><Input ref={fileRef} type="file" accept="application/pdf,.pdf" p={1} onChange={(event) => setFile(event.target.files?.[0] || null)} /></VStack></ModalBody><ModalFooter><Button variant="ghost" onClick={close}>Annuler</Button><Button colorScheme="orange" leftIcon={<FiEdit2 />} isLoading={submitting} onClick={replace}>Mettre à jour</Button></ModalFooter></ModalContent></Modal>;
+}
+
 export default function Procedures() {
   const navigate = useNavigate();
   const { categoryId } = useParams();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isReplaceOpen, onOpen: onReplaceOpen, onClose: onReplaceClose } = useDisclosure();
   const selectedCategory = procedures.find((procedure) => procedure.id === categoryId);
   const [documents, setDocuments] = useState([]);
   const [canPublish, setCanPublish] = useState(false);
   const [loading, setLoading] = useState(Boolean(categoryId));
+  const [documentToReplace, setDocumentToReplace] = useState(null);
 
   useEffect(() => {
     if (!selectedCategory) return;
@@ -117,6 +146,13 @@ export default function Procedures() {
       toast({ status: 'success', title: 'Procédure supprimée' });
     } catch (error) { toast({ status: 'error', title: 'Suppression impossible', description: error.message }); }
   };
+  const markDocumentViewed = (document) => {
+    if (!document.hasUnreadUpdate) return;
+    setDocuments((current) => current.map((item) => item.id === document.id ? { ...item, hasUnreadUpdate: false } : item));
+    apiClient.post(`/procedures/documents/${document.id}/view`, {}).catch(() => {
+      setDocuments((current) => current.map((item) => item.id === document.id ? { ...item, hasUnreadUpdate: true } : item));
+    });
+  };
 
   return (
     <PageLayout
@@ -124,6 +160,7 @@ export default function Procedures() {
       subtitle={selectedCategory ? 'Bibliothèque documentaire opérationnelle' : 'Référentiel opérationnel RétroBus Essonne'}
       breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Procédures', href: '/dashboard/procedures' }]}
       bgGradient="linear(to-r, rbe.600, rbe.800)"
+      headerVariant="card"
       titleSize="lg"
     >
       <VStack spacing={6} align="stretch">
@@ -166,16 +203,17 @@ export default function Procedures() {
               <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing={4}>
                 {documents.map((document) => (
                   <Card key={document.id} overflow="hidden" borderWidth="1px" borderTopWidth="4px" borderTopColor={`${selectedCategory.color}.500`} bg="white" _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${selectedCategory.color}.300` }} transition="all .2s">
-                    <Box as="a" href={`${API_BASE}${document.filePath}`} target="_blank" rel="noreferrer" display="block" aria-label={`Ouvrir ${document.title}`}>
+                    <Box as="a" href={`${API_BASE}${document.filePath}`} target="_blank" rel="noreferrer" display="block" aria-label={`Ouvrir ${document.title}`} onClick={() => markDocumentViewed(document)}>
                       <PdfThumbnail document={document} />
                     </Box>
                     <CardBody p={3}>
-                      <Heading size="xs" color="gray.800" noOfLines={2}>{document.title}</Heading>
+                      <Heading size="xs" color={document.hasUnreadUpdate ? 'orange.500' : 'gray.800'} noOfLines={2}>{document.title}</Heading>
                       {document.description && <Text mt={1} fontSize="xs" color="gray.600" noOfLines={3}>{document.description}</Text>}
                       <HStack mt={3} pt={2} borderTop="1px solid" borderColor="gray.100" justify="space-between">
-                        <Text fontSize="xs" color="gray.500" noOfLines={1}>{document.fileName}</Text>
+                        <Text fontSize="xs" color="gray.500">Éditée le {new Date(document.updatedAt || document.uploadedAt).toLocaleDateString('fr-FR')}</Text>
                         {canPublish && <IconButton size="xs" colorScheme="red" variant="ghost" aria-label={`Supprimer ${document.title}`} icon={<FiTrash2 />} onClick={() => deleteDocument(document)} />}
                       </HStack>
+                      {canPublish && <Button mt={3} w="full" size="xs" colorScheme="orange" variant="outline" leftIcon={<FiEdit2 />} onClick={() => { setDocumentToReplace(document); onReplaceOpen(); }}>Mettre à jour la procédure</Button>}
                     </CardBody>
                   </Card>
                 ))}
@@ -188,6 +226,7 @@ export default function Procedures() {
               </Box>
             )}
             <ProcedureUploadModal category={selectedCategory} isOpen={isOpen} onClose={onClose} onPublished={(document) => setDocuments((current) => [document, ...current])} />
+            <ProcedureReplaceModal document={documentToReplace} isOpen={isReplaceOpen} onClose={onReplaceClose} onUpdated={(updatedDocument) => setDocuments((current) => current.map((document) => document.id === updatedDocument.id ? updatedDocument : document))} />
           </>
         ) : (
           <>
