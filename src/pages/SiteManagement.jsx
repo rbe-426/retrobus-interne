@@ -426,7 +426,7 @@ const AccessManagement = () => {
   if (loading) {
     return (
       <Center py={20}>
-        <Spinner size="lg" color="var(--rbe-red)" />
+        <Spinner size="lg" color="rbe.500" />
       </Center>
     );
   }
@@ -1033,7 +1033,7 @@ const NewsManagement = () => {
     <VStack spacing={6} align="stretch">
       <Flex justify="space-between" align="center">
         <Heading size="md">📰 Actualités RétroBus</Heading>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+        <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
           Nouvelle actualité
         </Button>
       </Flex>
@@ -1053,7 +1053,7 @@ const NewsManagement = () => {
           <CardBody>
             <Center py={10} flexDirection="column">
               <Text mb={4} color="gray.500">Aucune actualité pour le moment</Text>
-              <Button leftIcon={<FiPlus />} colorScheme="blue" size="sm" onClick={handleCreate}>
+              <Button leftIcon={<FiPlus />} colorScheme="rbe" size="sm" onClick={handleCreate}>
                 Créer la première
               </Button>
             </Center>
@@ -1224,7 +1224,7 @@ const NewsManagement = () => {
             <Button variant="ghost" mr={3} onClick={onCreateClose}>
               Annuler
             </Button>
-            <Button colorScheme="blue" onClick={handleSave}>
+            <Button colorScheme="rbe" onClick={handleSave}>
               {editingId ? 'Mettre à jour' : 'Créer'}
             </Button>
           </ModalFooter>
