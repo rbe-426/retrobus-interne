@@ -141,15 +141,15 @@ export default function PublicNewsManagement() {
         </SimpleGrid>
       )}
 
-      <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+      <Modal isOpen={isOpen} onClose={onClose} size="full" scrollBehavior="inside">
         <ModalOverlay /><ModalContent><ModalHeader>{editingId ? 'Modifier l’article public' : 'Nouvel article public'}</ModalHeader><ModalCloseButton />
           <ModalBody pb={6}><SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8} alignItems="start">
             <VStack align="stretch" spacing={5}>
               <FormControl isRequired><FormLabel>Titre</FormLabel><Input value={formData.title} onChange={(event) => setFormData({ ...formData, title: event.target.value })} placeholder="Titre de l'article" /></FormControl>
               <FormControl><FormLabel>Chapô</FormLabel><Textarea value={formData.excerpt} onChange={(event) => setFormData({ ...formData, excerpt: event.target.value })} placeholder="Résumé affiché dans la liste des actualités" rows={3} /></FormControl>
               <FormControl><FormLabel>Image de couverture</FormLabel><Input value={formData.imageUrl} onChange={(event) => setFormData({ ...formData, imageUrl: event.target.value })} placeholder="URL facultative, sinon première image téléversée" /></FormControl>
-              <FormControl isRequired><FormLabel>Article magazine</FormLabel><MarkdownEditor value={formData.content} onChange={(event) => setFormData({ ...formData, content: event.target.value })} media={formData.media} placeholder={'# Titre\n\nIntroduction.\n\n## Sous-titre\n\nTexte et images...'} /></FormControl>
               <Divider /><MediaUploader media={formData.media} onChange={(media) => setFormData({ ...formData, media })} uploadEndpoint="/api/public-news/media/upload" />
+              <FormControl isRequired><FormLabel>Article magazine</FormLabel><MarkdownEditor value={formData.content} onChange={(event) => setFormData({ ...formData, content: event.target.value })} media={formData.media} placeholder={'# Titre\n\nIntroduction.\n\n## Sous-titre\n\nTexte et images...'} /></FormControl>
               <HStack justify="space-between"><FormLabel mb={0}>À la une</FormLabel><Switch colorScheme="red" isChecked={formData.featured} onChange={(event) => setFormData({ ...formData, featured: event.target.checked })} /></HStack>
               <HStack justify="space-between"><FormLabel mb={0}>Publier sur le site externe</FormLabel><Switch colorScheme="red" isChecked={formData.published} onChange={(event) => setFormData({ ...formData, published: event.target.checked })} /></HStack>
             </VStack>

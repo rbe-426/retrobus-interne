@@ -1146,7 +1146,7 @@ const NewsManagement = () => {
       )}
 
       {/* Modal Création/Édition */}
-      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="xl" scrollBehavior="inside">
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="full" scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
@@ -1164,6 +1164,14 @@ const NewsManagement = () => {
                 />
               </FormControl>
 
+              {/* Media Uploader */}
+              <MediaUploader
+                media={formData.media}
+                onChange={(newMedia) => setFormData(prevData => ({ ...prevData, media: newMedia }))}
+              />
+
+              <Divider />
+
               <FormControl isRequired>
                 <FormLabel>Article</FormLabel>
                 <MarkdownEditor
@@ -1173,14 +1181,6 @@ const NewsManagement = () => {
                   placeholder="# Titre\n\nIntroduction de l'article.\n\n## Sous-titre\n\nVotre texte..."
                 />
               </FormControl>
-
-              <Divider />
-
-              {/* Media Uploader */}
-              <MediaUploader
-                media={formData.media}
-                onChange={(newMedia) => setFormData(prevData => ({ ...prevData, media: newMedia }))}
-              />
 
               <Divider />
 
