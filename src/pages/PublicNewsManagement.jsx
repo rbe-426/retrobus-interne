@@ -31,6 +31,11 @@ const parseMedia = (media) => {
   }
 };
 
+const PublicArticleImage = ({ title, alt, ...props }) => {
+  const width = /^width:(33%|50%|100%)$/.test(title || '') ? title.slice(6) : '100%';
+  return <Image {...props} alt={alt || ''} w={width} maxW="100%" mx={width === '100%' ? 0 : 'auto'} />;
+};
+
 export default function PublicNewsManagement() {
   const [articles, setArticles] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -153,7 +158,7 @@ export default function PublicNewsManagement() {
               <HStack justify="space-between"><FormLabel mb={0}>À la une</FormLabel><Switch colorScheme="red" isChecked={formData.featured} onChange={(event) => setFormData({ ...formData, featured: event.target.checked })} /></HStack>
               <HStack justify="space-between"><FormLabel mb={0}>Publier sur le site externe</FormLabel><Switch colorScheme="red" isChecked={formData.published} onChange={(event) => setFormData({ ...formData, published: event.target.checked })} /></HStack>
             </VStack>
-            <Box position={{ lg: 'sticky' }} top={0} bg="white" borderWidth="1px" borderTop="4px solid" borderTopColor="rbe.500" borderRadius="md" overflow="hidden"><Box px={6} py={3} bg="gray.50"><HStack color="rbe.700"><FiEye /><Text fontSize="sm" fontWeight="700">Aperçu public</Text></HStack></Box>{coverImage && <Image src={coverImage} alt="Aperçu de couverture" h="190px" w="full" objectFit="cover" />}<VStack align="stretch" p={6} spacing={4}><Heading size="lg">{formData.title || 'Titre de l’article'}</Heading>{formData.excerpt && <Text color="gray.600" fontWeight="600">{formData.excerpt}</Text>}<Box color="gray.700" sx={{ '& h1, & h2, & h3': { color: '#d30c4c', marginTop: 5, marginBottom: 3 }, '& p': { marginBottom: 3, lineHeight: 'tall' }, '& img': { maxWidth: '100%', borderRadius: '6px', marginTop: 4, marginBottom: 2 }, '& a': { color: '#be003c', textDecoration: 'underline' } }}><ReactMarkdown remarkPlugins={[remarkGfm]}>{formData.content || 'Le contenu de votre article apparaîtra ici.'}</ReactMarkdown></Box></VStack></Box>
+            <Box position={{ lg: 'sticky' }} top={0} bg="white" borderWidth="1px" borderTop="4px solid" borderTopColor="rbe.500" borderRadius="md" overflow="hidden"><Box px={6} py={3} bg="gray.50"><HStack color="rbe.700"><FiEye /><Text fontSize="sm" fontWeight="700">Aperçu public</Text></HStack></Box>{coverImage && <Image src={coverImage} alt="Aperçu de couverture" h="190px" w="full" objectFit="cover" />}<VStack align="stretch" p={6} spacing={4}><Heading size="lg">{formData.title || 'Titre de l’article'}</Heading>{formData.excerpt && <Text color="gray.600" fontWeight="600">{formData.excerpt}</Text>}<Box color="gray.700" sx={{ '& h1, & h2, & h3': { color: '#d30c4c', marginTop: 5, marginBottom: 3 }, '& p': { marginBottom: 3, lineHeight: 'tall' }, '& img': { maxWidth: '100%', borderRadius: '6px', marginTop: 4, marginBottom: 2 }, '& a': { color: '#be003c', textDecoration: 'underline' } }}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ img: PublicArticleImage }}>{formData.content || 'Le contenu de votre article apparaîtra ici.'}</ReactMarkdown></Box></VStack></Box>
           </SimpleGrid></ModalBody>
           <ModalFooter><Button variant="ghost" mr={3} onClick={onClose}>Annuler</Button><Button bg="rbe.600" color="white" _hover={{ bg: 'rbe.500' }} onClick={saveArticle}>{editingId ? 'Mettre à jour' : 'Enregistrer'}</Button></ModalFooter>
         </ModalContent>

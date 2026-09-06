@@ -132,14 +132,14 @@ export default function MarkdownEditor({ value, onChange, media = [], placeholde
     { type: 'ol', label: 'Numérotée', symbol: '1. ' }
   ];
 
-  const insertMedia = useCallback((item) => {
+  const insertMedia = useCallback((item, width = '100%') => {
     const textarea = textareaRef.current;
     if (!textarea || item.type !== 'image') return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const alt = item.caption || item.originalName || 'Image RétroBus Essonne';
-    const imageMarkdown = `![${alt}](${item.url})`;
+    const imageMarkdown = `![${alt}](${item.url} "width:${width}")`;
     const newText = `${textarea.value.substring(0, start)}${imageMarkdown}${textarea.value.substring(end)}`;
 
     onChange({ target: { value: newText } });
@@ -180,19 +180,16 @@ export default function MarkdownEditor({ value, onChange, media = [], placeholde
       {media.some((item) => item.type === 'image' && item.url) && (
         <Box mt={3} p={3} bg="gray.50" borderWidth="1px" borderColor={borderColor} borderRadius="md">
           <Text fontSize="xs" fontWeight="700" mb={2}>Placer une image dans l'article</Text>
-          <HStack spacing={2} wrap="wrap">
+          <VStack spacing={2} align="stretch">
             {media.filter((item) => item.type === 'image' && item.url).map((item, index) => (
-              <Button
-                key={`${item.url}-${index}`}
-                size="xs"
-                variant="outline"
-                leftIcon={<FiImage />}
-                onClick={() => insertMedia(item)}
-              >
-                {item.caption || `Image ${index + 1}`}
-              </Button>
+              <HStack key={`${item.url}-${index}`} spacing={2} wrap="wrap">
+                <Text fontSize="xs" flex={{ base: '1 0 100%', sm: 1 }} noOfLines={1}>{item.caption || `Image ${index + 1}`}</Text>
+                <Button size="xs" variant="outline" leftIcon={<FiImage />} onClick={() => insertMedia(item, '33%')}>Petite</Button>
+                <Button size="xs" variant="outline" leftIcon={<FiImage />} onClick={() => insertMedia(item, '50%')}>Moyenne</Button>
+                <Button size="xs" variant="outline" leftIcon={<FiImage />} onClick={() => insertMedia(item, '100%')}>Large</Button>
+              </HStack>
             ))}
-          </HStack>
+          </VStack>
         </Box>
       )}
 
