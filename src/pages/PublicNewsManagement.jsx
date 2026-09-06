@@ -33,7 +33,7 @@ const parseMedia = (media) => {
 
 const PublicArticleImage = ({ title, alt, ...props }) => {
   const width = /^width:(33%|50%|100%)$/.test(title || '') ? title.slice(6) : '100%';
-  return <Image {...props} alt={alt || ''} w={width} maxW="100%" mx={width === '100%' ? 0 : 'auto'} />;
+  return <Image {...props} alt={alt || ''} w={width} maxW="100%" mx={0} />;
 };
 
 export default function PublicNewsManagement() {
