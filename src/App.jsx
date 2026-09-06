@@ -112,6 +112,7 @@ const IneoDriver = lazy(() => import("./pages/IneoDriver"));
 const IneoOperations = lazy(() => import("./pages/IneoOperations"));
 const IneoFreeTracking = lazy(() => import("./pages/IneoFreeTracking"));
 const LeMusee = lazy(() => import("./pages/LeMusee"));
+const PublicNewsManagement = lazy(() => import("./pages/PublicNewsManagement"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -135,10 +136,10 @@ export default function App() {
   );
   const canAccessMuseum = import.meta.env.DEV || isBelaidi;
   
-  const isRetromailWorkspace = location.pathname === '/auth/rmail/login' || location.pathname === '/myrbe/retromail';
-  const isIneoOperationsWorkspace = location.pathname === '/dashboard/ineo-retrobus';
-  const isIneoDriverWorkspace = location.pathname.startsWith('/myrbe/ineo-retrobus/service');
-  const isIneoFreeTrackingWorkspace = location.pathname === '/myrbe/ineo-retrobus/tracage-libre';
+  const isRetromailWorkspace = location.pathname === '/auth/rmail/login' || location.pathname === '/accueil/myrbe/retromail';
+  const isIneoOperationsWorkspace = location.pathname === '/accueil/myrbe/ineo-retrobus/operations';
+  const isIneoDriverWorkspace = location.pathname.startsWith('/accueil/myrbe/ineo-retrobus/service');
+  const isIneoFreeTrackingWorkspace = location.pathname === '/accueil/myrbe/ineo-retrobus/tracage-libre';
   const isMuseumWorkspace = location.pathname.startsWith('/lemusee');
   const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace && !isMuseumWorkspace;
   const showFooter = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace;
@@ -170,14 +171,21 @@ export default function App() {
         <Route path="/test-theme" element={<ThemeShowcase />} />
         
         {/* Routes du dashboard principal */}
-        <Route path="/dashboard/home" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
-  <Route path="/dashboard/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
+          <Route path="/accueil" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
+          <Route path="/dashboard/home" element={<Navigate to="/accueil" replace />} />
+        <Route path="/accueil/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
+        <Route path="/dashboard/myrbe" element={<Navigate to="/accueil/myrbe" replace />} />
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
-  <Route path="/myrbe/ineo-retrobus" element={<ProtectedRoute><IneoHome /></ProtectedRoute>} />
-  <Route path="/myrbe/ineo-retrobus/service" element={<ProtectedRoute><IneoDriver /></ProtectedRoute>} />
-  <Route path="/myrbe/ineo-retrobus/tracage-libre" element={<ProtectedRoute><IneoFreeTracking /></ProtectedRoute>} />
-  <Route path="/dashboard/ineo-retrobus" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
-  <Route path="/dashboard/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
+  <Route path="/accueil/myrbe/ineo-retrobus" element={<ProtectedRoute><IneoHome /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus" element={<Navigate to="/accueil/myrbe/ineo-retrobus" replace />} />
+  <Route path="/accueil/myrbe/ineo-retrobus/service" element={<ProtectedRoute><IneoDriver /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus/service" element={<Navigate to="/accueil/myrbe/ineo-retrobus/service" replace />} />
+  <Route path="/accueil/myrbe/ineo-retrobus/tracage-libre" element={<ProtectedRoute><IneoFreeTracking /></ProtectedRoute>} />
+  <Route path="/myrbe/ineo-retrobus/tracage-libre" element={<Navigate to="/accueil/myrbe/ineo-retrobus/tracage-libre" replace />} />
+  <Route path="/accueil/myrbe/ineo-retrobus/operations" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
+  <Route path="/dashboard/ineo-retrobus" element={<Navigate to="/accueil/myrbe/ineo-retrobus/operations" replace />} />
+  <Route path="/accueil/myrbe/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
+  <Route path="/dashboard/trilogy-rbe" element={<Navigate to="/accueil/myrbe/trilogy-rbe" replace />} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe/ressourcery" element={<ProtectedRoute><TrilogyRBERessourcery /></ProtectedRoute>} />
         
@@ -198,23 +206,30 @@ export default function App() {
         
         {/* 💰 Route gestion financière */}
         <Route path="/admin/finance" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><AdminFinance /></RoleProtectedRoute>} />
-        <Route path="/myrbe/gestion-financiere" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'TRESORIER']}><FinanceNew /></RoleProtectedRoute>} />
-        <Route path="/admin/finance-v2" element={<Navigate to="/myrbe/gestion-financiere" replace />} />
+        <Route path="/accueil/myrbe/gestion-financiere" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'TRESORIER']}><FinanceNew /></RoleProtectedRoute>} />
+        <Route path="/myrbe/gestion-financiere" element={<Navigate to="/accueil/myrbe/gestion-financiere" replace />} />
+        <Route path="/admin/finance-v2" element={<Navigate to="/accueil/myrbe/gestion-financiere" replace />} />
         <Route path="/dashboard/ndf" element={<ProtectedRoute><NDF /></ProtectedRoute>} />
         
         {/* 🚗 Routes des véhicules */}
-        <Route path="/dashboard/retrobus" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroBus /></RoleProtectedRoute>} />
-        <Route path="/myrbe/lumistudio" element={<ProtectedRoute><LumistudioLaunch /></ProtectedRoute>} />
-        <Route path="/myrbe/retrostudio" element={<ProtectedRoute><RetroStudio /></ProtectedRoute>} />
+        <Route path="/accueil/myrbe/retrobus" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroBus /></RoleProtectedRoute>} />
+        <Route path="/dashboard/retrobus" element={<Navigate to="/accueil/myrbe/retrobus" replace />} />
+        <Route path="/accueil/myrbe/lumistudio" element={<ProtectedRoute><LumistudioLaunch /></ProtectedRoute>} />
+        <Route path="/myrbe/lumistudio" element={<Navigate to="/accueil/myrbe/lumistudio" replace />} />
+        <Route path="/accueil/myrbe/retrostudio" element={<ProtectedRoute><RetroStudio /></ProtectedRoute>} />
+        <Route path="/myrbe/retrostudio" element={<Navigate to="/accueil/myrbe/retrostudio" replace />} />
         <Route path="/echancier" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EchancierPage /></RoleProtectedRoute>} />
-        <Route path="/dashboard/vehicules" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Vehicules /></RoleProtectedRoute>} />
+        <Route path="/accueil/vehicules" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Vehicules /></RoleProtectedRoute>} />
+        <Route path="/dashboard/vehicules" element={<Navigate to="/accueil/vehicules" replace />} />
         <Route path="/dashboard/vehicules/ajouter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RequireCreator><VehiculeCreate /></RequireCreator></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/:parc/edit" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><VehiculeEdit /></RoleProtectedRoute>} />
         <Route path="/dashboard/vehicules/:parc" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><VehiculeShow /></RoleProtectedRoute>} />
         
         {/* 📅 Routes des événements */}
-        <Route path="/dashboard/evenements" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
-        <Route path="/dashboard/events-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsManagement /></RoleProtectedRoute>} />
+        <Route path="/accueil/evenements" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
+        <Route path="/dashboard/evenements" element={<Navigate to="/accueil/evenements" replace />} />
+        <Route path="/accueil/myrbe/gestion-evenements" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsManagement /></RoleProtectedRoute>} />
+        <Route path="/dashboard/events-management" element={<Navigate to="/accueil/myrbe/gestion-evenements" replace />} />
         <Route path="/dashboard/events-creation" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventsCreation /></RoleProtectedRoute>} />
         <Route path="/dashboard/events/wizard-create" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><EventCreationWizardPage /></RoleProtectedRoute>} />
         <Route path="/dashboard/test-wizard-demo" element={<RoleProtectedRoute><EventWizardDemoPage /></RoleProtectedRoute>} />
@@ -223,17 +238,22 @@ export default function App() {
         
         {/* 🌐 Gestion du site et contenu */}
         <Route path="/dashboard/planning-rbe" element={<ProtectedRoute><SharedPlanning /></ProtectedRoute>} />
-        <Route path="/dashboard/site-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.SITE_MANAGEMENT}><SiteManagement /></PermissionProtectedRoute></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/gestion-site" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.SITE_MANAGEMENT}><SiteManagement /></PermissionProtectedRoute></RoleProtectedRoute>} />
+        <Route path="/dashboard/site-management" element={<Navigate to="/accueil/myrbe/gestion-site" replace />} />
+        <Route path="/accueil/myrbe/actualites-publiques" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT', 'VICE_PRESIDENT', 'TRESORIER', 'SECRETAIRE_GENERAL']}><PublicNewsManagement /></RoleProtectedRoute>} />
         {/* Route flash-management désactivée - remplacée par RétroMail */}
         {/* <Route path="/dashboard/flash-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><FlashManagement /></RoleProtectedRoute>} /> */}
         {/* 🛒 RétroMerch (administration) */}
-        <Route path="/dashboard/retromerch" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroMerch /></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/retromerch" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><RetroMerch /></RoleProtectedRoute>} />
+        <Route path="/dashboard/retromerch" element={<Navigate to="/accueil/myrbe/retromerch" replace />} />
         
         {/* 📦 Gestion des stocks */}
-        <Route path="/dashboard/stock-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><StockManagement /></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/gestion-stocks" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><StockManagement /></RoleProtectedRoute>} />
+        <Route path="/dashboard/stock-management" element={<Navigate to="/accueil/myrbe/gestion-stocks" replace />} />
         
         {/* 👥 Gestion des membres */}
-        <Route path="/dashboard/members-management" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><MembersManagement /></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/gestion-rh" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><MembersManagement /></RoleProtectedRoute>} />
+        <Route path="/dashboard/members-management" element={<Navigate to="/accueil/myrbe/gestion-rh" replace />} />
         <Route path="/dashboard/accounts-management" element={<RoleProtectedRoute allowedRoles={['ADMIN']}><AccountsManagement /></RoleProtectedRoute>} />
         <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
         <Route path="/adhesion" element={<ProtectedRoute><Adhesion /></ProtectedRoute>} />
@@ -244,7 +264,8 @@ export default function App() {
         <Route path="/dashboard/permissions-management" element={<Navigate to="/dashboard/site-management" replace />} />
         
         {/* 📧 Communication */}
-        <Route path="/dashboard/newsletter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Newsletter /></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/newsletter" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Newsletter /></RoleProtectedRoute>} />
+        <Route path="/dashboard/newsletter" element={<Navigate to="/accueil/myrbe/newsletter" replace />} />
         <Route path="/dashboard/newsletter-campaigns" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><NewsletterCampaigns /></RoleProtectedRoute>} />
         
         {/* 🎪 Mode Événement (site externe) */}
@@ -252,12 +273,15 @@ export default function App() {
         <Route path="/dashboard/retroplanning" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING}><RetroPlanning /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/planning/attendance/:eventId/:memberId" element={<AttendancePage />} />
         <Route path="/planning/my-invitations" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROPLANNING_RESPOND}><AttendanceManager /></PermissionProtectedRoute></RoleProtectedRoute>} />
-        <Route path="/dashboard/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
-        <Route path="/dashboard/procedures/:categoryId?" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
+        <Route path="/accueil/myrbe/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
+        <Route path="/dashboard/support" element={<Navigate to="/accueil/myrbe/support" replace />} />
+        <Route path="/accueil/myrbe/procedures/:categoryId?" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
+        <Route path="/dashboard/procedures/:categoryId?" element={<Navigate to="/accueil/myrbe/procedures" replace />} />
         <Route path="/retromail" element={<ExternalRetromailRedirect />} />
         <Route path="/red/retromail" element={<Navigate to="/auth/rmail/login" replace />} />
         <Route path="/auth/rmail/login" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
-        <Route path="/myrbe/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/accueil/myrbe/retromail" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
+        <Route path="/myrbe/retromail" element={<Navigate to="/accueil/myrbe/retromail" replace />} />
         
         {/* � Pages légales */}
         <Route path="/mentions-legales" element={<ProtectedRoute><MentionsLegales /></ProtectedRoute>} />
@@ -275,8 +299,8 @@ export default function App() {
         <Route path="/dashboard/mobile/:parc" element={<ProtectedRoute><MobileVehicle /></ProtectedRoute>} />
         
         {/* Route par défaut - redirige vers le dashboard home */}
-        <Route path="/" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
-        <Route path="*" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
+        <Route path="/" element={<Navigate to="/accueil" replace />} />
+        <Route path="*" element={<Navigate to="/accueil" replace />} />
               </Routes>
             </Suspense>
           </Box>

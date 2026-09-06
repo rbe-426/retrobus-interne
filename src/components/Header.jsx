@@ -319,7 +319,7 @@ export default function Header() {
           flexShrink={0}
           display="block"
           cursor="pointer"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/accueil')}
         />
 
         {/* Navigation - cachée sur mobile */}
@@ -331,9 +331,9 @@ export default function Header() {
               cursor="pointer" 
               _hover={{ color: 'rbe.500' }} 
               transition="color 0.2s"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/accueil')}
             >
-              Dashboard
+              Accueil
             </Text>
             <Text 
               fontSize="lg" 
@@ -341,7 +341,7 @@ export default function Header() {
               cursor="pointer" 
               _hover={{ color: 'rbe.500' }} 
               transition="color 0.2s"
-              onClick={() => navigate('/dashboard/vehicules')}
+              onClick={() => navigate('/accueil/vehicules')}
             >
               Véhicules
             </Text>
@@ -351,7 +351,7 @@ export default function Header() {
               cursor="pointer" 
               _hover={{ color: 'rbe.500' }} 
               transition="color 0.2s"
-              onClick={() => navigate('/dashboard/evenements')}
+              onClick={() => navigate('/accueil/evenements')}
             >
               Événements
             </Text>
@@ -361,7 +361,7 @@ export default function Header() {
               cursor="pointer" 
               _hover={{ color: 'rbe.500' }} 
               transition="color 0.2s"
-              onClick={() => navigate('/dashboard/myrbe')}
+              onClick={() => navigate('/accueil/myrbe')}
             >
               Espace MyRBE
             </Text>
@@ -437,7 +437,7 @@ export default function Header() {
               <Box position="relative">
                 <IconButton
                   as={RouterLink}
-                  to="/myrbe/retromail"
+                  to="/accueil/myrbe/retromail"
                   aria-label="RétroMail"
                   icon={<FiMail size={20} />}
                   size="sm"
@@ -489,7 +489,7 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
                   Note de Frais
                 </MenuItem>
-                <MenuItem as={RouterLink} to="/myrbe/retromail">
+                <MenuItem as={RouterLink} to="/accueil/myrbe/retromail">
                   RétroMail
                 </MenuItem>
                 <MenuItem onClick={handleLogout} color="red.500">
@@ -518,7 +518,7 @@ export default function Header() {
             <VStack align="stretch" spacing={0}>
               <Button 
                 as={RouterLink} 
-                to="/dashboard" 
+                to="/accueil"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
@@ -532,7 +532,7 @@ export default function Header() {
               </Button>
               <Button 
                 as={RouterLink} 
-                to="/dashboard/vehicules" 
+                to="/accueil/vehicules"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
@@ -546,7 +546,7 @@ export default function Header() {
               </Button>
               <Button 
                 as={RouterLink} 
-                to="/dashboard/evenements" 
+                to="/accueil/evenements"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
@@ -560,7 +560,7 @@ export default function Header() {
               </Button>
               <Button 
                 as={RouterLink} 
-                to="/dashboard/myrbe" 
+                to="/accueil/myrbe"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 
@@ -603,7 +603,7 @@ export default function Header() {
               <Divider my={2} />
               <Button 
                 as={RouterLink}
-                to="/myrbe/retromail"
+                to="/accueil/myrbe/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose}
@@ -646,7 +646,7 @@ export default function Header() {
               </Button>
               <Button 
                 as={RouterLink}
-                to="/myrbe/retromail"
+                to="/accueil/myrbe/retromail"
                 variant="ghost" 
                 justifyContent="flex-start" 
                 onClick={navDrawer.onClose} 

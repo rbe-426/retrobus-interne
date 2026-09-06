@@ -31,7 +31,7 @@ import { FiUpload, FiVideo, FiTrash2, FiFileText } from 'react-icons/fi';
 import { apiClient } from '../api/config';
 import { getStoredCSRFToken } from '../lib/csrfClient';
 
-export default function MediaUploader({ media = [], onChange }) {
+export default function MediaUploader({ media = [], onChange, uploadEndpoint = '/api/retro-news/media/upload' }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [currentCaption, setCurrentCaption] = useState('');
@@ -123,7 +123,7 @@ export default function MediaUploader({ media = [], onChange }) {
       }
 
       // Upload with progress tracking
-      const response = await fetch(`${apiClient.baseURL}/api/retro-news/media/upload`, {
+      const response = await fetch(`${apiClient.baseURL}${uploadEndpoint}`, {
         method: 'POST',
         headers,
         body: formData

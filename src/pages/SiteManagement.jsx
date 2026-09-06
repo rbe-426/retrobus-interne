@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Box, VStack, HStack, Text, Button, Card, CardBody, CardHeader,
   Heading, Input, Textarea, FormControl, FormLabel, useToast,
@@ -878,6 +880,8 @@ const NewsManagement = () => {
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
   const [formData, setFormData] = useState({
     title: '',
+    excerpt: '',
+    imageUrl: '',
     content: '',
     media: [],
     polls: [],
@@ -898,7 +902,8 @@ const NewsManagement = () => {
     try {
       setLoading(true);
       const data = await apiClient.get('/api/retro-news');
-      setNews(Array.isArray(data) ? data : data?.news || []);
+      const allNews = Array.isArray(data) ? data : data?.news || [];
+      setNews(allNews.filter((item) => !item.showOnExternal));
     } catch (error) {
       console.error('Erreur chargement news:', error);
     } finally {
@@ -910,6 +915,8 @@ const NewsManagement = () => {
     setEditingId(null);
     const initialFormData = { 
       title: '', 
+      excerpt: '',
+      imageUrl: '',
       content: '', 
       media: [], 
       polls: [], 
@@ -947,6 +954,8 @@ const NewsManagement = () => {
     
     setFormData({
       title: item.title,
+      excerpt: item.excerpt || '',
+      imageUrl: item.imageUrl || '',
       content: item.content || item.body || '',
       media: media || [],
       polls: polls || [],
@@ -971,13 +980,15 @@ const NewsManagement = () => {
     try {
       const payload = { 
         title: formData.title,
+        excerpt: formData.excerpt,
+        imageUrl: formData.imageUrl,
         body: formData.content,
         content: formData.content, // Keep both for compatibility
         media: JSON.stringify(formData.media),
         polls: JSON.stringify(formData.polls),
         featured: formData.featured,
         published: formData.published,
-        showOnExternal: formData.showOnExternal,
+        showOnExternal: false,
         status: formData.published ? 'published' : 'draft'
       };
       
@@ -1135,7 +1146,7 @@ const NewsManagement = () => {
       )}
 
       {/* Modal Création/Édition */}
-      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="xl" scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
@@ -1154,11 +1165,12 @@ const NewsManagement = () => {
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel>Contenu (Markdown supporté)</FormLabel>
+                <FormLabel>Article</FormLabel>
                 <MarkdownEditor
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  placeholder="**Gras** *italique* `code` [lien](url) # Titre..."
+                  media={formData.media}
+                  placeholder="# Titre\n\nIntroduction de l'article.\n\n## Sous-titre\n\nVotre texte..."
                 />
               </FormControl>
 
@@ -1205,14 +1217,6 @@ const NewsManagement = () => {
                 />
               </FormControl>
 
-              <FormControl display="flex" alignItems="center">
-                <FormLabel mb={0}>Afficher sur le site externe</FormLabel>
-                <Switch
-                  isChecked={formData.showOnExternal}
-                  onChange={(e) => setFormData({ ...formData, showOnExternal: e.target.checked })}
-                  ml={2}
-                />
-              </FormControl>
             </VStack>
           </ModalBody>
 

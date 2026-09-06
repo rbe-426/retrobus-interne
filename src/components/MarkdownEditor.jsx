@@ -30,10 +30,11 @@ import {
   FiLink,
   FiHash,
   FiCode,
-  FiList
+  FiList,
+  FiImage
 } from 'react-icons/fi';
 
-export default function MarkdownEditor({ value, onChange, placeholder = 'Entrez votre contenu en markdown...' }) {
+export default function MarkdownEditor({ value, onChange, media = [], placeholder = 'Entrez votre contenu en markdown...' }) {
   const textareaRef = useRef(null);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -131,6 +132,23 @@ export default function MarkdownEditor({ value, onChange, placeholder = 'Entrez 
     { type: 'ol', label: 'Numérotée', symbol: '1. ' }
   ];
 
+  const insertMedia = useCallback((item) => {
+    const textarea = textareaRef.current;
+    if (!textarea || item.type !== 'image') return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const alt = item.caption || item.originalName || 'Image RétroBus Essonne';
+    const imageMarkdown = `![${alt}](${item.url})`;
+    const newText = `${textarea.value.substring(0, start)}${imageMarkdown}${textarea.value.substring(end)}`;
+
+    onChange({ target: { value: newText } });
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + imageMarkdown.length, start + imageMarkdown.length);
+    }, 0);
+  }, [onChange]);
+
   return (
     <Box>
       {/* Info sur le markdown */}
@@ -158,6 +176,25 @@ export default function MarkdownEditor({ value, onChange, placeholder = 'Entrez 
           boxShadow: '0 0 0 1px rbe.500'
         }}
       />
+
+      {media.some((item) => item.type === 'image' && item.url) && (
+        <Box mt={3} p={3} bg="gray.50" borderWidth="1px" borderColor={borderColor} borderRadius="md">
+          <Text fontSize="xs" fontWeight="700" mb={2}>Placer une image dans l'article</Text>
+          <HStack spacing={2} wrap="wrap">
+            {media.filter((item) => item.type === 'image' && item.url).map((item, index) => (
+              <Button
+                key={`${item.url}-${index}`}
+                size="xs"
+                variant="outline"
+                leftIcon={<FiImage />}
+                onClick={() => insertMedia(item)}
+              >
+                {item.caption || `Image ${index + 1}`}
+              </Button>
+            ))}
+          </HStack>
+        </Box>
+      )}
 
       {/* Menu contextuel markdown */}
       {showMenu && (

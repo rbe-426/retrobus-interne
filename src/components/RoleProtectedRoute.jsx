@@ -29,11 +29,12 @@ export default function RoleProtectedRoute({
     return <Navigate to="/login" state={{ from: returnUrl }} replace />;
   }
 
-  // Récupérer le premier rôle ou MEMBER par défaut
-  const userRole = roles?.[0] || 'MEMBER';
+  // An account can hold several roles; access is granted when one allowed role matches.
+  const userRoles = roles?.length ? roles : ['MEMBER'];
+  const userRole = userRoles[0];
 
   // Vérifier si le rôle est dans la liste des rôles refusés
-  if (deniedRoles && deniedRoles.includes(userRole)) {
+  if (deniedRoles && userRoles.some((role) => deniedRoles.includes(role))) {
     console.warn(`❌ RoleProtectedRoute: Role "${userRole}" is denied access`);
 
     if (showError) {
@@ -61,7 +62,7 @@ export default function RoleProtectedRoute({
   }
 
   // Vérifier si le rôle est dans la liste des rôles autorisés
-  if (allowedRoles && !allowedRoles.includes(userRole)) {
+  if (allowedRoles && !userRoles.some((role) => allowedRoles.includes(role))) {
     console.warn(`❌ RoleProtectedRoute: Role "${userRole}" not in allowed roles`);
 
     if (showError) {

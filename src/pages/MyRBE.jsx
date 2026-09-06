@@ -59,7 +59,7 @@ const cards = [
   {
     title: "Trilogy RBE",
     description: "Aperçu du thème complet et éléments graphiques",
-    to: "/dashboard/trilogy-rbe",
+    to: "/accueil/myrbe/trilogy-rbe",
     icon: FaPaintBrush,
     color: "rbe",
     resource: null,
@@ -68,7 +68,7 @@ const cards = [
   {
     title: "RétroBus",
     description: "Suivi complet du parc, entretiens et pointages",
-    to: "/dashboard/retrobus",
+    to: "/accueil/myrbe/retrobus",
     icon: FiTool,
     color: "teal",
     resource: "VEHICLES",
@@ -78,7 +78,7 @@ const cards = [
   {
     title: "Inéo RétroBus",
     description: "Prise de service, affectation et suivi de mission",
-    to: "/myrbe/ineo-retrobus",
+    to: "/accueil/myrbe/ineo-retrobus",
     icon: FiTruck,
     color: "rbe",
     resource: null,
@@ -88,7 +88,7 @@ const cards = [
   {
     title: "Gestion Financière",
     description: "Recettes, dépenses et opérations programmées",
-    to: "/myrbe/gestion-financiere",
+    to: "/accueil/myrbe/gestion-financiere",
     icon: FiDollarSign,
     color: "rbe",
     resource: "FINANCE",
@@ -97,7 +97,7 @@ const cards = [
   {
     title: "Gestion des Événements",
     description: "Création, planification et suivi",
-    to: "/dashboard/events-management",
+    to: "/accueil/myrbe/gestion-evenements",
     icon: FiCalendar,
     color: "green",
     resource: "EVENTS",
@@ -106,7 +106,7 @@ const cards = [
   {
     title: "Gestion RH",
     description: "Adhérents, stagiaires, cotisations et documents",
-    to: "/dashboard/members-management",
+    to: "/accueil/myrbe/gestion-rh",
     icon: FiUsers,
     color: "blue",
     resource: "MEMBERS",
@@ -115,7 +115,7 @@ const cards = [
   {
     title: "Gestion des Stocks",
     description: "Inventaire et matériel de l'association",
-    to: "/dashboard/stock-management",
+    to: "/accueil/myrbe/gestion-stocks",
     icon: FiPackage,
     color: "yellow",
     resource: "STOCK",
@@ -124,7 +124,7 @@ const cards = [
   {
     title: "Gestion RétroMerch",
     description: "Boutique en ligne, produits et commandes",
-    to: "/dashboard/retromerch",
+    to: "/accueil/myrbe/retromerch",
     icon: FiShoppingBag,
     color: "red",
     resource: "RETROMERCH",
@@ -133,7 +133,7 @@ const cards = [
   {
     title: "Gestion Newsletter",
     description: "Abonnés et campagnes d'envoi",
-    to: "/dashboard/newsletter",
+    to: "/accueil/myrbe/newsletter",
     icon: FiMail,
     color: "purple",
     resource: "NEWSLETTER",
@@ -142,16 +142,26 @@ const cards = [
   {
     title: "Gestion du Site",
     description: "Changelog, contenu et mise à jour",
-    to: "/dashboard/site-management",
+    to: "/accueil/myrbe/gestion-site",
     icon: FiGlobe,
     color: "pink",
     resource: "SITE_MANAGEMENT",
     cardAccess: true
   },
   {
+    title: "Actualités publiques",
+    description: "Rédiger et publier les articles du site externe",
+    to: "/accueil/myrbe/actualites-publiques",
+    icon: FiGlobe,
+    color: "rbe",
+    resource: "SITE_MANAGEMENT",
+    requiredRole: ["ADMIN"],
+    cardAccess: true
+  },
+  {
     title: "RétroSupport",
     description: "Tickets: incidents, bugs et améliorations",
-    to: "/dashboard/support",
+    to: "/accueil/myrbe/support",
     icon: FiLifeBuoy,
     color: "cyan",
     resource: "RETROSUPPORT",
@@ -160,7 +170,7 @@ const cards = [
   {
     title: "Procédures",
     description: "Référentiel des procédures de l'association",
-    to: "/dashboard/procedures",
+    to: "/accueil/myrbe/procedures",
     icon: FiFileText,
     color: "purple",
     resource: null,
@@ -169,7 +179,7 @@ const cards = [
   {
     title: "RetroStudio",
     description: "Planification et suivi des tournages",
-    to: "/myrbe/retrostudio",
+    to: "/accueil/myrbe/retrostudio",
     icon: FiVideo,
     color: "red",
     resource: "EVENTS",

@@ -81,10 +81,10 @@ export function Navigation() {
   // Tous les autres rôles ont accès au menu complet (mais basé sur les permissions)
   return (
     <Flex bg="white" gap={{ base: 4, md: 8 }} justify="center" align="center" py={3}>
-      {canAccessHome && <TopNavLink to="/dashboard">🏠 Accueil</TopNavLink>}
-      {canAccessVehicles && <TopNavLink to="/dashboard/vehicules">🚗 Véhicules</TopNavLink>}
-      {canAccessEvents && <TopNavLink to="/dashboard/evenements">📋 Événements</TopNavLink>}
-      {canAccessMyRBE && <TopNavLink to="/dashboard/myrbe">📊 MyRBE</TopNavLink>}
+      {canAccessHome && <TopNavLink to="/accueil">🏠 Accueil</TopNavLink>}
+      {canAccessVehicles && <TopNavLink to="/accueil/vehicules">🚗 Véhicules</TopNavLink>}
+      {canAccessEvents && <TopNavLink to="/accueil/evenements">📋 Événements</TopNavLink>}
+      {canAccessMyRBE && <TopNavLink to="/accueil/myrbe">📊 MyRBE</TopNavLink>}
       <TopNavLink to="/dashboard/team-rbe">Team RBE 🚌 ❤️</TopNavLink>
       {canAccessRetroMerch && <TopNavLink to="/dashboard/retromerch">🛍️ RétroMerch</TopNavLink>}
     </Flex>
