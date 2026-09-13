@@ -36,6 +36,9 @@ const theme = extendTheme({
       800: '#7d0530',
       900: '#5b0326',
     },
+    trilogy: {
+      navy: '#011537',
+    },
     // Palette complémentaire moderne
     brand: {
       50: '#f0f9ff',

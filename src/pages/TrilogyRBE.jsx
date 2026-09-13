@@ -54,6 +54,7 @@ const trilogyColorGroups = [
       { name: 'Azur RétroBus', hex: '#3b82f6', textColor: 'white' },
       { name: 'Émeraude RétroBus', hex: '#10b981', textColor: 'white' },
       { name: 'Carbone RétroBus', hex: '#0f172a', textColor: 'white' },
+      { name: 'Bleu nuit Trilogy', hex: '#011537', textColor: 'white' },
       { name: 'RBE Accent', hex: '#e40045', textColor: 'white' },
       { name: 'RBE Profond', hex: '#9f063a', textColor: 'white' },
       { name: 'Texte Externe', hex: '#222222', textColor: 'white' },
