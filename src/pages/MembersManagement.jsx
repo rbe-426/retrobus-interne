@@ -241,7 +241,7 @@ const buildRbeEmail = (matricule) => {
 };
 
 // === COMPOSANTS MODERNES ===
-function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions, onOpenDossier, canManageDossier }) {
+function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember, onActivateAdhesion, onBulletinActions, onOpenDossier, canManageDossier, canReviewMembership }) {
   const cardBg = useColorModeValue('white', 'gray.800');
   const statusConfig = MEMBERSHIP_STATUS[member.membershipStatus] || MEMBERSHIP_STATUS.PENDING;
   const roleConfig = MEMBER_ROLES[member.role] || MEMBER_ROLES.MEMBER;
@@ -286,7 +286,7 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
           </VStack>
 
           <VStack spacing={1}>
-            {member.membershipStatus === 'PENDING' && (
+            {member.membershipStatus === 'PENDING' && canReviewMembership && (
               <Button
                 size="xs"
                 colorScheme="blue"
@@ -300,18 +300,22 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
             <Menu>
               <MenuButton as={IconButton} icon={<FiSettings />} variant="ghost" size="sm" />
               <MenuList>
-                <MenuItem icon={<FiEdit />} onClick={() => onEdit(member)}>
-                  Modifier
-                </MenuItem>
+                {canReviewMembership && (
+                  <MenuItem icon={<FiEdit />} onClick={() => onEdit(member)}>
+                    Vérifier et compléter
+                  </MenuItem>
+                )}
                 <MenuItem icon={<FiUserX />} onClick={() => onTerminate(member)} color="red.500">
                   Terminer l'adhésion
                 </MenuItem>
                 <MenuItem icon={<FiKey />} onClick={() => onLinkAccess(member)}>
                   Associer à un accès existant
                 </MenuItem>
-                <MenuItem icon={<FiMail />} onClick={() => onBulletinActions(member)}>
-                  Gestion bulletin
-                </MenuItem>
+                {canReviewMembership && (
+                  <MenuItem icon={<FiMail />} onClick={() => onBulletinActions(member)}>
+                    Renvoyer le bulletin
+                  </MenuItem>
+                )}
                 {canManageDossier && (
                   <MenuItem icon={<FiFolder />} onClick={() => onOpenDossier(member)}>
                     Dossier
@@ -456,7 +460,11 @@ export default function MembersManagement() {
   const [dossierMember, setDossierMember] = useState(null);
   const [stats, setStats] = useState({});
   const [bulletinStats, setBulletinStats] = useState({ active: 0, pending: 0, in_progress: 0, completed: 0 });
+  const [pendingBulletins, setPendingBulletins] = useState([]);
+  const [signedBulletins, setSignedBulletins] = useState([]);
   const [recentCompletions, setRecentCompletions] = useState([]);
+  const knownCompletionTokensRef = useRef(new Set());
+  const completionSnapshotLoadedRef = useRef(false);
   const [loadingBulletinStats, setLoadingBulletinStats] = useState(false);
   const [adhesionRequests, setAdhesionRequests] = useState([]);
   const [adhesionRequestsStats, setAdhesionRequestsStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
@@ -497,6 +505,7 @@ export default function MembersManagement() {
     String(user?.email || '').toLowerCase() === 'belaidiw91@gmail.com'
   );
   const canManageDossier = isConfiguredPresident || roles?.some((role) => ['PRESIDENT', 'VICE_PRESIDENT'].includes(String(role).toUpperCase()));
+  const canReviewMembership = isConfiguredPresident || roles?.some((role) => ['PRESIDENT', 'ADMIN'].includes(String(role).toUpperCase()));
 
   const handleOpenDossier = (member) => {
     setDossierMember(member);
@@ -617,16 +626,22 @@ export default function MembersManagement() {
       if (statsData.success) {
         setBulletinStats(statsData.stats);
       }
+
+      const pendingRes = await fetchWithCSRF(apiUrl('/api/bulletin-stats/pending'));
+      const pendingData = await pendingRes.json().catch(() => ({ pending: [] }));
+      if (pendingData.success) {
+        setPendingBulletins(Array.isArray(pendingData.pending) ? pendingData.pending : []);
+      }
       
       // Charger les complétions récentes (dernières 24h)
       const completionsRes = await fetchWithCSRF(apiUrl('/api/bulletin-stats/recent-completions'));
       const completionsData = await completionsRes.json().catch(() => ({ completions: [] }));
       
       if (completionsData.success) {
-        // Vérifier s'il y a de nouveaux bulletins signés
-        const newCompletions = completionsData.completions.filter(c => {
-          return !recentCompletions.find(rc => rc.token === c.token);
-        });
+        const completions = Array.isArray(completionsData.completions) ? completionsData.completions : [];
+        const newCompletions = completionSnapshotLoadedRef.current
+          ? completions.filter((completion) => !knownCompletionTokensRef.current.has(completion.token))
+          : [];
         
         // Afficher une notification pour chaque nouveau bulletin signé
         newCompletions.forEach(completion => {
@@ -640,12 +655,27 @@ export default function MembersManagement() {
           });
         });
         
-        setRecentCompletions(completionsData.completions);
+        knownCompletionTokensRef.current = new Set(completions.map((completion) => completion.token));
+        completionSnapshotLoadedRef.current = true;
+        setRecentCompletions(completions);
       }
     } catch (error) {
       console.error('Erreur chargement stats bulletins:', error);
     } finally {
       setLoadingBulletinStats(false);
+    }
+  };
+
+  const loadSignedBulletins = async () => {
+    if (!canReviewMembership) return;
+    try {
+      const response = await fetchWithCSRF(apiUrl('/api/members/pending-bulletin-reviews'));
+      const data = await response.json().catch(() => ({ bulletins: [] }));
+      if (response.ok && data.success) {
+        setSignedBulletins(Array.isArray(data.bulletins) ? data.bulletins : []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement bulletins signés:', error);
     }
   };
 
@@ -694,6 +724,10 @@ export default function MembersManagement() {
   useEffect(() => {
     loadAdhesionRequests();
   }, [adhesionStatusFilter]);
+
+  useEffect(() => {
+    loadSignedBulletins();
+  }, [canReviewMembership]);
 
   const openDecisionModal = (request, decision) => {
     setSelectedAdhesionRequest(request);
@@ -990,15 +1024,15 @@ export default function MembersManagement() {
 
   const handleActivateAdhesion = async (member) => {
     try {
-      const resp = await fetchWithCSRF(apiUrl(`/api/members/${member.id}`), {
-        method: 'PUT',
-        body: JSON.stringify({ membershipStatus: 'ACTIVE' })
+      const resp = await fetchWithCSRF(apiUrl(`/api/members/${member.id}/validate-adhesion`), {
+        method: 'POST'
       });
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
         throw new Error(data?.error || 'Activation impossible');
       }
-      const updated = await resp.json();
+      const data = await resp.json();
+      const updated = data.member || data;
       setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
       toast({
         title: "Adhésion activée",
@@ -1011,6 +1045,24 @@ export default function MembersManagement() {
         description: e.message,
         status: 'error'
       });
+    }
+  };
+
+  const recoverSignedBulletin = async (bulletin) => {
+    try {
+      const response = await fetchWithCSRF(apiUrl(`/api/members/pending-bulletin-reviews/${bulletin.token}/recover`), {
+        method: 'POST'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Récupération impossible');
+      toast({
+        title: 'Fiche adhérent créée',
+        description: `${data.member.firstName} ${data.member.lastName} est en attente de validation.`,
+        status: 'success'
+      });
+      await Promise.all([loadMembers(), loadSignedBulletins()]);
+    } catch (error) {
+      toast({ title: 'Erreur', description: error.message, status: 'error' });
     }
   };
 
@@ -1304,6 +1356,44 @@ export default function MembersManagement() {
               </VStack>
             </Box>
           )}
+
+          {canReviewMembership && signedBulletins.length > 0 && (
+            <Card bg={cardBg} mt={4} overflowX="auto">
+              <CardHeader pb={0}>
+                <Heading size="sm">Bulletins signés à valider</Heading>
+              </CardHeader>
+              <CardBody>
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Adhérent</Th>
+                      <Th>Contact</Th>
+                      <Th>Signé le</Th>
+                      <Th>Fiche RH</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {signedBulletins.map((bulletin) => (
+                      <Tr key={bulletin.token}>
+                        <Td fontWeight="600">{bulletin.firstName} {bulletin.lastName}</Td>
+                        <Td>{bulletin.email || 'Non renseigné'}</Td>
+                        <Td>{bulletin.signedAt ? new Date(bulletin.signedAt).toLocaleString('fr-FR') : '-'}</Td>
+                        <Td>
+                          {bulletin.memberId ? (
+                            <Badge colorScheme="green">Fiche disponible</Badge>
+                          ) : (
+                            <Button size="xs" colorScheme="rbe" onClick={() => recoverSignedBulletin(bulletin)}>
+                              Récupérer la fiche
+                            </Button>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </CardBody>
+            </Card>
+          )}
         </Box>
       </VStack>
     );
@@ -1387,6 +1477,7 @@ export default function MembersManagement() {
               onBulletinActions={handleBulletinActions}
               onOpenDossier={handleOpenDossier}
               canManageDossier={canManageDossier}
+              canReviewMembership={canReviewMembership}
             />
           ))}
         </SimpleGrid>
