@@ -35,6 +35,76 @@ export default function Changelogs() {
 
   const changelogs = [
     {
+      date: '2026-09-17',
+      version: '2.7.0',
+      title: 'MyRBE, RH, Actualités publiques et RétroMail',
+      type: 'major',
+      sections: [
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Parcours MyRBE et Actualités',
+          items: [
+            'Réorganisation des accès internes sous /accueil et /accueil/myrbe, avec redirections des anciennes routes',
+            'Espace de rédaction dédié aux Actualités publiques, distinct de RétroActus interne',
+            'API, stockage et téléversement médias séparés pour les Actualités publiques',
+            'Éditeurs enrichis : Markdown, insertion d’images, taille des médias et aperçu des articles',
+            'Gestion multi-rôles corrigée sur les routes protégées'
+          ]
+        },
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'Adhésion et Ressources Humaines',
+          items: [
+            'Suivi des bulletins envoyés, en cours et signés dans le tableau de bord RH',
+            'Création automatique d’une pré-fiche adhérent au statut En attente après signature',
+            'Archivage du bulletin final signé dans le dossier de l’adhérent',
+            'File de récupération des bulletins historiques signés sans pré-fiche',
+            'Validation et activation d’adhésion réservées aux rôles Président et Administrateur'
+          ]
+        },
+        {
+          category: 'features',
+          icon: FiTrendingUp,
+          color: 'blue',
+          title: 'RétroMail',
+          items: [
+            'Connexion IMAP/SMTP Infomaniak et administration des boîtes RétroMail',
+            'Historique IMAP paginé par dossier avec total réel et chargement des messages plus anciens',
+            'Affichage correct des destinataires des messages envoyés',
+            'Brouillons, signature, photo locale et police sauvegardés entre les sessions',
+            'Recadrage carré des photos de profil et affichage de la photo dans l’en-tête RétroMail',
+            'Police sélectionnée intégrée au HTML des emails normaux envoyés'
+          ]
+        },
+        {
+          category: 'design',
+          icon: FiCode,
+          color: 'pink',
+          title: 'Identité Trilogy',
+          items: [
+            'Ajout du bleu nuit Trilogy #011537 au thème interne et au référentiel de couleurs',
+            'Harmonisation des interfaces MyRBE et des retours d’état avec la palette Trilogy'
+          ]
+        },
+        {
+          category: 'fixes',
+          icon: FiCheck,
+          color: 'green',
+          title: 'Corrections et Fiabilité',
+          items: [
+            'Correction de l’écran public Actualités vide causé par un import Chakra manquant',
+            'Normalisation des statuts signed et completed dans le suivi des bulletins',
+            'Suppression du suivi global des parcours des fiches individuelles adhérent',
+            'Stabilisation de la persistance locale et distante des réglages RétroMail'
+          ]
+        }
+      ]
+    },
+    {
       date: '2026-06-21',
       version: '2.6.3',
       title: 'Cohérence Adhésion/RH + Navigation & UX globale',

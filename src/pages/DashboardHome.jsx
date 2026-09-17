@@ -5,7 +5,7 @@ import {
   Container, Flex, Card, CardBody, CardHeader, Icon, Progress, Avatar,
   Divider, Center, Spinner, Alert, AlertIcon, Tag, TagLabel, TagLeftIcon,
   useToast, IconButton, Image, useMediaQuery, Modal, ModalOverlay, ModalContent,
-  ModalBody, ModalCloseButton, useDisclosure
+  ModalBody, ModalCloseButton, Textarea, useDisclosure
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 // Lazy load ReactMarkdown pour réduire le bundle initial
@@ -33,34 +33,6 @@ import { useHomeAnnouncements } from '../hooks/useHomeAnnouncements';
 import PollDisplay from '../components/PollDisplay';
 
 const ANN_KEY = "rbe:announcements";
-
-const WEEKLY_QUOTES = [
-  { text: "Plus on aime quelqu'un, moins il faut qu'on le flatte.", author: "Molière", work: "Le Misanthrope, acte II, scène 5" },
-  { text: "Ceux qui vivent, ce sont ceux qui luttent.", author: "Victor Hugo", work: "Les Châtiments" },
-  { text: "Il faut cultiver notre jardin.", author: "Voltaire", work: "Candide" },
-  { text: "La parole est moitié à celui qui parle, moitié à celui qui écoute.", author: "Montaigne", work: "Essais" },
-  { text: "La joie de l'âme est dans l'action.", author: "Alain", work: "Propos sur le bonheur" },
-  { text: "Le véritable voyage de découverte ne consiste pas à chercher de nouveaux paysages, mais à avoir de nouveaux yeux.", author: "Marcel Proust", work: "La Prisonnière" },
-  { text: "Il n'y a qu'une façon d'échouer, c'est d'abandonner avant d'avoir réussi.", author: "Georges Clemenceau", work: "Discours et écrits" },
-  { text: "Le coeur a ses raisons que la raison ne connaît point.", author: "Blaise Pascal", work: "Pensées" },
-  { text: "La patience est amère, mais son fruit est doux.", author: "Jean-Jacques Rousseau", work: "Émile ou De l'éducation" },
-  { text: "La vie est un sommeil, l'amour en est le rêve.", author: "Alfred de Musset", work: "Poésies nouvelles" }
-];
-
-function getWeeklyQuote(date = new Date()) {
-  const moliereQuoteDeadline = new Date(2026, 7, 24, 23, 59, 59);
-  if (date <= moliereQuoteDeadline) {
-    return WEEKLY_QUOTES[0];
-  }
-
-  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayOfWeek = utcDate.getUTCDay() || 7;
-  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayOfWeek);
-  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
-  const weekNumber = Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
-
-  return WEEKLY_QUOTES[weekNumber % WEEKLY_QUOTES.length];
-}
 
 function loadFlashes() {
   try {
@@ -106,7 +78,32 @@ export default function DashboardHome() {
     "linear(to-r, rbe.600, rbe.700)"
   );
   const borderColor = useColorModeValue("gray.200", "gray.700");
-  const weeklyQuote = getWeeklyQuote();
+  const personalNotesKey = `rbe:dashboard:personal-notes:${user?.id || user?.email || 'anonymous'}`;
+  const [personalNotes, setPersonalNotes] = useState(() => {
+    try {
+      return localStorage.getItem(personalNotesKey) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setPersonalNotes(localStorage.getItem(personalNotesKey) || '');
+    } catch {
+      setPersonalNotes('');
+    }
+  }, [personalNotesKey]);
+
+  const handlePersonalNotesChange = (event) => {
+    const nextNotes = event.target.value;
+    setPersonalNotes(nextNotes);
+    try {
+      localStorage.setItem(personalNotesKey, nextNotes);
+    } catch (error) {
+      console.warn('Sauvegarde des notes personnelles impossible:', error);
+    }
+  };
 
   // === LOADERS DÉCLARÉS EN PREMIER (avant useEffect) ===
   const loadVehiclesData = useCallback(async () => {
@@ -606,7 +603,7 @@ export default function DashboardHome() {
                           ) : (
                             <Text>
                               {stats.events.total === 0 
-                                ? 'Aucun événement' 
+                                ? 'Aucun event' 
                                 : `${stats.events.total} événement${stats.events.total !== 1 ? 's' : ''}`}
                             </Text>
                           )}
@@ -939,20 +936,24 @@ export default function DashboardHome() {
         {/* Sidebar */}
         <GridItem order={{ base: 2, lg: 2 }}>
           <VStack spacing={isMobile ? 4 : 6} align="stretch">
-            {/* Phrase de la semaine */}
-            <Card bg={cardBg} borderColor={borderColor} shadow="lg">
+            {/* Notes personnelles */}
+            <Card bg="#fff3a3" borderColor="#e7cf58" shadow="md" transform="rotate(-0.5deg)">
               <CardHeader p={isMobile ? 4 : 6}>
-                <Heading size={isMobile ? "sm" : "md"} fontWeight="700">La phrase de la semaine</Heading>
+                <Heading size={isMobile ? "sm" : "md"} fontWeight="700" color="gray.800">Mes notes</Heading>
               </CardHeader>
               <CardBody p={isMobile ? 4 : 6}>
-                <VStack spacing={3} align="stretch">
-                  <Text color="gray.700" fontSize={isMobile ? "sm" : "md"} fontStyle="italic" lineHeight="tall">
-                    « {weeklyQuote.text} »
-                  </Text>
-                  <Text color="gray.500" fontSize={isMobile ? "xs" : "sm"}>
-                    {weeklyQuote.author}, <Text as="span" fontStyle="italic">{weeklyQuote.work}</Text>
-                  </Text>
-                </VStack>
+                <Textarea
+                  value={personalNotes}
+                  onChange={handlePersonalNotesChange}
+                  placeholder="Écrivez vos notes personnelles..."
+                  minH={isMobile ? "160px" : "210px"}
+                  resize="vertical"
+                  variant="unstyled"
+                  color="gray.800"
+                  fontFamily="cursive"
+                  fontSize={isMobile ? "sm" : "md"}
+                  lineHeight="1.7"
+                />
               </CardBody>
             </Card>
 
