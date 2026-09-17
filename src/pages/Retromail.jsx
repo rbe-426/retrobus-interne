@@ -1326,7 +1326,8 @@ export default function Retromail() {
       } else {
         // Email normal : ajouter signature si nécessaire
         console.log('📧 Email normal - traitement complet');
-        
+        const emailFont = `${mailFont || 'Arial'}, Arial, sans-serif`;
+
         // Vérifier si la signature est déjà présente dans le contenu
         const signatureHtmlVersion = toSignatureHtml(signature);
         const signatureTextPresent = signatureHtmlVersion && (
@@ -1334,10 +1335,13 @@ export default function Retromail() {
           (signatureHtmlVersion.length > 20 && htmlBody.includes(signatureHtmlVersion.substring(0, 20)))
         );
         const signatureHtml = signatureHtmlVersion && !signatureTextPresent
-          ? `<br><br>${signatureHtmlVersion}`
+          ? signatureHtmlVersion
           : '';
-        
-        finalHtml = signatureHtml ? htmlBody + signatureHtml : htmlBody;
+        const identityBlock = profilePhoto
+          ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr><td style="padding-right:12px;vertical-align:middle;"><img src="cid:retromail-profile-photo" width="56" height="56" alt="" style="display:block;width:56px;height:56px;border:0;border-radius:50%;object-fit:cover;" /></td><td style="vertical-align:middle;">${signatureHtml}</td></tr></table>`
+          : signatureHtml ? `<div style="margin-top:16px;">${signatureHtml}</div>` : '';
+
+        finalHtml = `<div style="font-family:${emailFont};font-size:14px;line-height:1.6;color:#333;">${htmlBody}${identityBlock}</div>`;
         
         // Minifier seulement si nécessaire
         finalHtml = minifyHtml(finalHtml);
@@ -1355,7 +1359,7 @@ export default function Retromail() {
             : finalBody,
           html: finalHtml,  // Version HTML
           fromName: mailDisplayName,
-          profilePhoto: profilePhoto || undefined,  // Photo de profil (pour en-têtes personnalisés)
+          profilePhoto: profilePhoto || undefined,
           attachments: composeAttachments  // Pièces jointes en base64
         })
       });
