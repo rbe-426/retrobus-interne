@@ -106,9 +106,11 @@ export default function ImageCropper({
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    // Définir la taille du canvas de sortie
-    const outputWidth = Math.min(imageElement.width * scale, maxWidth);
-    const outputHeight = Math.min(imageElement.height * scale, maxHeight);
+    // Respecter le ratio demandé au lieu de réutiliser les proportions de l'image source.
+    const safeAspectRatio = Number(aspectRatio) > 0 ? Number(aspectRatio) : 1;
+    const outputWidth = Math.min(maxWidth, maxHeight * safeAspectRatio);
+    const outputHeight = outputWidth / safeAspectRatio;
+    const imageScale = Math.max(outputWidth / imageElement.width, outputHeight / imageElement.height);
 
     canvas.width = outputWidth;
     canvas.height = outputHeight;
@@ -117,15 +119,15 @@ export default function ImageCropper({
     ctx.save();
 
     // Centrer et appliquer les transformations
-    ctx.translate(outputWidth / 2, outputHeight / 2);
+    ctx.translate(outputWidth / 2 + position.x, outputHeight / 2 + position.y);
     ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(scale, scale);
+    ctx.scale(imageScale * scale, imageScale * scale);
 
     // Dessiner l'image avec le positionnement
     ctx.drawImage(
       imageElement,
-      -imageElement.width / 2 + position.x / scale,
-      -imageElement.height / 2 + position.y / scale
+      -imageElement.width / 2,
+      -imageElement.height / 2
     );
 
     // Restaurer le contexte
@@ -150,7 +152,7 @@ export default function ImageCropper({
       status: "success",
       duration: 2000
     });
-  }, [imageElement, scale, rotation, position, maxWidth, maxHeight, outputFormat, quality, onImageCropped, toast]);
+  }, [imageElement, scale, rotation, position, aspectRatio, maxWidth, maxHeight, outputFormat, quality, onImageCropped, toast]);
 
   // Fermer et réinitialiser
   const handleClose = useCallback(() => {
@@ -208,7 +210,8 @@ export default function ImageCropper({
                   borderRadius="md"
                   overflow="hidden"
                   bg="gray.100"
-                  h="400px"
+                  aspectRatio={aspectRatio}
+                  maxH="400px"
                   cursor={isDragging ? 'grabbing' : 'grab'}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}

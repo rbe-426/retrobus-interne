@@ -177,6 +177,9 @@ export default function Retromail() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionLoading, setConnectionLoading] = useState(true);
   const [emails, setEmails] = useState([]);
+  const [totalEmails, setTotalEmails] = useState(0);
+  const [hasMoreEmails, setHasMoreEmails] = useState(false);
+  const [loadingMoreEmails, setLoadingMoreEmails] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -409,12 +412,15 @@ export default function Retromail() {
       })
       .then(({ settings }) => {
         if (!isActive || !settings) return;
-        setSignature(settings.signature || '');
-        setProfilePhoto(settings.profilePhoto || '');
-        setMailFont(settings.mailFont || 'Arial');
-        localStorage.setItem('mail_signature', settings.signature || '');
-        localStorage.setItem('mail_profilePhoto', settings.profilePhoto || '');
-        localStorage.setItem('mail_font', settings.mailFont || 'Arial');
+        const nextSignature = localStorage.getItem('mail_signature') || settings.signature || '';
+        const nextProfilePhoto = localStorage.getItem('mail_profilePhoto') || settings.profilePhoto || '';
+        const nextMailFont = localStorage.getItem('mail_font') || settings.mailFont || 'Arial';
+        setSignature(nextSignature);
+        setProfilePhoto(nextProfilePhoto);
+        setMailFont(nextMailFont);
+        localStorage.setItem('mail_signature', nextSignature);
+        localStorage.setItem('mail_profilePhoto', nextProfilePhoto);
+        localStorage.setItem('mail_font', nextMailFont);
       })
       .catch(() => {})
       .finally(() => {
@@ -437,7 +443,8 @@ export default function Retromail() {
       }).catch((error) => console.warn('Sauvegarde distante des paramètres RétroMail impossible:', error));
     }, 500);
 
-    return () => clearTimeout(mailSettingsSaveTimerRef.current);
+    // La sauvegarde doit aussi se terminer après un changement de page.
+    return undefined;
   }, [signature, profilePhoto, mailFont, mailSettingsLoaded]);
 
   // Détecter si connecté avec NoReply
@@ -659,25 +666,34 @@ export default function Retromail() {
   };
 
   // Charger les emails
-  const loadEmails = useCallback(async () => {
+  const loadEmails = useCallback(async (offset = 0) => {
     if (!isConnected) return;
     
     // DRAFTS est géré localement, pas besoin de charger depuis l'API
     if (activeFolder === 'DRAFTS') {
       setEmails([]);
+      setTotalEmails(0);
+      setHasMoreEmails(false);
       setLoading(false);
       return;
     }
     
-    setLoading(true);
+    if (offset === 0) setLoading(true);
+    else setLoadingMoreEmails(true);
     try {
-      const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${activeFolder}`, {
+      const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${encodeURIComponent(activeFolder)}&limit=50&offset=${offset}`, {
         method: 'GET'
       });
       
       if (res.ok) {
         const data = await res.json();
-        setEmails(data.emails || []);
+        const nextEmails = data.emails || [];
+        setEmails((currentEmails) => offset === 0
+          ? nextEmails
+          : [...currentEmails, ...nextEmails.filter((email) => !currentEmails.some((currentEmail) => currentEmail.id === email.id))]
+        );
+        setTotalEmails(Number.isFinite(data.total) ? data.total : nextEmails.length);
+        setHasMoreEmails(Boolean(data.hasMore));
       } else {
         const errorData = await res.json().catch(() => ({}));
         console.error('Erreur chargement emails:', errorData);
@@ -688,6 +704,8 @@ export default function Retromail() {
           duration: 3000
         });
         setEmails([]);
+        setTotalEmails(0);
+        setHasMoreEmails(false);
       }
     } catch (e) {
       console.error("Erreur chargement emails:", e);
@@ -698,8 +716,11 @@ export default function Retromail() {
         duration: 3000
       });
       setEmails([]);
+      setTotalEmails(0);
+      setHasMoreEmails(false);
     } finally {
       setLoading(false);
+      setLoadingMoreEmails(false);
     }
   }, [isConnected, activeFolder, toast, API]);
 
@@ -1562,7 +1583,7 @@ export default function Retromail() {
     );
   });
   const unreadCount = activeFolder === 'DRAFTS' ? 0 : emails.filter((email) => !email.read).length;
-  const folderCount = activeFolder === 'DRAFTS' ? drafts.length : emails.length;
+  const folderCount = activeFolder === 'DRAFTS' ? drafts.length : totalEmails;
   const listHeight = selectedEmail ? 'calc(100dvh - 180px)' : 'calc(100dvh - 210px)';
 
   // Écran de chargement initial
@@ -1919,6 +1940,13 @@ export default function Retromail() {
           minH="75px"
         >
           <HStack spacing={4}>
+            <Avatar
+              name={`${user?.firstName || user?.prenom || ''} ${user?.lastName || user?.nom || ''}`.trim()}
+              src={profilePhoto || undefined}
+              size={{ base: 'sm', md: 'md' }}
+              bg="rbe.500"
+              color="white"
+            />
             <VStack align="start" spacing={0}>
               <Heading size="md" color="gray.800">
               {user?.firstName || user?.prenom || ''} {(user?.lastName || user?.nom || '').toUpperCase()}
@@ -2262,6 +2290,20 @@ export default function Retromail() {
                 </Box>
                 );
               })}
+              {activeFolder !== 'DRAFTS' && hasMoreEmails && !searchQuery && (
+                <Box p={4} borderTop="1px solid" borderColor="gray.100">
+                  <Button
+                    w="full"
+                    variant="outline"
+                    colorScheme="rbe"
+                    onClick={() => loadEmails(emails.length)}
+                    isLoading={loadingMoreEmails}
+                    loadingText="Chargement..."
+                  >
+                    Charger les messages plus anciens
+                  </Button>
+                </Box>
+              )}
             </VStack>
           )}
           </Box>

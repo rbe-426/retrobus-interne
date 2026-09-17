@@ -319,18 +319,10 @@ const ComposeModal = memo(({
     };
   }, []);
 
-  // Garder l'éditeur natif fluide, puis synchroniser React après une pause de saisie.
+  // Synchroniser chaque saisie afin que le brouillon survive aussi à une navigation immédiate.
   const handleEditorInput = useCallback(() => {
     if (editorRef.current) {
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
-      }
-
-      updateTimerRef.current = setTimeout(() => {
-        const html = editorRef.current.innerHTML;
-        onComposeBodyChange({ target: { value: html } });
-        updateTimerRef.current = null;
-      }, 500);
+      onComposeBodyChange({ target: { value: editorRef.current.innerHTML } });
     }
   }, [onComposeBodyChange]);
 
