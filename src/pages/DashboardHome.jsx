@@ -258,9 +258,10 @@ export default function DashboardHome() {
         members = response;
       }
 
+      const membersWithEnabledAccess = members.filter((member) => member?.status === 'active');
       const memberStats = {
-        total: members.length,
-        active: members.filter(m => {
+        total: membersWithEnabledAccess.length,
+        active: membersWithEnabledAccess.filter(m => {
           const status = m?.membershipStatus || m?.statut || m?.status || m?.adhesionStatus || '';
           return status === 'ACTIVE' || status === 'active' || status === 'Actif' || status === 'À jour';
         }).length,
