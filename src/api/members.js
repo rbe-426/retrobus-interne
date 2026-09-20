@@ -134,14 +134,30 @@ export const membersAPI = {
   },
 
   async update(id, member) {
-    // Essaye PATCH puis PUT si besoin
-    try {
-      const out = await tryEndpointsWithCSRF('PATCH', { id, ...member }, { 'X-Method-Override': 'PATCH' });
-      return out?.member || out?.data || out;
-    } catch {
-      const out = await tryEndpointsWithCSRF('PUT', { id, ...member });
-      return out?.member || out?.data || out;
+    let lastError = null;
+    for (const endpoint of MEMBERS_ENDPOINTS) {
+      try {
+        const response = await fetchWithCSRF(toUrl(`${endpoint}/${encodeURIComponent(id)}`), {
+          method: 'PUT',
+          body: JSON.stringify(member)
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          return data?.member || data?.data || data;
+        }
+
+        const error = new Error(data?.details || data?.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        if (response.status !== 404) throw error;
+        lastError = error;
+      } catch (error) {
+        lastError = error;
+        if (error?.status && error.status !== 404) throw error;
+      }
     }
+
+    throw lastError || new Error('Membre introuvable');
   },
 
   async delete(id) {
