@@ -9,7 +9,7 @@
 
 import { useContext, useEffect, useState, useCallback } from 'react';
 import { UserContext } from '../context/UserContext';
-import apiClient from '../api/client';
+import apiClient from '../apiClient';
 
 // Durée du cache en ms (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
@@ -21,8 +21,20 @@ let permissionCache = {
   userId: null
 };
 
+const PRESIDENT_IDENTIFIERS = new Set([
+  'w.belaidi',
+  'belaidiw91@gmail.com',
+  'w.belaidi@retrobus-essonne.fr'
+]);
+
+const isConfiguredPresident = (user) => [user?.email, user?.matricule, user?.username, user?.id]
+  .filter(Boolean)
+  .map((value) => String(value).trim().toLowerCase())
+  .some((identity) => PRESIDENT_IDENTIFIERS.has(identity));
+
 export function useUnifiedPermissions() {
   const { user } = useContext(UserContext);
+  const hasPresidentAccess = isConfiguredPresident(user);
   const [permissions, setPermissions] = useState(null);
   const [definitions, setDefinitions] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,14 +67,14 @@ export function useUnifiedPermissions() {
         setLoading(true);
         setError(null);
 
-        const response = await apiClient.get('/api/permissions/my-permissions');
+        const data = await apiClient.get('/api/permissions/my-permissions');
         
         // Cacher les permissions
-        permissionCache.data = response.data;
+        permissionCache.data = data;
         permissionCache.timestamp = Date.now();
         permissionCache.userId = user.id;
 
-        setPermissions(response.data);
+        setPermissions(data);
       } catch (err) {
         console.error('Error loading permissions:', err);
         setError(err?.response?.data?.error || 'Erreur de chargement des permissions');
@@ -92,21 +104,24 @@ export function useUnifiedPermissions() {
 
   // Vérifier si l'utilisateur peut accéder à une fonction
   const canAccess = useCallback((functionId) => {
+    if (hasPresidentAccess) return true;
     if (!permissions) return false;
     return permissions.effectivePermissions.functions.includes(functionId);
-  }, [permissions]);
+  }, [hasPresidentAccess, permissions]);
 
   // Vérifier si l'utilisateur a au moins une des fonctions
   const canAccessAny = useCallback((functionIds) => {
+    if (hasPresidentAccess) return true;
     if (!permissions) return false;
     return functionIds.some(fn => permissions.effectivePermissions.functions.includes(fn));
-  }, [permissions]);
+  }, [hasPresidentAccess, permissions]);
 
   // Vérifier si l'utilisateur a TOUTES les fonctions
   const canAccessAll = useCallback((functionIds) => {
+    if (hasPresidentAccess) return true;
     if (!permissions) return false;
     return functionIds.every(fn => permissions.effectivePermissions.functions.includes(fn));
-  }, [permissions]);
+  }, [hasPresidentAccess, permissions]);
 
   // Obtenir la description d'une fonction
   const getFunctionDescription = useCallback((functionId) => {
@@ -139,8 +154,8 @@ export function useUnifiedPermissions() {
     refresh,
     
     // Stats
-    totalFunctions: permissions?.effectivePermissions.count || 0,
-    isAdmin: permissions?.info.isAdmin || false,
+    totalFunctions: hasPresidentAccess ? Infinity : permissions?.effectivePermissions.count || 0,
+    isAdmin: hasPresidentAccess || permissions?.info.isAdmin || false,
     isManager: permissions?.info.isManager || false,
     role: permissions?.role || null,
     

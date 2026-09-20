@@ -165,6 +165,7 @@ const normalizePermissions = (rawPermissions) => {
 export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatingResource, setUpdatingResource] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [visibleCards, setVisibleCards] = useState([]);
   const toast = useToast();
@@ -317,6 +318,53 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
     }
   };
 
+  const toggleAllResourcePermissions = async (resource) => {
+    const allActions = PERMISSION_ACTIONS.map((permissionAction) => permissionAction.key);
+    const hasAllActions = allActions.every((action) => hasPermission(resource, action));
+
+    setUpdatingResource(resource);
+    try {
+      await apiClient.put(`/api/user-permissions/${user.id}`, {
+        resource,
+        actions: hasAllActions ? [] : allActions
+      });
+
+      setPermissions((previous) => {
+        const existing = previous.find((permission) => permission.resource === resource);
+        const existingActions = existing?.actions || [];
+        const nextActions = hasAllActions
+          ? existingActions.filter((action) => !allActions.includes(action))
+          : [...new Set([...existingActions, ...allActions])];
+        const remaining = previous.filter((permission) => permission.resource !== resource);
+
+        return nextActions.length > 0
+          ? [...remaining, { ...existing, resource, actions: nextActions }]
+          : remaining;
+      });
+
+      toast({
+        title: hasAllActions ? 'Droits retirés' : 'Droits attribués',
+        description: hasAllActions
+          ? 'Les actions de cette ressource ont été retirées.'
+          : 'Toutes les actions de cette ressource ont été attribuées.',
+        status: 'success',
+        duration: 2500
+      });
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      console.error('Erreur modification des droits de la ressource:', error);
+      await loadPermissions();
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de modifier tous les droits de cette ressource',
+        status: 'error',
+        duration: 3000
+      });
+    } finally {
+      setUpdatingResource(null);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -324,14 +372,16 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
       <ModalOverlay />
       <ModalContent maxH="90vh">
         <ModalHeader>
-          <HStack spacing={3}>
-            <Icon as={FiShield} boxSize={6} color="blue.500" />
-            <VStack align="start" spacing={0}>
-              <Text>Gérer les permissions</Text>
-              <Text fontSize="sm" fontWeight="normal" color="gray.600">
-                {user.firstName} {user.lastName} ({user.username || user.email})
-              </Text>
-            </VStack>
+          <HStack spacing={3} justify="space-between" pr={10}>
+            <HStack spacing={3}>
+              <Icon as={FiShield} boxSize={6} color="blue.500" />
+              <VStack align="start" spacing={0}>
+                <Text>Gérer les permissions</Text>
+                <Text fontSize="sm" fontWeight="normal" color="gray.600">
+                  {user.firstName} {user.lastName} ({user.username || user.email})
+                </Text>
+              </VStack>
+            </HStack>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -383,6 +433,9 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                           <VStack align="stretch" spacing={3}>
                             {category.resources.map(resource => {
                               const hasRead = hasPermission(resource.key, 'READ');
+                              const hasAllActions = PERMISSION_ACTIONS.every((permissionAction) => (
+                                hasPermission(resource.key, permissionAction.key)
+                              ));
 
                               return (
                                 <Box
@@ -399,6 +452,20 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                       <Text fontWeight="bold">{resource.label}</Text>
                                       <Text fontSize="xs" color="gray.600">{resource.description}</Text>
                                     </VStack>
+                                    <Button
+                                      size="xs"
+                                      colorScheme={hasAllActions ? 'red' : 'blue'}
+                                      variant={hasAllActions ? 'outline' : 'solid'}
+                                      leftIcon={<Icon as={hasAllActions ? FiLock : FiUnlock} />}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleAllResourcePermissions(resource.key);
+                                      }}
+                                      isLoading={updatingResource === resource.key}
+                                      loadingText="Mise à jour..."
+                                    >
+                                      {hasAllActions ? 'Tout désattribuer' : 'Tout attribuer'}
+                                    </Button>
                                   </HStack>
 
                                   <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={2}>
@@ -407,7 +474,11 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                         <Switch
                                           id={`${resource.key}-${permissionAction.key}`}
                                           isChecked={hasPermission(resource.key, permissionAction.key)}
-                                          onChange={() => togglePermission(resource.key, permissionAction.key)}
+                                          onClick={(event) => event.stopPropagation()}
+                                          onChange={(event) => {
+                                            event.stopPropagation();
+                                            togglePermission(resource.key, permissionAction.key);
+                                          }}
                                           colorScheme={permissionAction.color}
                                           mr={2}
                                         />

@@ -383,7 +383,10 @@ const AccessManagement = () => {
         temporary: true
       });
 
-      const tempPassword = response.data.tempPassword;
+      const tempPassword = response?.temporaryPassword || response?.tempPassword;
+      if (!tempPassword) {
+        throw new Error('Le serveur n’a pas retourné de mot de passe temporaire');
+      }
       
       toast({
         title: '✅ Mot de passe temporaire généré',

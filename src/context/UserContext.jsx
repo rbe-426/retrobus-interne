@@ -269,7 +269,7 @@ export function UserProvider({ children }) {
   const isConfiguredPresident = [user?.matricule, user?.username, user?.email, user?.id]
     .filter(Boolean)
     .map((value) => String(value).trim().toLowerCase())
-    .some((identity) => identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com');
+    .some((identity) => identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com' || identity === 'w.belaidi@retrobus-essonne.fr');
   // Backend returns 'role' as a string; normalize to 'roles' array for internal consistency
   // If old API returns 'roles' array, use it; otherwise convert 'role' string to array
   const rolesArray = user?.roles || (user?.role ? [user.role] : []);
