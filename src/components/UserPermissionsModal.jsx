@@ -220,49 +220,27 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
   const togglePermission = async (resource, action) => {
     const normalizedAction = String(action).toUpperCase();
     const currentValue = hasPermission(resource, normalizedAction);
+    const currentActions = permissions.find((permission) => permission.resource === resource)?.actions || [];
+    const nextActions = normalizedAction === 'READ' && currentValue
+      ? []
+      : currentValue
+        ? currentActions.filter((permissionAction) => permissionAction !== normalizedAction)
+        : [...new Set([...currentActions, normalizedAction])];
     
     try {
-      if (currentValue) {
-        // Retirer la permission
-        await apiClient.delete(`/api/user-permissions/${user.id}`, {
-          data: { resource, action: normalizedAction }
-        });
-        
-        setPermissions(prev => {
-          return prev.map(p => {
-            if (p.resource === resource) {
-              return {
-                ...p,
-                actions: p.actions.filter(a => a !== normalizedAction)
-              };
-            }
-            return p;
-          }).filter(p => p.actions.length > 0);
-        });
-      } else {
-        // Ajouter la permission
-        await apiClient.post(`/api/user-permissions/${user.id}`, {
-          resource,
-          action: normalizedAction
-        });
-        
-        setPermissions(prev => {
-          const existing = prev.find(p => p.resource === resource);
-          if (existing) {
-            return prev.map(p => {
-              if (p.resource === resource) {
-                return {
-                  ...p,
-                  actions: [...(p.actions || []), normalizedAction]
-                };
-              }
-              return p;
-            });
-          } else {
-            return [...prev, { resource, actions: [normalizedAction] }];
-          }
-        });
-      }
+      await apiClient.put(`/api/user-permissions/${user.id}`, {
+        resource,
+        actions: nextActions
+      });
+      
+      setPermissions((previous) => {
+        const existing = previous.find((permission) => permission.resource === resource);
+        const remaining = previous.filter((permission) => permission.resource !== resource);
+
+        return nextActions.length > 0
+          ? [...remaining, { ...existing, resource, actions: nextActions }]
+          : remaining;
+      });
       
       toast({
         title: 'Permission mise à jour',
@@ -469,11 +447,21 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                   </HStack>
 
                                   <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={2}>
-                                    {PERMISSION_ACTIONS.map((permissionAction) => (
-                                      <FormControl key={`${resource.key}-${permissionAction.key}`} display="flex" alignItems="center">
+                                    {PERMISSION_ACTIONS.map((permissionAction) => {
+                                      const isDependentAction = permissionAction.key !== 'READ';
+                                      const isDisabled = isDependentAction && !hasRead;
+
+                                      return (
+                                      <FormControl
+                                        key={`${resource.key}-${permissionAction.key}`}
+                                        display="flex"
+                                        alignItems="center"
+                                        opacity={isDisabled ? 0.4 : 1}
+                                      >
                                         <Switch
                                           id={`${resource.key}-${permissionAction.key}`}
                                           isChecked={hasPermission(resource.key, permissionAction.key)}
+                                          isDisabled={isDisabled}
                                           onClick={(event) => event.stopPropagation()}
                                           onChange={(event) => {
                                             event.stopPropagation();
@@ -486,7 +474,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                           {permissionAction.label}
                                         </FormLabel>
                                       </FormControl>
-                                    ))}
+                                      );
+                                    })}
                                   </SimpleGrid>
                                 </Box>
                               );
