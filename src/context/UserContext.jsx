@@ -180,10 +180,15 @@ export function UserProvider({ children }) {
           });
           if (res.ok) {
             const data = await res.json();
-            // New API returns { permissions: [...] } array format
-            const perms = (data.permissions && Array.isArray(data.permissions) && data.permissions.length > 0) 
-              ? data.permissions 
-              : null;
+            const rawPermissions = data.permissions;
+            const perms = Array.isArray(rawPermissions)
+              ? rawPermissions
+              : (rawPermissions && typeof rawPermissions === 'object'
+                ? Object.entries(rawPermissions).map(([resource, actions]) => ({
+                    resource,
+                    actions: Array.isArray(actions) ? actions : []
+                  }))
+                : null);
             setCustomPermissions(perms);
             return perms;
           }
@@ -261,10 +266,17 @@ export function UserProvider({ children }) {
   const username = user?.username || '';
   const prenom = user?.prenom || user?.firstName || '';
   const nom = user?.nom || user?.lastName || '';
+  const isConfiguredPresident = [user?.matricule, user?.username, user?.email, user?.id]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => identity === 'w.belaidi' || identity === 'belaidiw91@gmail.com');
   // Backend returns 'role' as a string; normalize to 'roles' array for internal consistency
   // If old API returns 'roles' array, use it; otherwise convert 'role' string to array
   const rolesArray = user?.roles || (user?.role ? [user.role] : []);
-  const roles = rolesArray.map(r => normRole(r)); // normRole handles case normalization
+  const roles = [...new Set([
+    ...rolesArray.map(r => normRole(r)),
+    ...(isConfiguredPresident ? ['PRESIDENT', 'ADMIN'] : [])
+  ])];
   const isAdmin = roles.includes('ADMIN') || roles.includes('PRESIDENT') || roles.includes('VICE_PRESIDENT') || roles.includes('TRESORIER') || roles.includes('SECRETAIRE_GENERAL');
   const isVolunteer = roles.includes('VOLUNTEER');
   const isDriver = roles.includes('DRIVER');

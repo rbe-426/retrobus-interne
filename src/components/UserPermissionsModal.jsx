@@ -119,6 +119,49 @@ const MYRBE_CARDS = [
   { key: 'RETROMAIL', label: 'RétroMail', icon: '📨' }
 ];
 
+const PERMISSION_ACTIONS = [
+  { key: 'READ', label: 'Consulter', color: 'blue' },
+  { key: 'CREATE', label: 'Créer', color: 'green' },
+  { key: 'UPDATE', label: 'Modifier', color: 'orange' },
+  { key: 'DELETE', label: 'Supprimer', color: 'red' },
+  { key: 'EXPORT', label: 'Exporter', color: 'purple' },
+  { key: 'APPROVE', label: 'Valider', color: 'teal' },
+  { key: 'MANAGE', label: 'Administrer', color: 'pink' }
+];
+
+const SENSITIVE_FUNCTIONS = [
+  { resource: 'MEMBERS', action: 'APPROVE', label: 'Valider une adhésion', description: 'Active ou refuse les dossiers d’adhésion.' },
+  { resource: 'MEMBERS', action: 'EXPORT', label: 'Exporter les adhérents', description: 'Télécharge les listes et données RH.' },
+  { resource: 'FINANCE', action: 'APPROVE', label: 'Valider les opérations financières', description: 'Valide les opérations et paiements.' },
+  { resource: 'FINANCE', action: 'EXPORT', label: 'Exporter les finances', description: 'Télécharge les exports financiers.' },
+  { resource: 'SITE_USERS', action: 'MANAGE', label: 'Gérer les comptes', description: 'Crée, modifie, désactive et rattache les accès.' },
+  { resource: 'PERMISSIONS_MANAGEMENT', action: 'MANAGE', label: 'Gérer les permissions', description: 'Modifie les rôles et droits des autres utilisateurs.' },
+  { resource: 'RETROMAIL', action: 'MANAGE', label: 'Administrer RétroMail', description: 'Accède à l’administration de la messagerie.' },
+  { resource: 'VEHICLES', action: 'APPROVE', label: 'Valider les interventions véhicules', description: 'Valide les opérations sensibles du parc.' }
+];
+
+const normalizePermissions = (rawPermissions) => {
+  if (Array.isArray(rawPermissions)) {
+    return rawPermissions.map((permission) => ({
+      ...permission,
+      actions: Array.isArray(permission.actions)
+        ? permission.actions.map((action) => String(action).toUpperCase())
+        : []
+    }));
+  }
+
+  if (rawPermissions && typeof rawPermissions === 'object') {
+    return Object.entries(rawPermissions).map(([resource, actions]) => ({
+      resource,
+      actions: Array.isArray(actions)
+        ? actions.map((action) => String(action).toUpperCase())
+        : []
+    }));
+  }
+
+  return [];
+};
+
 export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -142,11 +185,12 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
       // Charger les permissions via l'API
       const response = await apiClient.get(`/api/user-permissions/${user.id}`);
       
-      if (response?.permissions && Array.isArray(response.permissions)) {
-        setPermissions(response.permissions);
+      if (response?.permissions) {
+        const normalizedPermissions = normalizePermissions(response.permissions);
+        setPermissions(normalizedPermissions);
         
         // Extraire les cartes visibles
-        const cardPerms = response.permissions.filter(p => 
+        const cardPerms = normalizedPermissions.filter(p => 
           p.actions && p.actions.includes('GRANT')
         ).map(p => p.resource);
         setVisibleCards(cardPerms);
@@ -169,17 +213,18 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
 
   const hasPermission = (resource, action) => {
     const perm = permissions.find(p => p.resource === resource);
-    return perm?.actions?.includes(action) || false;
+    return perm?.actions?.includes(String(action).toUpperCase()) || false;
   };
 
   const togglePermission = async (resource, action) => {
-    const currentValue = hasPermission(resource, action);
+    const normalizedAction = String(action).toUpperCase();
+    const currentValue = hasPermission(resource, normalizedAction);
     
     try {
       if (currentValue) {
         // Retirer la permission
         await apiClient.delete(`/api/user-permissions/${user.id}`, {
-          data: { resource, action }
+          data: { resource, action: normalizedAction }
         });
         
         setPermissions(prev => {
@@ -187,7 +232,7 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
             if (p.resource === resource) {
               return {
                 ...p,
-                actions: p.actions.filter(a => a !== action)
+                actions: p.actions.filter(a => a !== normalizedAction)
               };
             }
             return p;
@@ -197,7 +242,7 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
         // Ajouter la permission
         await apiClient.post(`/api/user-permissions/${user.id}`, {
           resource,
-          action
+          action: normalizedAction
         });
         
         setPermissions(prev => {
@@ -207,13 +252,13 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
               if (p.resource === resource) {
                 return {
                   ...p,
-                  actions: [...(p.actions || []), action]
+                  actions: [...(p.actions || []), normalizedAction]
                 };
               }
               return p;
             });
           } else {
-            return [...prev, { resource, actions: [action] }];
+            return [...prev, { resource, actions: [normalizedAction] }];
           }
         });
       }
@@ -302,7 +347,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
           ) : (
             <Tabs colorScheme="blue" variant="enclosed">
               <TabList>
-                <Tab><Icon as={FiLock} mr={2} /> Permissions par Ressource</Tab>
+                <Tab><Icon as={FiLock} mr={2} /> Pages et données</Tab>
+                <Tab><Icon as={FiShield} mr={2} /> Actions sensibles</Tab>
                 <Tab><Icon as={FiEye} mr={2} /> Cartes MyRBE Visibles</Tab>
               </TabList>
 
@@ -312,11 +358,11 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                   <Alert status="info" mb={4} borderRadius="md">
                     <AlertIcon />
                     <Box>
-                      <Text fontWeight="bold">Types de permissions :</Text>
+                      <Text fontWeight="bold">Droits appliqués à chaque écran :</Text>
                       <HStack spacing={4} mt={2}>
-                        <HStack><Icon as={FiUnlock} color="green.500" /><Text fontSize="sm">Accès : Peut voir la section</Text></HStack>
-                        <HStack><Icon as={FiEye} color="blue.500" /><Text fontSize="sm">Lecture : Peut consulter les détails</Text></HStack>
-                        <HStack><Icon as={FiEdit} color="orange.500" /><Text fontSize="sm">Écriture : Peut créer/modifier/supprimer</Text></HStack>
+                        <HStack><Icon as={FiEye} color="blue.500" /><Text fontSize="sm">Consulter : ouvrir et lire</Text></HStack>
+                        <HStack><Icon as={FiEdit} color="orange.500" /><Text fontSize="sm">Modifier : changer les données</Text></HStack>
+                        <HStack><Icon as={FiLock} color="red.500" /><Text fontSize="sm">Supprimer : action irréversible</Text></HStack>
                       </HStack>
                     </Box>
                   </Alert>
@@ -336,9 +382,7 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                         <AccordionPanel pb={4} bg={cardBg}>
                           <VStack align="stretch" spacing={3}>
                             {category.resources.map(resource => {
-                              const hasAccess = hasPermission(resource.key, 'access');
-                              const hasView = hasPermission(resource.key, 'view');
-                              const hasEdit = hasPermission(resource.key, 'edit');
+                              const hasRead = hasPermission(resource.key, 'READ');
 
                               return (
                                 <Box
@@ -347,8 +391,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                   borderRadius="md"
                                   border="1px"
                                   borderColor={borderColor}
-                                  bg={hasAccess ? 'green.50' : 'gray.50'}
-                                  _dark={{ bg: hasAccess ? 'green.900' : 'gray.700' }}
+                                  bg={hasRead ? 'green.50' : 'gray.50'}
+                                  _dark={{ bg: hasRead ? 'green.900' : 'gray.700' }}
                                 >
                                   <HStack justify="space-between" mb={2}>
                                     <VStack align="start" spacing={0} flex={1}>
@@ -357,57 +401,22 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                     </VStack>
                                   </HStack>
 
-                                  <HStack spacing={6}>
-                                    <FormControl display="flex" alignItems="center">
-                                      <Switch
-                                        id={`${resource.key}-access`}
-                                        isChecked={hasAccess}
-                                        onChange={() => togglePermission(resource.key, 'access')}
-                                        colorScheme="green"
-                                        mr={2}
-                                      />
-                                      <FormLabel htmlFor={`${resource.key}-access`} mb={0} fontSize="sm">
-                                        <HStack spacing={1}>
-                                          <Icon as={FiUnlock} color="green.500" />
-                                          <Text>Accès</Text>
-                                        </HStack>
-                                      </FormLabel>
-                                    </FormControl>
-
-                                    <FormControl display="flex" alignItems="center">
-                                      <Switch
-                                        id={`${resource.key}-view`}
-                                        isChecked={hasView}
-                                        onChange={() => togglePermission(resource.key, 'view')}
-                                        colorScheme="blue"
-                                        mr={2}
-                                        isDisabled={!hasAccess}
-                                      />
-                                      <FormLabel htmlFor={`${resource.key}-view`} mb={0} fontSize="sm">
-                                        <HStack spacing={1}>
-                                          <Icon as={FiEye} color="blue.500" />
-                                          <Text>Lecture</Text>
-                                        </HStack>
-                                      </FormLabel>
-                                    </FormControl>
-
-                                    <FormControl display="flex" alignItems="center">
-                                      <Switch
-                                        id={`${resource.key}-edit`}
-                                        isChecked={hasEdit}
-                                        onChange={() => togglePermission(resource.key, 'edit')}
-                                        colorScheme="orange"
-                                        mr={2}
-                                        isDisabled={!hasAccess}
-                                      />
-                                      <FormLabel htmlFor={`${resource.key}-edit`} mb={0} fontSize="sm">
-                                        <HStack spacing={1}>
-                                          <Icon as={FiEdit} color="orange.500" />
-                                          <Text>Écriture</Text>
-                                        </HStack>
-                                      </FormLabel>
-                                    </FormControl>
-                                  </HStack>
+                                  <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={2}>
+                                    {PERMISSION_ACTIONS.map((permissionAction) => (
+                                      <FormControl key={`${resource.key}-${permissionAction.key}`} display="flex" alignItems="center">
+                                        <Switch
+                                          id={`${resource.key}-${permissionAction.key}`}
+                                          isChecked={hasPermission(resource.key, permissionAction.key)}
+                                          onChange={() => togglePermission(resource.key, permissionAction.key)}
+                                          colorScheme={permissionAction.color}
+                                          mr={2}
+                                        />
+                                        <FormLabel htmlFor={`${resource.key}-${permissionAction.key}`} mb={0} fontSize="xs">
+                                          {permissionAction.label}
+                                        </FormLabel>
+                                      </FormControl>
+                                    ))}
+                                  </SimpleGrid>
                                 </Box>
                               );
                             })}
@@ -416,6 +425,34 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                       </AccordionItem>
                     ))}
                   </Accordion>
+                </TabPanel>
+
+                <TabPanel>
+                  <Alert status="warning" mb={4} borderRadius="md">
+                    <AlertIcon />
+                    <Text>Ces droits donnent accès à des opérations sensibles. Ils sont séparés de la simple consultation des pages.</Text>
+                  </Alert>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                    {SENSITIVE_FUNCTIONS.map((operation) => {
+                      const granted = hasPermission(operation.resource, operation.action);
+                      return (
+                        <Box key={`${operation.resource}-${operation.action}`} p={4} borderWidth="1px" borderRadius="md" bg={granted ? 'orange.50' : cardBg}>
+                          <HStack justify="space-between" align="start">
+                            <Box pr={3}>
+                              <Text fontWeight="600">{operation.label}</Text>
+                              <Text fontSize="xs" color="gray.600" mt={1}>{operation.description}</Text>
+                            </Box>
+                            <Switch
+                              isChecked={granted}
+                              onChange={() => togglePermission(operation.resource, operation.action)}
+                              colorScheme="orange"
+                              aria-label={operation.label}
+                            />
+                          </HStack>
+                        </Box>
+                      );
+                    })}
+                  </SimpleGrid>
                 </TabPanel>
 
                 {/* Onglet 2: Cartes MyRBE */}

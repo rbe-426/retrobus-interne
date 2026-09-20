@@ -37,6 +37,7 @@ import PollCreator from '../components/PollCreator';
 import PollStats from '../components/PollStats';
 import NotificationsManagement from '../components/NotificationsManagement';
 import HomeAnnouncementsManagement from '../components/HomeAnnouncementsManagement';
+import UserPermissionsModal from '../components/UserPermissionsModal';
 
 // === RESOURCES & PERMISSIONS ===
 const RESOURCE_CATEGORIES = {
@@ -150,8 +151,10 @@ const AccessManagement = () => {
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const { isOpen: isResetPasswordOpen, onOpen: onResetPasswordOpen, onClose: onResetPasswordClose } = useDisclosure();
+  const { isOpen: isPermissionsOpen, onOpen: onPermissionsOpen, onClose: onPermissionsClose } = useDisclosure();
   const [userToDelete, setUserToDelete] = useState(null);
   const [userToReset, setUserToReset] = useState(null);
+  const [permissionsUser, setPermissionsUser] = useState(null);
   const [alternativeEmail, setAlternativeEmail] = useState('');
 
   useEffect(() => {
@@ -185,6 +188,11 @@ const AccessManagement = () => {
     }
     setGeneratedPassword(pwd);
     return pwd;
+  };
+
+  const handleOpenPermissions = (user) => {
+    setPermissionsUser(user);
+    onPermissionsOpen();
   };
 
   const handleCreateUser = async () => {
@@ -484,6 +492,16 @@ const AccessManagement = () => {
                     </Td>
                     <Td>
                       <HStack spacing={2}>
+                        <Tooltip label="Gérer les permissions">
+                          <IconButton
+                            size="sm"
+                            icon={<FiShield />}
+                            variant="ghost"
+                            colorScheme="purple"
+                            aria-label={`Gérer les permissions de ${displayNameFromUser(user)}`}
+                            onClick={() => handleOpenPermissions(user)}
+                          />
+                        </Tooltip>
                         <Tooltip label="Modifier"Open>
                           <IconButton
                             size="sm"
@@ -652,6 +670,13 @@ const AccessManagement = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      <UserPermissionsModal
+        isOpen={isPermissionsOpen}
+        onClose={onPermissionsClose}
+        user={permissionsUser}
+        onSuccess={loadUsers}
+      />
 
       {/* Modal d'édition */}
       <Modal isOpen={isEditOpen} onClose={onEditClose} isCentered size="lg">
