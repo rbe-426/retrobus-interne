@@ -253,7 +253,14 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
     : (member?.membershipType === 'STAGIAIRE' ? 'orange' : roleConfig.color);
 
   return (
-    <Card bg={cardBg} borderWidth={1} borderColor="gray.200">
+    <Card
+      bg={cardBg}
+      borderWidth={1}
+      borderColor="gray.200"
+      position="relative"
+      overflow="visible"
+      _focusWithin={{ zIndex: 'dropdown' }}
+    >
       <CardHeader pb={2}>
         <Flex justify="space-between" align="start">
           <VStack align="start" spacing={1}>
@@ -299,7 +306,7 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
             )}
             <Menu>
               <MenuButton as={IconButton} icon={<FiSettings />} variant="ghost" size="sm" />
-              <MenuList>
+              <MenuList zIndex="dropdown">
                 {canReviewMembership && (
                   <MenuItem icon={<FiEdit />} onClick={() => onEdit(member)}>
                     Vérifier et compléter
@@ -1034,6 +1041,7 @@ export default function MembersManagement() {
       const data = await resp.json();
       const updated = data.member || data;
       setMembers(prev => prev.map(m => m.id === member.id ? updated : m));
+      await loadSignedBulletins();
       toast({
         title: "Adhésion activée",
         description: `${member.firstName} ${member.lastName} est maintenant actif`,
@@ -2139,6 +2147,44 @@ export default function MembersManagement() {
                           </Text>
                         </Box>
                       </SimpleGrid>
+
+                      {(editData.latestSignature.memberSnapshot?.drivingLicensePhotoFrontDataUrl || editData.latestSignature.memberSnapshot?.drivingLicensePhotoBackDataUrl) && (
+                        <Box>
+                          <Text fontSize="xs" color="gray.500" mb={2}>Photos du permis déposées</Text>
+                          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                            {editData.latestSignature.memberSnapshot?.drivingLicensePhotoFrontDataUrl && (
+                              <Box borderWidth="1px" borderRadius="md" p={3} bg="white">
+                                <Text fontSize="sm" fontWeight="600" mb={2}>
+                                  Recto{editData.latestSignature.memberSnapshot?.drivingLicensePhotoFrontName ? ` - ${editData.latestSignature.memberSnapshot.drivingLicensePhotoFrontName}` : ''}
+                                </Text>
+                                <Box
+                                  as="img"
+                                  src={editData.latestSignature.memberSnapshot.drivingLicensePhotoFrontDataUrl}
+                                  alt="Permis de conduire recto"
+                                  maxH="260px"
+                                  objectFit="contain"
+                                  w="100%"
+                                />
+                              </Box>
+                            )}
+                            {editData.latestSignature.memberSnapshot?.drivingLicensePhotoBackDataUrl && (
+                              <Box borderWidth="1px" borderRadius="md" p={3} bg="white">
+                                <Text fontSize="sm" fontWeight="600" mb={2}>
+                                  Verso{editData.latestSignature.memberSnapshot?.drivingLicensePhotoBackName ? ` - ${editData.latestSignature.memberSnapshot.drivingLicensePhotoBackName}` : ''}
+                                </Text>
+                                <Box
+                                  as="img"
+                                  src={editData.latestSignature.memberSnapshot.drivingLicensePhotoBackDataUrl}
+                                  alt="Permis de conduire verso"
+                                  maxH="260px"
+                                  objectFit="contain"
+                                  w="100%"
+                                />
+                              </Box>
+                            )}
+                          </SimpleGrid>
+                        </Box>
+                      )}
                     </VStack>
                   ) : (
                     <Text fontSize="sm" color="gray.500">Aucune signature dématérialisée enregistrée.</Text>
