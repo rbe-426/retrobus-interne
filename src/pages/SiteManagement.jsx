@@ -146,6 +146,7 @@ const AccessManagement = () => {
   const [editFormData, setEditFormData] = useState({
     firstName: '',
     lastName: '',
+    matricule: '',
     role: 'USER'
   });
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
@@ -273,6 +274,7 @@ const AccessManagement = () => {
     setEditFormData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
+      matricule: user.matricule || user.username || '',
       role: user.role || 'USER',
       hasInternalAccess: user.hasInternalAccess !== false,
       hasExternalAccess: user.hasExternalAccess !== false
@@ -296,6 +298,7 @@ const AccessManagement = () => {
       await apiClient.put(`/api/admin/users/${editingUserId}`, {
         firstName: editFormData.firstName,
         lastName: editFormData.lastName,
+        matricule: editFormData.matricule,
         role: editFormData.role,
         hasInternalAccess: editFormData.hasInternalAccess,
         hasExternalAccess: editFormData.hasExternalAccess
@@ -312,6 +315,7 @@ const AccessManagement = () => {
       setEditFormData({
         firstName: '',
         lastName: '',
+        matricule: '',
         role: 'USER',
         hasInternalAccess: true,
         hasExternalAccess: true
@@ -711,6 +715,16 @@ const AccessManagement = () => {
                       placeholder="Nom"
                       value={editFormData.lastName}
                       onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
+                      size="sm"
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" fontWeight="600">Matricule de connexion</FormLabel>
+                    <Input
+                      placeholder="Ex: n.tetillon"
+                      value={editFormData.matricule}
+                      onChange={(e) => setEditFormData({...editFormData, matricule: e.target.value})}
                       size="sm"
                     />
                   </FormControl>
