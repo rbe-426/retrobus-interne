@@ -20,18 +20,16 @@ import {
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import {
-  FiDollarSign, FiPlus, FiCalendar, FiUsers, FiPackage,
-  FiMail, FiGlobe, FiInbox, FiLifeBuoy, FiTool,
-  FiTruck, FiShoppingCart, FiAlertCircle, FiAward, FiShoppingBag, FiVideo, FiFileText
+  FiAlertCircle, FiLock
 } from "react-icons/fi";
-import { FaPaintBrush } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
 import { canAccess, RESOURCES } from "../lib/permissions";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import PageLayout from '../components/Layout/PageLayout';
 import ModernCard from '../components/Layout/ModernCard';
+import { MYRBE_CARDS } from '../config/myrbeCards';
 
-const cards = [
+/* const cards = [
   {
     title: "Le Musée",
     description: "",
@@ -186,7 +184,7 @@ const cards = [
     cardAccess: true,
     badge: { label: "Événements", color: "red" }
   }
-];
+]; */
 
 export default function MyRBE() {
   const alertBg = useColorModeValue("blue.50", "blue.900");
@@ -211,6 +209,9 @@ export default function MyRBE() {
     if (card.title === 'Le Musée' && !canAccessMuseum) {
       return false;
     }
+
+    const cardActions = userPermissions.find((permission) => permission.resource === card.permissionKey)?.actions || [];
+    if (cardActions.includes('HIDE')) return false;
 
     // Si la carte est masquée, ne pas l'afficher (sauf pour ADMIN)
     if (card.hidden && !isAdmin) {
@@ -290,7 +291,7 @@ export default function MyRBE() {
 
   // Filtrer les cartes en fonction des permissions (optimisé avec useMemo)
   const visibleCards = useMemo(() => 
-    cards.filter(shouldShowCard),
+    MYRBE_CARDS.filter(shouldShowCard),
     [shouldShowCard]
   );
 
@@ -327,7 +328,10 @@ export default function MyRBE() {
         {/* Grille des fonctionnalités */}
         {visibleCards.length > 0 ? (
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-                {visibleCards.map((card) => (
+                {visibleCards.map((card) => {
+                  const cardActions = userPermissions.find((permission) => permission.resource === card.permissionKey)?.actions || [];
+                  const isLocked = cardActions.includes('LOCK');
+                  return (
                   card.isPlaceholder ? (
                     <ModernCard
                       key={card.title}
@@ -342,7 +346,7 @@ export default function MyRBE() {
                     />
                   ) : (
                     <ModernCard
-                      key={card.title}
+                      key={card.id}
                       title={card.title}
                       description={card.description}
                       icon={card.icon}
@@ -355,11 +359,16 @@ export default function MyRBE() {
                       {...(card.cardProps || {})}
                       color={card.color}
                       badge={card.badge}
-                      as={RouterLink}
-                      to={card.to}
+                      {...(isLocked ? {
+                        opacity: 0.6,
+                        cursor: 'not-allowed',
+                        badge: { label: 'Verrouillée', color: 'gray' },
+                        children: <HStack color="gray.500" fontSize="sm"><FiLock /><Text>Accès verrouillé</Text></HStack>
+                      } : { as: RouterLink, to: card.to })}
                     />
                   )
-                ))}
+                );
+                })}
               </SimpleGrid>
             ) : (
               <Box

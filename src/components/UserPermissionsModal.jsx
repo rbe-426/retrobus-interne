@@ -5,10 +5,12 @@ import {
   useToast, Spinner, Center, Divider, Accordion, AccordionItem, AccordionButton,
   AccordionPanel, AccordionIcon, Alert, AlertIcon, Tabs, TabList, TabPanels,
   Tab, TabPanel, FormControl, FormLabel, Checkbox, CheckboxGroup, Stack,
-  useColorModeValue, Icon, Tooltip
+  useColorModeValue, Icon, Tooltip, IconButton
 } from '@chakra-ui/react';
-import { FiShield, FiEye, FiEdit, FiLock, FiUnlock, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiShield, FiEye, FiEdit, FiLock, FiUnlock, FiCheckCircle, FiXCircle, FiEyeOff } from 'react-icons/fi';
 import { apiClient } from '../api/config';
+import ModernCard from './Layout/ModernCard';
+import { MYRBE_CARDS } from '../config/myrbeCards';
 
 // Structure des ressources organisées par catégorie
 const RESOURCE_CATEGORIES = {
@@ -103,22 +105,6 @@ const RESOURCE_CATEGORIES = {
   }
 };
 
-// Cartes MyRBE disponibles
-const MYRBE_CARDS = [
-  { key: 'VEHICLES', label: 'RétroBus', icon: '🚌' },
-  { key: 'EVENTS', label: 'Gestion des Événements', icon: '📅' },
-  { key: 'MEMBERS', label: 'Gestion RH', icon: '👥' },
-  { key: 'FINANCE', label: 'Gestion Financière', icon: '💰' },
-  { key: 'STOCK', label: 'Gestion des Stocks', icon: '📦' },
-  { key: 'RETROMERCH', label: 'RétroMerch', icon: '🛍️' },
-  { key: 'NEWSLETTER', label: 'Gestion Newsletter', icon: '📧' },
-  { key: 'SITE_MANAGEMENT', label: 'Gestion du Site', icon: '🌐' },
-  { key: 'RETROSUPPORT', label: 'RétroSupport', icon: '🆘' },
-  { key: 'RETRODEMANDES', label: 'RétroDemandes', icon: '📝' },
-  { key: 'RETROPLANNING', label: 'Planning partagés', icon: '🗓️' },
-  { key: 'RETROMAIL', label: 'RétroMail', icon: '📨' }
-];
-
 const PERMISSION_ACTIONS = [
   { key: 'READ', label: 'Consulter', color: 'blue' },
   { key: 'CREATE', label: 'Créer', color: 'green' },
@@ -167,7 +153,6 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
   const [saving, setSaving] = useState(false);
   const [updatingResource, setUpdatingResource] = useState(null);
   const [permissions, setPermissions] = useState([]);
-  const [visibleCards, setVisibleCards] = useState([]);
   const toast = useToast();
   
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -190,14 +175,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
         const normalizedPermissions = normalizePermissions(response.permissions);
         setPermissions(normalizedPermissions);
         
-        // Extraire les cartes visibles
-        const cardPerms = normalizedPermissions.filter(p => 
-          p.actions && p.actions.includes('GRANT')
-        ).map(p => p.resource);
-        setVisibleCards(cardPerms);
       } else {
         setPermissions([]);
-        setVisibleCards([]);
       }
     } catch (error) {
       console.error('Erreur chargement permissions:', error);
@@ -255,44 +234,6 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
         status: 'error',
         duration: 3000
       });
-    }
-  };
-
-  const toggleCardVisibility = (cardKey) => {
-    setVisibleCards(prev => {
-      if (prev.includes(cardKey)) {
-        return prev.filter(k => k !== cardKey);
-      } else {
-        return [...prev, cardKey];
-      }
-    });
-  };
-
-  const handleSaveCards = async () => {
-    setSaving(true);
-    try {
-      // Sauvegarder les cartes visibles
-      await apiClient.post(`/api/user-permissions/${user.id}/cards`, {
-        visibleCards
-      });
-      
-      toast({
-        title: 'Cartes MyRBE mises à jour',
-        status: 'success',
-        duration: 2000
-      });
-      
-      if (onSuccess) onSuccess();
-    } catch (error) {
-      console.error('Erreur sauvegarde cartes:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de sauvegarder les cartes visibles',
-        status: 'error',
-        duration: 3000
-      });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -414,6 +355,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                               const hasAllActions = PERMISSION_ACTIONS.every((permissionAction) => (
                                 hasPermission(resource.key, permissionAction.key)
                               ));
+                              const isHidden = hasPermission(resource.key, 'HIDE');
+                              const isLocked = hasPermission(resource.key, 'LOCK');
 
                               return (
                                 <Box
@@ -444,6 +387,26 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                                     >
                                       {hasAllActions ? 'Tout désattribuer' : 'Tout attribuer'}
                                     </Button>
+                                    <Tooltip label={isHidden ? 'Rendre la page visible' : 'Dissimuler la page et son accès dans les menus'}>
+                                      <IconButton
+                                        size="xs"
+                                        variant="outline"
+                                        colorScheme={isHidden ? 'orange' : 'gray'}
+                                        icon={<Icon as={isHidden ? FiEye : FiEyeOff} />}
+                                        aria-label={isHidden ? `Afficher ${resource.label}` : `Dissimuler ${resource.label}`}
+                                        onClick={(event) => { event.stopPropagation(); togglePermission(resource.key, 'HIDE'); }}
+                                      />
+                                    </Tooltip>
+                                    <Tooltip label={isLocked ? 'Déverrouiller la page' : 'Verrouiller la page sans la dissimuler'}>
+                                      <IconButton
+                                        size="xs"
+                                        variant="outline"
+                                        colorScheme={isLocked ? 'red' : 'gray'}
+                                        icon={<Icon as={isLocked ? FiLock : FiUnlock} />}
+                                        aria-label={isLocked ? `Déverrouiller ${resource.label}` : `Verrouiller ${resource.label}`}
+                                        onClick={(event) => { event.stopPropagation(); togglePermission(resource.key, 'LOCK'); }}
+                                      />
+                                    </Tooltip>
                                   </HStack>
 
                                   <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={2}>
@@ -515,66 +478,48 @@ export default function UserPermissionsModal({ isOpen, onClose, user, onSuccess 
                   </SimpleGrid>
                 </TabPanel>
 
-                {/* Onglet 2: Cartes MyRBE */}
+                {/* Onglet 3: Aperçu fidèle des cartes MyRBE */}
                 <TabPanel>
                   <Alert status="info" mb={4} borderRadius="md">
                     <AlertIcon />
                     <Text>
-                      <strong>Cartes MyRBE :</strong> Sélectionnez les cartes qui seront visibles sur le dashboard MyRBE de cet utilisateur.
+                      <strong>Cartes MyRBE :</strong> les cartes ci-dessous reprennent le tableau de bord. Dissimuler retire la carte ; verrouiller la laisse visible mais bloque son ouverture.
                     </Text>
                   </Alert>
 
                   <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                     {MYRBE_CARDS.map(card => {
-                      const isVisible = visibleCards.includes(card.key);
+                      const isHidden = hasPermission(card.permissionKey, 'HIDE');
+                      const isLocked = hasPermission(card.permissionKey, 'LOCK');
                       
                       return (
-                        <Box
-                          key={card.key}
-                          p={4}
-                          borderRadius="lg"
-                          border="2px"
-                          borderColor={isVisible ? 'green.500' : borderColor}
-                          bg={isVisible ? 'green.50' : cardBg}
-                          _dark={{ bg: isVisible ? 'green.900' : 'gray.700' }}
-                          cursor="pointer"
-                          onClick={() => toggleCardVisibility(card.key)}
-                          _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}
-                          transition="all 0.2s"
-                        >
-                          <VStack spacing={2}>
-                            <HStack justify="space-between" w="full">
-                              <Text fontSize="2xl">{card.icon}</Text>
-                              <Icon
-                                as={isVisible ? FiCheckCircle : FiXCircle}
-                                color={isVisible ? 'green.500' : 'gray.400'}
-                                boxSize={5}
-                              />
-                            </HStack>
-                            <Text fontWeight="bold" fontSize="sm" textAlign="center">
-                              {card.label}
-                            </Text>
-                          </VStack>
+                        <Box key={card.id} position="relative" opacity={isHidden ? 0.45 : 1} transition="opacity 0.2s">
+                          <ModernCard
+                            title={card.title}
+                            description={card.description}
+                            icon={card.icon}
+                            titleImageSrc={card.titleImageSrc}
+                            titleImageAlt={card.titleImageAlt}
+                            titleImageHeight={card.titleImageHeight}
+                            titleImageScale={card.titleImageScale}
+                            titleImageOffsetX={card.titleImageOffsetX}
+                            titleImageOffsetY={card.titleImageOffsetY}
+                            color={card.color}
+                            badge={isLocked ? { label: 'Verrouillée', color: 'red' } : card.badge}
+                            {...(card.cardProps || {})}
+                          />
+                          <HStack mt={2} justify="space-between">
+                            <Button size="xs" leftIcon={<Icon as={isHidden ? FiEye : FiEyeOff} />} colorScheme={isHidden ? 'orange' : 'gray'} onClick={() => togglePermission(card.permissionKey, 'HIDE')}>
+                              {isHidden ? 'Afficher' : 'Dissimuler'}
+                            </Button>
+                            <Button size="xs" leftIcon={<Icon as={isLocked ? FiUnlock : FiLock} />} colorScheme={isLocked ? 'red' : 'gray'} onClick={() => togglePermission(card.permissionKey, 'LOCK')}>
+                              {isLocked ? 'Déverrouiller' : 'Verrouiller'}
+                            </Button>
+                          </HStack>
                         </Box>
                       );
                     })}
                   </SimpleGrid>
-
-                  <Box mt={6} p={4} bg="blue.50" _dark={{ bg: 'blue.900' }} borderRadius="md">
-                    <HStack spacing={2} mb={2}>
-                      <Icon as={FiCheckCircle} color="green.500" />
-                      <Text fontWeight="bold">Cartes sélectionnées : {visibleCards.length}/{MYRBE_CARDS.length}</Text>
-                    </HStack>
-                    <Button
-                      colorScheme="blue"
-                      onClick={handleSaveCards}
-                      isLoading={saving}
-                      loadingText="Sauvegarde..."
-                      w="full"
-                    >
-                      Enregistrer les cartes visibles
-                    </Button>
-                  </Box>
                 </TabPanel>
               </TabPanels>
             </Tabs>
