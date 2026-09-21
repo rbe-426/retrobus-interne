@@ -213,12 +213,17 @@ export default function MyRBE() {
     const cardActions = userPermissions.find((permission) => permission.resource === card.permissionKey)?.actions || [];
     if (cardActions.includes('HIDE')) return false;
 
+    const resourceActions = card.resource
+      ? userPermissions.find((permission) => permission.resource === card.resource)?.actions || []
+      : [];
+    if (resourceActions.some((action) => ['DENY', 'HIDE'].includes(action))) return false;
+
     // Si la carte est masquée, ne pas l'afficher (sauf pour ADMIN)
     if (card.hidden && !isAdmin) {
       return false;
     }
 
-    // Les ADMIN voient TOUT
+    // Les ADMIN voient tout sauf les restrictions individuelles ci-dessus.
     if (isAdmin) {
       return true;
     }
@@ -330,7 +335,10 @@ export default function MyRBE() {
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                 {visibleCards.map((card) => {
                   const cardActions = userPermissions.find((permission) => permission.resource === card.permissionKey)?.actions || [];
-                  const isLocked = cardActions.includes('LOCK');
+                  const resourceActions = card.resource
+                    ? userPermissions.find((permission) => permission.resource === card.resource)?.actions || []
+                    : [];
+                  const isLocked = cardActions.includes('LOCK') || resourceActions.some((action) => ['DENY', 'LOCK'].includes(action));
                   return (
                   card.isPlaceholder ? (
                     <ModernCard

@@ -11,6 +11,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
+import MyRBEPermissionGate from "./components/MyRBEPermissionGate";
 import PrestataireLimitedRoute from "./components/PrestataireLimitedRoute";
 import RequireCreator from "./components/RequireCreator";
 import ExternalRetromailRedirect from "./components/ExternalRetromailRedirect";
@@ -160,6 +161,7 @@ export default function App() {
           {showHeader && <Header />}
           <Box flex="1">
             <Suspense fallback={<PageLoader />}>
+              <MyRBEPermissionGate>
               <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
@@ -302,6 +304,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/accueil" replace />} />
         <Route path="*" element={<Navigate to="/accueil" replace />} />
               </Routes>
+              </MyRBEPermissionGate>
             </Suspense>
           </Box>
           {showFooter && <Footer flush={isMuseumWorkspace} />}
