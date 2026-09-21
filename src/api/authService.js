@@ -17,6 +17,7 @@ const AUTH_CONFIG = {
   API_BASE: (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, ''),
   LOCAL_DEV_TOKEN_PREFIX: 'local-dev-token-',
   TOKEN_KEY: 'token',
+  REFRESH_TOKEN_KEY: 'refreshToken',
   USER_KEY: 'user',
   CACHE_EXPIRY: 5 * 60 * 1000, // 5 minutes
   REQUEST_TIMEOUT_MS: 10000,
@@ -86,6 +87,7 @@ class TokenManager {
       localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, newToken);
     } else {
       localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+      localStorage.removeItem(AUTH_CONFIG.REFRESH_TOKEN_KEY);
       localStorage.removeItem(AUTH_CONFIG.USER_KEY);
     }
     this.notifyListeners();
@@ -123,6 +125,33 @@ class TokenManager {
 }
 
 export const tokenManager = new TokenManager();
+
+export const storeRefreshToken = (refreshToken) => {
+  if (refreshToken) {
+    localStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, refreshToken);
+  }
+};
+
+export async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem(AUTH_CONFIG.REFRESH_TOKEN_KEY);
+  if (!refreshToken) return null;
+
+  const base = AUTH_CONFIG.API_BASE;
+  const response = await fetchWithTimeout(`${base}/api/auth/refresh-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  if (!data?.accessToken) return null;
+
+  tokenManager.setToken(data.accessToken);
+  storeRefreshToken(data.refreshToken);
+  return data.accessToken;
+}
 
 // ============================================================================
 // AUTH FUNCTIONS - CENTRALISÉES
@@ -380,6 +409,8 @@ export const StorageManager = {
 export default {
   AUTH_CONFIG,
   tokenManager,
+  storeRefreshToken,
+  refreshAccessToken,
   login,
   memberLogin,
   validateSession,

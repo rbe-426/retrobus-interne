@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeRole as normRole } from '../lib/roles';
 import ForcePasswordChange from '../components/ForcePasswordChange';
-import { tokenManager, StorageManager, validateSession } from '../api/authService.js';
+import { tokenManager, StorageManager, validateSession, refreshAccessToken } from '../api/authService.js';
 import { useSessionTimeout } from '../hooks/useSessionTimeout';
 import logger from '../utils/logger';
 
@@ -79,7 +79,15 @@ export function UserProvider({ children }) {
       return false;
     }
 
-    const isValid = await validateSession(token);
+    let sessionToken = token;
+    let isValid = await validateSession(sessionToken);
+    if (!isValid) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        sessionToken = refreshedToken;
+        isValid = await validateSession(sessionToken);
+      }
+    }
     setSessionChecked(true);
 
     if (!isValid) {

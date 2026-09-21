@@ -38,30 +38,11 @@ export async function login(username, password) {
     if (res.ok) {
       return await res.json();
     }
-    // Si l'API répond mais refuse, on essaie un fallback local uniquement en dev
-    // (utile quand l'API n'est pas disponible en local)
-  } catch (_e) {
-    // Réseau cassé => fallback local
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error || 'Échec de connexion');
+  } catch (error) {
+    throw error;
   }
-
-  // 2) Fallback local (développement): vérifie contre USERS ci-dessous
-  const key = String(username || '').toLowerCase();
-  const found = USERS[key];
-  if (!found || found.password !== password) {
-    throw new Error('Échec de connexion');
-  }
-  return {
-    token: `local-dev-token-${key}`,
-    user: {
-      username: key,
-      // compat: fournir aussi prenom/nom
-      prenom: found.prenom,
-      nom: found.nom,
-      firstName: found.prenom,
-      lastName: found.nom,
-      roles: found.roles,
-    }
-  };
 }
 
 // Export de l'API d'authentification
@@ -98,34 +79,9 @@ export async function memberLogin(identifier, password) {
       throw new Error(data?.error || 'Échec de connexion');
     }
     
-    // Autre statut d'erreur HTTP
-    throw new Error(`HTTP ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error || `HTTP ${res.status}`);
   } catch (e) {
-    // SEULEMENT si c'est une erreur réseau ou de parsing (pas une erreur HTTP 401)
-    if (e.message.includes('HTTP 401') || e.message.includes('Échec')) {
-      throw e; // Laisser passer l'erreur auth
-    }
-    
-    console.warn('⚠️ API distante unavailable, essai fallback local:', e.message);
-    // Fallback local uniquement si le serveur est complètement inaccessible
+    throw e;
   }
-
-  // 2️⃣ Fallback local STRICT: seulement si le serveur est down
-  // (Pas de fallback sur 401 auth error!)
-  const key = String(identifier || '').toLowerCase();
-  const found = USERS[key];
-  if (!found || found.password !== password) {
-    throw new Error('Échec de connexion');
-  }
-  return {
-    token: `local-dev-token-${key}`,
-    user: {
-      username: key,
-      prenom: found.prenom,
-      nom: found.nom,
-      firstName: found.prenom,
-      lastName: found.nom,
-      roles: found.roles,
-    }
-  };
 }

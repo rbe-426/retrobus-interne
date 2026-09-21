@@ -1,8 +1,9 @@
 import { fetchWithCSRF } from '../lib/csrfClient';
+import { tokenManager } from './authService';
 
 const BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/+$/, '');
 const tokenHeader = () => {
-  const t = localStorage.getItem('token');
+  const t = tokenManager.getToken();
   return t ? { Authorization: `Bearer ${t}` } : {};
 };
 
@@ -25,7 +26,7 @@ const toUrl = (path) => {
   return BASE ? `${BASE}/${p}` : `/${p}`;
 };
 
-const MEMBERS_ENDPOINTS = ['api/members', 'members'];
+const MEMBERS_ENDPOINTS = ['api/members'];
 
 async function tryEndpoints(method, body, extraHeaders) {
   let lastErr = null;
@@ -100,6 +101,7 @@ async function tryEndpointsWithCSRF(method, body, extraHeaders) {
 export const membersAPI = {
   // Renvoie { members: [...] } pour s’adapter au code existant
   async getAll() {
+    if (!tokenManager.getToken()) return { members: [] };
     try {
       const data = await tryEndpoints('GET');
       if (Array.isArray(data)) return { members: data };

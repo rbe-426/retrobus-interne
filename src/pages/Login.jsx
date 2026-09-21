@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
+import { storeRefreshToken } from '../api/authService';
 import logoUrbex from '../assets/URBEX.svg';
 
 export default function Login() {
@@ -31,6 +32,7 @@ export default function Login() {
         ? await memberLogin(id, password)
         : await login(id.toLowerCase(), password);
       setToken(data.token);
+      storeRefreshToken(data.refreshToken);
       setUser(data.user);
       
       // Rediriger vers le changement de mot de passe obligatoire si nécessaire
