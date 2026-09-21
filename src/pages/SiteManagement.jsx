@@ -231,8 +231,8 @@ const AccessManagement = () => {
       });
       
       toast({
-        title: '✅ Utilisateur créé',
-        description: `Un email avec les identifiants a été envoyé à ${formData.email}`,
+        title: response?.replaced ? '✅ Accès utilisateur mis à jour' : '✅ Accès utilisateur créé',
+        description: response?.message || `Un email avec les identifiants a été envoyé à ${formData.email}`,
         status: 'success',
         duration: 5000,
         isClosable: true,
