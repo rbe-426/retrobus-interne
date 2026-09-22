@@ -278,15 +278,19 @@ function MemberCard({ member, onEdit, onLinkAccess, onTerminate, onDeleteMember,
             
             <Text fontSize="sm" color="gray.600">{member.email}</Text>
             
-            {member.matricule && (
+            {(member.matricule || member.accessUsername || member.hasLinkedAccess) && (
               <HStack spacing={2}>
-                <Badge colorScheme="blue" variant="subtle">
-                  🔑 {member.matricule}
-                </Badge>
-                {member.status === 'active' ? (
+                {(member.accessUsername || member.matricule) && (
+                  <Badge colorScheme="blue" variant="subtle">
+                    🔑 {member.accessUsername || member.matricule}
+                  </Badge>
+                )}
+                {member.loginEnabled ? (
                   <Badge colorScheme="green" size="sm">✅ Accès activé</Badge>
                 ) : (
-                  <Badge colorScheme="gray" size="sm">❌ Accès désactivé</Badge>
+                  <Badge colorScheme="gray" size="sm">
+                    {member.hasLinkedAccess ? '❌ Accès désactivé' : '❌ Aucun accès lié'}
+                  </Badge>
                 )}
               </HStack>
             )}
