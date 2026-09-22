@@ -17,6 +17,7 @@ import {
 import { eventsAPI } from "../api/events";
 import { membersAPI } from "../api/members";
 import { formatDateFrLong } from "../utils/dateFormat.js";
+import { useUser } from "../context/UserContext";
 
 const getStatusBadge = (status) => {
   const map = {
@@ -35,6 +36,11 @@ const formatDate = (d) => {
 
 export default function EventsManagement() {
   const toast = useToast();
+  const { user, matricule } = useUser();
+  const canManageEvents = [matricule, user?.username, user?.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
   const { isOpen: isManageOpen, onOpen: onManageOpen, onClose: onManageClose } = useDisclosure();
   const { isOpen: isInviteOpen, onOpen: onInviteOpen, onClose: onInviteClose } = useDisclosure();
 
@@ -498,7 +504,7 @@ export default function EventsManagement() {
           <Center py={16}>
             <VStack spacing={4}>
               <Text color="gray.500">Aucun événement</Text>
-              <Button as={RouterLink} to="/dashboard/evenements" leftIcon={<FiPlus />} colorScheme="blue">Créer</Button>
+              {canManageEvents && <Button as={RouterLink} to="/dashboard/evenements" leftIcon={<FiPlus />} colorScheme="blue">Créer</Button>}
             </VStack>
           </Center>
         ) : (
@@ -516,11 +522,11 @@ export default function EventsManagement() {
                   <Td>{formatDate(e.date)}</Td>
                   <Td>{getStatusBadge(e.status)}</Td>
                   <Td>
-                    <HStack spacing={1}>
+                    {canManageEvents && <HStack spacing={1}>
                       <Button size="sm" variant="ghost" onClick={() => openManageEvent(e)}>Gérer</Button>
                       <Button size="sm" variant="ghost" colorScheme="blue" onClick={() => openInviteModal(e)}>Inviter</Button>
                       <IconButton as={RouterLink} to="/dashboard/evenements" aria-label="Modifier" icon={<FiEdit />} size="sm" variant="ghost" />
-                    </HStack>
+                    </HStack>}
                   </Td>
                 </Tr>
               ))}

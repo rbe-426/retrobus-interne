@@ -16,6 +16,12 @@ import CaracteristiquesEditor from '../components/vehicle/CaracteristiquesEditor
 import VehicleAdminStatus from '../components/vehicle/AdminStatus.jsx';
 import { useNavigate } from "react-router-dom";
 import { TriangleErrorIcon } from '../components/icons';
+import { useUser } from '../context/UserContext';
+  const { user, matricule } = useUser();
+  const canManageVehicles = [matricule, user?.username, user?.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
 
 function EtatBadge({ etat }) {
   const colorMap = {
@@ -80,7 +86,7 @@ function ProcessParcFilePreview({ file, fallbackName }) {
             <Badge mt={2} colorScheme="purple">{file.reminderRank || 'Relance'}</Badge>
           )}
         </Box>
-        <Button
+        {canManageVehicles && <Button
           as="a"
           href={href || undefined}
           download={href ? fileName : undefined}
@@ -93,7 +99,7 @@ function ProcessParcFilePreview({ file, fallbackName }) {
           flexShrink={0}
         >
           Télécharger
-        </Button>
+        </Button>}
       </HStack>
     </Box>
   );

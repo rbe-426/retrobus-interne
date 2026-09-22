@@ -10,6 +10,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { FiEdit, FiPlus, FiGrid } from 'react-icons/fi';
 import { apiClient } from '../api/config.js'; // Import direct du client API
+import { useUser } from '../context/UserContext';
 
 const MOBILE_POINTAGE_BASE = (import.meta.env.VITE_MOBILE_POINTAGE_BASE || 'https://retrobus-interne.fr').replace(/\/+$/, '');
 const VEHICLES_CACHE_KEY = 'urbex:vehicules:list';
@@ -31,6 +32,11 @@ const Vehicules = () => {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const toast = useToast();
   const qrCanvasRef = useRef(null);
+  const { user, matricule } = useUser();
+  const canManageVehicles = [matricule, user?.username, user?.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
 
   const fetchList = useCallback(async (signal, options = {}) => {
     const { showLoading = true } = options;
@@ -138,7 +144,7 @@ const Vehicules = () => {
             Créez, consultez et configurez le parc de véhicules de l'association
           </Text>
         </VStack>
-        <Button
+        {canManageVehicles && <Button
           as={RouterLink}
           to="/dashboard/vehicules/ajouter"
           leftIcon={<FiPlus />}
@@ -147,7 +153,7 @@ const Vehicules = () => {
           w={{ base: "full", md: "auto" }}
         >
           Ajouter un véhicule
-        </Button>
+        </Button>}
       </Flex>
 
       <Box mb={{ base: 4, md: 6 }}>

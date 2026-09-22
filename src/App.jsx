@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { Box, Center, Spinner, VStack, Text } from "@chakra-ui/react";
 import { useUser } from "./context/UserContext";
 import { SidebarProvider } from "./context/SidebarContext";
@@ -50,6 +50,11 @@ const PageLoader = () => (
     </VStack>
   </Center>
 );
+
+const LegacyProceduresRedirect = () => {
+  const { categoryId } = useParams();
+  return <Navigate to={`/accueil/myrbe/procedures${categoryId ? `/${categoryId}` : ''}`} replace />;
+};
 
 // ⚡ Lazy loading des pages pour améliorer le temps de chargement initial
 // Seules les pages visitées sont chargées, réduisant le bundle JS de 80%+
@@ -278,7 +283,7 @@ export default function App() {
         <Route path="/accueil/myrbe/support" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><PermissionProtectedRoute resource={RESOURCES.RETROSUPPORT}><SupportSite /></PermissionProtectedRoute></RoleProtectedRoute>} />
         <Route path="/dashboard/support" element={<Navigate to="/accueil/myrbe/support" replace />} />
         <Route path="/accueil/myrbe/procedures/:categoryId?" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
-        <Route path="/dashboard/procedures/:categoryId?" element={<Navigate to="/accueil/myrbe/procedures" replace />} />
+        <Route path="/dashboard/procedures/:categoryId?" element={<LegacyProceduresRedirect />} />
         <Route path="/retromail" element={<ExternalRetromailRedirect />} />
         <Route path="/red/retromail" element={<Navigate to="/auth/rmail/login" replace />} />
         <Route path="/auth/rmail/login" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />

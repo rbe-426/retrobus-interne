@@ -49,6 +49,7 @@ import EventCreationWizard from '../components/EventCreationWizard';
 import EventCreationModeSelector from '../components/EventCreationModeSelector';
 import { eventsAPI, vehiculesAPI } from '../api';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
+import { useUser } from '../context/UserContext';
 
 // Templates d'événements prédéfinis
 const EVENT_TEMPLATES = {
@@ -219,6 +220,11 @@ const EVENT_TEMPLATES = {
 };
 
 export default function EventsCreation() {
+  const { user, matricule } = useUser();
+  const canManageEvents = [matricule, user?.username, user?.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
   const WIZARD_STEPS = ['Infos de base', 'Template', 'Inscription', 'Personnalisation', 'Vérification'];
   const [events, setEvents] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -694,13 +700,13 @@ export default function EventsCreation() {
           >
             {viewMode === 'cards' ? 'Vue tableau' : 'Vue cartes'}
           </Button>
-          <Button
+          {canManageEvents && <Button
             leftIcon={<FiPlus />}
             colorScheme="rbe"
             onClick={handleCreate}
           >
             Créer un événement
-          </Button>
+          </Button>}
         </HStack>
       </Flex>
 
@@ -720,9 +726,9 @@ export default function EventsCreation() {
         <Center py={20}>
           <VStack spacing={4}>
             <Text color="gray.500" fontSize="lg">Aucun événement trouvé</Text>
-            <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
+            {canManageEvents && <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
               Créer le premier événement
-            </Button>
+            </Button>}
           </VStack>
         </Center>
       ) : (
@@ -781,7 +787,7 @@ export default function EventsCreation() {
                     </HStack>
                   )}
                   
-                  <HStack spacing={2} pt={4} w="100%" wrap="wrap">
+                  {canManageEvents && <HStack spacing={2} pt={4} w="100%" wrap="wrap">
                     <Button
                       leftIcon={<FiEdit />}
                       size="sm"
@@ -806,7 +812,7 @@ export default function EventsCreation() {
                     >
                       Supprimer
                     </Button>
-                  </HStack>
+                  </HStack>}
                 </VStack>
               </CardBody>
             </Card>

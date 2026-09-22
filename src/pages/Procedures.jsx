@@ -137,7 +137,7 @@ export default function Procedures() {
     return () => { cancelled = true; };
   }, [selectedCategory?.id, toast]);
 
-  if (categoryId && !selectedCategory) { navigate('/dashboard/procedures', { replace: true }); return null; }
+  if (categoryId && !selectedCategory) { navigate('/accueil/myrbe/procedures', { replace: true }); return null; }
   const deleteDocument = async (document) => {
     if (!window.confirm(`Supprimer « ${document.title} » ?`)) return;
     try {
@@ -158,7 +158,7 @@ export default function Procedures() {
     <PageLayout
       title={selectedCategory?.title || 'Procédures'}
       subtitle={selectedCategory ? 'Bibliothèque documentaire opérationnelle' : 'Référentiel opérationnel RétroBus Essonne'}
-      breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Procédures', href: '/dashboard/procedures' }]}
+      breadcrumbs={[{ label: 'MyRBE', href: '/accueil/myrbe' }, { label: 'Procédures', href: '/accueil/myrbe/procedures' }]}
       bgGradient="linear(to-r, rbe.600, rbe.800)"
       headerVariant="card"
       titleSize="lg"
@@ -167,7 +167,7 @@ export default function Procedures() {
         {selectedCategory ? (
           <>
             <HStack justify="space-between" flexWrap="wrap" spacing={3}>
-              <Button leftIcon={<FiArrowLeft />} variant="ghost" onClick={() => navigate('/dashboard/procedures')}>
+              <Button leftIcon={<FiArrowLeft />} variant="ghost" onClick={() => navigate('/accueil/myrbe/procedures')}>
                 Référentiels
               </Button>
               {canPublish && (
@@ -236,7 +236,7 @@ export default function Procedures() {
             </Box>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
               {procedures.map((procedure) => (
-                <Card key={procedure.id} cursor="pointer" borderWidth="1px" borderColor="gray.200" borderLeftWidth="4px" borderLeftColor={`${procedure.color}.500`} bg="white" onClick={() => navigate(`/dashboard/procedures/${procedure.id}`)} _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${procedure.color}.300` }} transition="all .2s">
+                <Card key={procedure.id} cursor="pointer" borderWidth="1px" borderColor="gray.200" borderLeftWidth="4px" borderLeftColor={`${procedure.color}.500`} bg="white" onClick={() => navigate(`/accueil/myrbe/procedures/${procedure.id}`)} _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${procedure.color}.300` }} transition="all .2s">
                   <CardBody p={5}>
                     <HStack justify="space-between" align="start" mb={4}>
                       <HStack spacing={3}>
@@ -245,7 +245,7 @@ export default function Procedures() {
                       </HStack>
                     </HStack>
                     <Text fontSize="sm" color="gray.600" minH={{ md: '40px' }}>{procedure.description}</Text>
-                    <Button mt={4} size="sm" variant="outline" colorScheme={procedure.color} onClick={(event) => { event.stopPropagation(); navigate(`/dashboard/procedures/${procedure.id}`); }}>
+                    <Button mt={4} size="sm" variant="outline" colorScheme={procedure.color} onClick={(event) => { event.stopPropagation(); navigate(`/accueil/myrbe/procedures/${procedure.id}`); }}>
                       Consulter la collection
                     </Button>
                   </CardBody>

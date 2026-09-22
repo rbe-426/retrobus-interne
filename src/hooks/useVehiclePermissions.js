@@ -57,21 +57,22 @@ function hasPermission(role, resource) {
 }
 
 export function useVehiclePermissions() {
-  const { matricule, roles = [] } = useUser();
+  const { matricule, roles = [], user } = useUser();
 
   // Récupérer le premier rôle (rôle principal)
   const rawRole = roles?.[0] || null;
   const userRole = normalizeRoleKey(rawRole);
+  const isPresident = [matricule, user?.username, user?.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
 
   /**
    * Vérifie si l'utilisateur peut créer un véhicule
    * @returns {boolean}
    */
   const canCreateVehicle = () => {
-    if (!userRole || !matricule) {
-      return false;
-    }
-    return hasPermission(userRole, RESOURCES.VEHICLE_CREATE);
+    return isPresident;
   };
 
   /**
@@ -98,10 +99,7 @@ export function useVehiclePermissions() {
    * @returns {boolean}
    */
   const canEditVehicle = () => {
-    if (!userRole || !matricule) {
-      return false;
-    }
-    return hasPermission(userRole, RESOURCES.VEHICLE_EDIT);
+    return isPresident;
   };
 
   /**
@@ -109,10 +107,7 @@ export function useVehiclePermissions() {
    * @returns {boolean}
    */
   const canDeleteVehicle = () => {
-    if (!userRole || !matricule) {
-      return false;
-    }
-    return hasPermission(userRole, RESOURCES.VEHICLE_DELETE);
+    return isPresident;
   };
 
   /**
@@ -122,16 +117,8 @@ export function useVehiclePermissions() {
    */
   const getAccessDeniedMessage = (action = 'create') => {
     const displayRole = rawRole || 'inconnu';
-    // Récupérer dynamiquement les rôles qui ont la permission VEHICLE_CREATE
-    const rolesWithCreatePerm = Object.entries(ROLE_PERMISSIONS)
-      .filter(([_, config]) => {
-        const perms = config.permissions[RESOURCES.VEHICLE_CREATE] || [];
-        return perms.includes(PERMISSION_TYPES.EDIT) || perms.includes('edit');
-      })
-      .map(([_, config]) => config.label);
-    
     const messages = {
-      create: `Vous n'êtes pas autorisé à ajouter des véhicules.\n\nRôle actuel: ${displayRole}\nRôles autorisés: ${rolesWithCreatePerm.join(', ')}`,
+      create: `Vous n'êtes pas autorisé à ajouter des véhicules.\n\nRôle actuel: ${displayRole}\nCompte autorisé: w.belaidi`,
       view: `Vous n'êtes pas autorisé à consulter les véhicules. Rôle: ${displayRole}`,
       edit: `Vous n'êtes pas autorisé à modifier les véhicules. Rôle: ${displayRole}`,
       delete: `Vous n'êtes pas autorisé à supprimer les véhicules. Rôle: ${displayRole}`
@@ -146,6 +133,7 @@ export function useVehiclePermissions() {
     rawRole,
     normalizedRole: userRole,
     matricule,
+    isPresident,
     canCreate: canCreateVehicle(),
     roleConfig: ROLE_PERMISSIONS[userRole]
   });

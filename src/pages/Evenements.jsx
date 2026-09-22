@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import { eventsAPI, vehiculesAPI } from '../api/index.js';
 import { formatDateFrLong, formatDateTimeFullFr } from '../utils/dateFormat.js';
+import { useUser } from '../context/UserContext';
 
 // Templates d'événements prédéfinis (corrigés)
 const EVENT_TEMPLATES = {
@@ -167,6 +168,11 @@ const EVENT_TEMPLATES = {
 };
 
 const Evenements = () => {
+    const { user, matricule } = useUser();
+    const canManageEvents = [matricule, user?.username, user?.email]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase())
+      .some((identity) => ['w.belaidi', 'belaidiw91@gmail.com', 'w.belaidi@retrobus-essonne.fr'].includes(identity));
   const [events, setEvents] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -670,7 +676,7 @@ const Evenements = () => {
                 </HStack>
               )}
               
-              <HStack spacing={2} pt={4} w="100%" wrap="wrap">
+              {canManageEvents && <HStack spacing={2} pt={4} w="100%" wrap="wrap">
                 <Button
                   leftIcon={<FiEdit />}
                   size="sm"
@@ -695,7 +701,7 @@ const Evenements = () => {
                 >
                   Supprimer
                 </Button>
-              </HStack>
+              </HStack>}
             </VStack>
           </CardBody>
         </Card>
@@ -735,7 +741,7 @@ const Evenements = () => {
                 </VStack>
               </Td>
               <Td>
-                <HStack spacing={1}>
+                {canManageEvents && <HStack spacing={1}>
                   <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(event); }}>
                     Éditer
                   </Button>
@@ -754,7 +760,7 @@ const Evenements = () => {
                   >
                     Supprimer
                   </Button>
-                </HStack>
+                </HStack>}
               </Td>
             </Tr>
           ))}
@@ -773,13 +779,13 @@ const Evenements = () => {
           </Text>
         </VStack>
         <HStack spacing={3}>
-          <Button
+          {canManageEvents && <Button
             leftIcon={viewMode === 'cards' ? <FiList /> : <FiGrid />}
             size="sm"
             variant="outline"
           >
             {viewMode === 'cards' ? 'Vue tableau' : 'Vue cartes'}
-          </Button>
+          </Button>}
           <Button
             leftIcon={<FiPlus />}
             colorScheme="rbe"
@@ -798,9 +804,9 @@ const Evenements = () => {
         <Center py={20}>
           <VStack spacing={4}>
             <Text color="gray.500" fontSize="lg">Aucun événement trouvé</Text>
-            <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
+            {canManageEvents && <Button leftIcon={<FiPlus />} colorScheme="rbe" onClick={handleCreate}>
               Créer le premier événement
-            </Button>
+            </Button>}
           </VStack>
         </Center>
       ) : viewMode === 'cards' ? (
