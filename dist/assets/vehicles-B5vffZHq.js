@@ -1,1 +1,0 @@
-import{d as t}from"./index-Q7aqX9wx.js";const c={getAll:async()=>t.get("/vehicles"),getByParc:async e=>t.get(`/vehicles/${e}`),create:async e=>t.post("/vehicles",e),update:async(e,r)=>t.put(`/vehicles/${e}`,r),delete:async e=>t.delete(`/vehicles/${e}`)};export{c as v};

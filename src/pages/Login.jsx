@@ -63,16 +63,6 @@ export default function Login() {
       justify={{ base: 'center', md: 'flex-start' }}
       position="relative"
       pl={{ base: 0, md: '8%', lg: '10%' }}
-      _before={{
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        bg: 'blackAlpha.400',
-        zIndex: 0
-      }}
     >
       {/* Card de connexion */}
       <VStack
