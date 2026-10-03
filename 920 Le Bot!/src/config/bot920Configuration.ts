@@ -7,7 +7,12 @@ export interface Bot920Configuration {
   commands: { enabled: Record<Bot920Subcommand, boolean> };
   messages: { aboutStatus: string };
   socialLinks: { website: string; instagram: string; discord: string };
-  welcome: { enabled: boolean; message: string };
+  welcome: {
+    welcomeEnabled: boolean;
+    welcomeChannelId: string;
+    welcomeMessage: string;
+    autoRoleId: string;
+  };
   logs: { enabled: boolean };
   fun: { enabled: boolean };
 }
@@ -17,7 +22,12 @@ export const defaultBot920Configuration: Bot920Configuration = {
   commands: { enabled: Object.fromEntries(bot920Subcommands.map((command) => [command, true])) as Record<Bot920Subcommand, boolean> },
   messages: { aboutStatus: 'Socle technique en cours de déploiement' },
   socialLinks: { website: '', instagram: '', discord: '' },
-  welcome: { enabled: false, message: 'Bienvenue sur le serveur RétroBus Essonne !' },
+  welcome: {
+    welcomeEnabled: false,
+    welcomeChannelId: '',
+    welcomeMessage: 'Bienvenue sur le serveur RétroBus Essonne !',
+    autoRoleId: '',
+  },
   logs: { enabled: true },
   fun: { enabled: true },
 };

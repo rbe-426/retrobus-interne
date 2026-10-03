@@ -14,7 +14,7 @@ const birthdayRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
 const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
 const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 await configurationStore.refresh();
-const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get), birthdayInteractions);
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get), birthdayInteractions, configurationStore.get);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,

@@ -41,3 +41,9 @@ Cette fonction utilise l’API RBE centrale. Configurer `RBE_API_URL` et `BOT920
 ## Discord
 
 L’invitation `discord.gg` identifie un serveur, pas une application Discord. Pour connecter le bot, créer ou sélectionner son application dans le portail développeur Discord, puis renseigner son token et son identifiant dans `.env`. L’invitation du bot sur le serveur doit utiliser les scopes `bot` et `applications.commands`.
+
+## Accueil
+
+Le module Bienvenue est configuré dans URBEX, sous `/accueil/myrbe/920lebot`. Il utilise les variables `{user}`, `{username}`, `{server}` et `{member_count}`, puis peut attribuer un rôle Discord optionnel.
+
+L’intent privilégié **Guild Members Intent** doit être activé dans le portail développeur Discord, onglet **Bot**, pour que les arrivées de membres soient reçues. Aucun intent `Message Content` n’est utilisé.

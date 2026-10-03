@@ -416,9 +416,9 @@ export default function Retromail() {
       })
       .then(({ settings }) => {
         if (!isActive || !settings) return;
-        const nextSignature = localStorage.getItem('mail_signature') || settings.signature || '';
-        const nextProfilePhoto = localStorage.getItem('mail_profilePhoto') || settings.profilePhoto || '';
-        const nextMailFont = localStorage.getItem('mail_font') || settings.mailFont || 'Arial';
+        const nextSignature = settings.signature || localStorage.getItem('mail_signature') || '';
+        const nextProfilePhoto = settings.profilePhoto || localStorage.getItem('mail_profilePhoto') || '';
+        const nextMailFont = settings.mailFont || localStorage.getItem('mail_font') || 'Arial';
         setSignature(nextSignature);
         setProfilePhoto(nextProfilePhoto);
         setMailFont(nextMailFont);
@@ -444,12 +444,22 @@ export default function Retromail() {
       fetchWithCSRF(`${API}/api/mail/settings`, {
         method: 'PUT',
         body: JSON.stringify({ signature, profilePhoto, mailFont })
-      }).catch((error) => console.warn('Sauvegarde distante des paramètres RétroMail impossible:', error));
+      }).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      }).catch((error) => {
+        console.warn('Sauvegarde distante des paramètres RétroMail impossible:', error);
+        toast({
+          title: 'Signature non enregistrée',
+          description: 'La modification reste locale. Vérifiez votre connexion puis réessayez.',
+          status: 'error',
+          duration: 5000,
+        });
+      });
     }, 500);
 
     // La sauvegarde doit aussi se terminer après un changement de page.
     return undefined;
-  }, [signature, profilePhoto, mailFont, mailSettingsLoaded]);
+  }, [signature, profilePhoto, mailFont, mailSettingsLoaded, API, toast]);
 
   // Détecter si connecté avec NoReply
   const isNoReplyAccount = useMemo(() => {

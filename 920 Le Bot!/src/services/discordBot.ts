@@ -1,12 +1,18 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import type { BotCommand } from '../commands/types.js';
+import { defaultBot920Configuration, type Bot920Configuration } from '../config/bot920Configuration.js';
 import { createCommandRegistry } from './commandRegistry.js';
 import type { BirthdayInteractions } from './birthdays/birthdayInteractions.js';
 import { logger } from '../utils/logger.js';
+import { isDiscordSnowflake, isWelcomeEnabled, renderWelcomeMessage } from './welcome.js';
 
-export function createDiscordBot(commands: readonly BotCommand[], birthdayInteractions?: BirthdayInteractions) {
+export function createDiscordBot(
+  commands: readonly BotCommand[],
+  birthdayInteractions?: BirthdayInteractions,
+  getConfiguration: () => Bot920Configuration = () => defaultBot920Configuration,
+) {
   const registry = createCommandRegistry(commands);
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info('discord', `Connecté comme ${readyClient.user.tag}`);
@@ -43,6 +49,36 @@ export function createDiscordBot(commands: readonly BotCommand[], birthdayIntera
       const response = { content: 'Une erreur est survenue. L’équipe RBE a été informée.', ephemeral: true };
       if (interaction.replied || interaction.deferred) await interaction.followUp(response);
       else await interaction.reply(response);
+    }
+  });
+
+  client.on(Events.GuildMemberAdd, async (member) => {
+    const configuration = getConfiguration();
+    if (!isWelcomeEnabled(configuration)) return;
+
+    const { welcome } = configuration;
+    try {
+      const channel = await member.guild.channels.fetch(welcome.welcomeChannelId);
+      if (!channel?.isTextBased()) {
+        logger.warn('welcome', `Canal d'accueil introuvable ou non textuel (${welcome.welcomeChannelId}).`);
+        return;
+      }
+
+      const message = renderWelcomeMessage(welcome.welcomeMessage, {
+        userId: member.user.id,
+        username: member.user.username,
+        serverName: member.guild.name,
+        memberCount: member.guild.memberCount,
+      });
+      await channel.send({ content: message });
+
+      if (isDiscordSnowflake(welcome.autoRoleId)) {
+        const role = member.guild.roles.cache.get(welcome.autoRoleId);
+        if (role && !role.managed && role.editable) await member.roles.add(role);
+        else logger.warn('welcome', `Rôle automatique indisponible ou non attribuable (${welcome.autoRoleId}).`);
+      }
+    } catch (error) {
+      logger.error('welcome', 'Échec du traitement d’accueil', error instanceof Error ? error : undefined);
     }
   });
 
