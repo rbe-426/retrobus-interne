@@ -5,6 +5,8 @@ interface HealthDependencies {
   startedAt: string;
   commandCount: number;
   isDiscordConnected: () => boolean;
+  getDiscordLatencyMs: () => number | null;
+  getGuildCount: () => number;
 }
 
 export function createApiServer(dependencies: HealthDependencies) {
@@ -16,6 +18,8 @@ export function createApiServer(dependencies: HealthDependencies) {
       dependencies.startedAt,
       dependencies.isDiscordConnected(),
       dependencies.commandCount,
+      dependencies.getDiscordLatencyMs(),
+      dependencies.getGuildCount(),
     ));
   });
 

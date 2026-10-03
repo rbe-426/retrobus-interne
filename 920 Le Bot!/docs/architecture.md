@@ -5,7 +5,7 @@
 ## Phase 1
 
 - Client `discord.js` limité à l'intent `Guilds`.
-- Registre modulaire des commandes, avec le préfixe slash unique `/920` et les sous-commandes `ping`, `about` et `anniversaire`.
+- Registre modulaire des commandes, avec le préfixe slash unique `/920` et les sous-commandes de socle (`ping`, `about`, `anniversaire`) et communautaires (`bus`, `panne`, `destin`, `phrase`, `controle`, `diagnostic`, `tirage`).
 - Script d'enregistrement local des commandes de test : `npm run deploy:commands`.
 - Endpoint non authentifié `GET /health` destiné au monitoring.
 - Démarrage en mode `standby` sans token Discord : utile pour valider le service sans exposer de secret.

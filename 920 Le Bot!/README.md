@@ -28,6 +28,22 @@ Le bot reste autonome. Son futur panel doit être intégré à l’URBEX et util
 - `/920 ping` : vérifie que le bot répond et retourne sa latence.
 - `/920 about` : présente le bot officiel RBE.
 - `/920 anniversaire` : sous-commande réservée pour le futur module communautaire.
+- `/920 bus`, `/920 panne`, `/920 destin`, `/920 phrase` et `/920 tirage` : commandes communautaires humoristiques.
+- `/920 controle` : faux contrôle technique communautaire.
+- `/920 diagnostic symptome:<bruit|fumee|fuite|voyant|pertepuissance>` : contenu humoristique uniquement, jamais un diagnostic mécanique fiable.
+
+## Anniversaires
+
+`/920 anniversaire` ouvre un choix éphémère : consulter les anniversaires du serveur ou modifier son propre anniversaire. La liste affiche le prénom Discord, le jour et le mois ainsi que l’âge calculé ; l’année de naissance n’est jamais affichée.
+
+Cette fonction requiert une base PostgreSQL dédiée au bot. Après avoir renseigné `BOT_DATABASE_URL` localement, exécuter une seule fois :
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+La migration n’est jamais exécutée automatiquement par le bot.
 
 ## Discord
 

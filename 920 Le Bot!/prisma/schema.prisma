@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BOT_DATABASE_URL")
+}
+
+model GuildBirthday {
+  id          String   @id @default(cuid())
+  guildId     String   @map("guild_id")
+  userId      String   @map("user_id")
+  displayName String   @map("display_name")
+  birthDate   DateTime @db.Date @map("birth_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([guildId, userId])
+  @@index([guildId, birthDate])
+  @@map("guild_birthdays")
+}
