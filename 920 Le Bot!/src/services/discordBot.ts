@@ -61,24 +61,27 @@ export function createDiscordBot(
       const channel = await member.guild.channels.fetch(welcome.welcomeChannelId);
       if (!channel?.isTextBased()) {
         logger.warn('welcome', `Canal d'accueil introuvable ou non textuel (${welcome.welcomeChannelId}).`);
-        return;
+      } else {
+        const message = renderWelcomeMessage(welcome.welcomeMessage, {
+          userId: member.user.id,
+          username: member.user.username,
+          serverName: member.guild.name,
+          memberCount: member.guild.memberCount,
+        });
+        await channel.send({ content: message });
       }
+    } catch (error) {
+      logger.error('welcome', 'Échec de l’envoi du message d’accueil', error instanceof Error ? error : undefined);
+    }
 
-      const message = renderWelcomeMessage(welcome.welcomeMessage, {
-        userId: member.user.id,
-        username: member.user.username,
-        serverName: member.guild.name,
-        memberCount: member.guild.memberCount,
-      });
-      await channel.send({ content: message });
-
+    try {
       if (isDiscordSnowflake(welcome.autoRoleId)) {
         const role = member.guild.roles.cache.get(welcome.autoRoleId);
         if (role && !role.managed && role.editable) await member.roles.add(role);
         else logger.warn('welcome', `Rôle automatique indisponible ou non attribuable (${welcome.autoRoleId}).`);
       }
     } catch (error) {
-      logger.error('welcome', 'Échec du traitement d’accueil', error instanceof Error ? error : undefined);
+      logger.error('welcome', 'Échec de l’attribution du rôle automatique', error instanceof Error ? error : undefined);
     }
   });
 
