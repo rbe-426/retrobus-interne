@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { createApiServer } from './api/server.js';
 import { createApiBirthdayRepository } from './services/birthdays/apiBirthdayRepository.js';
 import { BirthdayInteractions } from './services/birthdays/birthdayInteractions.js';
+import { createBot920ConfigurationStore } from './services/bot920ConfigurationStore.js';
 import { createDiscordBot } from './services/discordBot.js';
 import { logger } from './utils/logger.js';
 
@@ -11,7 +12,9 @@ const birthdayRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
   ? createApiBirthdayRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
   : undefined;
 const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
-const bot = createDiscordBot(createCommands(birthdayInteractions), birthdayInteractions);
+const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
+await configurationStore.refresh();
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get), birthdayInteractions);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,
@@ -40,8 +43,12 @@ if (!birthdayRepository) {
   logger.warn('birthdays', 'RBE_API_URL ou BOT920_SERVICE_TOKEN absent : le module anniversaires est indisponible.');
 }
 
+const configurationRefresh = setInterval(() => void configurationStore.refresh(), 60_000);
+configurationRefresh.unref();
+
 async function shutdown(signal: string) {
   logger.info('system', `Arrêt demandé (${signal})`);
+  clearInterval(configurationRefresh);
   server.close();
   await bot.stop();
 }

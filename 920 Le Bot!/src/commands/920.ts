@@ -12,8 +12,9 @@ import {
 } from './funContent.js';
 import { executePing } from './ping.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
+import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 
-export function createCommand920(birthdayInteractions: BirthdayInteractions): BotCommand {
+export function createCommand920(birthdayInteractions: BirthdayInteractions, getConfiguration: () => Bot920Configuration): BotCommand {
   return {
   data: new SlashCommandBuilder()
     .setName('920')
@@ -60,12 +61,19 @@ export function createCommand920(birthdayInteractions: BirthdayInteractions): Bo
       .setName('tirage')
       .setDescription('Lance un tirage RBE.')),
   async execute(interaction) {
-    switch (interaction.options.getSubcommand()) {
+    const subcommand = interaction.options.getSubcommand() as Bot920Subcommand;
+    const configuration = getConfiguration();
+    if (!isBot920CommandEnabled(configuration, subcommand)) {
+      await interaction.reply({ content: 'Cette commande est temporairement désactivée par l’administration.', ephemeral: true });
+      return;
+    }
+
+    switch (subcommand) {
       case 'ping':
         await executePing(interaction);
         return;
       case 'about':
-        await executeAbout(interaction);
+        await executeAbout(interaction, configuration);
         return;
       case 'anniversaire':
         await birthdayInteractions.showMenu(interaction);

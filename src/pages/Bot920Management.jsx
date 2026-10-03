@@ -8,6 +8,7 @@ import {
   FiActivity, FiBarChart2, FiBookOpen, FiCommand, FiCpu, FiFileText, FiGift,
   FiHome, FiLink, FiMenu, FiMessageCircle, FiSettings, FiSmile, FiUserPlus,
 } from 'react-icons/fi';
+import Bot920ConfigurationPanel from '../components/Bot920ConfigurationPanel.jsx';
 
 const NAVIGATION_GROUPS = [
   { label: 'Pilotage', items: [
@@ -59,6 +60,7 @@ function Overview() {
 }
 
 function PendingModule({ sectionId }) {
+  if (sectionId !== 'statistics') return <Bot920ConfigurationPanel sectionId={sectionId} />;
   const [title, description] = SECTION_COPY[sectionId];
   return <VStack align="stretch" spacing={6} maxW="4xl"><Box><Heading size="lg">{title}</Heading><Text color="gray.600" mt={1}>{description}</Text></Box><Card variant="outline" borderRadius="md"><CardBody py={{ base: 10, md: 14 }}><VStack spacing={3} textAlign="center"><Icon as={FiFileText} boxSize={8} color="rbe.500" /><Heading size="sm">Module en préparation</Heading><Text maxW="md" fontSize="sm" color="gray.600">L’architecture de navigation est en place. Cette section n’enregistre pas encore de configuration et ne simule aucune donnée opérationnelle.</Text></VStack></CardBody></Card></VStack>;
 }

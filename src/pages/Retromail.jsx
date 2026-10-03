@@ -29,7 +29,11 @@ import retromailLogo from '../assets/retromail_logo.png';
 import retromailLoginLogo from '../assets/retromail_login.png';
 import retromailMiniLogo from '../assets/retromail_blanc_mini.png';
 
-const API = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+// Production must use Vercel's same-origin /api rewrite so CSRF and credentials
+// are not sent directly across origins to the Railway API.
+const API = import.meta.env.PROD
+  ? ''
+  : (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
 const parseMailRecipients = (value) => {
   if (Array.isArray(value)) {
