@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Badge, Box, Button, Card, CardBody, Divider, Drawer, DrawerBody,
   DrawerContent, DrawerOverlay, Flex, Heading, HStack, Icon, IconButton,
-  SimpleGrid, Text, VStack, useDisclosure,
+  SimpleGrid, Spinner, Text, VStack, useDisclosure,
 } from '@chakra-ui/react';
 import {
   FiActivity, FiBarChart2, FiBookOpen, FiCommand, FiCpu, FiFileText, FiGift,
   FiHome, FiLink, FiMenu, FiMessageCircle, FiSettings, FiSmile, FiUserPlus,
 } from 'react-icons/fi';
 import Bot920ConfigurationPanel from '../components/Bot920ConfigurationPanel.jsx';
+import { apiClient } from '../apiClient.js';
 
 const NAVIGATION_GROUPS = [
   { label: 'Pilotage', items: [
@@ -39,18 +40,44 @@ const SECTION_COPY = {
   statistics: ['Statistiques', 'Les statistiques apparaîtront ici lorsque la collecte sera raccordée.'],
 };
 
-function UnavailableMetric({ label, icon }) {
+function StatusMetric({ label, icon, value, detail, loading, error, connected }) {
   return <Card variant="outline" borderColor="gray.200" borderRadius="md"><CardBody>
-    <HStack justify="space-between" align="start"><Box><Text fontSize="sm" color="gray.500">{label}</Text><Text mt={2} fontWeight="700" color="gray.700">Non disponible</Text></Box><Icon as={icon} color="gray.400" boxSize={5} /></HStack>
-    <Text fontSize="xs" color="gray.500" mt={3}>Aucune source opérationnelle n’est connectée à cette interface.</Text>
+    <HStack justify="space-between" align="start"><Box><Text fontSize="sm" color="gray.500">{label}</Text>{loading ? <Spinner mt={2} size="sm" color="rbe.500" /> : <Text mt={2} fontWeight="700" color={error ? 'red.600' : connected ? 'green.600' : 'gray.700'}>{error ? 'Indisponible' : value}</Text>}</Box><Icon as={icon} color={error ? 'red.400' : connected ? 'green.500' : 'gray.400'} boxSize={5} /></HStack>
+    <Text fontSize="xs" color={error ? 'red.600' : 'gray.500'} mt={3}>{loading ? 'Connexion au relais sécurisé…' : detail}</Text>
   </CardBody></Card>;
 }
 
 function Overview() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadStatus = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setStatus(await apiClient.get('/api/admin/bot920/status'));
+    } catch {
+      setStatus(null);
+      setError('Le relais MyRBE ne peut pas joindre le bot pour le moment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadStatus(); }, []);
+
+  const bot = status?.bot;
+  const connected = bot?.discord === 'connected';
+  const unavailable = error || (!loading && !status?.available);
+
   return <VStack align="stretch" spacing={6}>
-    <Box><Badge colorScheme="rbe" variant="subtle" mb={2}>Administration Discord</Badge><Heading size="lg">920 Le Bot !</Heading><Text color="gray.600" mt={1}>Centre de pilotage du bot communautaire RétroBus Essonne.</Text></Box>
+    <Flex justify="space-between" align={{ base: 'start', sm: 'center' }} gap={3} direction={{ base: 'column', sm: 'row' }}><Box><Badge colorScheme={connected ? 'green' : 'rbe'} variant="subtle" mb={2}>{connected ? 'Discord connecté' : 'Administration Discord'}</Badge><Heading size="lg">920 Le Bot !</Heading><Text color="gray.600" mt={1}>Centre de pilotage du bot communautaire RétroBus Essonne.</Text></Box><Button size="sm" variant="outline" colorScheme="rbe" onClick={loadStatus} isLoading={loading}>Actualiser</Button></Flex>
     <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
-      <UnavailableMetric label="Connexion Discord" icon={FiCpu} /><UnavailableMetric label="Latence" icon={FiActivity} /><UnavailableMetric label="Serveurs connectés" icon={FiMessageCircle} /><UnavailableMetric label="Commandes exécutées" icon={FiCommand} />
+      <StatusMetric label="Connexion Discord" icon={FiCpu} loading={loading} error={unavailable} connected={connected} value={connected ? 'Connecté' : 'En veille'} detail={unavailable || 'État remonté par le bot.'} />
+      <StatusMetric label="Latence" icon={FiActivity} loading={loading} error={unavailable} value={bot?.latencyMs == null ? 'Non mesurée' : `${bot.latencyMs} ms`} detail={unavailable || 'Latence Discord signalée par le bot.'} />
+      <StatusMetric label="Serveurs connectés" icon={FiMessageCircle} loading={loading} error={unavailable} value={bot?.guildCount ?? 0} detail={unavailable || 'Serveurs Discord actuellement en cache.'} />
+      <StatusMetric label="Commandes exécutables" icon={FiCommand} loading={loading} error={unavailable} value={bot?.commandCount ?? 0} detail={unavailable || 'Commandes enregistrées au démarrage du bot.'} />
     </SimpleGrid>
     <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
       <Card variant="outline" borderRadius="md"><CardBody><HStack spacing={3} mb={4}><Icon as={FiSettings} color="rbe.500" boxSize={5} /><Heading size="sm">Configuration disponible</Heading></HStack><VStack align="stretch" spacing={3} divider={<Divider />}><Box><Text fontWeight="600">Navigation par modules</Text><Text fontSize="sm" color="gray.600">Chaque domaine du bot dispose désormais de son espace d’administration.</Text></Box><Box><Text fontWeight="600">Structure prête pour l’exploitation</Text><Text fontSize="sm" color="gray.600">Les écrans suivants prépareront les raccordements API sans modifier le runtime du bot.</Text></Box></VStack></CardBody></Card>
