@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { MessageFlags } from 'discord.js';
 import { BirthdayInteractions } from '../src/services/birthdays/birthdayInteractions.js';
 
 test('/920 anniversaire displays consultation and edit actions', async () => {
@@ -12,7 +13,7 @@ test('/920 anniversaire displays consultation and edit actions', async () => {
     },
   });
 
-  assert.equal(response?.ephemeral, true);
+  assert.equal(response?.flags, MessageFlags.Ephemeral);
   assert.match(String(response?.content), /consulter la liste ou éditer/i);
   assert.equal(Array.isArray(response?.components), true);
 });

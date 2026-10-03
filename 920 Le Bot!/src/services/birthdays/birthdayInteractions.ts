@@ -2,10 +2,12 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   type ButtonInteraction,
+  type InteractionReplyOptions,
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { BirthdayRepository } from './birthdayRepositoryTypes.js';
@@ -16,8 +18,8 @@ const EDIT_BUTTON_ID = 'birthday:edit';
 const EDIT_MODAL_ID = 'birthday:edit-modal';
 const BIRTHDAY_INPUT_ID = 'birthday:date';
 
-function unavailableMessage() {
-  return { content: 'Le module anniversaires n’est pas encore configuré sur le serveur.', ephemeral: true };
+function unavailableMessage(): InteractionReplyOptions {
+  return { content: 'Le module anniversaires n’est pas encore configuré sur le serveur.', flags: MessageFlags.Ephemeral };
 }
 
 function formatBirthdayList(records: readonly Awaited<ReturnType<BirthdayRepository['listByGuild']>>[number][]): string {
@@ -46,7 +48,7 @@ export class BirthdayInteractions {
     await interaction.reply({
       content: '🎂 Souhaitez-vous consulter la liste ou éditer votre anniversaire ?',
       components: [actions],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -58,8 +60,9 @@ export class BirthdayInteractions {
     }
 
     if (interaction.customId === CONSULT_BUTTON_ID) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const records = await this.repository.listByGuild(interaction.guildId);
-      await interaction.reply({ content: formatBirthdayList(records), ephemeral: true });
+      await interaction.editReply({ content: formatBirthdayList(records) });
       return true;
     }
 
@@ -86,6 +89,7 @@ export class BirthdayInteractions {
     }
 
     try {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const birthDate = parseBirthdayDate(interaction.fields.getTextInputValue(BIRTHDAY_INPUT_ID));
       await this.repository.upsert({
         guildId: interaction.guildId,
@@ -93,13 +97,11 @@ export class BirthdayInteractions {
         displayName: interaction.user.globalName ?? interaction.user.username,
         birthDate,
       });
-      await interaction.reply({
-        content: `🎂 Anniversaire enregistré : ${formatBirthdayDate(birthDate)} (${getAge(birthDate)} ans).`,
-        ephemeral: true,
-      });
+      await interaction.editReply(`🎂 Anniversaire enregistré : ${formatBirthdayDate(birthDate)} (${getAge(birthDate)} ans).`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Impossible d’enregistrer cet anniversaire.';
-      await interaction.reply({ content: `⚠️ ${message}`, ephemeral: true });
+      if (interaction.deferred || interaction.replied) await interaction.editReply(`⚠️ ${message}`);
+      else await interaction.reply({ content: `⚠️ ${message}`, flags: MessageFlags.Ephemeral });
     }
     return true;
   }
