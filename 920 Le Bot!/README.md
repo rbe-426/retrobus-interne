@@ -36,14 +36,7 @@ Le bot reste autonome. Son futur panel doit être intégré à l’URBEX et util
 
 `/920 anniversaire` ouvre un choix éphémère : consulter les anniversaires du serveur ou modifier son propre anniversaire. La liste affiche le prénom Discord, le jour et le mois ainsi que l’âge calculé ; l’année de naissance n’est jamais affichée.
 
-Cette fonction requiert une base PostgreSQL dédiée au bot. Après avoir renseigné `BOT_DATABASE_URL` localement, exécuter une seule fois :
-
-```bash
-npm run db:generate
-npm run db:migrate
-```
-
-La migration n’est jamais exécutée automatiquement par le bot.
+Cette fonction utilise l’API RBE centrale. Configurer `RBE_API_URL` et `BOT920_SERVICE_TOKEN` dans l’environnement du bot, puis configurer le même `BOT920_SERVICE_TOKEN` dans l’environnement de l’API RBE. La migration Prisma associée est conservée dans `Interne/api/prisma/migrations` et n’est jamais exécutée automatiquement.
 
 ## Discord
 

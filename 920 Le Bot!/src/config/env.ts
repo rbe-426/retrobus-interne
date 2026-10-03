@@ -8,7 +8,8 @@ const environmentSchema = z.object({
   DISCORD_APPLICATION_ID: z.string().min(1).optional(),
   DISCORD_PUBLIC_KEY: z.string().min(1).optional(),
   DISCORD_GUILD_ID: z.string().min(1).optional(),
-  BOT_DATABASE_URL: z.string().url().optional(),
+  RBE_API_URL: z.string().url().optional(),
+  BOT920_SERVICE_TOKEN: z.string().min(32).optional(),
 });
 
 export const env = environmentSchema.parse(process.env);

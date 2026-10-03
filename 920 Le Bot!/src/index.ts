@@ -1,14 +1,16 @@
 import { createCommands } from './commands/index.js';
 import { env } from './config/env.js';
 import { createApiServer } from './api/server.js';
-import { createBirthdayDatabase } from './database/birthdayRepository.js';
+import { createApiBirthdayRepository } from './services/birthdays/apiBirthdayRepository.js';
 import { BirthdayInteractions } from './services/birthdays/birthdayInteractions.js';
 import { createDiscordBot } from './services/discordBot.js';
 import { logger } from './utils/logger.js';
 
 const startedAt = new Date().toISOString();
-const birthdayDatabase = env.BOT_DATABASE_URL ? createBirthdayDatabase(env.BOT_DATABASE_URL) : undefined;
-const birthdayInteractions = new BirthdayInteractions(birthdayDatabase?.repository);
+const birthdayRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
+  ? createApiBirthdayRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
+  : undefined;
+const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
 const bot = createDiscordBot(createCommands(birthdayInteractions), birthdayInteractions);
 const api = createApiServer({
   startedAt,
@@ -34,15 +36,14 @@ if (env.DISCORD_TOKEN) {
   logger.warn('discord', 'DISCORD_TOKEN absent : démarrage en mode standby.');
 }
 
-if (!birthdayDatabase) {
-  logger.warn('birthdays', 'BOT_DATABASE_URL absent : le module anniversaires est indisponible.');
+if (!birthdayRepository) {
+  logger.warn('birthdays', 'RBE_API_URL ou BOT920_SERVICE_TOKEN absent : le module anniversaires est indisponible.');
 }
 
 async function shutdown(signal: string) {
   logger.info('system', `Arrêt demandé (${signal})`);
   server.close();
   await bot.stop();
-  await birthdayDatabase?.disconnect();
 }
 
 process.once('SIGINT', () => void shutdown('SIGINT'));

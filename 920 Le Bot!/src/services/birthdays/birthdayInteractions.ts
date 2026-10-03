@@ -8,7 +8,7 @@ import {
   type ButtonInteraction,
   type ModalSubmitInteraction,
 } from 'discord.js';
-import type { BirthdayRepository } from '../../database/birthdayRepository.js';
+import type { BirthdayRepository } from './birthdayRepositoryTypes.js';
 import { formatBirthdayDate, getAge, parseBirthdayDate } from './birthdayDate.js';
 
 const CONSULT_BUTTON_ID = 'birthday:consult';
