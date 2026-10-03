@@ -105,7 +105,8 @@ function BellIcon(props) {
 }
 
 export default function Header() {
-  const { logout, prenom, nom, isAuthenticated, isAdmin, matricule } = useUser();
+  const { logout, prenom, nom, isAuthenticated, isAdmin, matricule, roles } = useUser();
+  const canManageBot = isAdmin || roles?.includes('PRESIDENT');
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -489,6 +490,11 @@ export default function Header() {
                 <MenuItem as={RouterLink} to="/dashboard/ndf">
                   Note de Frais
                 </MenuItem>
+                {canManageBot && (
+                  <MenuItem as={RouterLink} to="/accueil/myrbe/920lebot">
+                    920 Le Bot !
+                  </MenuItem>
+                )}
                 <MenuItem as={RouterLink} to="/accueil/myrbe/retromail">
                   RétroMail
                 </MenuItem>

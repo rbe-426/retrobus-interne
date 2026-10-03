@@ -1,6 +1,6 @@
 import {
   FiDollarSign, FiCalendar, FiUsers, FiPackage, FiMail, FiGlobe,
-  FiLifeBuoy, FiTool, FiTruck, FiShoppingBag, FiVideo, FiFileText
+  FiLifeBuoy, FiTool, FiTruck, FiShoppingBag, FiVideo, FiFileText, FiCpu
 } from 'react-icons/fi';
 import { FaPaintBrush } from 'react-icons/fa';
 
@@ -19,5 +19,6 @@ export const MYRBE_CARDS = [
   { id: 'news', title: 'Actualités publiques', description: 'Rédiger et publier les articles du site externe', to: '/accueil/myrbe/actualites-publiques', icon: FiGlobe, color: 'rbe', resource: 'SITE_MANAGEMENT', requiredRole: ['ADMIN'], cardAccess: true },
   { id: 'support', title: 'RétroSupport', description: 'Tickets: incidents, bugs et améliorations', to: '/accueil/myrbe/support', icon: FiLifeBuoy, color: 'cyan', resource: 'RETROSUPPORT', cardAccess: true },
   { id: 'procedures', title: 'Procédures', description: "Référentiel des procédures de l'association", to: '/accueil/myrbe/procedures', icon: FiFileText, color: 'purple', resource: null, cardAccess: true },
+  { id: 'bot920', title: '920 Le Bot !', description: 'Administration du bot communautaire Discord RBE', to: '/accueil/myrbe/920lebot', icon: FiCpu, color: 'rbe', resource: null, requiredRole: ['ADMIN', 'PRESIDENT'], cardAccess: true, badge: { label: 'Discord', color: 'rbe' } },
   { id: 'retrostudio', title: 'RetroStudio', description: 'Planification et suivi des tournages', to: '/accueil/myrbe/retrostudio', icon: FiVideo, color: 'red', resource: 'EVENTS', cardAccess: true, badge: { label: 'Événements', color: 'red' } }
 ].map((card) => ({ ...card, permissionKey: `MYRBE_CARD:${card.id}` }));

@@ -119,6 +119,7 @@ const IneoOperations = lazy(() => import("./pages/IneoOperations"));
 const IneoFreeTracking = lazy(() => import("./pages/IneoFreeTracking"));
 const LeMusee = lazy(() => import("./pages/LeMusee"));
 const PublicNewsManagement = lazy(() => import("./pages/PublicNewsManagement"));
+const Bot920Management = lazy(() => import("./pages/Bot920Management"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -181,6 +182,7 @@ export default function App() {
           <Route path="/accueil" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
           <Route path="/dashboard/home" element={<Navigate to="/accueil" replace />} />
         <Route path="/accueil/myrbe" element={<ProtectedRoute><MyRBE /></ProtectedRoute>} />
+        <Route path="/accueil/myrbe/920lebot" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><Bot920Management /></RoleProtectedRoute>} />
         <Route path="/dashboard/myrbe" element={<Navigate to="/accueil/myrbe" replace />} />
   <Route path="/dashboard/myrbe/:parc" element={<ProtectedRoute><MyRBEActions /></ProtectedRoute>} />
   <Route path="/accueil/myrbe/ineo-retrobus" element={<ProtectedRoute><IneoHome /></ProtectedRoute>} />
