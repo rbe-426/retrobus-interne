@@ -6,16 +6,18 @@ import {
 } from '@chakra-ui/react';
 import {
   FiActivity, FiBarChart2, FiBookOpen, FiCommand, FiCpu, FiFileText, FiGift,
-  FiHome, FiLink, FiMenu, FiMessageCircle, FiSettings, FiSmile, FiUserPlus,
+  FiHome, FiLink, FiMenu, FiMessageCircle, FiSettings, FiShield, FiSmile, FiUserPlus,
 } from 'react-icons/fi';
 import Bot920ConfigurationPanel from '../components/Bot920ConfigurationPanel.jsx';
 import Bot920GuildContext from '../components/Bot920GuildContext.jsx';
+import Bot920ModerationCenter from '../components/Bot920ModerationCenter.jsx';
 import { apiClient } from '../apiClient.js';
 
 const NAVIGATION_GROUPS = [
   { label: 'Pilotage', items: [
     { id: 'overview', label: 'Vue d’ensemble', description: 'État et points d’attention', icon: FiHome },
     { id: 'general', label: 'Général', description: 'Identité et comportement', icon: FiSettings },
+    { id: 'moderation', label: 'Modération', description: 'Sanctions et historique', icon: FiShield },
     { id: 'statistics', label: 'Statistiques', description: 'Activité et tendances', icon: FiBarChart2 },
   ] },
   { label: 'Interactions', items: [
@@ -112,6 +114,6 @@ export default function Bot920Management() {
   return <Flex minH="calc(100vh - 80px)" bg="gray.50" align="stretch">
     <Box display={{ base: 'none', lg: 'block' }} w="280px" flexShrink={0} bg="gray.900" position="sticky" top={0} h="calc(100vh - 80px)">{navigation}</Box>
     <Drawer isOpen={mobileNavigation.isOpen} placement="left" onClose={mobileNavigation.onClose} size="xs"><DrawerOverlay /><DrawerContent bg="gray.900"><DrawerBody p={0}>{navigation}</DrawerBody></DrawerContent></Drawer>
-    <Box flex={1} minW={0}><Flex minH="72px" px={{ base: 4, md: 6 }} bg="white" borderBottomWidth="1px" borderColor="gray.200" align="center" justify="space-between" gap={4}><HStack minW={0} spacing={3}><IconButton display={{ base: 'inline-flex', lg: 'none' }} icon={<FiMenu />} aria-label="Ouvrir la navigation du bot" variant="outline" color="rbe.600" borderColor="rbe.300" onClick={mobileNavigation.onOpen} /><Box minW={0}><Text fontSize="xs" fontWeight="700" color="rbe.600" textTransform="uppercase">920 Le Bot !</Text><Heading size="md" noOfLines={1}>{activeItem?.label}</Heading></Box></HStack><Badge colorScheme="gray" variant="subtle" flexShrink={0}>Données live non connectées</Badge></Flex><Box p={{ base: 4, md: 6 }} maxW="1440px">{activeSection === 'overview' ? <Overview /> : <PendingModule sectionId={activeSection} />}</Box></Box>
+    <Box flex={1} minW={0}><Flex minH="72px" px={{ base: 4, md: 6 }} bg="white" borderBottomWidth="1px" borderColor="gray.200" align="center" justify="space-between" gap={4}><HStack minW={0} spacing={3}><IconButton display={{ base: 'inline-flex', lg: 'none' }} icon={<FiMenu />} aria-label="Ouvrir la navigation du bot" variant="outline" color="rbe.600" borderColor="rbe.300" onClick={mobileNavigation.onOpen} /><Box minW={0}><Text fontSize="xs" fontWeight="700" color="rbe.600" textTransform="uppercase">920 Le Bot !</Text><Heading size="md" noOfLines={1}>{activeItem?.label}</Heading></Box></HStack><Badge colorScheme="gray" variant="subtle" flexShrink={0}>Données live non connectées</Badge></Flex><Box p={{ base: 4, md: 6 }} maxW="1440px">{activeSection === 'overview' ? <Overview /> : activeSection === 'moderation' ? <Bot920ModerationCenter /> : <PendingModule sectionId={activeSection} />}</Box></Box>
   </Flex>;
 }
