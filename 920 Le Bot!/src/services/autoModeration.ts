@@ -1,4 +1,4 @@
-import type { Guild, GuildMember, Message, TextBasedChannel } from 'discord.js';
+import type { Guild, GuildMember, Message } from 'discord.js';
 import type { Bot920Configuration } from '../config/bot920Configuration.js';
 import { logger } from '../utils/logger.js';
 
@@ -24,7 +24,7 @@ export class AutoModerationService {
     const channelId = this.getConfiguration().plugins.automod.alertChannelId;
     if (!/^\d{17,20}$/.test(channelId)) return;
     const channel = await guild.channels.fetch(channelId).catch(() => null);
-    if (channel?.isTextBased()) await (channel as TextBasedChannel).send({ content });
+    if (channel?.isSendable()) await channel.send({ content });
   }
 
   async handleMessage(message: Message) {
