@@ -4,23 +4,31 @@ interface BirthdayApiResponse {
   birthdays?: Array<Omit<BirthdayRecord, 'birthDate'> & { birthDate: string }>;
 }
 
+const REQUEST_TIMEOUT_MS = 2_000;
+const SERVICE_UNAVAILABLE_MESSAGE = 'Le service anniversaires RBE est indisponible.';
+
 function buildUrl(apiUrl: string, path: string): string {
   return `${apiUrl.replace(/\/$/, '')}${path}`;
 }
 
 export function createApiBirthdayRepository(apiUrl: string, serviceToken: string): BirthdayRepository {
   async function request(path: string, options: RequestInit = {}) {
-    const response = await fetch(buildUrl(apiUrl, path), {
-      ...options,
-      headers: {
-        'content-type': 'application/json',
-        'x-bot920-service-token': serviceToken,
-        ...options.headers,
-      },
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!response.ok) throw new Error('Le service anniversaires RBE est indisponible.');
-    return response.json() as Promise<BirthdayApiResponse>;
+    try {
+      const response = await fetch(buildUrl(apiUrl, path), {
+        ...options,
+        headers: {
+          'content-type': 'application/json',
+          'x-bot920-service-token': serviceToken,
+          ...options.headers,
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(SERVICE_UNAVAILABLE_MESSAGE);
+      return response.json() as Promise<BirthdayApiResponse>;
+    } catch (error) {
+      if (error instanceof Error && error.message === SERVICE_UNAVAILABLE_MESSAGE) throw error;
+      throw new Error(SERVICE_UNAVAILABLE_MESSAGE);
+    }
   }
 
   return {

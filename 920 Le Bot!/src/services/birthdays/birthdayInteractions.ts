@@ -61,8 +61,13 @@ export class BirthdayInteractions {
 
     if (interaction.customId === CONSULT_BUTTON_ID) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const records = await this.repository.listByGuild(interaction.guildId);
-      await interaction.editReply({ content: formatBirthdayList(records) });
+      try {
+        const records = await this.repository.listByGuild(interaction.guildId);
+        await interaction.editReply({ content: formatBirthdayList(records) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Le service anniversaires RBE est indisponible.';
+        await interaction.editReply({ content: `⚠️ ${message}` });
+      }
       return true;
     }
 

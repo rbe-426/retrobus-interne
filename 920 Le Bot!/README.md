@@ -19,6 +19,12 @@ Sans `DISCORD_TOKEN`, le service démarre en mode standby et expose `GET /health
 - `npm test` : tests unitaires.
 - `npm run build` : compilation de production.
 
+## Déploiement permanent
+
+Le bot doit être déployé comme un service Railway distinct de l'API RBE et du frontend. Railway exécute `npm start`, surveille `GET /health` et redémarre le processus en cas d'échec.
+
+Configurer les variables `DISCORD_TOKEN`, `DISCORD_APPLICATION_ID`, `DISCORD_GUILD_ID`, `RBE_API_URL` et `BOT920_SERVICE_TOKEN` dans le service Railway du bot. Ne jamais utiliser `npm run dev` en production.
+
 ## Intégration RBE
 
 Le bot reste autonome. Son futur panel doit être intégré à l’URBEX et utiliser l’authentification, les rôles et les permissions RBE existants. Aucune migration de base n’est incluse dans ce socle.
