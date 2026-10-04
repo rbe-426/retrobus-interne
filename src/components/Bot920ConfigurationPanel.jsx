@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Box, Button, Card, CardBody, Checkbox, FormControl, FormLabel, Heading,
-  FormHelperText, Input, SimpleGrid, Spinner, Switch, Text, Textarea, VStack, useToast,
+  FormHelperText, Input, Select, SimpleGrid, Spinner, Switch, Text, Textarea, VStack, useToast,
 } from '@chakra-ui/react';
 import { apiClient } from '../apiClient.js';
 
@@ -61,6 +61,9 @@ function welcomePreview(message) {
 
 export default function Bot920ConfigurationPanel({ sectionId }) {
   const [configuration, setConfiguration] = useState(DEFAULT_CONFIGURATION);
+  const [guilds, setGuilds] = useState([]);
+  const [guildId, setGuildId] = useState('');
+  const [guildLoading, setGuildLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -68,8 +71,28 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
 
   useEffect(() => {
     let active = true;
+    apiClient.get('/api/admin/bot920/guilds')
+      .then((payload) => {
+        if (!active) return;
+        const availableGuilds = Array.isArray(payload?.guilds) ? payload.guilds : [];
+        setGuilds(availableGuilds);
+        setGuildId((current) => current || availableGuilds[0]?.id || '');
+      })
+      .catch(() => {
+        if (active) toast({ title: 'Serveurs indisponibles', description: 'Aucun réglage ne peut être publié sans serveur Discord synchronisé.', status: 'error', duration: 5000, isClosable: true });
+      })
+      .finally(() => { if (active) setGuildLoading(false); });
+    return () => { active = false; };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!guildId) {
+      setLoading(false);
+      return undefined;
+    }
+    let active = true;
     setLoading(true);
-    apiClient.get('/api/admin/bot920/config')
+    apiClient.get(`/api/admin/bot920/guilds/${guildId}/settings`)
       .then((payload) => {
         if (active && payload?.configuration) setConfiguration(payload.configuration);
       })
@@ -78,7 +101,7 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [sectionId, toast]);
+  }, [guildId, sectionId, toast]);
 
   const update = (path, value) => {
     setConfiguration((current) => {
@@ -92,11 +115,12 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
   };
 
   const save = async () => {
+    if (!guildId) return;
     setSaving(true);
     try {
-      const payload = await apiClient.put('/api/admin/bot920/config', { configuration });
+      const payload = await apiClient.put(`/api/admin/bot920/guilds/${guildId}/settings`, { configuration });
       setConfiguration(payload.configuration);
-      toast({ title: 'Configuration enregistrée', status: 'success', duration: 3500, isClosable: true });
+      toast({ title: `Configuration publiée (v${payload.version})`, status: 'success', duration: 3500, isClosable: true });
     } catch {
       toast({ title: 'Enregistrement impossible', description: 'La configuration n’a pas été modifiée.', status: 'error', duration: 5000, isClosable: true });
     } finally {
@@ -131,5 +155,5 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
     return <FormControl display="flex" alignItems="center" gap={3}><Switch isChecked={configuration.fun.enabled} onChange={(event) => update('fun.enabled', event.target.checked)} /><FormLabel mb={0}>Activer les commandes Fun</FormLabel></FormControl>;
   };
 
-  return <VStack align="stretch" spacing={6} maxW="4xl"><Box><Heading size="lg">{title}</Heading><Text color="gray.600" mt={1}>{description}</Text></Box><Card variant="outline" borderRadius="md"><CardBody>{loading ? <Box py={8} textAlign="center"><Spinner color="rbe.500" /></Box> : <VStack align="stretch" spacing={6}>{content()}<Button alignSelf="flex-end" colorScheme="rbe" onClick={save} isLoading={saving}>Enregistrer</Button></VStack>}</CardBody></Card></VStack>;
+  return <VStack align="stretch" spacing={6} maxW="4xl"><Box><Heading size="lg">{title}</Heading><Text color="gray.600" mt={1}>{description}</Text></Box><Card variant="outline" borderRadius="md"><CardBody>{guildLoading ? <Box py={8} textAlign="center"><Spinner color="rbe.500" /></Box> : guilds.length === 0 ? <Text color="gray.600">Aucun serveur Discord synchronisé. Le bot doit être connecté avant de pouvoir publier une configuration.</Text> : <VStack align="stretch" spacing={6}><FormControl maxW="lg"><FormLabel fontSize="sm">Serveur Discord administré</FormLabel><Select value={guildId} onChange={(event) => setGuildId(event.target.value)}>{guilds.map((guild) => <option key={guild.id} value={guild.id}>{guild.name} ({guild.memberCount} membres)</option>)}</Select></FormControl>{loading ? <Box py={8} textAlign="center"><Spinner color="rbe.500" /></Box> : <VStack align="stretch" spacing={6}>{content()}<Button alignSelf="flex-end" colorScheme="rbe" onClick={save} isLoading={saving}>Publier sur ce serveur</Button></VStack>}</VStack>}</CardBody></Card></VStack>;
 }

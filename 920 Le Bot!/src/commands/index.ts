@@ -6,7 +6,7 @@ import { ModerationService } from '../services/moderation.js';
 
 export function createCommands(
   birthdayInteractions: BirthdayInteractions,
-  getConfiguration: () => Bot920Configuration = () => defaultBot920Configuration,
+  getConfiguration: (guildId?: string) => Bot920Configuration = () => defaultBot920Configuration,
   moderation?: ModerationService,
 ): readonly BotCommand[] {
 	return [createCommand920(birthdayInteractions, getConfiguration, moderation)];

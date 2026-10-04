@@ -10,7 +10,7 @@ import { AutoModerationService } from './autoModeration.js';
 export function createDiscordBot(
   commands: readonly BotCommand[],
   birthdayInteractions?: BirthdayInteractions,
-  getConfiguration: () => Bot920Configuration = () => defaultBot920Configuration,
+  getConfiguration: (guildId?: string) => Bot920Configuration = () => defaultBot920Configuration,
 ) {
   const registry = createCommandRegistry(commands);
   const automoderation = new AutoModerationService(getConfiguration);
@@ -58,7 +58,7 @@ export function createDiscordBot(
 
   client.on(Events.GuildMemberAdd, async (member) => {
     await automoderation.handleMemberJoin(member);
-    const configuration = getConfiguration();
+    const configuration = getConfiguration(member.guild.id);
     if (!isWelcomeEnabled(configuration)) return;
 
     const { welcome } = configuration;

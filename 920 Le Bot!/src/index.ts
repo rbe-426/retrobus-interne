@@ -46,6 +46,7 @@ if (env.DISCORD_TOKEN) {
     .then(async () => {
       await moderation.processDueTemporaryBans(bot.client);
       await syncDiscordGuildInventory(bot.client, env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
+      await Promise.all(bot.client.guilds.cache.map((guild) => configurationStore.refreshGuild(guild.id)));
     })
     .catch((error) => {
       logger.error('discord', 'Connexion impossible', error instanceof Error ? error : undefined);
@@ -59,7 +60,10 @@ if (!birthdayRepository) {
   logger.warn('birthdays', 'RBE_API_URL ou BOT920_SERVICE_TOKEN absent : le module anniversaires est indisponible.');
 }
 
-const configurationRefresh = setInterval(() => void configurationStore.refresh(), 60_000);
+const configurationRefresh = setInterval(() => {
+  void configurationStore.refresh();
+  void Promise.all(bot.client.guilds.cache.map((guild) => configurationStore.refreshGuild(guild.id)));
+}, 60_000);
 configurationRefresh.unref();
 const temporaryBanSweep = setInterval(() => void moderation.processDueTemporaryBans(bot.client), 60_000);
 temporaryBanSweep.unref();

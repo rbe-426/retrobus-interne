@@ -18,10 +18,10 @@ export class AutoModerationService {
   private readonly messages = new Map<string, number[]>();
   private readonly joins = new Map<string, number[]>();
 
-  constructor(private readonly getConfiguration: () => Bot920Configuration) {}
+  constructor(private readonly getConfiguration: (guildId?: string) => Bot920Configuration) {}
 
   private async notify(guild: Guild, content: string) {
-    const channelId = this.getConfiguration().plugins.automod.alertChannelId;
+    const channelId = this.getConfiguration(guild.id).plugins.automod.alertChannelId;
     if (!/^\d{17,20}$/.test(channelId)) return;
     const channel = await guild.channels.fetch(channelId).catch(() => null);
     if (channel?.isSendable()) await channel.send({ content });
@@ -29,7 +29,7 @@ export class AutoModerationService {
 
   async handleMessage(message: Message) {
     if (!message.inGuild() || message.author.bot) return;
-    const settings = this.getConfiguration().plugins.automod;
+    const settings = this.getConfiguration(message.guildId).plugins.automod;
     if (!settings.enabled) return;
 
     const now = Date.now();
@@ -52,7 +52,7 @@ export class AutoModerationService {
   }
 
   async handleMemberJoin(member: GuildMember) {
-    const settings = this.getConfiguration().plugins.automod;
+    const settings = this.getConfiguration(member.guild.id).plugins.automod;
     if (!settings.enabled || !settings.antiRaid) return;
 
     const now = Date.now();

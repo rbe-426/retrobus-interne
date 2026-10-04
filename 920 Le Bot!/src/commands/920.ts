@@ -31,7 +31,7 @@ function withMemberDurationAndReason(configure: (builder: SlashCommandSubcommand
 
 export function createCommand920(
   birthdayInteractions: BirthdayInteractions,
-  getConfiguration: () => Bot920Configuration,
+  getConfiguration: (guildId?: string) => Bot920Configuration,
   moderation = new ModerationService(),
 ): BotCommand {
   return {
@@ -90,7 +90,7 @@ export function createCommand920(
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unban').setDescription('Retire le bannissement d’un utilisateur.'))),
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand() as Bot920Subcommand;
-    const configuration = getConfiguration();
+    const configuration = getConfiguration(interaction.guildId ?? undefined);
     if (!isBot920CommandEnabled(configuration, subcommand)) {
       await interaction.reply({ content: 'Cette commande est temporairement désactivée par l’administration.', ephemeral: true });
       return;
