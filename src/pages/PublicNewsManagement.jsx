@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   Badge, Box, Button, Card, CardBody, Container, Divider, FormControl,
-  FormLabel, Heading, HStack, IconButton, Image, Input, Modal, ModalBody,
+  FormHelperText, FormLabel, Heading, HStack, IconButton, Image, Input, Modal, ModalBody,
   ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay,
   SimpleGrid, Switch, Text, Textarea, useDisclosure, useToast, VStack,
 } from '@chakra-ui/react';
@@ -30,6 +30,13 @@ const parseMedia = (media) => {
     return [];
   }
 };
+
+const slugify = (title) => String(title || 'actualite')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '') || 'actualite';
 
 const PublicArticleImage = ({ title, alt, ...props }) => {
   const width = /^width:(33%|50%|100%)$/.test(title || '') ? title.slice(6) : '100%';
@@ -150,7 +157,7 @@ export default function PublicNewsManagement() {
         <ModalOverlay /><ModalContent><ModalHeader>{editingId ? 'Modifier l’article public' : 'Nouvel article public'}</ModalHeader><ModalCloseButton />
           <ModalBody pb={6}><SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8} alignItems="start">
             <VStack align="stretch" spacing={5}>
-              <FormControl isRequired><FormLabel>Titre</FormLabel><Input value={formData.title} onChange={(event) => setFormData({ ...formData, title: event.target.value })} placeholder="Titre de l'article" /></FormControl>
+              <FormControl isRequired><FormLabel>Titre</FormLabel><Input value={formData.title} onChange={(event) => setFormData({ ...formData, title: event.target.value })} placeholder="Titre de l'article" /><FormHelperText>URL publique : /actualites/{slugify(formData.title)}</FormHelperText></FormControl>
               <FormControl><FormLabel>Chapô</FormLabel><Textarea value={formData.excerpt} onChange={(event) => setFormData({ ...formData, excerpt: event.target.value })} placeholder="Résumé affiché dans la liste des actualités" rows={3} /></FormControl>
               <FormControl><FormLabel>Image de couverture</FormLabel><Input value={formData.imageUrl} onChange={(event) => setFormData({ ...formData, imageUrl: event.target.value })} placeholder="URL facultative, sinon première image téléversée" /></FormControl>
               <Divider /><MediaUploader media={formData.media} onChange={(media) => setFormData({ ...formData, media })} uploadEndpoint="/api/public-news/media/upload" />
