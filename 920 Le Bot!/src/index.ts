@@ -5,16 +5,22 @@ import { createApiBirthdayRepository } from './services/birthdays/apiBirthdayRep
 import { BirthdayInteractions } from './services/birthdays/birthdayInteractions.js';
 import { createBot920ConfigurationStore } from './services/bot920ConfigurationStore.js';
 import { createDiscordBot } from './services/discordBot.js';
+import { ModerationService } from './services/moderation.js';
+import { createApiTemporaryBanRepository } from './services/temporaryBanRepository.js';
 import { logger } from './utils/logger.js';
 
 const startedAt = new Date().toISOString();
 const birthdayRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
   ? createApiBirthdayRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
   : undefined;
+const temporaryBanRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
+  ? createApiTemporaryBanRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
+  : undefined;
 const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
+const moderation = new ModerationService(temporaryBanRepository);
 const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 await configurationStore.refresh();
-const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get), birthdayInteractions, configurationStore.get);
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation), birthdayInteractions, configurationStore.get);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,
@@ -31,10 +37,12 @@ const server = api.listen(env.BOT_PORT, () => {
 });
 
 if (env.DISCORD_TOKEN) {
-  bot.start(env.DISCORD_TOKEN).catch((error) => {
-    logger.error('discord', 'Connexion impossible', error instanceof Error ? error : undefined);
-    process.exitCode = 1;
-  });
+  bot.start(env.DISCORD_TOKEN)
+    .then(() => void moderation.processDueTemporaryBans(bot.client))
+    .catch((error) => {
+      logger.error('discord', 'Connexion impossible', error instanceof Error ? error : undefined);
+      process.exitCode = 1;
+    });
 } else {
   logger.warn('discord', 'DISCORD_TOKEN absent : démarrage en mode standby.');
 }
@@ -45,10 +53,13 @@ if (!birthdayRepository) {
 
 const configurationRefresh = setInterval(() => void configurationStore.refresh(), 60_000);
 configurationRefresh.unref();
+const temporaryBanSweep = setInterval(() => void moderation.processDueTemporaryBans(bot.client), 60_000);
+temporaryBanSweep.unref();
 
 async function shutdown(signal: string) {
   logger.info('system', `Arrêt demandé (${signal})`);
   clearInterval(configurationRefresh);
+  clearInterval(temporaryBanSweep);
   server.close();
   await bot.stop();
 }

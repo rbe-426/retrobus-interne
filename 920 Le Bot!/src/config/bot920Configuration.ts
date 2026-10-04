@@ -1,4 +1,4 @@
-export const bot920Subcommands = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage'] as const;
+export const bot920Subcommands = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
 
 export type Bot920Subcommand = typeof bot920Subcommands[number];
 

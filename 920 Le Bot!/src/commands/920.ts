@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 import type { BotCommand } from './types.js';
 import { executeAbout } from './about.js';
 import {
@@ -13,8 +13,26 @@ import {
 import { executePing } from './ping.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
+import { ModerationService } from '../services/moderation.js';
 
-export function createCommand920(birthdayInteractions: BirthdayInteractions, getConfiguration: () => Bot920Configuration): BotCommand {
+function withMemberAndReason(configure: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder) {
+  return (builder: SlashCommandSubcommandBuilder) => configure(builder
+    .addUserOption((option) => option.setName('membre').setDescription('Le membre ciblé.').setRequired(true))
+    .addStringOption((option) => option.setName('raison').setDescription('Motif de la modération.').setMaxLength(400)));
+}
+
+function withMemberDurationAndReason(configure: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder) {
+  return (builder: SlashCommandSubcommandBuilder) => configure(builder
+    .addUserOption((option) => option.setName('membre').setDescription('Le membre ciblé.').setRequired(true))
+    .addIntegerOption((option) => option.setName('duree').setDescription('Durée en minutes.').setRequired(true).setMinValue(1))
+    .addStringOption((option) => option.setName('raison').setDescription('Motif de la modération.').setMaxLength(400)));
+}
+
+export function createCommand920(
+  birthdayInteractions: BirthdayInteractions,
+  getConfiguration: () => Bot920Configuration,
+  moderation = new ModerationService(),
+): BotCommand {
   return {
   data: new SlashCommandBuilder()
     .setName('920')
@@ -59,7 +77,13 @@ export function createCommand920(birthdayInteractions: BirthdayInteractions, get
         )))
     .addSubcommand((subcommand) => subcommand
       .setName('tirage')
-      .setDescription('Lance un tirage RBE.')),
+      .setDescription('Lance un tirage RBE.'))
+    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('kick').setDescription('Expulse un membre du serveur.')))
+    .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('mute').setDescription('Empêche temporairement un membre de parler.')))
+    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unmute').setDescription('Retire le mute d’un membre.')))
+    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('ban').setDescription('Bannit un membre du serveur.')))
+    .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('tempban').setDescription('Bannit temporairement un membre.')))
+    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unban').setDescription('Retire le bannissement d’un utilisateur.'))),
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand() as Bot920Subcommand;
     const configuration = getConfiguration();
@@ -67,6 +91,8 @@ export function createCommand920(birthdayInteractions: BirthdayInteractions, get
       await interaction.reply({ content: 'Cette commande est temporairement désactivée par l’administration.', ephemeral: true });
       return;
     }
+
+    if (await moderation.handle(interaction)) return;
 
     switch (subcommand) {
       case 'ping':

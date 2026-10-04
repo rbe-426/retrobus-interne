@@ -5,7 +5,7 @@ import {
 } from '@chakra-ui/react';
 import { apiClient } from '../apiClient.js';
 
-const COMMANDS = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage'];
+const COMMANDS = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'];
 
 const DEFAULT_CONFIGURATION = {
   general: { name: '920 Le Bot !', description: 'Le bot communautaire officiel de RétroBus Essonne.' },
