@@ -9,6 +9,7 @@ import {
   FiHome, FiLink, FiMenu, FiMessageCircle, FiSettings, FiSmile, FiUserPlus,
 } from 'react-icons/fi';
 import Bot920ConfigurationPanel from '../components/Bot920ConfigurationPanel.jsx';
+import Bot920GuildContext from '../components/Bot920GuildContext.jsx';
 import { apiClient } from '../apiClient.js';
 
 const NAVIGATION_GROUPS = [
@@ -83,6 +84,7 @@ function Overview() {
       <StatusMetric label="Serveurs connectés" icon={FiMessageCircle} loading={loading} error={unavailable} value={bot?.guildCount ?? 0} detail={unavailable || 'Serveurs Discord actuellement en cache.'} />
       <StatusMetric label="Commandes exécutables" icon={FiCommand} loading={loading} error={unavailable} value={bot?.commandCount ?? 0} detail={unavailable || 'Commandes enregistrées au démarrage du bot.'} />
     </SimpleGrid>
+    <Bot920GuildContext />
     <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
       <Card variant="outline" borderRadius="md"><CardBody><HStack spacing={3} mb={4}><Icon as={FiSettings} color="rbe.500" boxSize={5} /><Heading size="sm">Configuration disponible</Heading></HStack><VStack align="stretch" spacing={3} divider={<Divider />}><Box><Text fontWeight="600">Navigation par modules</Text><Text fontSize="sm" color="gray.600">Chaque domaine du bot dispose désormais de son espace d’administration.</Text></Box><Box><Text fontWeight="600">Structure prête pour l’exploitation</Text><Text fontSize="sm" color="gray.600">Les écrans suivants prépareront les raccordements API sans modifier le runtime du bot.</Text></Box></VStack></CardBody></Card>
       <Card variant="outline" borderRadius="md"><CardBody><HStack spacing={3} mb={4}><Icon as={FiGift} color="rbe.500" boxSize={5} /><Heading size="sm">À raccorder</Heading></HStack><Text fontSize="sm" color="gray.600">La disponibilité, la latence, les journaux et les statistiques ne sont pas encore reliés à une source de données dans MyRBE. Ils restent volontairement non renseignés.</Text></CardBody></Card>

@@ -1,5 +1,6 @@
 import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, type Client, type GuildMember, type User } from 'discord.js';
 import type { TemporaryBanRepository } from './temporaryBanRepository.js';
+import type { ModerationCaseRepository } from './moderationCaseRepository.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_TIMEOUT_MINUTES = 40_320;
@@ -36,7 +37,15 @@ async function canActOnMember(interaction: ChatInputCommandInteraction, member: 
 }
 
 export class ModerationService {
-  constructor(private readonly temporaryBans?: TemporaryBanRepository) {}
+  constructor(private readonly temporaryBans?: TemporaryBanRepository, private readonly cases?: ModerationCaseRepository) {}
+
+  private async record(interaction: ChatInputCommandInteraction, user: User, action: ModerationAction, auditReason: string, durationMinutes?: number, expiresAt?: Date): Promise<void> {
+    try {
+      await this.cases?.create({ guildId: interaction.guildId!, targetUserId: user.id, targetTag: user.tag, moderatorId: interaction.user.id, moderatorTag: interaction.user.tag, action, reason: auditReason, durationMinutes, expiresAt });
+    } catch (error) {
+      logger.warn('moderation', `Historique indisponible (${error instanceof Error ? error.message : 'erreur inconnue'}).`);
+    }
+  }
 
   async handle(interaction: ChatInputCommandInteraction): Promise<boolean> {
     const action = interaction.options.getSubcommand() as ModerationAction;
@@ -65,6 +74,7 @@ export class ModerationService {
       if (action === 'unban') {
         await interaction.guild.bans.remove(user.id, auditReason);
         await this.temporaryBans?.cancel(interaction.guild.id, user.id);
+        await this.record(interaction, user, action, auditReason);
         await interaction.editReply(`✅ ${user.tag} a été débanni.`);
         return true;
       }
@@ -93,11 +103,13 @@ export class ModerationService {
             await this.temporaryBans.cancel(interaction.guild.id, user.id);
             throw error;
           }
+          await this.record(interaction, user, action, auditReason, minutes, expiresAt);
           await interaction.editReply(`✅ ${user.tag} a été banni jusqu’au <t:${Math.floor(expiresAt.getTime() / 1_000)}:f>.`);
           return true;
         }
 
         await interaction.guild.members.ban(user.id, { reason: auditReason, deleteMessageSeconds: 0 });
+        await this.record(interaction, user, action, auditReason);
         await interaction.editReply(`✅ ${user.tag} a été banni.`);
         return true;
       }
@@ -113,6 +125,7 @@ export class ModerationService {
           return true;
         }
         await member.kick(auditReason);
+        await this.record(interaction, user, action, auditReason);
         await interaction.editReply(`✅ ${user.tag} a été expulsé.`);
         return true;
       }
@@ -123,6 +136,7 @@ export class ModerationService {
       }
       if (action === 'unmute') {
         await member.timeout(null, auditReason);
+        await this.record(interaction, user, action, auditReason);
         await interaction.editReply(`✅ Le mute de ${user.tag} a été retiré.`);
         return true;
       }
@@ -133,6 +147,7 @@ export class ModerationService {
         return true;
       }
       await member.timeout(minutes * 60_000, auditReason);
+      await this.record(interaction, user, action, auditReason, minutes, new Date(Date.now() + minutes * 60_000));
       await interaction.editReply(`✅ ${user.tag} est muet jusqu’au <t:${Math.floor((Date.now() + minutes * 60_000) / 1_000)}:f>.`);
     } catch {
       await interaction.editReply(`⚠️ Impossible d’${actionLabel(action)} ce membre. Vérifiez les permissions et la hiérarchie des rôles du bot.`);
