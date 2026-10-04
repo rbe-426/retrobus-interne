@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import type { BotCommand } from '../commands/types.js';
-import { defaultBot920Configuration, type Bot920Configuration } from '../config/bot920Configuration.js';
+import { defaultBot920Configuration, type AutoModConfiguration, type Bot920Configuration } from '../config/bot920Configuration.js';
 import { createCommandRegistry } from './commandRegistry.js';
 import type { BirthdayInteractions } from './birthdays/birthdayInteractions.js';
 import { logger } from '../utils/logger.js';
@@ -11,9 +11,10 @@ export function createDiscordBot(
   commands: readonly BotCommand[],
   birthdayInteractions?: BirthdayInteractions,
   getConfiguration: (guildId?: string) => Bot920Configuration = () => defaultBot920Configuration,
+  getAutoModeration: (guildId: string) => AutoModConfiguration = () => ({ rules: [], words: [] }),
 ) {
   const registry = createCommandRegistry(commands);
-  const automoderation = new AutoModerationService(getConfiguration);
+  const automoderation = new AutoModerationService(getAutoModeration);
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
   client.once(Events.ClientReady, (readyClient) => {

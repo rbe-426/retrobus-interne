@@ -1,6 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, type Client, type GuildMember, type User } from 'discord.js';
 import type { TemporaryBanRepository } from './temporaryBanRepository.js';
 import type { ModerationCaseRepository } from './moderationCaseRepository.js';
+import type { DiscordLogService } from './discordLogService.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_TIMEOUT_MINUTES = 40_320;
@@ -37,7 +38,7 @@ async function canActOnMember(interaction: ChatInputCommandInteraction, member: 
 }
 
 export class ModerationService {
-  constructor(private readonly temporaryBans?: TemporaryBanRepository, private readonly cases?: ModerationCaseRepository) {}
+  constructor(private readonly temporaryBans?: TemporaryBanRepository, private readonly cases?: ModerationCaseRepository, private readonly logs?: DiscordLogService) {}
 
   private async record(interaction: ChatInputCommandInteraction, user: User, action: ModerationAction, auditReason: string, durationMinutes?: number, expiresAt?: Date): Promise<void> {
     try {
@@ -45,6 +46,7 @@ export class ModerationService {
     } catch (error) {
       logger.warn('moderation', `Historique indisponible (${error instanceof Error ? error.message : 'erreur inconnue'}).`);
     }
+    if (interaction.guild) void this.logs?.record(interaction.guild, { guildId: interaction.guild.id, targetUserId: user.id, targetTag: user.tag, moderatorId: interaction.user.id, moderatorTag: interaction.user.tag, eventType: action, reason: auditReason, durationMinutes, expiresAt });
   }
 
   async handle(interaction: ChatInputCommandInteraction): Promise<boolean> {
@@ -169,8 +171,10 @@ export class ModerationService {
     for (const ban of bans) {
       try {
         const guild = await client.guilds.fetch(ban.guildId);
+        const discordBan = await guild.bans.fetch(ban.userId);
         await guild.bans.remove(ban.userId, 'Fin du bannissement temporaire RBE.');
         await this.temporaryBans.complete(ban.id);
+        if (client.user) void this.logs?.record(guild, { guildId: guild.id, eventType: 'unban', targetUserId: discordBan.user.id, targetTag: discordBan.user.tag, moderatorId: client.user.id, moderatorTag: client.user.tag, reason: 'Fin du bannissement temporaire RBE.' });
       } catch {
         // Keep the record pending so a transient Discord or network error is retried.
       }

@@ -9,6 +9,8 @@ import { syncDiscordGuildInventory } from './services/discordGuildInventorySync.
 import { ModerationService } from './services/moderation.js';
 import { createApiModerationCaseRepository } from './services/moderationCaseRepository.js';
 import { createApiTemporaryBanRepository } from './services/temporaryBanRepository.js';
+import { createApiDiscordLogEventRepository } from './services/discordLogEventRepository.js';
+import { DiscordLogService } from './services/discordLogService.js';
 import { logger } from './utils/logger.js';
 
 const startedAt = new Date().toISOString();
@@ -21,11 +23,15 @@ const temporaryBanRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
 const moderationCaseRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
   ? createApiModerationCaseRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
   : undefined;
+const discordLogEventRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
+  ? createApiDiscordLogEventRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
+  : undefined;
 const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
-const moderation = new ModerationService(temporaryBanRepository, moderationCaseRepository);
 const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
+const discordLogs = new DiscordLogService(configurationStore.getLogging, discordLogEventRepository);
+const moderation = new ModerationService(temporaryBanRepository, moderationCaseRepository, discordLogs);
 await configurationStore.refresh();
-const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation), birthdayInteractions, configurationStore.get);
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation), birthdayInteractions, configurationStore.get, configurationStore.getAutoModeration);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,

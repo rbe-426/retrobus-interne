@@ -1,5 +1,5 @@
 import type { Guild, GuildMember, Message } from 'discord.js';
-import type { Bot920Configuration } from '../config/bot920Configuration.js';
+import type { AutoModConfiguration, AutoModRuleConfiguration } from '../config/bot920Configuration.js';
 import { logger } from '../utils/logger.js';
 
 function trimToWindow(timestamps: readonly number[], now: number, windowMs: number): number[] {
@@ -14,52 +14,72 @@ export function containsLink(content: string): boolean {
   return /https?:\/\/\S+/i.test(content);
 }
 
+function matchesWord(content: string, phrase: string, matchType: string): boolean {
+  const normalizedContent = content.toLocaleLowerCase('fr-FR');
+  const normalizedPhrase = phrase.toLocaleLowerCase('fr-FR');
+  return matchType === 'EXACT' ? normalizedContent.trim() === normalizedPhrase : normalizedContent.includes(normalizedPhrase);
+}
+
 export class AutoModerationService {
   private readonly messages = new Map<string, number[]>();
-  private readonly joins = new Map<string, number[]>();
+  constructor(private readonly getConfiguration: (guildId: string) => AutoModConfiguration) {}
 
-  constructor(private readonly getConfiguration: (guildId?: string) => Bot920Configuration) {}
-
-  private async notify(guild: Guild, content: string) {
-    const channelId = this.getConfiguration(guild.id).plugins.automod.alertChannelId;
-    if (!/^\d{17,20}$/.test(channelId)) return;
-    const channel = await guild.channels.fetch(channelId).catch(() => null);
+  private async notify(guild: Guild, channelId: string | null, content: string) {
+    const validChannelId = channelId ?? '';
+    if (!/^\d{17,20}$/.test(validChannelId)) return;
+    const channel = await guild.channels.fetch(validChannelId).catch(() => null);
     if (channel?.isSendable()) await channel.send({ content });
   }
 
-  async handleMessage(message: Message) {
-    if (!message.inGuild() || message.author.bot) return;
-    const settings = this.getConfiguration(message.guildId).plugins.automod;
-    if (!settings.enabled) return;
+  private isExcepted(rule: AutoModRuleConfiguration, message: Message, member: GuildMember | null): boolean {
+    return rule.exceptions.some((exception) => (
+      (exception.entityType === 'MEMBER' && exception.entityId === message.author.id)
+      || (exception.entityType === 'CHANNEL' && exception.entityId === message.channelId)
+      || (exception.entityType === 'ROLE' && member?.roles.cache.has(exception.entityId))
+    ));
+  }
 
-    const now = Date.now();
-    const key = `${message.guildId}:${message.author.id}`;
-    const recent = [...trimToWindow(this.messages.get(key) ?? [], now, settings.spamWindowSeconds * 1_000), now];
-    this.messages.set(key, recent);
-    const spam = settings.antiSpam && recent.length >= settings.spamMessageLimit;
-    const link = settings.blockedLinks && containsLink(message.content);
-    if (!spam && !link) return;
-
-    const reason = spam ? 'Anti-spam RBE' : 'Lien non autorisé détecté par RBE';
+  private async applyRule(message: Message, member: GuildMember | null, rule: AutoModRuleConfiguration, reason: string) {
     try {
-      if (message.deletable) await message.delete();
-      const member = message.member ?? await message.guild.members.fetch(message.author.id).catch(() => null);
-      if (member?.moderatable) await member.timeout(settings.timeoutMinutes * 60_000, reason);
-      await this.notify(message.guild, `⚠️ Automodération : ${message.author} a été ${member?.moderatable ? `mute ${settings.timeoutMinutes} min` : 'signalé'} (${reason}).`);
+      if ((rule.action === 'DELETE' || rule.deleteMessage) && message.deletable) await message.delete();
+      let timedOut = false;
+      if (rule.action === 'TIMEOUT' && member?.moderatable && rule.timeoutMinutes) {
+        await member.timeout(rule.timeoutMinutes * 60_000, reason);
+        timedOut = true;
+      }
+      if (rule.notifyUser) await message.author.send(`Votre message a été modéré sur ${message.guild?.name} : ${reason}.`).catch(() => null);
+      if (message.guild) await this.notify(message.guild, rule.alertChannelId, `Automodération : ${message.author} a été ${timedOut ? `timeout ${rule.timeoutMinutes} min` : 'signalé'} (${reason}).`);
     } catch (error) {
       logger.error('automod', 'Échec de la modération automatique', error instanceof Error ? error : undefined);
     }
   }
 
-  async handleMemberJoin(member: GuildMember) {
-    const settings = this.getConfiguration(member.guild.id).plugins.automod;
-    if (!settings.enabled || !settings.antiRaid) return;
+  async handleMessage(message: Message) {
+    if (!message.inGuild() || message.author.bot) return;
+    const configuration = this.getConfiguration(message.guildId);
+    const antiSpamRule = configuration.rules.find((rule) => rule.type === 'ANTI_SPAM');
+    const linkRule = configuration.rules.find((rule) => rule.type === 'LINK');
+    const wordRule = configuration.rules.find((rule) => rule.type === 'WORD');
+    if (!antiSpamRule && !linkRule && !wordRule) return;
 
     const now = Date.now();
-    const recent = [...trimToWindow(this.joins.get(member.guild.id) ?? [], now, settings.raidWindowSeconds * 1_000), now];
-    this.joins.set(member.guild.id, recent);
-    if (!reachesLimit(recent, now, settings.raidJoinLimit, settings.raidWindowSeconds)) return;
-
-    await this.notify(member.guild, `🚨 Alerte anti-raid : ${recent.length} arrivées en moins de ${settings.raidWindowSeconds} secondes. Vérifiez immédiatement le serveur.`);
+    const key = `${message.guildId}:${message.author.id}`;
+    const member = message.member ?? await message.guild.members.fetch(message.author.id).catch(() => null);
+    const recent = [...trimToWindow(this.messages.get(key) ?? [], now, (antiSpamRule?.windowSeconds ?? 10) * 1_000), now];
+    this.messages.set(key, recent);
+    if (antiSpamRule && !this.isExcepted(antiSpamRule, message, member) && recent.length >= (antiSpamRule.threshold ?? 6)) {
+      return this.applyRule(message, member, antiSpamRule, 'Anti-spam RBE');
+    }
+    if (linkRule && containsLink(message.content) && !this.isExcepted(linkRule, message, member)) {
+      return this.applyRule(message, member, linkRule, 'Lien non autorisé détecté par RBE');
+    }
+    const word = wordRule && !this.isExcepted(wordRule, message, member)
+      ? configuration.words.find((entry) => matchesWord(message.content, entry.phrase, entry.matchType))
+      : undefined;
+    if (word && wordRule) {
+      return this.applyRule(message, member, { ...wordRule, action: word.action }, `Expression filtrée : ${word.phrase}`);
+    }
   }
+
+  async handleMemberJoin(_member: GuildMember) {}
 }

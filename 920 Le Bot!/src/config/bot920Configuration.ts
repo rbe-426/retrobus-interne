@@ -29,6 +29,48 @@ export interface Bot920Configuration {
   };
 }
 
+export type AutoModAction = 'DELETE' | 'TIMEOUT' | 'ALERT';
+export type AutoModMatchType = 'PARTIAL' | 'EXACT';
+
+export interface AutoModRuleConfiguration {
+  id: string;
+  type: 'ANTI_SPAM' | 'LINK' | 'WORD';
+  name: string;
+  severity: string;
+  action: AutoModAction;
+  threshold: number | null;
+  windowSeconds: number | null;
+  timeoutMinutes: number | null;
+  alertChannelId: string | null;
+  deleteMessage: boolean;
+  notifyUser: boolean;
+  exceptions: Array<{ entityType: 'ROLE' | 'MEMBER' | 'CHANNEL'; entityId: string }>;
+}
+
+export interface AutoModWordConfiguration {
+  id: string;
+  phrase: string;
+  matchType: AutoModMatchType;
+  severity: string;
+  action: AutoModAction;
+}
+
+export interface AutoModConfiguration {
+  rules: AutoModRuleConfiguration[];
+  words: AutoModWordConfiguration[];
+}
+
+export interface DiscordLogRuleConfiguration {
+  id: string;
+  type: 'MODERATION';
+  channelId: string;
+  enabled: boolean;
+}
+
+export interface DiscordLogConfiguration {
+  rules: DiscordLogRuleConfiguration[];
+}
+
 export const defaultBot920Configuration: Bot920Configuration = {
   general: { name: '920 Le Bot !', description: 'Le bot communautaire officiel de RétroBus Essonne.' },
   commands: { enabled: Object.fromEntries(bot920Subcommands.map((command) => [command, true])) as Record<Bot920Subcommand, boolean> },
@@ -59,4 +101,16 @@ export const defaultBot920Configuration: Bot920Configuration = {
 export function isBot920CommandEnabled(configuration: Bot920Configuration, command: Bot920Subcommand): boolean {
   const funCommands: readonly Bot920Subcommand[] = ['phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter'];
   return configuration.commands.enabled[command] !== false && (!funCommands.includes(command) || configuration.fun.enabled);
+}
+
+export function legacyAutoModConfiguration(configuration: Bot920Configuration): AutoModConfiguration {
+  const settings = configuration.plugins.automod;
+  if (!settings.enabled) return { rules: [], words: [] };
+  return {
+    rules: [
+      ...(settings.antiSpam ? [{ id: 'legacy-anti-spam', type: 'ANTI_SPAM' as const, name: 'Anti-spam', severity: 'MEDIUM', action: 'TIMEOUT' as const, threshold: settings.spamMessageLimit, windowSeconds: settings.spamWindowSeconds, timeoutMinutes: settings.timeoutMinutes, alertChannelId: settings.alertChannelId || null, deleteMessage: true, notifyUser: false, exceptions: [] }] : []),
+      ...(settings.blockedLinks ? [{ id: 'legacy-link', type: 'LINK' as const, name: 'Liens non autorisés', severity: 'MEDIUM', action: 'TIMEOUT' as const, threshold: null, windowSeconds: null, timeoutMinutes: settings.timeoutMinutes, alertChannelId: settings.alertChannelId || null, deleteMessage: true, notifyUser: false, exceptions: [] }] : []),
+    ],
+    words: [],
+  };
 }

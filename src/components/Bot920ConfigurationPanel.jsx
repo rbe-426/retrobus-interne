@@ -30,7 +30,6 @@ const DEFAULT_CONFIGURATION = {
     welcomeMessage: 'Bienvenue sur le serveur RétroBus Essonne !',
     autoRoleId: '',
   },
-  logs: { enabled: true },
   fun: { enabled: true },
   plugins: {
     reactionRoles: { enabled: false }, tickets: { enabled: false }, automations: { enabled: false }, pollsGiveaways: { enabled: false }, reminders: { enabled: false }, levels: { enabled: false }, socialAlerts: { enabled: false }, statisticsChannels: { enabled: false }, music: { enabled: true },
@@ -44,7 +43,6 @@ const SECTION_COPY = {
   messages: ['Messages', 'Contenu affiché par les réponses du bot.'],
   'social-links': ['Liens sociaux', 'Liens affichés dans la commande /920 about.'],
   welcome: ['Bienvenue', 'Réglages prêts pour le module d’accueil Discord.'],
-  logs: ['Journaux', 'Activez les journaux opérationnels du bot.'],
   fun: ['Fun', 'Activez les commandes communautaires.'],
   plugins: ['Plugins', 'Activez les modules communautaires et les protections automatiques.'],
 };
@@ -149,9 +147,7 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
     </VStack>;
     if (sectionId === 'plugins') return <VStack align="stretch" spacing={5}>
       {PLUGINS.map(([id, label, description]) => <FormControl key={id} display="flex" alignItems="center" justifyContent="space-between" gap={4}><Box><FormLabel mb={0}>{label}</FormLabel><FormHelperText mt={1}>{description}</FormHelperText></Box><Switch isChecked={configuration.plugins[id].enabled} onChange={(event) => update(`plugins.${id}.enabled`, event.target.checked)} /></FormControl>)}
-      <Box borderTopWidth="1px" borderColor="gray.200" pt={5}><Heading size="sm" mb={4}>Modération automatique</Heading><VStack align="stretch" spacing={3}><FormControl display="flex" alignItems="center" justifyContent="space-between"><FormLabel mb={0}>Activer l’automodération</FormLabel><Switch isChecked={configuration.plugins.automod.enabled} onChange={(event) => update('plugins.automod.enabled', event.target.checked)} /></FormControl><Checkbox isChecked={configuration.plugins.automod.antiSpam} onChange={(event) => update('plugins.automod.antiSpam', event.target.checked)}>Détection anti-spam</Checkbox><Checkbox isChecked={configuration.plugins.automod.antiRaid} onChange={(event) => update('plugins.automod.antiRaid', event.target.checked)}>Détection anti-raid</Checkbox><Checkbox isChecked={configuration.plugins.automod.blockedLinks} onChange={(event) => update('plugins.automod.blockedLinks', event.target.checked)}>Bloquer les liens non autorisés</Checkbox><SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}><Field label="Canal d’alertes Discord"><Input inputMode="numeric" maxLength={20} placeholder="123456789012345678" value={configuration.plugins.automod.alertChannelId} onChange={(event) => update('plugins.automod.alertChannelId', event.target.value)} /></Field><Field label="Timeout automatique (minutes)"><Input type="number" min={1} max={40320} value={configuration.plugins.automod.timeoutMinutes} onChange={(event) => update('plugins.automod.timeoutMinutes', Number(event.target.value))} /></Field><Field label="Messages avant anti-spam"><Input type="number" min={2} max={20} value={configuration.plugins.automod.spamMessageLimit} onChange={(event) => update('plugins.automod.spamMessageLimit', Number(event.target.value))} /></Field><Field label="Fenêtre anti-spam (secondes)"><Input type="number" min={2} max={300} value={configuration.plugins.automod.spamWindowSeconds} onChange={(event) => update('plugins.automod.spamWindowSeconds', Number(event.target.value))} /></Field><Field label="Arrivées avant alerte raid"><Input type="number" min={2} max={100} value={configuration.plugins.automod.raidJoinLimit} onChange={(event) => update('plugins.automod.raidJoinLimit', Number(event.target.value))} /></Field><Field label="Fenêtre anti-raid (secondes)"><Input type="number" min={5} max={600} value={configuration.plugins.automod.raidWindowSeconds} onChange={(event) => update('plugins.automod.raidWindowSeconds', Number(event.target.value))} /></Field></SimpleGrid></VStack></Box>
     </VStack>;
-    if (sectionId === 'logs') return <FormControl display="flex" alignItems="center" gap={3}><Switch isChecked={configuration.logs.enabled} onChange={(event) => update('logs.enabled', event.target.checked)} /><FormLabel mb={0}>Activer les journaux du bot</FormLabel></FormControl>;
     return <FormControl display="flex" alignItems="center" gap={3}><Switch isChecked={configuration.fun.enabled} onChange={(event) => update('fun.enabled', event.target.checked)} /><FormLabel mb={0}>Activer les commandes Fun</FormLabel></FormControl>;
   };
 
