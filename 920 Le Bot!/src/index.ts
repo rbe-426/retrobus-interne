@@ -32,7 +32,7 @@ const api = createApiServer({
   getGuildCount: () => bot.client.guilds.cache.size,
 });
 
-const server = api.listen(env.BOT_PORT, () => {
+const server = api.listen(env.BOT_PORT, '0.0.0.0', () => {
   logger.info('api', `Health check disponible sur le port ${env.BOT_PORT}`);
 });
 
