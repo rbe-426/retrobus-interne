@@ -1,5 +1,6 @@
 import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, type Client, type GuildMember, type User } from 'discord.js';
 import type { TemporaryBanRepository } from './temporaryBanRepository.js';
+import { logger } from '../utils/logger.js';
 
 const MAX_TIMEOUT_MINUTES = 40_320;
 const MAX_TEMPBAN_MINUTES = 43_200;
@@ -142,7 +143,14 @@ export class ModerationService {
   async processDueTemporaryBans(client: Client): Promise<void> {
     if (!this.temporaryBans) return;
 
-    const bans = await this.temporaryBans.listDue();
+    let bans: readonly import('./temporaryBanRepository.js').DueTemporaryBan[];
+    try {
+      bans = await this.temporaryBans.listDue();
+    } catch (error) {
+      logger.warn('moderation', `Levée automatique des tempbans indisponible (${error instanceof Error ? error.message : 'erreur inconnue'}).`);
+      return;
+    }
+
     for (const ban of bans) {
       try {
         const guild = await client.guilds.fetch(ban.guildId);

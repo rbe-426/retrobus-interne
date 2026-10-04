@@ -44,6 +44,16 @@ Le bot reste autonome. Son futur panel doit être intégré à l’URBEX et util
 
 Cette fonction utilise l’API RBE centrale. Configurer `RBE_API_URL` et `BOT920_SERVICE_TOKEN` dans l’environnement du bot, puis configurer le même `BOT920_SERVICE_TOKEN` dans l’environnement de l’API RBE. La migration Prisma associée est conservée dans `Interne/api/prisma/migrations` et n’est jamais exécutée automatiquement.
 
+## Modération Discord
+
+Les sous-commandes `/920 kick`, `/920 mute`, `/920 unmute`, `/920 ban`, `/920 tempban` et `/920 unban` s’appuient exclusivement sur les permissions Discord du modérateur : respectivement **Expulser des membres**, **Modérer les membres** et **Bannir des membres**.
+
+Le rôle du bot doit disposer de ces mêmes permissions et être placé au-dessus des rôles des membres à modérer. Le bot refuse de cibler son propre compte, le compte du modérateur, le propriétaire du serveur, ou un membre dont la hiérarchie ne permet pas l’action.
+
+`/920 mute` est un timeout Discord, limité à 28 jours. `/920 tempban` prend une durée en minutes, limitée à 30 jours. Son échéance est enregistrée dans l’API RBE et le bot débannit automatiquement le membre à expiration, y compris après un redéploiement. Avant de déployer cette fonction, appliquer la migration `20261004000000_add_discord_temporary_bans` sur la base de données de l’API RBE.
+
+Après le déploiement du bot, exécuter `npm run deploy:commands` une fois pour rendre les nouvelles sous-commandes immédiatement disponibles sur le serveur configuré par `DISCORD_GUILD_ID`.
+
 ## Discord
 
 L’invitation `discord.gg` identifie un serveur, pas une application Discord. Pour connecter le bot, créer ou sélectionner son application dans le portail développeur Discord, puis renseigner son token et son identifiant dans `.env`. L’invitation du bot sur le serveur doit utiliser les scopes `bot` et `applications.commands`.
