@@ -10,7 +10,7 @@ test('/920 exposes the expected Phase 1 subcommands', () => {
   assert.equal(command.name, '920');
   assert.deepEqual(
     command.options?.map((option) => option.name),
-    ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'],
+    ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'],
   );
 });
 

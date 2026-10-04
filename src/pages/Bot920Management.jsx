@@ -23,6 +23,9 @@ const NAVIGATION_GROUPS = [
     { id: 'welcome', label: 'Bienvenue', description: 'Arrivée des membres', icon: FiUserPlus },
     { id: 'fun', label: 'Fun', description: 'Contenus communautaires', icon: FiSmile },
   ] },
+  { label: 'Plugins', items: [
+    { id: 'plugins', label: 'Plugins', description: 'Modules communautaires et automatisations', icon: FiActivity },
+  ] },
   { label: 'Publication', items: [
     { id: 'social-links', label: 'Liens sociaux', description: 'Liens RBE publics', icon: FiLink },
     { id: 'logs', label: 'Journaux', description: 'Historique opérationnel', icon: FiBookOpen },
@@ -37,6 +40,7 @@ const SECTION_COPY = {
   welcome: ['Bienvenue', 'Les règles d’accueil et le message de bienvenue seront configurés ici.'],
   logs: ['Journaux', 'Les journaux opérationnels seront disponibles après le raccordement de leur source.'],
   fun: ['Fun', 'Les commandes communautaires et leurs contenus seront organisés dans ce module.'],
+  plugins: ['Plugins', 'Modules Discord inspirés des fonctionnalités de MEE6.'],
   statistics: ['Statistiques', 'Les statistiques apparaîtront ici lorsque la collecte sera raccordée.'],
 };
 

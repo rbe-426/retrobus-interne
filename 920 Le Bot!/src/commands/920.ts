@@ -11,6 +11,7 @@ import {
   formatPhrase,
 } from './funContent.js';
 import { executePing } from './ping.js';
+import { formatMusicSuggestion } from './musicSuggestion.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
@@ -78,6 +79,9 @@ export function createCommand920(
     .addSubcommand((subcommand) => subcommand
       .setName('tirage')
       .setDescription('Lance un tirage RBE.'))
+    .addSubcommand((subcommand) => subcommand
+      .setName('ecouter')
+      .setDescription('Suggère une musique à écouter.'))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('kick').setDescription('Expulse un membre du serveur.')))
     .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('mute').setDescription('Empêche temporairement un membre de parler.')))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unmute').setDescription('Retire le mute d’un membre.')))
@@ -124,6 +128,9 @@ export function createCommand920(
         return;
       case 'tirage':
         await interaction.reply(formatDraw());
+        return;
+      case 'ecouter':
+        await interaction.reply(formatMusicSuggestion());
         return;
     }
   },

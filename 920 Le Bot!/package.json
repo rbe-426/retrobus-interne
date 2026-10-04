@@ -10,7 +10,7 @@
     "deploy:commands": "tsx src/scripts/deployCommands.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/status.test.ts tests/pingMessage.test.ts tests/command920.test.ts tests/funContent.test.ts tests/birthdayDate.test.ts tests/birthdayInteractions.test.ts tests/welcome.test.ts"
+    "test": "tsx --test tests/status.test.ts tests/pingMessage.test.ts tests/command920.test.ts tests/funContent.test.ts tests/birthdayDate.test.ts tests/birthdayInteractions.test.ts tests/welcome.test.ts tests/autoModeration.test.ts"
   },
   "engines": {
     "node": ">=20"

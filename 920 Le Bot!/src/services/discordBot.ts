@@ -5,6 +5,7 @@ import { createCommandRegistry } from './commandRegistry.js';
 import type { BirthdayInteractions } from './birthdays/birthdayInteractions.js';
 import { logger } from '../utils/logger.js';
 import { isDiscordSnowflake, isWelcomeEnabled, renderWelcomeMessage } from './welcome.js';
+import { AutoModerationService } from './autoModeration.js';
 
 export function createDiscordBot(
   commands: readonly BotCommand[],
@@ -12,7 +13,8 @@ export function createDiscordBot(
   getConfiguration: () => Bot920Configuration = () => defaultBot920Configuration,
 ) {
   const registry = createCommandRegistry(commands);
-  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+  const automoderation = new AutoModerationService(getConfiguration);
+  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info('discord', `Connecté comme ${readyClient.user.tag}`);
@@ -52,7 +54,10 @@ export function createDiscordBot(
     }
   });
 
+  client.on(Events.MessageCreate, (message) => void automoderation.handleMessage(message));
+
   client.on(Events.GuildMemberAdd, async (member) => {
+    await automoderation.handleMemberJoin(member);
     const configuration = getConfiguration();
     if (!isWelcomeEnabled(configuration)) return;
 

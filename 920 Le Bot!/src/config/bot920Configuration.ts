@@ -1,4 +1,4 @@
-export const bot920Subcommands = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
+export const bot920Subcommands = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
 
 export type Bot920Subcommand = typeof bot920Subcommands[number];
 
@@ -15,6 +15,18 @@ export interface Bot920Configuration {
   };
   logs: { enabled: boolean };
   fun: { enabled: boolean };
+  plugins: {
+    reactionRoles: { enabled: boolean };
+    tickets: { enabled: boolean };
+    automations: { enabled: boolean };
+    pollsGiveaways: { enabled: boolean };
+    reminders: { enabled: boolean };
+    levels: { enabled: boolean };
+    socialAlerts: { enabled: boolean };
+    statisticsChannels: { enabled: boolean };
+    music: { enabled: boolean };
+    automod: { enabled: boolean; antiSpam: boolean; antiRaid: boolean; blockedLinks: boolean; alertChannelId: string; spamMessageLimit: number; spamWindowSeconds: number; timeoutMinutes: number; raidJoinLimit: number; raidWindowSeconds: number };
+  };
 }
 
 export const defaultBot920Configuration: Bot920Configuration = {
@@ -30,9 +42,21 @@ export const defaultBot920Configuration: Bot920Configuration = {
   },
   logs: { enabled: true },
   fun: { enabled: true },
+  plugins: {
+    reactionRoles: { enabled: false },
+    tickets: { enabled: false },
+    automations: { enabled: false },
+    pollsGiveaways: { enabled: false },
+    reminders: { enabled: false },
+    levels: { enabled: false },
+    socialAlerts: { enabled: false },
+    statisticsChannels: { enabled: false },
+    music: { enabled: true },
+    automod: { enabled: false, antiSpam: true, antiRaid: true, blockedLinks: false, alertChannelId: '', spamMessageLimit: 6, spamWindowSeconds: 10, timeoutMinutes: 10, raidJoinLimit: 8, raidWindowSeconds: 60 },
+  },
 };
 
 export function isBot920CommandEnabled(configuration: Bot920Configuration, command: Bot920Subcommand): boolean {
-  const funCommands: readonly Bot920Subcommand[] = ['phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage'];
+  const funCommands: readonly Bot920Subcommand[] = ['phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter'];
   return configuration.commands.enabled[command] !== false && (!funCommands.includes(command) || configuration.fun.enabled);
 }

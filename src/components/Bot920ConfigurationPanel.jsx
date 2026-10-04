@@ -5,7 +5,19 @@ import {
 } from '@chakra-ui/react';
 import { apiClient } from '../apiClient.js';
 
-const COMMANDS = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'];
+const COMMANDS = ['ping', 'about', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'];
+
+const PLUGINS = [
+  ['reactionRoles', 'Rôles par réaction', 'Attribuez des rôles avec des réactions ou des boutons.'],
+  ['tickets', 'Tickets', 'Ouvrez des salons privés de support et de modération.'],
+  ['automations', 'Automatisations', 'Déclenchez des réponses et actions sur les événements Discord.'],
+  ['pollsGiveaways', 'Sondages et giveaways', 'Organisez des votes, tirages et concours.'],
+  ['reminders', 'Rappels', 'Planifiez des rappels personnels ou de serveur.'],
+  ['levels', 'Niveaux', 'Gérez l’expérience, les rangs et leurs récompenses.'],
+  ['socialAlerts', 'Alertes sociales et RSS', 'Publiez des alertes issues des réseaux et flux RSS.'],
+  ['statisticsChannels', 'Statistiques et salons temporaires', 'Affichez des statistiques et gérez des salons dynamiques.'],
+  ['music', 'Suggestion musicale', 'Proposez une musique aléatoire avec /920 écouter.'],
+];
 
 const DEFAULT_CONFIGURATION = {
   general: { name: '920 Le Bot !', description: 'Le bot communautaire officiel de RétroBus Essonne.' },
@@ -20,6 +32,10 @@ const DEFAULT_CONFIGURATION = {
   },
   logs: { enabled: true },
   fun: { enabled: true },
+  plugins: {
+    reactionRoles: { enabled: false }, tickets: { enabled: false }, automations: { enabled: false }, pollsGiveaways: { enabled: false }, reminders: { enabled: false }, levels: { enabled: false }, socialAlerts: { enabled: false }, statisticsChannels: { enabled: false }, music: { enabled: true },
+    automod: { enabled: false, antiSpam: true, antiRaid: true, blockedLinks: false },
+  },
 };
 
 const SECTION_COPY = {
@@ -30,6 +46,7 @@ const SECTION_COPY = {
   welcome: ['Bienvenue', 'Réglages prêts pour le module d’accueil Discord.'],
   logs: ['Journaux', 'Activez les journaux opérationnels du bot.'],
   fun: ['Fun', 'Activez les commandes communautaires.'],
+  plugins: ['Plugins', 'Activez les modules communautaires et les protections automatiques.'],
 };
 
 function Field({ label, children }) {
@@ -105,6 +122,10 @@ export default function Bot920ConfigurationPanel({ sectionId }) {
       <Field label="Message d’accueil"><Textarea maxLength={1800} value={configuration.welcome.welcomeMessage} onChange={(event) => update('welcome.welcomeMessage', event.target.value)} /><FormHelperText>{'{user}'} mentionne le membre, {'{username}'} affiche son pseudo, {'{server}'} le serveur et {'{member_count}'} le nombre de membres.</FormHelperText></Field>
       <Field label="Identifiant du rôle automatique (facultatif)"><Input inputMode="numeric" maxLength={20} placeholder="123456789012345678" value={configuration.welcome.autoRoleId} onChange={(event) => update('welcome.autoRoleId', event.target.value)} /><FormHelperText>Le bot l’attribue seulement s’il peut gérer ce rôle.</FormHelperText></Field>
       <Box borderWidth="1px" borderColor="gray.200" borderRadius="md" p={4} bg="gray.50"><Text fontSize="sm" fontWeight="700">Aperçu local</Text><Text mt={2} whiteSpace="pre-wrap">{welcomePreview(configuration.welcome.welcomeMessage)}</Text><Text mt={2} fontSize="xs" color="gray.600">Cet aperçu n’envoie aucun message sur Discord.</Text></Box>
+    </VStack>;
+    if (sectionId === 'plugins') return <VStack align="stretch" spacing={5}>
+      {PLUGINS.map(([id, label, description]) => <FormControl key={id} display="flex" alignItems="center" justifyContent="space-between" gap={4}><Box><FormLabel mb={0}>{label}</FormLabel><FormHelperText mt={1}>{description}</FormHelperText></Box><Switch isChecked={configuration.plugins[id].enabled} onChange={(event) => update(`plugins.${id}.enabled`, event.target.checked)} /></FormControl>)}
+      <Box borderTopWidth="1px" borderColor="gray.200" pt={5}><Heading size="sm" mb={4}>Modération automatique</Heading><VStack align="stretch" spacing={3}><FormControl display="flex" alignItems="center" justifyContent="space-between"><FormLabel mb={0}>Activer l’automodération</FormLabel><Switch isChecked={configuration.plugins.automod.enabled} onChange={(event) => update('plugins.automod.enabled', event.target.checked)} /></FormControl><Checkbox isChecked={configuration.plugins.automod.antiSpam} onChange={(event) => update('plugins.automod.antiSpam', event.target.checked)}>Détection anti-spam</Checkbox><Checkbox isChecked={configuration.plugins.automod.antiRaid} onChange={(event) => update('plugins.automod.antiRaid', event.target.checked)}>Détection anti-raid</Checkbox><Checkbox isChecked={configuration.plugins.automod.blockedLinks} onChange={(event) => update('plugins.automod.blockedLinks', event.target.checked)}>Bloquer les liens non autorisés</Checkbox></VStack></Box>
     </VStack>;
     if (sectionId === 'logs') return <FormControl display="flex" alignItems="center" gap={3}><Switch isChecked={configuration.logs.enabled} onChange={(event) => update('logs.enabled', event.target.checked)} /><FormLabel mb={0}>Activer les journaux du bot</FormLabel></FormControl>;
     return <FormControl display="flex" alignItems="center" gap={3}><Switch isChecked={configuration.fun.enabled} onChange={(event) => update('fun.enabled', event.target.checked)} /><FormLabel mb={0}>Activer les commandes Fun</FormLabel></FormControl>;
