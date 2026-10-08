@@ -201,6 +201,12 @@ export default function MyRBE() {
     user?.email?.toLowerCase() === 'w.belaidi@retrobus-essonne.fr'
   );
   const canAccessMuseum = import.meta.env.DEV || isBelaidi;
+  const userCardIdentities = [
+    user?.id,
+    user?.username,
+    user?.email,
+    matricule,
+  ].filter(Boolean).map((value) => String(value).toLowerCase());
 
   /**
    * Vérifier si une carte doit être affichée (optimisé avec useMemo)
@@ -228,13 +234,15 @@ export default function MyRBE() {
       return true;
     }
 
+    const hasExplicitCardAccess = card.allowedUserIds?.some((id) => userCardIdentities.includes(String(id).toLowerCase()));
+
     // Les prestataires et partenaires ne voient que RétroSupport et RétroDemandes
     if (userRole === 'PRESTATAIRE' || userRole === 'PARTENAIRE') {
-      return card.title === 'RétroSupport' || card.title === 'RétroDemandes';
+      return hasExplicitCardAccess || card.title === 'RétroSupport' || card.title === 'RétroDemandes';
     }
 
     // Vérifier les rôles requis
-    if (card.requiredRole && !card.requiredRole.some(role => roles.includes(role))) {
+    if (card.requiredRole && !hasExplicitCardAccess && !card.requiredRole.some(role => roles.includes(role))) {
       return false;
     }
 
@@ -292,7 +300,7 @@ export default function MyRBE() {
 
     // Les cartes sans ressource sont toujours visibles (ex: Mon Profil)
     return true;
-  }, [userRole, isAdmin, customPermissions, userPermissions, canAccessMuseum, roles]);
+  }, [userRole, isAdmin, customPermissions, userPermissions, canAccessMuseum, roles, userCardIdentities]);
 
   // Filtrer les cartes en fonction des permissions (optimisé avec useMemo)
   const visibleCards = useMemo(() => 
