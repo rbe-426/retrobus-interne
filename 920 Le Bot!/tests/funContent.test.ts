@@ -27,4 +27,6 @@ test('fun command responses keep their RBE identity', () => {
   assert.match(formatControl(first), /CONTRÔLE TECHNIQUE RBE/);
   assert.match(formatDiagnostic('bruit', first), /HUMORISTIQUE/);
   assert.match(formatDraw(first), /TIRAGE RBE/);
+  assert.match(formatDraw(first), /Commun \(60 %\)/);
+  assert.match(formatDraw(() => 0.999), /Mythique \(1 %\)/);
 });

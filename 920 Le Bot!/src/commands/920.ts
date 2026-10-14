@@ -8,10 +8,12 @@ import {
   formatDestiny,
   formatDiagnostic,
   formatDraw,
+  formatHelp,
   formatPhrase,
 } from './funContent.js';
 import { executePing } from './ping.js';
-import { formatMusicSuggestion } from './musicSuggestion.js';
+import { formatMusicSuggestion, type MusicMood } from './musicSuggestion.js';
+import type { ReleaseNote } from './updateLog.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
@@ -33,6 +35,7 @@ export function createCommand920(
   birthdayInteractions: BirthdayInteractions,
   getConfiguration: (guildId?: string) => Bot920Configuration,
   moderation = new ModerationService(),
+  getReleaseNotes: () => Promise<ReleaseNote[]> = async () => [],
 ): BotCommand {
   return {
   data: new SlashCommandBuilder()
@@ -44,6 +47,12 @@ export function createCommand920(
     .addSubcommand((subcommand) => subcommand
       .setName('about')
       .setDescription('Présente 920 Le Bot !'))
+    .addSubcommand((subcommand) => subcommand
+      .setName('help')
+      .setDescription('Affiche les commandes classées par catégorie.'))
+    .addSubcommand((subcommand) => subcommand
+      .setName('updatelog')
+      .setDescription('Affiche les dernières nouveautés du bot.'))
     .addSubcommand((subcommand) => subcommand
       .setName('anniversaire')
       .setDescription('Consulte les informations d’anniversaire.'))
@@ -81,7 +90,17 @@ export function createCommand920(
       .setDescription('Lance un tirage RBE.'))
     .addSubcommand((subcommand) => subcommand
       .setName('ecouter')
-      .setDescription('Suggère une musique à écouter.'))
+      .setDescription('Suggère une musique selon une ambiance.')
+      .addStringOption((option) => option
+        .setName('ambiance')
+        .setDescription('Ambiance musicale souhaitée.')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Calme', value: 'calme' },
+          { name: 'Énergie', value: 'energie' },
+          { name: 'Rétro', value: 'retro' },
+          { name: 'Français', value: 'francais' },
+        )))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('kick').setDescription('Expulse un membre du serveur.')))
     .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('mute').setDescription('Empêche temporairement un membre de parler.')))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unmute').setDescription('Retire le mute d’un membre.')))
@@ -105,6 +124,17 @@ export function createCommand920(
       case 'about':
         await executeAbout(interaction, configuration);
         return;
+      case 'help':
+        await interaction.reply({ content: formatHelp(), ephemeral: true });
+        return;
+      case 'updatelog': {
+        const updates = await getReleaseNotes();
+        const content = updates.length
+          ? `📝 **920 LE BOT — UPDATELOG**\n\n${updates.map((update) => `**${update.version} · ${update.title}**\n${update.date}\n${update.changes.map((change) => `• ${change}`).join('\n')}`).join('\n\n')}`
+          : '📝 Aucun changelog du bot n’est publié pour le moment.';
+        await interaction.reply({ content: content.slice(0, 2_000), ephemeral: true });
+        return;
+      }
       case 'anniversaire':
         await birthdayInteractions.showMenu(interaction);
         return;
@@ -130,7 +160,7 @@ export function createCommand920(
         await interaction.reply(formatDraw());
         return;
       case 'ecouter':
-        await interaction.reply(formatMusicSuggestion());
+        await interaction.reply(formatMusicSuggestion((interaction.options.getString('ambiance') ?? 'calme') as MusicMood));
         return;
     }
   },
