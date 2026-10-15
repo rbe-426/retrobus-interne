@@ -7,14 +7,18 @@ import {
   formatControl,
   formatDestiny,
   formatDiagnostic,
-  formatDraw,
   formatHelp,
   formatPhrase,
+  drawCollectibleCard,
+  formatCollectibleCard,
+  CARD_RARITIES,
+  RBE_CARD_CATALOG,
 } from './funContent.js';
 import { executePing } from './ping.js';
 import { formatMusicSuggestion, type MusicStyle } from './musicSuggestion.js';
 import type { ReleaseNote } from './updateLog.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
+import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
 
@@ -36,6 +40,7 @@ export function createCommand920(
   getConfiguration: (guildId?: string) => Bot920Configuration,
   moderation = new ModerationService(),
   getReleaseNotes: () => Promise<ReleaseNote[]> = async () => [],
+  cardCollection?: CardCollectionRepository,
 ): BotCommand {
   return {
   data: new SlashCommandBuilder()
@@ -88,6 +93,10 @@ export function createCommand920(
     .addSubcommand((subcommand) => subcommand
       .setName('tirage')
       .setDescription('Lance un tirage RBE.'))
+    .addSubcommand((subcommand) => subcommand
+      .setName('collection')
+      .setDescription('Consulte ton Pokédex de cartes RBE.')
+      .addUserOption((option) => option.setName('membre').setDescription('Collection à consulter.').setRequired(false)))
     .addSubcommand((subcommand) => subcommand
       .setName('ecouter')
       .setDescription('Suggère une musique selon une ambiance.')
@@ -158,7 +167,40 @@ export function createCommand920(
         await interaction.reply(formatDiagnostic(interaction.options.getString('symptome', true)));
         return;
       case 'tirage':
-        await interaction.reply(formatDraw());
+        if (!interaction.guildId || !cardCollection) {
+          await interaction.reply({ content: 'Le Pokédex est indisponible : aucun tirage ne sera perdu.', ephemeral: true });
+          return;
+        }
+        {
+          const card = drawCollectibleCard();
+          try {
+            const owned = await cardCollection.recordDrop(interaction.guildId, interaction.user.id, card);
+            const duplicateText = owned.quantity > 1 ? `\n\n📚 Tu possèdes maintenant **${owned.quantity} exemplaires** de cette carte.` : '\n\n📚 Première carte ajoutée à ton Pokédex !';
+            await interaction.reply(`${formatCollectibleCard(card)}${duplicateText}`);
+          } catch {
+            await interaction.reply({ content: 'Le tirage n’a pas été effectué : la sauvegarde de collection est momentanément indisponible. Réessaie dans un instant.', ephemeral: true });
+          }
+        }
+        return;
+      case 'collection':
+        if (!interaction.guildId || !cardCollection) {
+          await interaction.reply({ content: 'Le Pokédex est indisponible pour le moment.', ephemeral: true });
+          return;
+        }
+        try {
+          const target = interaction.options.getUser('membre') ?? interaction.user;
+          const collection = await cardCollection.getCollection(interaction.guildId, target.id);
+          const rarityOrder = ['MYTHIQUE', 'LEGENDAIRE', 'EPIQUE', 'RARE', 'COMMUN'] as const;
+          const cards = collection.cards.sort((left, right) => rarityOrder.indexOf(left.rarity) - rarityOrder.indexOf(right.rarity) || left.name.localeCompare(right.name));
+          const lines = cards.map((card) => {
+            const rarity = CARD_RARITIES[card.rarity];
+            return `${rarity.icon} **${card.name}** · ${rarity.label}${card.quantity > 1 ? ` ×${card.quantity}` : ''}`;
+          });
+          const content = `📖 **POKÉDEX RBE · ${target.username}**\n${collection.uniqueCards}/${RBE_CARD_CATALOG.length} cartes découvertes · ${collection.totalCards} tirages possédés\n\n${lines.length ? lines.join('\n') : 'Aucune carte pour le moment. Lance `/920 tirage` pour commencer !'}`;
+          await interaction.reply({ content: content.slice(0, 2_000), ephemeral: target.id === interaction.user.id });
+        } catch {
+          await interaction.reply({ content: 'Impossible de charger ce Pokédex pour le moment.', ephemeral: true });
+        }
         return;
       case 'ecouter':
         await interaction.reply(formatMusicSuggestion((interaction.options.getString('ambiance') ?? 'surprends_moi') as MusicStyle));

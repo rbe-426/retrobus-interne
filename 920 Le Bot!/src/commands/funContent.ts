@@ -9,12 +9,29 @@ export const RBE_PHRASES = [
   'Le 920 ne tombe jamais en panne : il improvise un arrêt technique.',
   'La ligne est fluide, sauf aux endroits où elle ne l’est pas.',
   'Le conducteur est prêt. Le bus négocie encore.',
+  'Le planning est prévisionnel, surtout pour les prévisions.',
+  'Le dépôt confirme que tout est sous contrôle. Le contrôle cherche encore le dépôt.',
+  'La clé était dans la poche. La bonne poche reste à déterminer.',
+  'Le bus a entendu le réveil. Il a choisi de ne pas répondre.',
+  'Le prochain départ est imminent depuis maintenant vingt minutes.',
+  'Tout est prêt pour le départ, sauf ce qui sert au départ.',
+  'Le rétroviseur voit derrière. Le planning, lui, regarde ailleurs.',
+  'Un bruit a été identifié : c’est le bruit que personne n’a encore identifié.',
+  'La ligne fonctionne normalement selon une définition très personnelle de normalement.',
+  'Le café est chaud, le bus aussi. On surveille les deux.',
 ] as const;
 
 const RBE_BUSES = [
   { model: 'Mercedes-Benz Citaro 1', parc: '920', engine: 'OM906hLA', status: '🟢 Ça roule.', delay: '+7 minutes', reason: 'On ne sait pas.' },
   { model: 'Mercedes-Benz O 405 N', parc: 'RBE-405', engine: 'OM447h', status: '🟡 Sous surveillance.', delay: '+3 minutes', reason: 'Le dépôt est loin.' },
   { model: 'Renault Agora S', parc: 'RBE-AGORA', engine: 'MIDR 06.20.45', status: '🟢 Prêt au départ.', delay: 'À l’heure', reason: 'Fait exceptionnel.' },
+  { model: 'Heuliez GX 317', parc: 'RBE-317', engine: 'Renault MIDR', status: '🟡 En observation.', delay: '+5 minutes', reason: 'Une vérification de routine qui a rencontré une autre vérification.' },
+  { model: 'Irisbus Citelis', parc: 'RBE-CIT', engine: 'Cursor 8', status: '🟢 Opérationnel.', delay: '+2 minutes', reason: 'Le café a été servi à l’heure.' },
+  { model: 'Setra S 315', parc: 'RBE-315', engine: 'OM457', status: '🟠 Échauffement en cours.', delay: '+11 minutes', reason: 'Le véhicule voulait profiter du paysage.' },
+  { model: 'Renault PR 100', parc: 'RBE-PR', engine: 'MIDR', status: '🟢 Prêt à partir.', delay: 'Horaire historique', reason: 'Il connaît le trajet par cœur.' },
+  { model: 'Mercedes-Benz O 405', parc: 'RBE-405', engine: 'OM447', status: '🟡 À confirmer.', delay: '+4 minutes', reason: 'Le tableau de bord a demandé une seconde opinion.' },
+  { model: 'Iveco Urbanway', parc: 'RBE-URB', engine: 'Cursor 9', status: '🟢 Service assuré.', delay: '+1 minute', reason: 'Personne n’a prononcé le mot panne.' },
+  { model: 'Van Hool A300', parc: 'RBE-A300', engine: 'DAF', status: '🟠 En discussion.', delay: '+8 minutes', reason: 'Le bus et le planning ne sont pas encore d’accord.' },
 ] as const;
 
 const RBE_BREAKDOWNS = [
@@ -25,6 +42,14 @@ const RBE_BREAKDOWNS = [
   { fault: 'Portière susceptible', diagnosis: 'Elle ne s’ouvre qu’après une demande formulée avec diplomatie.', confidence: '63 %' },
   { fault: 'Retard préventif', diagnosis: 'Le véhicule prend de l’avance sur son prochain retard.', confidence: '91 %' },
   { fault: 'Siège en réunion', diagnosis: 'Il grince pour faire entendre son point de vue.', confidence: '38 %' },
+  { fault: 'Essuie-glace nostalgique', diagnosis: 'Il fonctionne surtout quand il se rappelle pourquoi il est là.', confidence: '52 %' },
+  { fault: 'Klaxon timide', diagnosis: 'Il préfère envoyer un courrier plutôt que se manifester.', confidence: '29 %' },
+  { fault: 'Compteur optimiste', diagnosis: 'Il affiche une vitesse à laquelle le bus réfléchit encore.', confidence: '44 %' },
+  { fault: 'Porte en télétravail', diagnosis: 'Elle est techniquement présente, mais pas disponible.', confidence: '71 %' },
+  { fault: 'Rétroviseur observateur', diagnosis: 'Il a tout vu, mais refuse de témoigner sans café.', confidence: '66 %' },
+  { fault: 'Planning en avance', diagnosis: 'Le départ est prévu avant que le véhicule soit arrivé.', confidence: '19 %' },
+  { fault: 'Batterie en pause', diagnosis: 'Elle recharge ses idées avant de relancer le moteur.', confidence: '57 %' },
+  { fault: 'Voyant saisonnier', diagnosis: 'Il ne s’allume qu’en présence d’un mécanicien.', confidence: '83 %' },
 ] as const;
 
 const RBE_DESTINIES = [
@@ -36,6 +61,14 @@ const RBE_DESTINIES = [
   'Le prochain bus sera le bon. Le bon sens de circulation, c’est une autre question.',
   'Quelqu’un dira « il fait un bruit depuis hier » sans préciser lequel.',
   'Une journée sans imprévu est possible. Pas aujourd’hui, mais possible.',
+  'Tu vas retrouver une pièce dont personne ne se souvenait avoir perdu.',
+  'Le bus arrivera juste après le message « il est où ? ».',
+  'Un outil va changer de caisse sans prévenir son équipe.',
+  'Le prochain contrôle révélera une anomalie parfaitement bien cachée.',
+  'La météo sera idéale pour tester les essuie-glaces.',
+  'Tu vas entendre « c’est juste un petit réglage » avant une longue réunion.',
+  'Le trajet sera calme. Le groupe de discussion, beaucoup moins.',
+  'Une solution simple va apparaître après la troisième solution compliquée.',
 ] as const;
 
 const RBE_DRAWS = [
@@ -43,15 +76,58 @@ const RBE_DRAWS = [
   'Le prochain café est offert par la personne qui a oublié les clés.',
   'Le véhicule gagnant est celui qui démarre du premier coup.',
   'Le dépôt gagne une minute de tranquillité. Profitez-en.',
+  'Le tirage recommande une pause café, validée par une commission imaginaire.',
+  'Carte bonus : le véhicule démarre avant que quelqu’un dise « essaye encore ».',
+  'La chance sourit au dépôt. Elle a juste oublié les clés.',
+  'Un départ sans discussion est prévu. Sous réserve de discussion.',
+  'Le prochain imprévu a été déplacé à une date ultérieure non précisée.',
+  'Récompense : cinq minutes de calme, non cumulables avec le groupe WhatsApp.',
+  'Le planning annonce une journée normale. Le planning est très courageux.',
+  'Le bus valide ce tirage, sous réserve de démarrer.',
 ] as const;
 
-const RARITIES = [
-  { name: 'Commun', chance: 60, color: '⚪', rewards: ['Un ticket de bus imaginaire', 'Une clé presque identifiée', 'Un café de dépôt'] },
-  { name: 'Rare', chance: 25, color: '🔵', rewards: ['Un bus prêt du premier coup', 'Une fiche horaire à jour', 'Un outil rangé à sa place'] },
-  { name: 'Épique', chance: 10, color: '🟣', rewards: ['Un départ parfaitement à l’heure', 'La bonne clé du premier essai', 'Un diagnostic sans « faut regarder »'] },
-  { name: 'Légendaire', chance: 4, color: '🟠', rewards: ['Une journée sans imprévu', 'Un véhicule qui démarre avant le café'] },
-  { name: 'Mythique', chance: 1, color: '🌟', rewards: ['Le bus et les clés sont prêts en même temps'] },
-] as const;
+export type CardRarity = 'COMMUN' | 'RARE' | 'EPIQUE' | 'LEGENDAIRE' | 'MYTHIQUE';
+
+export interface RBECollectibleCard {
+  id: string;
+  name: string;
+  rarity: CardRarity;
+  description: string;
+}
+
+export const CARD_RARITIES: Record<CardRarity, { label: string; chance: number; icon: string }> = {
+  COMMUN: { label: 'Commun', chance: 60, icon: '⚪' },
+  RARE: { label: 'Rare', chance: 25, icon: '🔵' },
+  EPIQUE: { label: 'Épique', chance: 10, icon: '🟣' },
+  LEGENDAIRE: { label: 'Légendaire', chance: 4, icon: '🟠' },
+  MYTHIQUE: { label: 'Mythique', chance: 1, icon: '🌟' },
+};
+
+export const RBE_CARD_CATALOG: readonly RBECollectibleCard[] = [
+  { id: 'citaro-920', name: 'Le Citaro 920', rarity: 'COMMUN', description: 'Le véhicule qui porte le numéro du bot avec une fierté mesurée.' },
+  { id: 'cle-depot', name: 'La clé du dépôt', rarity: 'COMMUN', description: 'Elle ouvre probablement quelque chose. On cherche encore quoi.' },
+  { id: 'cafe-conducteur', name: 'Le café du conducteur', rarity: 'COMMUN', description: 'Niveau de carburant humain : rétabli.' },
+  { id: 'ticket-imaginaire', name: 'Le ticket imaginaire', rarity: 'COMMUN', description: 'Valable sur une ligne qui n’existe que dans le planning.' },
+  { id: 'gilet-fluo', name: 'Le gilet haute visibilité', rarity: 'COMMUN', description: 'Visible de tous, sauf de la personne qui le cherche.' },
+  { id: 'fiche-horaire', name: 'La fiche horaire', rarity: 'RARE', description: 'À jour depuis au moins quelques minutes.' },
+  { id: 'outil-range', name: 'L’outil bien rangé', rarity: 'RARE', description: 'Retrouvé exactement là où il avait été posé.' },
+  { id: 'panneau-arret', name: 'Le panneau d’arrêt', rarity: 'RARE', description: 'Il indique un arrêt. Pour le départ, voir le prochain épisode.' },
+  { id: 'citaro-premier-coup', name: 'Le démarrage immédiat', rarity: 'EPIQUE', description: 'Le moteur a démarré avant la fin du premier café.' },
+  { id: 'diagnostic-clair', name: 'Le diagnostic limpide', rarity: 'EPIQUE', description: 'La panne a un nom, une cause et une fiche. Incroyable.' },
+  { id: 'cle-du-bon-bus', name: 'La bonne clé du premier coup', rarity: 'LEGENDAIRE', description: 'Une relique recherchée depuis des générations de conducteurs.' },
+  { id: 'depart-a-heure', name: 'Le départ à l’heure', rarity: 'LEGENDAIRE', description: 'Tout était prêt au même moment. Les témoins sont encore émus.' },
+  { id: 'jour-sans-imprevu', name: 'La journée sans imprévu', rarity: 'MYTHIQUE', description: 'Le dépôt a connu une journée parfaitement calme. Une fois.' },
+];
+
+export function drawCollectibleCard(random = Math.random): RBECollectibleCard {
+  let roll = Math.max(0, Math.min(0.999_999, random())) * 100;
+  const rarity = (Object.entries(CARD_RARITIES) as Array<[CardRarity, (typeof CARD_RARITIES)[CardRarity]]>)
+    .find(([, definition]) => {
+      roll -= definition.chance;
+      return roll < 0;
+    })?.[0] ?? 'COMMUN';
+  return pickRandom(RBE_CARD_CATALOG.filter((card) => card.rarity === rarity), random);
+}
 
 const RBE_DIAGNOSTICS: Record<string, readonly string[]> = {
   bruit: ['Une fixation, un raccord ou un élément qui souhaite se faire entendre.', 'Conseil RBE : écouter, localiser, puis demander à quelqu’un d’autre d’écouter.'],
@@ -91,6 +167,12 @@ export function formatControl(random = Math.random): string {
     { motivation: '38 %', patience: '91 %', knowledge: '72 %', punctuality: '86 %', verdict: '⚠️ CONTRE-VISITE APRÈS UNE PAUSE CAFÉ' },
     { motivation: '76 %', patience: '67 %', knowledge: '99 %', punctuality: '34 %', verdict: '✅ APTE, MAIS LE BUS A DES QUESTIONS' },
     { motivation: '55 %', patience: '58 %', knowledge: '63 %', punctuality: '97 %', verdict: '⚠️ VALIDÉ À CONDITION DE PARTIR MAINTENANT' },
+    { motivation: '88 %', patience: '73 %', knowledge: '44 %', punctuality: '82 %', verdict: '✅ VALIDÉ, LE MANUEL RESTE À PORTÉE DE MAIN' },
+    { motivation: '29 %', patience: '96 %', knowledge: '91 %', punctuality: '47 %', verdict: '⚠️ CONTRE-VISITE APRÈS LE PROCHAIN CAFÉ' },
+    { motivation: '67 %', patience: '32 %', knowledge: '86 %', punctuality: '93 %', verdict: '✅ APTE, MAIS LE PLANNING DOIT SUIVRE' },
+    { motivation: '99 %', patience: '81 %', knowledge: '58 %', punctuality: '72 %', verdict: '✅ VALIDÉ PAR LE COLLÈGUE QUI A LES CLÉS' },
+    { motivation: '43 %', patience: '88 %', knowledge: '95 %', punctuality: '39 %', verdict: '⚠️ RÉSULTAT POSITIF, HORAIRES À REVOIR' },
+    { motivation: '72 %', patience: '69 %', knowledge: '77 %', punctuality: '88 %', verdict: '✅ PRÊT POUR LE SERVICE, SOUS SURVEILLANCE DU CAFÉ' },
   ] as const;
   const score = pickRandom(scores, random);
   return `🔍 **CONTRÔLE TECHNIQUE RBE**\n\nMotivation : ${score.motivation}\nPatience : ${score.patience}\nConnaissance bus : ${score.knowledge}\nPonctualité : ${score.punctuality}\n\nAvis :\n${score.verdict}`;
@@ -108,14 +190,12 @@ export function formatDiagnostic(symptom: string, random = Math.random): string 
 }
 
 export function formatDraw(random = Math.random): string {
-  let roll = Math.max(0, Math.min(0.999_999, random())) * 100;
-  const rarity = RARITIES.find((entry) => {
-    roll -= entry.chance;
-    return roll < 0;
-  }) ?? RARITIES[0];
-  const reward = pickRandom(rarity.rewards, random);
-  const flavor = pickRandom(RBE_DRAWS, random);
-  return `🎰 **TIRAGE RBE**\n\n${rarity.color} Rareté : ${rarity.name} (${rarity.chance} %)\n🎁 ${reward}\n\n${flavor}`;
+  return formatCollectibleCard(drawCollectibleCard(random), pickRandom(RBE_DRAWS, random));
+}
+
+export function formatCollectibleCard(card: RBECollectibleCard, flavor = pickRandom(RBE_DRAWS)): string {
+  const rarity = CARD_RARITIES[card.rarity];
+  return `🎴 **NOUVELLE CARTE RBE**\n\n${rarity.icon} **${card.name}** · ${rarity.label} (${rarity.chance} %)\n${card.description}\n\n${flavor}`;
 }
 
 export function formatHelp(): string {
@@ -130,6 +210,7 @@ export function formatHelp(): string {
     '`/920 destin` · Le destin du jour',
     '`/920 controle` · Contrôle technique humoristique',
     '`/920 tirage` · Récompense à rareté variable',
+    '`/920 collection [membre]` · Pokédex et raretés obtenues',
     '`/920 ecouter [ambiance]` · Suggestion musicale',
     '`/920 anniversaire` · Anniversaires du serveur',
     '',

@@ -12,6 +12,7 @@ import { createApiTemporaryBanRepository } from './services/temporaryBanReposito
 import { createApiDiscordLogEventRepository } from './services/discordLogEventRepository.js';
 import { DiscordLogService } from './services/discordLogService.js';
 import { createApiUpdateLogRepository } from './commands/updateLog.js';
+import { createApiCardCollectionRepository } from './services/cardCollectionRepository.js';
 import { logger } from './utils/logger.js';
 
 const startedAt = new Date().toISOString();
@@ -29,11 +30,12 @@ const discordLogEventRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
   : undefined;
 const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
 const getReleaseNotes = createApiUpdateLogRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
+const cardCollection = createApiCardCollectionRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 const discordLogs = new DiscordLogService(configurationStore.getLogging, discordLogEventRepository);
 const moderation = new ModerationService(temporaryBanRepository, moderationCaseRepository, discordLogs);
 await configurationStore.refresh();
-const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation, getReleaseNotes), birthdayInteractions, configurationStore.get, configurationStore.getAutoModeration);
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation, getReleaseNotes, cardCollection), birthdayInteractions, configurationStore.get, configurationStore.getAutoModeration);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,
