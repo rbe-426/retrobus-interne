@@ -41,9 +41,10 @@ test('/920 help groups commands by category', () => {
   assert.match(help, /`\/920 help`/);
 });
 
-test('/920 ecouter returns a suggestion for the selected mood', () => {
-  assert.match(formatMusicSuggestion('calme', () => 0), /À écouter · calme[\s\S]*Sunset Lover/);
-  assert.match(formatMusicSuggestion('energie', () => 0), /À écouter · energie[\s\S]*Feel Good Inc\./);
-  assert.match(formatMusicSuggestion('retro', () => 0), /À écouter · retro[\s\S]*Voyage, voyage/);
-  assert.match(formatMusicSuggestion('francais', () => 0), /À écouter · francais[\s\S]*La grenade/);
+test('/920 ecouter returns a suggestion for the selected genre or a surprise', () => {
+  assert.match(formatMusicSuggestion('rap', () => 0), /À écouter · Rap[\s\S]*Basique/);
+  assert.match(formatMusicSuggestion('rock', () => 0), /À écouter · Rock[\s\S]*Song 2/);
+  assert.match(formatMusicSuggestion('electro', () => 0), /À écouter · Electro[\s\S]*D\.A\.N\.C\.E\./);
+  assert.match(formatMusicSuggestion('pop', () => 0), /À écouter · Pop[\s\S]*La grenade/);
+  assert.match(formatMusicSuggestion('surprends_moi', () => 0), /À écouter · Surprends-moi[\s\S]*Basique/);
 });

@@ -12,7 +12,7 @@ import {
   formatPhrase,
 } from './funContent.js';
 import { executePing } from './ping.js';
-import { formatMusicSuggestion, type MusicMood } from './musicSuggestion.js';
+import { formatMusicSuggestion, type MusicStyle } from './musicSuggestion.js';
 import type { ReleaseNote } from './updateLog.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
@@ -93,13 +93,14 @@ export function createCommand920(
       .setDescription('Suggère une musique selon une ambiance.')
       .addStringOption((option) => option
         .setName('ambiance')
-        .setDescription('Ambiance musicale souhaitée.')
-        .setRequired(false)
+        .setDescription('Style musical souhaité, ou laisse le bot te surprendre.')
+        .setRequired(true)
         .addChoices(
-          { name: 'Calme', value: 'calme' },
-          { name: 'Énergie', value: 'energie' },
-          { name: 'Rétro', value: 'retro' },
-          { name: 'Français', value: 'francais' },
+          { name: 'Rap', value: 'rap' },
+          { name: 'Rock', value: 'rock' },
+          { name: 'Électro', value: 'electro' },
+          { name: 'Pop', value: 'pop' },
+          { name: 'Surprends-moi', value: 'surprends_moi' },
         )))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('kick').setDescription('Expulse un membre du serveur.')))
     .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('mute').setDescription('Empêche temporairement un membre de parler.')))
@@ -160,7 +161,7 @@ export function createCommand920(
         await interaction.reply(formatDraw());
         return;
       case 'ecouter':
-        await interaction.reply(formatMusicSuggestion((interaction.options.getString('ambiance') ?? 'calme') as MusicMood));
+        await interaction.reply(formatMusicSuggestion((interaction.options.getString('ambiance') ?? 'surprends_moi') as MusicStyle));
         return;
     }
   },
