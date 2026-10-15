@@ -21,6 +21,9 @@ export function buildCollectionEmbed(
   username: string,
   cards: OwnedCollectibleCard[],
   totalCards: number,
+  drawsRemaining = 3,
+  dailyDrawLimit = 3,
+  resetAt?: string,
 ): EmbedBuilder {
   const ownedByRarity = new Map<CardRarity, OwnedCollectibleCard[]>();
   for (const card of cards) {
@@ -32,7 +35,7 @@ export function buildCollectionEmbed(
   const embed = new EmbedBuilder()
     .setColor(0x176b87)
     .setTitle(`📖 Pokédex RBE · ${username}`)
-    .setDescription(`${cards.length}/${RBE_CARD_CATALOG.length} cartes découvertes · ${totalCards} exemplaire${totalCards > 1 ? 's' : ''} possédé${totalCards > 1 ? 's' : ''}`);
+    .setDescription(`${cards.length}/${RBE_CARD_CATALOG.length} cartes découvertes · ${totalCards} exemplaire${totalCards > 1 ? 's' : ''} possédé${totalCards > 1 ? 's' : ''}\nTirages aujourd’hui : **${drawsRemaining}/${dailyDrawLimit}**${drawsRemaining === 0 && resetAt ? ` · reprise <t:${Math.floor(new Date(resetAt).getTime() / 1_000)}:R>` : ''}`);
 
   for (const rarityName of RARITY_ORDER) {
     const rarity = CARD_RARITIES[rarityName];
@@ -85,17 +88,19 @@ export class CardCollectionInteractions {
       await interaction.reply({ content: 'Le Pokédex est indisponible pour le moment.', ephemeral: true });
       return;
     }
+    const target = interaction.options.getUser('membre') ?? interaction.user;
+    const ephemeral = target.id === interaction.user.id;
     try {
-      const target = interaction.options.getUser('membre') ?? interaction.user;
+      await interaction.deferReply({ ephemeral });
       const collection = await this.repository.getCollection(interaction.guildId, target.id);
       const components = buildCollectionComponents(target.id, collection.cards);
-      await interaction.reply({
-        embeds: [buildCollectionEmbed(target.username, collection.cards, collection.totalCards)],
+      await interaction.editReply({
+        embeds: [buildCollectionEmbed(target.username, collection.cards, collection.totalCards, collection.drawsRemaining, collection.dailyDrawLimit, collection.resetAt)],
         components,
-        ephemeral: target.id === interaction.user.id,
       });
     } catch {
-      await interaction.reply({ content: 'Impossible de charger ce Pokédex pour le moment.', ephemeral: true });
+      if (interaction.deferred || interaction.replied) await interaction.editReply({ content: 'Impossible de charger ce Pokédex pour le moment.', embeds: [], components: [] });
+      else await interaction.reply({ content: 'Impossible de charger ce Pokédex pour le moment.', ephemeral: true });
     }
   }
 
@@ -107,15 +112,17 @@ export class CardCollectionInteractions {
       return true;
     }
     try {
+      await interaction.deferReply({ ephemeral: true });
       const collection = await this.repository.getCollection(interaction.guildId, match[1]);
       const card = collection.cards.find((entry) => entry.id === interaction.values[0]);
       if (!card) {
-        await interaction.reply({ content: 'Cette carte ne figure plus dans cette collection.', ephemeral: true });
+        await interaction.editReply({ content: 'Cette carte ne figure plus dans cette collection.', embeds: [] });
         return true;
       }
-      await interaction.reply({ embeds: [buildCardDetailEmbed(card)], ephemeral: true });
+      await interaction.editReply({ embeds: [buildCardDetailEmbed(card)] });
     } catch {
-      await interaction.reply({ content: 'Impossible de charger le détail de cette carte.', ephemeral: true });
+      if (interaction.deferred || interaction.replied) await interaction.editReply({ content: 'Impossible de charger le détail de cette carte.', embeds: [] });
+      else await interaction.reply({ content: 'Impossible de charger le détail de cette carte.', ephemeral: true });
     }
     return true;
   }

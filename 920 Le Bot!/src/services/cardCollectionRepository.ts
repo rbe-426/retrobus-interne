@@ -6,8 +6,22 @@ export interface OwnedCollectibleCard extends RBECollectibleCard {
 }
 
 export interface CardCollectionRepository {
-  recordDrop(guildId: string, userId: string, card: RBECollectibleCard): Promise<{ quantity: number }>;
-  getCollection(guildId: string, userId: string): Promise<{ cards: OwnedCollectibleCard[]; uniqueCards: number; totalCards: number }>;
+  recordDrop(guildId: string, userId: string, card: RBECollectibleCard): Promise<{ quantity: number; drawsRemaining: number; resetAt: string }>;
+  getCollection(guildId: string, userId: string): Promise<{ cards: OwnedCollectibleCard[]; uniqueCards: number; totalCards: number; drawsRemaining: number; dailyDrawLimit: number; resetAt: string }>;
+}
+
+export class DailyCardDrawLimitError extends Error {
+  constructor(readonly resetAt: string) {
+    super('The daily card draw limit has been reached');
+    this.name = 'DailyCardDrawLimitError';
+  }
+}
+
+class CardCollectionApiError extends Error {
+  constructor(readonly status: number, readonly code?: string, readonly resetAt?: string) {
+    super(`Card collection API returned HTTP ${status}`);
+    this.name = 'CardCollectionApiError';
+  }
 }
 
 export function createApiCardCollectionRepository(apiUrl?: string, serviceToken?: string): CardCollectionRepository {
@@ -20,19 +34,32 @@ export function createApiCardCollectionRepository(apiUrl?: string, serviceToken?
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({})) as { code?: string; resetAt?: string };
+      throw new CardCollectionApiError(response.status, errorPayload.code, errorPayload.resetAt);
+    }
     return await response.json() as T;
   };
 
   return {
     async recordDrop(guildId, userId, card) {
-      return await request(`/guilds/${guildId}/collection/draw`, 'POST', { userId, card });
+      try {
+        return await request(`/guilds/${guildId}/collection/draw`, 'POST', { userId, card });
+      } catch (error) {
+        if (error instanceof CardCollectionApiError && error.status === 429 && error.code === 'DAILY_DRAW_LIMIT' && error.resetAt) {
+          throw new DailyCardDrawLimitError(error.resetAt);
+        }
+        throw error;
+      }
     },
     async getCollection(guildId, userId) {
       const payload = await request<{
         cards: Array<{ cardId: string; cardName: string; rarity: RBECollectibleCard['rarity']; description: string; quantity: number; firstAcquired: string }>;
         uniqueCards: number;
         totalCards: number;
+        drawsRemaining: number;
+        dailyDrawLimit: number;
+        resetAt: string;
       }>(`/guilds/${guildId}/collection/${userId}`);
       return {
         ...payload,

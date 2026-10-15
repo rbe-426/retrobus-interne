@@ -17,6 +17,7 @@ import { formatMusicSuggestion, type MusicStyle } from './musicSuggestion.js';
 import type { ReleaseNote } from './updateLog.js';
 import type { BirthdayInteractions } from '../services/birthdays/birthdayInteractions.js';
 import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
+import { DailyCardDrawLimitError } from '../services/cardCollectionRepository.js';
 import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
@@ -176,8 +177,13 @@ export function createCommand920(
           try {
             const owned = await cardCollection.recordDrop(interaction.guildId, interaction.user.id, card);
             const duplicateText = owned.quantity > 1 ? `\n\n📚 Tu possèdes maintenant **${owned.quantity} exemplaires** de cette carte.` : '\n\n📚 Première carte ajoutée à ton Pokédex !';
-            await interaction.reply(`${formatCollectibleCard(card)}${duplicateText}`);
-          } catch {
+            const quotaText = `\n⏳ Tirages restants aujourd’hui : **${owned.drawsRemaining}/3**.`;
+            await interaction.reply(`${formatCollectibleCard(card)}${duplicateText}${quotaText}`);
+          } catch (error) {
+            if (error instanceof DailyCardDrawLimitError) {
+              await interaction.reply({ content: `Tu as atteint tes **3 tirages quotidiens**. Reviens <t:${Math.floor(new Date(error.resetAt).getTime() / 1_000)}:R> pour en ouvrir un nouveau.`, ephemeral: true });
+              return;
+            }
             await interaction.reply({ content: 'Le tirage n’a pas été effectué : la sauvegarde de collection est momentanément indisponible. Réessaie dans un instant.', ephemeral: true });
           }
         }

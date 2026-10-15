@@ -42,6 +42,8 @@ test('weighted card draw returns common and mythic cards at probability bounds',
   assert.equal(drawCollectibleCard(() => 0.999).rarity, 'MYTHIQUE');
   assert.equal(Object.values(CARD_RARITIES).reduce((total, rarity) => total + rarity.chance, 0), 100);
   assert.equal(new Set(RBE_CARD_CATALOG.map((card) => card.id)).size, RBE_CARD_CATALOG.length);
+  assert.equal(RBE_CARD_CATALOG.length, 51);
+  assert.deepEqual(Object.keys(CARD_RARITIES).map((rarity) => RBE_CARD_CATALOG.filter((card) => card.rarity === rarity).length), [15, 13, 10, 7, 6]);
 });
 
 test('/920 help groups commands by category', () => {
