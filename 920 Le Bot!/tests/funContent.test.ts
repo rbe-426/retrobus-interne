@@ -9,6 +9,8 @@ import {
   formatDiagnostic,
   formatDraw,
   drawCollectibleCard,
+  CARD_RARITIES,
+  RBE_CARD_CATALOG,
   formatHelp,
   formatPhrase,
 } from '../src/commands/funContent.js';
@@ -37,6 +39,8 @@ test('fun command responses keep their RBE identity', () => {
 test('weighted card draw returns common and mythic cards at probability bounds', () => {
   assert.equal(drawCollectibleCard(() => 0).rarity, 'COMMUN');
   assert.equal(drawCollectibleCard(() => 0.999).rarity, 'MYTHIQUE');
+  assert.equal(Object.values(CARD_RARITIES).reduce((total, rarity) => total + rarity.chance, 0), 100);
+  assert.equal(new Set(RBE_CARD_CATALOG.map((card) => card.id)).size, RBE_CARD_CATALOG.length);
 });
 
 test('/920 help groups commands by category', () => {

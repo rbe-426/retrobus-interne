@@ -10,7 +10,7 @@ test('/920 exposes the expected Phase 1 subcommands', () => {
   assert.equal(command.name, '920');
   assert.deepEqual(
     command.options?.map((option) => option.name),
-    ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'],
+    ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'],
   );
   const music = command.options?.find((option) => option.name === 'ecouter');
   assert.deepEqual(music?.options?.[0]?.choices?.map((choice) => choice.value), ['rap', 'rock', 'electro', 'pop', 'surprends_moi']);
