@@ -1,4 +1,4 @@
-export const bot920Subcommands = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
+export const bot920Subcommands = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter', 'classement', 'sondage', 'suggestion', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
 
 export type Bot920Subcommand = typeof bot920Subcommands[number];
 
@@ -25,6 +25,7 @@ export interface Bot920Configuration {
     socialAlerts: { enabled: boolean };
     statisticsChannels: { enabled: boolean };
     music: { enabled: boolean };
+    randomEvents: { enabled: boolean; channelId: string };
     automod: { enabled: boolean; antiSpam: boolean; antiRaid: boolean; blockedLinks: boolean; alertChannelId: string; spamMessageLimit: number; spamWindowSeconds: number; timeoutMinutes: number; raidJoinLimit: number; raidWindowSeconds: number };
   };
 }
@@ -79,7 +80,7 @@ export const defaultBot920Configuration: Bot920Configuration = {
   welcome: {
     welcomeEnabled: false,
     welcomeChannelId: '',
-    welcomeMessage: 'Bienvenue sur le serveur RétroBus Essonne !',
+    welcomeMessage: 'Bienvenue sur le serveur RétroBus Essonne ! Pense à consulter les règles et utilise /920 help pour découvrir les commandes.',
     autoRoleId: '',
   },
   logs: { enabled: true },
@@ -94,6 +95,7 @@ export const defaultBot920Configuration: Bot920Configuration = {
     socialAlerts: { enabled: false },
     statisticsChannels: { enabled: false },
     music: { enabled: true },
+    randomEvents: { enabled: false, channelId: '' },
     automod: { enabled: false, antiSpam: true, antiRaid: true, blockedLinks: false, alertChannelId: '', spamMessageLimit: 6, spamWindowSeconds: 10, timeoutMinutes: 10, raidJoinLimit: 8, raidWindowSeconds: 60 },
   },
 };
