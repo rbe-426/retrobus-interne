@@ -15,6 +15,7 @@ import {
   formatPhrase,
 } from '../src/commands/funContent.js';
 import { formatMusicSuggestion } from '../src/commands/musicSuggestion.js';
+import { buildCardDetailEmbed, buildCollectionComponents, buildCollectionEmbed } from '../src/services/cardCollectionInteractions.js';
 
 test('formatPhrase selects a deterministic RBE phrase', () => {
   assert.equal(
@@ -57,4 +58,19 @@ test('/920 ecouter returns a suggestion for the selected genre or a surprise', (
   assert.match(formatMusicSuggestion('electro', () => 0), /À écouter · Electro[\s\S]*D\.A\.N\.C\.E\./);
   assert.match(formatMusicSuggestion('pop', () => 0), /À écouter · Pop[\s\S]*La grenade/);
   assert.match(formatMusicSuggestion('surprends_moi', () => 0), /À écouter · Surprends-moi[\s\S]*Basique/);
+});
+
+test('Pokédex embeds group all rarities and show empty categories', () => {
+  const embed = buildCollectionEmbed('C.Marcy', [], 0).toJSON();
+  assert.equal(embed.fields.length, 5);
+  assert.match(embed.fields[0].name, /Mythique/);
+  assert.equal(embed.fields[0].value, 'Aucune pour le moment.');
+  assert.match(embed.fields[4].name, /Commun/);
+});
+
+test('Pokédex selector lists owned cards and detail embed describes the selected card', () => {
+  const cards = [{ id: 'jour-sans-imprevu', name: 'La journée sans imprévu', rarity: 'MYTHIQUE' as const, description: 'Une journée calme.', quantity: 2, firstAcquired: '2026-10-15T00:00:00.000Z' }];
+  const components = buildCollectionComponents('12345678901234567', cards).map((row) => row.toJSON());
+  assert.equal(components[0].components[0].options[0].value, cards[0].id);
+  assert.match(buildCardDetailEmbed(cards[0]).toJSON().description, /Une journée calme/);
 });

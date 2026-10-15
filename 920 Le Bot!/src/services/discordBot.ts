@@ -6,12 +6,14 @@ import type { BirthdayInteractions } from './birthdays/birthdayInteractions.js';
 import { logger } from '../utils/logger.js';
 import { isDiscordSnowflake, isWelcomeEnabled, renderWelcomeMessage } from './welcome.js';
 import { AutoModerationService } from './autoModeration.js';
+import type { CardCollectionInteractions } from './cardCollectionInteractions.js';
 
 export function createDiscordBot(
   commands: readonly BotCommand[],
   birthdayInteractions?: BirthdayInteractions,
   getConfiguration: (guildId?: string) => Bot920Configuration = () => defaultBot920Configuration,
   getAutoModeration: (guildId: string) => AutoModConfiguration = () => ({ rules: [], words: [] }),
+  cardCollectionInteractions?: CardCollectionInteractions,
 ) {
   const registry = createCommandRegistry(commands);
   const automoderation = new AutoModerationService(getAutoModeration);
@@ -22,6 +24,15 @@ export function createDiscordBot(
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isStringSelectMenu()) {
+      try {
+        if (await cardCollectionInteractions?.handleSelectMenu(interaction)) return;
+      } catch (error) {
+        logger.error('discord', 'Échec du détail de carte RBE', error instanceof Error ? error : undefined);
+      }
+      return;
+    }
+
     if (interaction.isButton()) {
       try {
         await birthdayInteractions?.handleButton(interaction);

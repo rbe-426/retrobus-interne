@@ -5,6 +5,7 @@ import { defaultBot920Configuration, type Bot920Configuration } from '../config/
 import { ModerationService } from '../services/moderation.js';
 import type { ReleaseNote } from '../commands/updateLog.js';
 import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
+import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
 
 export function createCommands(
   birthdayInteractions: BirthdayInteractions,
@@ -12,6 +13,7 @@ export function createCommands(
   moderation?: ModerationService,
   getReleaseNotes?: () => Promise<ReleaseNote[]>,
   cardCollection?: CardCollectionRepository,
+  collectionInteractions?: CardCollectionInteractions,
 ): readonly BotCommand[] {
-	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection)];
+	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection, collectionInteractions)];
 }
