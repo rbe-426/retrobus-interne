@@ -11,6 +11,7 @@ import {
   formatPhrase,
   drawCollectibleCard,
   formatCollectibleCard,
+  RBE_CARD_CATALOG,
 } from './funContent.js';
 import { executePing } from './ping.js';
 import { formatMusicSuggestion, type MusicStyle } from './musicSuggestion.js';
@@ -173,9 +174,29 @@ export function createCommand920(
           return;
         }
         {
-          const card = drawCollectibleCard();
           try {
-            const owned = await cardCollection.recordDrop(interaction.guildId, interaction.user.id, card);
+            let collection = await cardCollection.getCollection(interaction.guildId, interaction.user.id);
+            if (collection.uniqueCards >= RBE_CARD_CATALOG.length) {
+              await interaction.reply({ content: `🎉 Tu as complété le Pokédex RBE ! Tu possèdes les **${RBE_CARD_CATALOG.length} cartes**.`, ephemeral: true });
+              return;
+            }
+
+            let card = null;
+            let owned = null;
+            for (let attempt = 0; attempt < 5 && !owned; attempt += 1) {
+              card = drawCollectibleCard(Math.random, collection.cards.map((entry) => entry.id));
+              const result = await cardCollection.recordDrop(interaction.guildId, interaction.user.id, card);
+              if (result.duplicate) {
+                collection = await cardCollection.getCollection(interaction.guildId, interaction.user.id);
+                continue;
+              }
+              owned = result;
+            }
+
+            if (!owned || !card) {
+              await interaction.reply({ content: 'Aucune nouvelle carte n’a été ajoutée ; aucun tirage ne t’a été retiré. Réessaie.', ephemeral: true });
+              return;
+            }
             const duplicateText = owned.quantity > 1 ? `\n\n📚 Tu possèdes maintenant **${owned.quantity} exemplaires** de cette carte.` : '\n\n📚 Première carte ajoutée à ton Pokédex !';
             const quotaText = `\n⏳ Tirages restants aujourd’hui : **${owned.drawsRemaining}/3**.`;
             await interaction.reply(`${formatCollectibleCard(card)}${duplicateText}${quotaText}`);

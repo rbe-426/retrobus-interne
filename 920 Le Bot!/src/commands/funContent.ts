@@ -156,14 +156,20 @@ export const RBE_CARD_CATALOG: readonly RBECollectibleCard[] = [
   { id: 'mecanique-sans-surprise', name: 'La mécanique sans surprise', rarity: 'MYTHIQUE', description: 'Le capot s’est refermé et aucun outil n’est resté dedans.' },
 ];
 
-export function drawCollectibleCard(random = Math.random): RBECollectibleCard {
-  let roll = Math.max(0, Math.min(0.999_999, random())) * 100;
-  const rarity = (Object.entries(CARD_RARITIES) as Array<[CardRarity, (typeof CARD_RARITIES)[CardRarity]]>)
-    .find(([, definition]) => {
-      roll -= definition.chance;
-      return roll < 0;
-    })?.[0] ?? 'COMMUN';
-  return pickRandom(RBE_CARD_CATALOG.filter((card) => card.rarity === rarity), random);
+export function drawCollectibleCard(random = Math.random, excludedIds: readonly string[] = []): RBECollectibleCard {
+  const excluded = new Set(excludedIds);
+  const available = (Object.entries(CARD_RARITIES) as Array<[CardRarity, (typeof CARD_RARITIES)[CardRarity]]>)
+    .map(([rarity, definition]) => ({ rarity, chance: definition.chance, cards: RBE_CARD_CATALOG.filter((card) => card.rarity === rarity && !excluded.has(card.id)) }))
+    .filter((entry) => entry.cards.length > 0);
+  const availableChance = available.reduce((total, entry) => total + entry.chance, 0);
+  if (!availableChance) throw new Error('The member already owns every RBE card');
+
+  let roll = Math.max(0, Math.min(0.999_999, random())) * availableChance;
+  const selected = available.find((entry) => {
+    roll -= entry.chance;
+    return roll < 0;
+  }) ?? available[available.length - 1];
+  return pickRandom(selected.cards, random);
 }
 
 const RBE_DIAGNOSTICS: Record<string, readonly string[]> = {

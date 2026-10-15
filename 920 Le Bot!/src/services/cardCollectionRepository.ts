@@ -6,7 +6,7 @@ export interface OwnedCollectibleCard extends RBECollectibleCard {
 }
 
 export interface CardCollectionRepository {
-  recordDrop(guildId: string, userId: string, card: RBECollectibleCard): Promise<{ quantity: number; drawsRemaining: number; resetAt: string }>;
+  recordDrop(guildId: string, userId: string, card: RBECollectibleCard): Promise<{ duplicate: boolean; quantity: number; drawsRemaining: number; resetAt: string }>;
   getCollection(guildId: string, userId: string): Promise<{ cards: OwnedCollectibleCard[]; uniqueCards: number; totalCards: number; drawsRemaining: number; dailyDrawLimit: number; resetAt: string }>;
 }
 
@@ -44,7 +44,7 @@ export function createApiCardCollectionRepository(apiUrl?: string, serviceToken?
   return {
     async recordDrop(guildId, userId, card) {
       try {
-        return await request(`/guilds/${guildId}/collection/draw`, 'POST', { userId, card });
+        return await request<{ duplicate: boolean; quantity: number; drawsRemaining: number; resetAt: string }>(`/guilds/${guildId}/collection/draw`, 'POST', { userId, card });
       } catch (error) {
         if (error instanceof CardCollectionApiError && error.status === 429 && error.code === 'DAILY_DRAW_LIMIT' && error.resetAt) {
           throw new DailyCardDrawLimitError(error.resetAt);
