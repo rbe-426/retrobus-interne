@@ -2,21 +2,13 @@ import { MessageFlags, PermissionFlagsBits, type ChatInputCommandInteraction, ty
 import type { TemporaryBanRepository } from './temporaryBanRepository.js';
 import type { ModerationCaseRepository } from './moderationCaseRepository.js';
 import type { DiscordLogService } from './discordLogService.js';
+import type { ModeratorRoleRepository } from './moderatorRoleRepository.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_TIMEOUT_MINUTES = 40_320;
 const MAX_TEMPBAN_MINUTES = 43_200;
 
 type ModerationAction = 'kick' | 'mute' | 'unmute' | 'ban' | 'tempban' | 'unban';
-
-function hasPermission(interaction: ChatInputCommandInteraction, action: ModerationAction): boolean {
-  const permission = action === 'kick'
-    ? PermissionFlagsBits.KickMembers
-    : action === 'mute' || action === 'unmute'
-      ? PermissionFlagsBits.ModerateMembers
-      : PermissionFlagsBits.BanMembers;
-  return interaction.memberPermissions?.has(permission) ?? false;
-}
 
 function actionLabel(action: ModerationAction): string {
   return ({ kick: 'expulser', mute: 'rendre muet', unmute: 'retirer le mute de', ban: 'bannir', tempban: 'bannir temporairement', unban: 'débannir' })[action];
@@ -38,7 +30,28 @@ async function canActOnMember(interaction: ChatInputCommandInteraction, member: 
 }
 
 export class ModerationService {
-  constructor(private readonly temporaryBans?: TemporaryBanRepository, private readonly cases?: ModerationCaseRepository, private readonly logs?: DiscordLogService) {}
+  constructor(
+    private readonly temporaryBans?: TemporaryBanRepository,
+    private readonly cases?: ModerationCaseRepository,
+    private readonly logs?: DiscordLogService,
+    private readonly moderatorRoles?: ModeratorRoleRepository,
+  ) {}
+
+  private async canUseModeration(interaction: ChatInputCommandInteraction): Promise<boolean> {
+    if (!interaction.guild || !interaction.guildId) return false;
+    if (interaction.guild.ownerId === interaction.user.id || interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) return true;
+    if (!this.moderatorRoles) return false;
+    try {
+      const [member, configuredRoles] = await Promise.all([
+        interaction.guild.members.fetch(interaction.user.id),
+        this.moderatorRoles.list(interaction.guildId),
+      ]);
+      return configuredRoles.some((role) => member.roles.cache.has(role.roleId));
+    } catch (error) {
+      logger.warn('moderation', `Vérification du rôle modérateur indisponible (${error instanceof Error ? error.message : 'erreur inconnue'}).`);
+      return false;
+    }
+  }
 
   private async record(interaction: ChatInputCommandInteraction, user: User, action: ModerationAction, auditReason: string, durationMinutes?: number, expiresAt?: Date): Promise<void> {
     try {
@@ -57,8 +70,8 @@ export class ModerationService {
       await interaction.reply({ content: 'Cette commande est disponible uniquement sur un serveur Discord.', flags: MessageFlags.Ephemeral });
       return true;
     }
-    if (!hasPermission(interaction, action)) {
-      await interaction.reply({ content: `Vous n’avez pas la permission Discord requise pour ${actionLabel(action)} un membre.`, flags: MessageFlags.Ephemeral });
+    if (!(await this.canUseModeration(interaction))) {
+      await interaction.reply({ content: `La commande /920 ${action} est réservée aux administrateurs, au propriétaire et aux rôles modérateurs configurés.`, flags: MessageFlags.Ephemeral });
       return true;
     }
 

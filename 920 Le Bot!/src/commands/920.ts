@@ -20,6 +20,7 @@ import type { BirthdayInteractions } from '../services/birthdays/birthdayInterac
 import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
 import { DailyCardDrawLimitError } from '../services/cardCollectionRepository.js';
 import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
+import type { ModeratorRoleManagement } from '../services/moderatorRoleManagement.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
 
@@ -43,6 +44,7 @@ export function createCommand920(
   getReleaseNotes: () => Promise<ReleaseNote[]> = async () => [],
   cardCollection?: CardCollectionRepository,
   collectionInteractions?: CardCollectionInteractions,
+  moderatorRoleManagement?: ModeratorRoleManagement,
 ): BotCommand {
   return {
   data: new SlashCommandBuilder()
@@ -118,8 +120,25 @@ export function createCommand920(
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unmute').setDescription('Retire le mute d’un membre.')))
     .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('ban').setDescription('Bannit un membre du serveur.')))
     .addSubcommand(withMemberDurationAndReason((subcommand) => subcommand.setName('tempban').setDescription('Bannit temporairement un membre.')))
-    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unban').setDescription('Retire le bannissement d’un utilisateur.'))),
+    .addSubcommand(withMemberAndReason((subcommand) => subcommand.setName('unban').setDescription('Retire le bannissement d’un utilisateur.')))
+    .addSubcommandGroup((group) => group
+      .setName('admin')
+      .setDescription('Configuration réservée au propriétaire et aux administrateurs.')
+      .addSubcommand((subcommand) => subcommand.setName('roles').setDescription('Liste les rôles modérateurs configurés.'))
+      .addSubcommand((subcommand) => subcommand
+        .setName('role-add')
+        .setDescription('Autorise un rôle à utiliser les commandes de modération.')
+        .addRoleOption((option) => option.setName('role').setDescription('Rôle modérateur à ajouter.').setRequired(true)))
+      .addSubcommand((subcommand) => subcommand
+        .setName('role-remove')
+        .setDescription('Retire à un rôle l’accès aux commandes de modération.')
+        .addRoleOption((option) => option.setName('role').setDescription('Rôle modérateur à retirer.').setRequired(true)))),
   async execute(interaction) {
+    if (interaction.options.getSubcommandGroup(false) === 'admin') {
+      if (moderatorRoleManagement) await moderatorRoleManagement.handle(interaction);
+      else await interaction.reply({ content: 'La gestion des rôles modérateurs est indisponible.', ephemeral: true });
+      return;
+    }
     const subcommand = interaction.options.getSubcommand() as Bot920Subcommand;
     const configuration = getConfiguration(interaction.guildId ?? undefined);
     if (!isBot920CommandEnabled(configuration, subcommand)) {

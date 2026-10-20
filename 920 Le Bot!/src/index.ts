@@ -14,6 +14,8 @@ import { DiscordLogService } from './services/discordLogService.js';
 import { createApiUpdateLogRepository } from './commands/updateLog.js';
 import { createApiCardCollectionRepository } from './services/cardCollectionRepository.js';
 import { CardCollectionInteractions } from './services/cardCollectionInteractions.js';
+import { createApiModeratorRoleRepository } from './services/moderatorRoleRepository.js';
+import { ModeratorRoleManagement } from './services/moderatorRoleManagement.js';
 import { logger } from './utils/logger.js';
 
 const startedAt = new Date().toISOString();
@@ -33,11 +35,15 @@ const birthdayInteractions = new BirthdayInteractions(birthdayRepository);
 const getReleaseNotes = createApiUpdateLogRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 const cardCollection = createApiCardCollectionRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 const collectionInteractions = new CardCollectionInteractions(cardCollection);
+const moderatorRoleRepository = env.RBE_API_URL && env.BOT920_SERVICE_TOKEN
+  ? createApiModeratorRoleRepository(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN)
+  : undefined;
+const moderatorRoleManagement = new ModeratorRoleManagement(moderatorRoleRepository);
 const configurationStore = createBot920ConfigurationStore(env.RBE_API_URL, env.BOT920_SERVICE_TOKEN);
 const discordLogs = new DiscordLogService(configurationStore.getLogging, discordLogEventRepository);
-const moderation = new ModerationService(temporaryBanRepository, moderationCaseRepository, discordLogs);
+const moderation = new ModerationService(temporaryBanRepository, moderationCaseRepository, discordLogs, moderatorRoleRepository);
 await configurationStore.refresh();
-const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation, getReleaseNotes, cardCollection, collectionInteractions), birthdayInteractions, configurationStore.get, configurationStore.getAutoModeration, collectionInteractions);
+const bot = createDiscordBot(createCommands(birthdayInteractions, configurationStore.get, moderation, getReleaseNotes, cardCollection, collectionInteractions, moderatorRoleManagement), birthdayInteractions, configurationStore.get, configurationStore.getAutoModeration, collectionInteractions);
 const api = createApiServer({
   startedAt,
   commandCount: bot.commandCount,

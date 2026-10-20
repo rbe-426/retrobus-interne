@@ -262,6 +262,7 @@ export function formatHelp(): string {
     '`/920 about` · À propos du bot',
     '`/920 ping` · Vérifier sa latence',
     '`/920 updatelog` · Nouveautés récentes',
+    '`/920 admin roles` · Configurer les rôles modérateurs (admin/owner)',
     '',
     '**Modération**',
     '`/920 kick`, `/920 mute`, `/920 unmute`',

@@ -6,6 +6,7 @@ import { ModerationService } from '../services/moderation.js';
 import type { ReleaseNote } from '../commands/updateLog.js';
 import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
 import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
+import type { ModeratorRoleManagement } from '../services/moderatorRoleManagement.js';
 
 export function createCommands(
   birthdayInteractions: BirthdayInteractions,
@@ -14,6 +15,7 @@ export function createCommands(
   getReleaseNotes?: () => Promise<ReleaseNote[]>,
   cardCollection?: CardCollectionRepository,
   collectionInteractions?: CardCollectionInteractions,
+  moderatorRoleManagement?: ModeratorRoleManagement,
 ): readonly BotCommand[] {
-	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection, collectionInteractions)];
+	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection, collectionInteractions, moderatorRoleManagement)];
 }
