@@ -16,11 +16,28 @@ export function createDiscordBot(
   cardCollectionInteractions?: CardCollectionInteractions,
 ) {
   const registry = createCommandRegistry(commands);
+  const commandPayload = commands.map((command) => command.data.toJSON());
   const automoderation = new AutoModerationService(getAutoModeration);
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
+  const registerGuildCommands = async (guildId: string, guildName: string) => {
+    try {
+      await client.application?.commands.set(commandPayload, guildId);
+      logger.info('commands', `Commandes synchronisées pour ${guildName} (${guildId}).`);
+    } catch (error) {
+      logger.error('commands', `Synchronisation impossible pour ${guildName} (${guildId})`, error instanceof Error ? error : undefined);
+    }
+  };
+
   client.once(Events.ClientReady, (readyClient) => {
     logger.info('discord', `Connecté comme ${readyClient.user.tag}`);
+    for (const guild of readyClient.guilds.cache.values()) {
+      void registerGuildCommands(guild.id, guild.name);
+    }
+  });
+
+  client.on(Events.GuildCreate, (guild) => {
+    void registerGuildCommands(guild.id, guild.name);
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
