@@ -21,6 +21,7 @@ import type { CardCollectionRepository } from '../services/cardCollectionReposit
 import { DailyCardDrawLimitError } from '../services/cardCollectionRepository.js';
 import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
 import type { ModeratorRoleManagement } from '../services/moderatorRoleManagement.js';
+import type { Bot920FeedbackRepository, Bot920FeedbackType } from '../services/feedbackRepository.js';
 import { isBot920CommandEnabled, type Bot920Configuration, type Bot920Subcommand } from '../config/bot920Configuration.js';
 import { ModerationService } from '../services/moderation.js';
 
@@ -45,6 +46,7 @@ export function createCommand920(
   cardCollection?: CardCollectionRepository,
   collectionInteractions?: CardCollectionInteractions,
   moderatorRoleManagement?: ModeratorRoleManagement,
+  feedbackRepository?: Bot920FeedbackRepository,
 ): BotCommand {
   return {
   data: new SlashCommandBuilder()
@@ -101,6 +103,19 @@ export function createCommand920(
       .setName('collection')
       .setDescription('Consulte ton Pokédex de cartes RBE.')
       .addUserOption((option) => option.setName('membre').setDescription('Collection à consulter.').setRequired(false)))
+    .addSubcommand((subcommand) => subcommand
+      .setName('jeremonte')
+      .setDescription('Envoie une suggestion ou signale un dysfonctionnement à RBE.')
+      .addStringOption((option) => option
+        .setName('type')
+        .setDescription('Nature de ta remontée.')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Suggestion', value: 'SUGGESTION' },
+          { name: 'Incident / dysfonctionnement', value: 'INCIDENT' },
+        ))
+      .addStringOption((option) => option.setName('titre').setDescription('Résumé en quelques mots.').setRequired(true).setMinLength(4).setMaxLength(120))
+      .addStringOption((option) => option.setName('description').setDescription('Décris ta suggestion ou le dysfonctionnement.').setRequired(true).setMinLength(10).setMaxLength(2_000)))
     .addSubcommand((subcommand) => subcommand
       .setName('ecouter')
       .setDescription('Suggère une musique selon une ambiance.')
@@ -231,6 +246,26 @@ export function createCommand920(
       case 'collection':
         if (collectionInteractions) await collectionInteractions.showCollection(interaction);
         else await interaction.reply({ content: 'Le Pokédex est indisponible pour le moment.', ephemeral: true });
+        return;
+      case 'jeremonte':
+        if (!interaction.guildId || !feedbackRepository) {
+          await interaction.reply({ content: '#JeRemonte est indisponible en message privé ou lorsque le service est hors ligne.', ephemeral: true });
+          return;
+        }
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const feedback = await feedbackRepository.create({
+            guildId: interaction.guildId,
+            authorId: interaction.user.id,
+            authorName: interaction.user.globalName ?? interaction.user.username,
+            type: interaction.options.getString('type', true) as Bot920FeedbackType,
+            title: interaction.options.getString('titre', true),
+            description: interaction.options.getString('description', true),
+          });
+          await interaction.editReply(`✅ Ta remontée #${feedback.id} a été transmise à l’équipe RBE. Merci !`);
+        } catch {
+          await interaction.editReply('⚠️ La remontée n’a pas pu être enregistrée. Réessaie dans quelques instants.');
+        }
         return;
       case 'ecouter':
         await interaction.reply(formatMusicSuggestion((interaction.options.getString('ambiance') ?? 'surprends_moi') as MusicStyle));

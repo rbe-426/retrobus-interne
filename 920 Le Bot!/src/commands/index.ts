@@ -7,6 +7,7 @@ import type { ReleaseNote } from '../commands/updateLog.js';
 import type { CardCollectionRepository } from '../services/cardCollectionRepository.js';
 import type { CardCollectionInteractions } from '../services/cardCollectionInteractions.js';
 import type { ModeratorRoleManagement } from '../services/moderatorRoleManagement.js';
+import type { Bot920FeedbackRepository } from '../services/feedbackRepository.js';
 
 export function createCommands(
   birthdayInteractions: BirthdayInteractions,
@@ -16,6 +17,7 @@ export function createCommands(
   cardCollection?: CardCollectionRepository,
   collectionInteractions?: CardCollectionInteractions,
   moderatorRoleManagement?: ModeratorRoleManagement,
+  feedbackRepository?: Bot920FeedbackRepository,
 ): readonly BotCommand[] {
-	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection, collectionInteractions, moderatorRoleManagement)];
+	return [createCommand920(birthdayInteractions, getConfiguration, moderation, getReleaseNotes, cardCollection, collectionInteractions, moderatorRoleManagement, feedbackRepository)];
 }
