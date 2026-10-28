@@ -24,10 +24,10 @@ import {
 } from '@chakra-ui/react';
 import {
   FiFileText, FiUpload, FiCheck, FiPlus, FiTrash2, FiChevronRight, FiChevronLeft, FiMapPin,
-  FiTruck, FiPrinter, FiBook, FiSave, FiRefreshCw
+  FiTruck, FiPrinter, FiBook, FiSave, FiRefreshCw, FiDroplet
 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../../lib/csrfClient.js';
-import { computeRoute } from '../../lib/routeCalc.js';
+import { computeRoute, fuelStats } from '../../lib/routeCalc.js';
 import {
   DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_ID, computeTotals, formatEUR, lineTotal, printHtml,
   renderTemplate, toPreviewDocument
@@ -48,6 +48,7 @@ const emptyPricing = () => ({
   },
   trip: {
     addresses: ['', ''], roundTrip: false, kmRate: KM_RATE_DEFAULT,
+    extraPerKm: 0, fuelPrice: 2.41, tankCapacity: 0, consumption: 0,
     points: [], geometry: [], distanceKm: null, durationMin: null, source: null
   },
   lines: [],
@@ -282,11 +283,13 @@ export default function DevisWizard({
         quantity: days, unit: days > 1 ? 'jours' : 'jour', unitPrice: num(vehicle.driverDailyRate), discountPct: 0
       });
     }
-    if (trip.distanceKm && num(trip.kmRate) > 0) {
+    const fuel = fuelStats(trip);
+    if (trip.distanceKm && fuel.kmRate > 0) {
       generated.push({
         id: newId(), source: 'prep', type: 'ARTICLE',
         description: `Kilométrage${trip.roundTrip ? ' (aller-retour)' : ''}`,
-        quantity: Math.round(trip.distanceKm * 10) / 10, unit: 'km', unitPrice: num(trip.kmRate), discountPct: 0
+        quantity: Math.round(trip.distanceKm * 10) / 10, unit: 'km',
+        unitPrice: Math.round(fuel.kmRate * 100) / 100, discountPct: 0
       });
     }
     if (!generated.length) {
@@ -459,6 +462,7 @@ export default function DevisWizard({
   );
 
   const { vehicle, trip } = pricing;
+  const fuel = fuelStats(trip);
 
   const renderStepPrep = () => (
     <VStack spacing={5} align="stretch">
@@ -520,7 +524,9 @@ export default function DevisWizard({
               <Checkbox isChecked={trip.roundTrip} onChange={(e) => setTrip({ roundTrip: e.target.checked })}>Retour au point de départ</Checkbox>
               <HStack>
                 <Text fontSize="sm">Tarif au km (€)</Text>
-                <NumberInput size="sm" w="90px" min={0} step={0.1} value={trip.kmRate} onChange={(_, v) => setTrip({ kmRate: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
+                <NumberInput size="sm" w="90px" min={0} step={0.1} isDisabled={fuel.locked}
+                  value={fuel.locked ? fuel.kmRate.toFixed(2) : trip.kmRate}
+                  onChange={(_, v) => setTrip({ kmRate: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
               </HStack>
               <Button size="sm" colorScheme="blue" leftIcon={routeLoading ? <Spinner size="xs" /> : <FiRefreshCw />} onClick={handleComputeRoute} isDisabled={routeLoading}>
                 Calculer le trajet
@@ -531,9 +537,43 @@ export default function DevisWizard({
               <Alert status="success" py={2} fontSize="sm">
                 <AlertIcon />
                 {trip.distanceKm.toFixed(1)} km{trip.durationMin ? ` · ${Math.round(trip.durationMin)} min` : ''} ({trip.source}) →
-                {' '}{formatEUR(trip.distanceKm * num(trip.kmRate))} de kilométrage
+                {' '}{formatEUR(trip.distanceKm * fuel.kmRate)} de kilométrage
               </Alert>
             )}
+
+            <Box borderWidth="1px" borderColor={borderColor} borderRadius="md" p={3}>
+              <HStack mb={2}><FiDroplet /><Heading size="xs">Carburant (produit en croix)</Heading></HStack>
+              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+                <FormControl>
+                  <FormLabel fontSize="xs">Gasoil (€/L)</FormLabel>
+                  <NumberInput size="sm" min={0} step={0.01} value={trip.fuelPrice} onChange={(_, v) => setTrip({ fuelPrice: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Réservoir (L)</FormLabel>
+                  <NumberInput size="sm" min={0} value={trip.tankCapacity} onChange={(_, v) => setTrip({ tankCapacity: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Conso (L/100 km)</FormLabel>
+                  <NumberInput size="sm" min={0} value={trip.consumption} onChange={(_, v) => setTrip({ consumption: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs">Majoration / km (usure, assurance…) (€)</FormLabel>
+                  <NumberInput size="sm" min={0} step={0.05} value={trip.extraPerKm} onChange={(_, v) => setTrip({ extraPerKm: Number.isNaN(v) ? 0 : v })}><NumberInputField /></NumberInput>
+                </FormControl>
+              </SimpleGrid>
+              {fuel.costPerKm > 0 && (
+                <VStack align="stretch" spacing={0} mt={3} fontSize="sm">
+                  <Text>Coût carburant : <strong>{formatEUR(fuel.costPerKm)}</strong> / km + majoration {formatEUR(num(trip.extraPerKm))} → tarif au km retenu : <strong>{formatEUR(fuel.kmRate)}</strong> (verrouillé)</Text>
+                  {trip.distanceKm != null && (
+                    <Text>
+                      Sur {trip.distanceKm.toFixed(1)} km : <strong>{fuel.liters.toFixed(1)} L</strong> de gasoil, soit <strong>{formatEUR(fuel.cost)}</strong>
+                      {fuel.tankFills != null && <> ({fuel.tankFills.toFixed(2)} réservoir{fuel.tankFills >= 2 ? 's' : ''})</>}
+                    </Text>
+                  )}
+                  {fuel.autonomyKm != null && <Text color="gray.500">Autonomie d'un plein : {Math.round(fuel.autonomyKm)} km</Text>}
+                </VStack>
+              )}
+            </Box>
             <RouteMap route={trip} height="260px" />
           </VStack>
         </CardBody>

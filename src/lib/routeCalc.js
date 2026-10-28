@@ -108,6 +108,28 @@ export const fetchRoadRoute = async (points) => {
  * Calcule un trajet complet à partir d'une liste d'adresses (départ, arrêts, arrivée).
  * `roundTrip` ajoute le retour au départ. Retombe sur une distance à vol d'oiseau si OSRM échoue.
  */
+/**
+ * Produit en croix carburant : litres = km × conso / 100, coût = litres × prix du litre.
+ * Le tarif au km vaut soit la saisie manuelle, soit coût carburant/km + majoration (usure, frais…).
+ */
+export const fuelStats = (trip = {}) => {
+  const price = Number(trip.fuelPrice) || 0;
+  const consumption = Number(trip.consumption) || 0;
+  const tank = Number(trip.tankCapacity) || 0;
+  const km = Number(trip.distanceKm) || 0;
+  const costPerKm = (consumption / 100) * price;
+  const liters = (km * consumption) / 100;
+  const cost = liters * price;
+  // Dès que prix du litre et consommation sont renseignés, le tarif au km est imposé par le calcul
+  const locked = costPerKm > 0;
+  const kmRate = locked ? costPerKm + (Number(trip.extraPerKm) || 0) : Number(trip.kmRate) || 0;
+  return {
+    costPerKm, liters, cost, kmRate, locked,
+    tankFills: tank > 0 ? liters / tank : null,
+    autonomyKm: consumption > 0 && tank > 0 ? (tank / consumption) * 100 : null
+  };
+};
+
 export const computeRoute = async (addresses, { roundTrip = false } = {}) => {
   const cleaned = addresses.map(a => String(a || '').trim()).filter(Boolean);
   if (cleaned.length < 2) throw new Error('Saisissez au moins un départ et une arrivée');
