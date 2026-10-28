@@ -15,7 +15,7 @@ export const TEMPLATE_PLACEHOLDERS = [
   'DESTINATAIRE_NOM', 'DESTINATAIRE_SOCIETE', 'DESTINATAIRE_ADRESSE', 'DESTINATAIRE_CONTACTS',
   'VEHICULE', 'DATES_PRESTATION', 'TRAJET', 'DISTANCE_KM',
   'DEVIS_LINES_TR', 'TOTAL_BRUT', 'REMISE', 'TOTAL_HT', 'TVA', 'TAUX_TVA', 'MONTANT',
-  'ACOMPTE', 'RESTE_A_PAYER', 'REFERENCE_DEVIS', 'NOTES', 'CONDITIONS_PAIEMENT',
+  'ACOMPTE', 'CONDITION_ACOMPTE', 'RESTE_A_PAYER', 'REFERENCE_DEVIS', 'NOTES', 'CONDITIONS_PAIEMENT',
   'LOGO_BIG', 'LOGO_SMALL'
 ];
 
@@ -25,64 +25,116 @@ export const DEFAULT_TEMPLATE = {
   id: DEFAULT_TEMPLATE_ID,
   name: 'Modèle standard Rétrobus',
   isBuiltIn: true,
-  htmlContent: `<div style="font-family: Arial, Helvetica, sans-serif; color:#1a202c; font-size:13px; padding:8px;">
-  <table style="width:100%; border-collapse:collapse;">
+  htmlContent: `<style>
+.rbe{font-family:Inter,Arial,Helvetica,sans-serif;color:#1e293b;font-size:13px;max-width:800px;margin:0 auto;padding:8px;}
+.rbe table{border-collapse:collapse;width:100%;}
+.rbe .muted{color:#64748b;font-size:11px;}
+.rbe .pill{display:inline-block;padding:3px 12px;background:#fff1f2;color:#e11d48;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
+.rbe .box{padding:16px;border-radius:12px;vertical-align:top;}
+.rbe .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.rbe th{padding:10px 12px;font-size:10px;text-transform:uppercase;color:#64748b;background:#f8fafc;border-bottom:2px solid #e2e8f0;}
+</style>
+<div class="rbe">
+  <table style="border-bottom:1px solid #f1f5f9;">
     <tr>
-      <td style="vertical-align:top;">
-        <img src="{{LOGO_BIG}}" alt="" style="max-height:70px; max-width:220px;" />
-        <div style="font-weight:700; font-size:15px; margin-top:6px;">Rétrobus Essonne</div>
-        <div style="color:#718096;">Association loi 1901</div>
+      <td style="padding-bottom:20px;vertical-align:middle;">
+        <img src="{{LOGO_BIG}}" alt="Association Rétro Bus Essonne" style="max-height:48px;max-width:220px;" />
+        <div class="muted" style="margin-top:6px;font-weight:600;">Patrimoine roulant &amp; Événementiel</div>
       </td>
-      <td style="text-align:right; vertical-align:top;">
-        <div style="font-size:24px; font-weight:700; text-transform:uppercase;">{{TYPE_DOCUMENT}}</div>
-        <div>N° <strong>{{NUM_DEVIS}}</strong></div>
-        <div>Date : {{DATE}}</div>
-        <div>{{ECHEANCE}}</div>
-        <div style="color:#718096;">{{REFERENCE_DEVIS}}</div>
+      <td style="padding-bottom:20px;text-align:right;vertical-align:middle;">
+        <div class="pill">{{TYPE_DOCUMENT}} officiel</div>
+        <div style="font-size:24px;font-weight:900;color:#0f172a;">N° {{NUM_DEVIS}}</div>
+        <div class="muted">Date : <strong style="color:#334155;">{{DATE}}</strong></div>
+        <div class="muted">{{ECHEANCE}}</div>
+        <div class="muted">{{REFERENCE_DEVIS}}</div>
       </td>
     </tr>
   </table>
 
-  <table style="width:100%; margin-top:18px; border-collapse:collapse;">
+  <table style="margin:24px 0;border-collapse:separate;border-spacing:12px 0;width:calc(100% + 24px);margin-left:-12px;">
     <tr>
-      <td style="width:50%;"></td>
-      <td style="border:1px solid #cbd5e0; border-radius:6px; padding:10px;">
-        <div style="font-weight:700;">{{DESTINATAIRE_SOCIETE}}</div>
-        <div>{{DESTINATAIRE_NOM}}</div>
-        <div style="white-space:pre-line;">{{DESTINATAIRE_ADRESSE}}</div>
-        <div style="color:#718096;">{{DESTINATAIRE_CONTACTS}}</div>
+      <td class="box" style="width:50%;background:#f8fafc;border:1px solid #f1f5f9;">
+        <div class="lbl" style="color:#94a3b8;">Émetteur</div>
+        <div style="font-weight:700;color:#0f172a;margin-top:6px;">Association Rétro Bus Essonne</div>
+        <div class="muted" style="font-size:12px;">Représentée par M. BELAIDI Waiyl (Président)</div>
+        <div class="muted" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;line-height:1.6;">
+          RNA : W912016571 | SIRET : 942 508 607 00010<br/>association.rbe@gmail.com<br/>07.60.82.11.62 / 07.83.26.13.07<br/>www.association-rbe.fr
+        </div>
+      </td>
+      <td class="box" style="width:50%;background:#0f172a;color:#fff;">
+        <div class="lbl" style="color:#fb7185;">Destinataire</div>
+        <div style="font-weight:700;font-size:16px;margin-top:6px;">{{DESTINATAIRE_NOM}}</div>
+        <div style="font-size:12px;color:#cbd5e1;font-weight:600;">{{DESTINATAIRE_SOCIETE}}</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #1e293b;font-size:11px;color:#cbd5e1;line-height:1.6;white-space:pre-line;">{{DESTINATAIRE_ADRESSE}}</div>
+        <div style="font-size:11px;color:#94a3b8;">{{DESTINATAIRE_CONTACTS}}</div>
       </td>
     </tr>
   </table>
 
-  <div style="margin-top:18px;"><strong>Objet :</strong> {{OBJET}}</div>
-  <div style="margin-top:4px; color:#4a5568;">{{VEHICULE}} {{DATES_PRESTATION}}</div>
-  <div style="color:#4a5568;">{{TRAJET}}</div>
+  <div style="margin-bottom:24px;padding:12px 16px;border-radius:12px;background:#fff1f2;border-left:4px solid #f43f5e;">
+    <div class="lbl" style="color:#e11d48;">Objet du {{TYPE_DOCUMENT}}</div>
+    <div style="font-size:14px;font-weight:600;color:#0f172a;">{{OBJET}}</div>
+    <div class="muted">{{VEHICULE}} {{DATES_PRESTATION}}</div>
+    <div class="muted">{{TRAJET}}</div>
+  </div>
 
-  <table style="width:100%; margin-top:16px; border-collapse:collapse;">
+  <table style="margin-bottom:24px;">
     <thead>
-      <tr style="background:#edf2f7;">
-        <th style="text-align:left; padding:8px; border-bottom:2px solid #cbd5e0;">Désignation</th>
-        <th style="text-align:right; padding:8px; border-bottom:2px solid #cbd5e0;">Qté</th>
-        <th style="text-align:right; padding:8px; border-bottom:2px solid #cbd5e0;">P.U.</th>
-        <th style="text-align:right; padding:8px; border-bottom:2px solid #cbd5e0;">Total</th>
+      <tr>
+        <th style="width:60px;text-align:center;">Qté</th>
+        <th style="text-align:left;">Désignation des prestations</th>
+        <th style="width:110px;text-align:right;">P.U. HT</th>
+        <th style="width:120px;text-align:right;">Total HT</th>
       </tr>
     </thead>
     <tbody>{{DEVIS_LINES_TR}}</tbody>
   </table>
 
-  <table style="margin-left:auto; margin-top:14px; min-width:280px; border-collapse:collapse;">
-    <tr><td style="padding:4px 8px;">Total brut</td><td style="padding:4px 8px; text-align:right;">{{TOTAL_BRUT}}</td></tr>
-    <tr><td style="padding:4px 8px;">Remise</td><td style="padding:4px 8px; text-align:right;">{{REMISE}}</td></tr>
-    <tr><td style="padding:4px 8px;">Total HT</td><td style="padding:4px 8px; text-align:right;">{{TOTAL_HT}}</td></tr>
-    <tr><td style="padding:4px 8px;">TVA ({{TAUX_TVA}})</td><td style="padding:4px 8px; text-align:right;">{{TVA}}</td></tr>
-    <tr style="font-weight:700; font-size:15px; background:#edf2f7;"><td style="padding:8px;">Total à régler</td><td style="padding:8px; text-align:right;">{{MONTANT}}</td></tr>
-    <tr><td style="padding:4px 8px;">Acompte</td><td style="padding:4px 8px; text-align:right;">{{ACOMPTE}}</td></tr>
-    <tr><td style="padding:4px 8px;"><strong>Reste à payer</strong></td><td style="padding:4px 8px; text-align:right;"><strong>{{RESTE_A_PAYER}}</strong></td></tr>
+  <table style="margin-bottom:24px;border-top:1px solid #f1f5f9;">
+    <tr>
+      <td style="padding-top:16px;vertical-align:top;" class="muted">
+        <strong>T.V.A ({{TAUX_TVA}})</strong> — si non applicable : article 239 B du Code Général des Impôts. Association régie par la Loi 1901 – Non destinée à être lucrative.
+      </td>
+      <td style="padding-top:16px;width:290px;">
+        <div style="background:#f8fafc;border:1px solid #f1f5f9;border-radius:12px;padding:12px 16px;">
+          <table style="font-size:12px;color:#475569;">
+            <tr><td style="padding:2px 0;">Total brut :</td><td style="text-align:right;">{{TOTAL_BRUT}}</td></tr>
+            <tr><td style="padding:2px 0;">Remise :</td><td style="text-align:right;">{{REMISE}}</td></tr>
+            <tr><td style="padding:2px 0;">Montant Total HT :</td><td style="text-align:right;">{{TOTAL_HT}}</td></tr>
+            <tr><td style="padding:2px 0;">TVA :</td><td style="text-align:right;">{{TVA}}</td></tr>
+            <tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding-top:6px;"></td></tr>
+            <tr style="font-size:16px;font-weight:900;color:#0f172a;"><td>Net à payer :</td><td style="text-align:right;color:#e11d48;">{{MONTANT}}</td></tr>
+            <tr><td style="padding-top:6px;">Acompte :</td><td style="text-align:right;padding-top:6px;">{{ACOMPTE}}</td></tr>
+            <tr style="font-weight:700;"><td>Reste à payer :</td><td style="text-align:right;">{{RESTE_A_PAYER}}</td></tr>
+          </table>
+        </div>
+      </td>
+    </tr>
   </table>
 
-  <div style="margin-top:22px; white-space:pre-line;">{{NOTES}}</div>
-  <div style="margin-top:12px; color:#718096; font-size:12px;">{{CONDITIONS_PAIEMENT}}</div>
+  <div style="padding:14px 16px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:11px;color:#78350f;margin-bottom:24px;line-height:1.6;">
+    <strong>Conditions de confirmation &amp; d'acompte</strong><br/>
+    {{CONDITION_ACOMPTE}} Le RIB de l'association sera transmis après retour du présent document signé, précédé de la mention manuscrite <em>« Bon pour accord »</em>.
+    <div style="white-space:pre-line;margin-top:6px;">{{NOTES}}</div>
+    <div style="margin-top:4px;">{{CONDITIONS_PAIEMENT}}</div>
+  </div>
+
+  <table style="border-collapse:separate;border-spacing:12px 0;width:calc(100% + 24px);margin-left:-12px;">
+    <tr>
+      <td class="box" style="width:50%;border:1px solid #e2e8f0;background:#f8fafc;height:110px;">
+        <div style="font-size:12px;font-weight:700;">Pour l'Association Rétro Bus Essonne</div>
+        <div class="muted">Signature &amp; Tampon officiel</div>
+      </td>
+      <td class="box" style="width:50%;border:1px dashed #cbd5e1;height:110px;">
+        <div style="font-size:12px;font-weight:700;">Pour le Client ({{DESTINATAIRE_NOM}})</div>
+        <div class="muted">Mention manuscrite « Bon pour accord » + Date + Signature</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="muted" style="margin-top:32px;padding-top:16px;border-top:1px solid #f1f5f9;text-align:center;font-size:10px;">
+    Association Rétro Bus Essonne - RNA W912016571 - SIRET 942 508 607 00010<br/>Document généré via la plateforme URBEX
+  </div>
 </div>`
 };
 
@@ -122,8 +174,10 @@ export const computeTotals = (pricing = {}) => {
   return { subtotal, discountAmount, netHT, taxRate, taxAmount, total, deposit, remaining: round2(total - deposit) };
 };
 
+const DEFAULT_LOGO = '/rbe-classique.png';
+
 const logoSrc = (logo) => {
-  if (!logo) return '';
+  if (!logo) return typeof window !== 'undefined' ? `${window.location.origin}${DEFAULT_LOGO}` : DEFAULT_LOGO;
   return String(logo).startsWith('data:') ? logo : `data:image/png;base64,${logo}`;
 };
 
@@ -144,10 +198,10 @@ export const buildTemplateData = (doc) => {
     const pct = Number(l.discountPct) || 0;
     const desc = `${escapeHtml(l.description)}${pct ? ` <em style="color:#718096;">(remise ${pct}%)</em>` : ''}`;
     return `<tr>
-      <td style="padding:6px 8px; border-bottom:1px solid #e2e8f0;">${desc}</td>
-      <td style="padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right;">${escapeHtml(l.quantity)} ${escapeHtml(l.unit || '')}</td>
-      <td style="padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right;">${formatEUR(l.unitPrice)}</td>
-      <td style="padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right;">${formatEUR(lineTotal(l))}</td>
+      <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:center; font-weight:600;">${escapeHtml(l.quantity)}${l.unit ? ` <span style="color:#94a3b8;font-size:10px;">${escapeHtml(l.unit)}</span>` : ''}</td>
+      <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; font-weight:600; color:#0f172a;">${desc}</td>
+      <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:right;">${formatEUR(l.unitPrice)}</td>
+      <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatEUR(lineTotal(l))}</td>
     </tr>`;
   }).join('');
 
@@ -181,6 +235,9 @@ export const buildTemplateData = (doc) => {
     PRIX_NET: formatEUR(totals.total),
     ACOMPTE: formatEUR(totals.deposit),
     RESTE_A_PAYER: formatEUR(totals.remaining),
+    CONDITION_ACOMPTE: totals.deposit > 0
+      ? `En cas de validation, un acompte de ${totals.total ? Math.round((totals.deposit / totals.total) * 100) : 0} % (soit ${formatEUR(totals.deposit)}) devra être versé par virement bancaire pour sécuriser l'opération.`
+      : '',
     REFERENCE_DEVIS: doc.sourceQuoteNumber ? `Réf. devis ${doc.sourceQuoteNumber}` : '',
     NOTES: doc.notes,
     CONDITIONS_PAIEMENT: doc.paymentTerms ? `Paiement à ${doc.paymentTerms} jours.` : '',
