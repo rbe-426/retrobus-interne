@@ -6,9 +6,13 @@ import {
 } from "@chakra-ui/react";
 import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiCalendar, FiRefreshCw } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
+import FinanceHome from "./FinanceHome";
+
+const formatCurrency = (n) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
+const formatDate = (d) => new Date(d).toLocaleDateString("fr-FR");
 
 const FinanceDashboard = () => {
-  const { stats, balance, transactions, scheduledOperations, loading, loadFinanceData } = useFinanceData();
+  const { stats, balance, transactions, documents, scheduledOperations, loading, loadFinanceData } = useFinanceData();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -85,80 +89,22 @@ const FinanceDashboard = () => {
         </Button>
       </HStack>
 
-      {/* Statistiques principales */}
-      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-        {/* Solde */}
-        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
-          <CardBody>
-            <Stat>
-              <StatLabel>Solde BNP rapproché</StatLabel>
-              <StatNumber fontSize="2xl" color="blue.500">
-                {balance.toFixed(2)} €
-              </StatNumber>
-              <StatHelpText>Solde réel du compte bancaire</StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
+      {/* Solde + courbe, puis indicateurs (CA, gains, dépenses, bénéfice, perte) */}
+      <FinanceHome
+        balance={balance}
+        transactions={transactions}
+        documents={documents}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+      />
 
-        {/* Crédits */}
-        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
-          <CardBody>
-            <HStack spacing={3} mb={2}>
-              <Icon as={FiTrendingUp} color="green.500" boxSize={5} />
-              <Box>
-                <Stat>
-                  <StatLabel>Crédits</StatLabel>
-                  <StatNumber fontSize="xl" color="green.500">
-                    +{totalCredits.toFixed(2)} €
-                  </StatNumber>
-                </Stat>
-              </Box>
-            </HStack>
-          </CardBody>
-        </Card>
-
-        {/* Débits */}
-        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
-          <CardBody>
-            <HStack spacing={3} mb={2}>
-              <Icon as={FiTrendingDown} color="red.500" boxSize={5} />
-              <Box>
-                <Stat>
-                  <StatLabel>Débits</StatLabel>
-                  <StatNumber fontSize="xl" color="red.500">
-                    -{Math.abs(totalDebits).toFixed(2)} €
-                  </StatNumber>
-                </Stat>
-              </Box>
-            </HStack>
-          </CardBody>
-        </Card>
-
-        {/* Opérations programmées */}
-        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
-          <CardBody>
-            <HStack spacing={3} mb={2}>
-              <Icon as={FiCalendar} color="purple.500" boxSize={5} />
-              <Box>
-                <Stat>
-                  <StatLabel>À programmer</StatLabel>
-                  <StatNumber fontSize="xl" color="purple.500">
-                    {scheduledOperations?.length || 0}
-                  </StatNumber>
-                </Stat>
-              </Box>
-            </HStack>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
-
-      {/* Détails mensuels */}
+      {/* Opérations programmées */}
       <Card bg={cardBg} borderWidth="1px" borderColor={borderColor}>
         <CardHeader>
           <Heading size="md">Mois actuel</Heading>
         </CardHeader>
         <CardBody>
-          <Grid templateColumns="repeat(2, 1fr)" gap={6}>
+          <Grid templateColumns="repeat(3, 1fr)" gap={6}>
             <GridItem>
               <VStack align="start" spacing={2}>
                 <Text fontSize="sm" color="gray.500">Balance mensuelle</Text>
@@ -173,6 +119,12 @@ const FinanceDashboard = () => {
                 <Text fontSize="2xl" fontWeight="bold" color={scheduledMonthlyImpact >= 0 ? "green.500" : "red.500"}>
                   {scheduledMonthlyImpact >= 0 ? "+" : ""}{scheduledMonthlyImpact.toFixed(2)} €
                 </Text>
+              </VStack>
+            </GridItem>
+            <GridItem>
+              <VStack align="start" spacing={2}>
+                <Text fontSize="sm" color="gray.500">Opérations programmées</Text>
+                <Text fontSize="2xl" fontWeight="bold" color="purple.500">{scheduledOperations?.length || 0}</Text>
               </VStack>
             </GridItem>
           </Grid>

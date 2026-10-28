@@ -26,6 +26,7 @@ import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 import DevisLinesManager from '../components/DevisLinesManager';
 import BankStatementImport from '../components/Finance/BankStatementImport';
 import DevisWizard from '../components/Finance/DevisWizard';
+import FinanceHome from '../components/Finance/FinanceHome';
 import { printHtml } from '../lib/quoteTemplate.js';
 import { getStoredCSRFToken } from '../lib/csrfClient.js';
 
@@ -2427,85 +2428,15 @@ const AdminFinance = () => {
           </Alert>
         )}
 
-        {/* Statistiques étendues */}
-        <SimpleGrid columns={{ base: 2, md: 6 }} spacing={4}>
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Solde Actuel</StatLabel>
-                <StatNumber color={balance >= 0 ? "green.600" : "red.600"}>
-                  {formatCurrency(balance)}
-                </StatNumber>
-                {lastBalanceUpdate && (
-                  <StatHelpText fontSize="xs">
-                    MAJ: {formatDate(lastBalanceUpdate)}
-                  </StatHelpText>
-                )}
-              </Stat>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Recettes Total</StatLabel>
-                <StatNumber color="green.600">
-                  {formatCurrency(stats.totalCredits)}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type="increase" />
-                  Entrées
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Dépenses Total</StatLabel>
-                <StatNumber color="red.600">
-                  {formatCurrency(stats.totalDebits)}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type="decrease" />
-                  Sorties
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Ce Mois</StatLabel>
-                <StatNumber color={stats.monthlyBalance >= 0 ? "green.600" : "red.600"}>
-                  {formatCurrency(stats.monthlyBalance)}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type={stats.monthlyBalance >= 0 ? "increase" : "decrease"} />
-                  Résultat mensuel
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Programmé/Mois</StatLabel>
-                <StatNumber color={stats.scheduledMonthlyImpact >= 0 ? "green.600" : "red.600"}>
-                  {formatCurrency(stats.scheduledMonthlyImpact)}
-                </StatNumber>
-                <StatHelpText>
-                  {stats.scheduledCount} opérations
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-
-          
-        </SimpleGrid>
+        {/* Accueil : solde + courbe, puis indicateurs */}
+        <FinanceHome
+          balance={balance}
+          lastBalanceUpdate={lastBalanceUpdate}
+          transactions={transactions}
+          documents={documents}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+        />
 
         {/* Onglets étendus */}
         <Tabs index={activeTab} onChange={setActiveTab}>

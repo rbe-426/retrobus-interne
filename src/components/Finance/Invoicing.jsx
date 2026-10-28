@@ -18,6 +18,8 @@ import {
 } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import DevisWizard from "./DevisWizard";
+import { fetchWithCSRF } from "../../lib/csrfClient";
+import { printHtml } from "../../lib/quoteTemplate";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 
@@ -33,6 +35,9 @@ const FinanceInvoicing = () => {
 
   const [documentFilter, setDocumentFilter] = useState('ALL'); // 'ALL', 'QUOTE', 'INVOICE'
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardDoc, setWizardDoc] = useState(null);
+  const [wizardSourceQuote, setWizardSourceQuote] = useState(null);
+  const [wizardType, setWizardType] = useState('QUOTE');
   
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -88,8 +93,86 @@ const FinanceInvoicing = () => {
     PAID: 'green'
   };
 
-  // Handler pour sauvegarder un nouveau document depuis le wizard
+  // Sauvegarde (création ou édition) depuis le nouvel éditeur de devis/factures
   const handleSaveDocument = async (documentData) => {
+    const payload = {
+      type: documentData.type,
+      number: documentData.number,
+      title: documentData.title,
+      description: documentData.description || null,
+      date: documentData.date,
+      dueDate: documentData.dueDate || null,
+      amountExcludingTax: documentData.totals?.subtotal || 0,
+      taxRate: documentData.totals?.taxRate || 0,
+      taxAmount: documentData.totals?.taxAmount || 0,
+      amount: documentData.totals?.total || 0,
+      quoteStatus: documentData.type === 'QUOTE' ? 'DRAFT' : null,
+      invoiceStatus: documentData.type === 'INVOICE' ? 'DRAFT' : null,
+      eventId: documentData.eventId || null,
+      memberId: documentData.memberId || null,
+      destinataireName: documentData.clientName || null,
+      destinataireAdresse: documentData.clientAddress || null,
+      destinataireSociete: documentData.clientCompany || null,
+      destinataireContacts: documentData.clientContacts || null,
+      notes: documentData.notes || null,
+      paymentTerms: documentData.paymentTerms || '30',
+      templateId: documentData.templateId && documentData.templateId !== '__default__' ? documentData.templateId : null,
+      pricingData: documentData.pricing ? JSON.stringify(documentData.pricing) : null,
+      htmlContent: documentData.htmlContent || null
+    };
+
+    if (documentData.mode === 'import' && documentData.uploadedFile) {
+      payload.documentUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(documentData.uploadedFile);
+      });
+    }
+
+    const isEdit = !!documentData.id;
+    const res = await fetchWithCSRF(
+      `${API_BASE}/api/finance/documents${isEdit ? `/${encodeURIComponent(documentData.id)}` : ''}`,
+      {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data?.details || data?.error || `Erreur ${res.status}`;
+      toast({ title: 'Erreur', description: message, status: 'error' });
+      throw new Error(message);
+    }
+    await loadFinanceData();
+    toast({
+      title: isEdit ? 'Document mis à jour' : 'Document créé',
+      description: `${data.number || ''} ${data.title || ''}`.trim(),
+      status: 'success',
+      duration: 2500
+    });
+  };
+
+  const openWizard = (doc = null, sourceQuote = null, type = 'QUOTE') => {
+    setWizardDoc(doc);
+    setWizardSourceQuote(sourceQuote);
+    setWizardType(type);
+    setIsWizardOpen(true);
+  };
+
+  const printDocument = (doc) => {
+    const html = doc.htmlContent;
+    if (!html) {
+      toast({ title: 'Aucun contenu à imprimer', description: 'Ouvrez le document en édition pour le générer.', status: 'info' });
+      return;
+    }
+    printHtml(html, doc.number);
+  };
+
+  // Ancien handler (conservé pour référence, non utilisé)
+  // eslint-disable-next-line no-unused-vars
+  const legacyHandleSaveDocument = async (documentData) => {
     try {
       console.log('💾 Saving document:', documentData);
       
@@ -252,7 +335,7 @@ const FinanceInvoicing = () => {
         <Button
           leftIcon={<FiPlus />}
           colorScheme="rbe"
-          onClick={() => setIsWizardOpen(true)}
+          onClick={() => openWizard()}
           isLoading={loading}
           size={{ base: "sm", md: "md" }}
         >
@@ -427,6 +510,17 @@ const FinanceInvoicing = () => {
                             Actions
                           </MenuButton>
                           <MenuList>
+                            <MenuItem onClick={() => openWizard(doc, null, doc.type)}>
+                              Modifier
+                            </MenuItem>
+                            {doc.type === 'QUOTE' && (
+                              <MenuItem onClick={() => openWizard(null, doc, 'INVOICE')}>
+                                Créer la facture
+                              </MenuItem>
+                            )}
+                            <MenuItem onClick={() => printDocument(doc)}>
+                              Imprimer / PDF
+                            </MenuItem>
                             <MenuItem 
                               icon={<FiTrash2 />} 
                               color="red.500"
@@ -451,6 +545,10 @@ const FinanceInvoicing = () => {
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
         onSave={handleSaveDocument}
+        editingDocument={wizardDoc}
+        sourceQuote={wizardSourceQuote}
+        initialType={wizardType}
+        documents={documents}
       />
     </VStack>
   );
