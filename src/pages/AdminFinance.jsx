@@ -20,12 +20,13 @@ import {
   FiUpload, FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, 
   FiRefreshCw, FiClock, FiRepeat, FiTarget, FiSettings, FiLock,
   FiUnlock, FiEye, FiEyeOff, FiActivity, FiTrendingDown as FiSimulation,
-  FiDatabase, FiShield, FiAlertTriangle, FiInfo, FiSave, FiRotateCcw, FiCheckCircle
+  FiDatabase, FiShield, FiAlertTriangle, FiInfo, FiSave, FiRotateCcw, FiCheckCircle, FiFileText
 } from "react-icons/fi";
 import QuoteTemplatePreview from '../components/QuoteTemplatePreview';
 import DevisLinesManager from '../components/DevisLinesManager';
 import BankStatementImport from '../components/Finance/BankStatementImport';
 import DevisWizard from '../components/Finance/DevisWizard';
+import { printHtml } from '../lib/quoteTemplate.js';
 import { getStoredCSRFToken } from '../lib/csrfClient.js';
 
 
@@ -158,6 +159,20 @@ const AdminFinance = () => {
   const [documents, setDocuments] = useState([]); // {id,type:'QUOTE'|'INVOICE', number, title, date, amount, status, eventId?}
   const [documentFilter, setDocumentFilter] = useState('ALL'); // 'ALL', 'QUOTE', 'INVOICE'
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardDoc, setWizardDoc] = useState(null);
+  const [wizardSourceQuote, setWizardSourceQuote] = useState(null);
+  const [wizardType, setWizardType] = useState('QUOTE');
+  const openWizard = ({ doc = null, sourceQuote = null, type = 'QUOTE' } = {}) => {
+    setWizardDoc(doc);
+    setWizardSourceQuote(sourceQuote);
+    setWizardType(type);
+    setIsWizardOpen(true);
+  };
+  const printDocument = (doc) => {
+    if (doc.htmlContent) printHtml(doc.htmlContent);
+    else if (doc.documentUrl) window.open(doc.documentUrl, '_blank', 'noopener');
+    else toast({ status: 'info', title: 'Aucun document généré', description: 'Modifiez le document pour générer son aperçu.' });
+  };
   const [editingDocument, setEditingDocument] = useState(null);
   const [docForm, setDocForm] = useState({ 
     type: 'QUOTE', 
@@ -1599,18 +1614,33 @@ const AdminFinance = () => {
         destinataireName: documentData.clientName || null,
         destinataireAdresse: documentData.clientAddress || null,
         destinataireSociete: documentData.clientCompany || null,
-        destinataireContacts: `${documentData.clientEmail || ''} ${documentData.clientPhone || ''}`.trim() || null,
+        destinataireContacts: documentData.clientContacts || null,
         notes: documentData.notes || null,
         paymentMethod: documentData.paymentMethod || null,
         paymentDate: documentData.paymentDate || null,
         amountPaid: 0,
-        lines: documentData.lines || [], // Lignes d'articles
-        mode: documentData.mode // 'generate' ou 'import'
+        paymentTerms: documentData.paymentTerms || '30',
+        templateId: documentData.templateId && documentData.templateId !== '__default__' ? documentData.templateId : null,
+        pricingData: documentData.pricing ? JSON.stringify(documentData.pricing) : null,
+        htmlContent: documentData.htmlContent || null
       };
 
-      const paths = buildPathCandidates('/api/finance/documents');
+      // Import PDF : conversion en data URL pour stockage
+      if (documentData.mode === 'import' && documentData.uploadedFile) {
+        payload.documentUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(documentData.uploadedFile);
+        });
+      }
+
+      const isWizardEdit = !!documentData.id;
+      const paths = buildPathCandidates(isWizardEdit
+        ? `/api/finance/documents/${encodeURIComponent(documentData.id)}`
+        : '/api/finance/documents');
       const saved = await fetchJsonFirst(paths, {
-        method: 'POST',
+        method: isWizardEdit ? 'PUT' : 'POST',
         headers: { 
           'Authorization': `Bearer ${localStorage.getItem('token')}`, 
           'Content-Type': 'application/json' 
@@ -1623,11 +1653,12 @@ const AdminFinance = () => {
       
       toast({ 
         status: 'success', 
-        title: `${documentData.type === 'QUOTE' ? 'Devis' : 'Facture'} créé(e)`,
+        title: `${documentData.type === 'QUOTE' ? 'Devis' : 'Facture'} ${documentData.id ? 'mis(e) à jour' : 'créé(e)'}`,
         description: `${saved.number} - ${saved.title}`
       });
     } catch (error) {
       console.error('❌ Erreur création document:', error);
+      if (documentData.id) throw error; // en édition, on laisse l'éditeur ouvert avec l'erreur
       
       // Fallback local
       const genId = `local-${Date.now()}`;
@@ -2621,7 +2652,7 @@ const AdminFinance = () => {
                           leftIcon={<FiPlus />} 
                           colorScheme="rbe" 
                           size="sm" 
-                          onClick={() => setIsWizardOpen(true)}
+                          onClick={() => openWizard()}
                         >
                           Nouveau document
                         </Button>
@@ -2782,8 +2813,11 @@ const AdminFinance = () => {
                                   <MenuButton as={IconButton} icon={<FiMoreHorizontal />} variant="ghost" size="sm" />
                                   <MenuList>
                                     <MenuItem icon={<FiEye />}>Voir le détail</MenuItem>
-                                    <MenuItem icon={<FiEdit3 />} onClick={() => openEditDocument(doc)}>Modifier</MenuItem>
-                                    <MenuItem icon={<FiDownload />}>Télécharger PDF</MenuItem>
+                                    <MenuItem icon={<FiEdit3 />} onClick={() => openWizard({ doc, type: doc.type })}>Modifier</MenuItem>
+                                    {doc.type === 'QUOTE' && (
+                                      <MenuItem icon={<FiFileText />} onClick={() => openWizard({ sourceQuote: doc, type: 'INVOICE' })}>Créer la facture</MenuItem>
+                                    )}
+                                    <MenuItem icon={<FiDownload />} onClick={() => printDocument(doc)}>Imprimer / PDF</MenuItem>
                                     
                                     <MenuDivider />
                                     <MenuOptionGroup title="Changer le statut">
@@ -5215,6 +5249,10 @@ const AdminFinance = () => {
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
         onSave={handleSaveDocument}
+        editingDocument={wizardDoc}
+        sourceQuote={wizardSourceQuote}
+        initialType={wizardType}
+        documents={documents}
       />
     </Box>
   );
