@@ -38,8 +38,7 @@ export const DEFAULT_TEMPLATE = {
   <table style="border-bottom:1px solid #f1f5f9;">
     <tr>
       <td style="padding-bottom:20px;vertical-align:middle;">
-        <img src="{{LOGO_BIG}}" alt="Association Rétro Bus Essonne" style="max-height:48px;max-width:220px;" />
-        <div class="muted" style="margin-top:6px;font-weight:600;">Patrimoine roulant &amp; Événementiel</div>
+        {{BANDE_ENTETE}}
       </td>
       <td style="padding-bottom:20px;text-align:right;vertical-align:middle;">
         <div class="pill">{{TYPE_DOCUMENT}} officiel</div>
@@ -174,10 +173,8 @@ export const computeTotals = (pricing = {}) => {
   return { subtotal, discountAmount, netHT, taxRate, taxAmount, total, deposit, remaining: round2(total - deposit) };
 };
 
-const DEFAULT_LOGO = '/rbe-classique.png';
-
 const logoSrc = (logo) => {
-  if (!logo) return typeof window !== 'undefined' ? `${window.location.origin}${DEFAULT_LOGO}` : DEFAULT_LOGO;
+  if (!logo) return '';
   return String(logo).startsWith('data:') ? logo : `data:image/png;base64,${logo}`;
 };
 
@@ -262,14 +259,23 @@ export const printHtml = (bodyHtml) => {
   document.body.appendChild(iframe);
 };
 
-const RAW_HTML_KEYS = new Set(['DEVIS_LINES_TR']);
+const RAW_HTML_KEYS = new Set(['DEVIS_LINES_TR', 'BANDE_ENTETE']);
 
 /** Rend le HTML final : toutes les valeurs sont échappées sauf les lignes d'articles (générées ici). */
 export const renderTemplate = (template, doc) => {
-  const html = template?.htmlContent || DEFAULT_TEMPLATE.htmlContent;
-  const data = buildTemplateData(doc);
+  const rawHtml = template?.htmlContent || DEFAULT_TEMPLATE.htmlContent;
   const logoBig = logoSrc(template?.logoBig);
+  const data = {
+    ...buildTemplateData(doc),
+    BANDE_ENTETE: logoBig
+      ? `<img src="${escapeHtml(logoBig)}" alt="" style="display:block;width:100%;max-height:120px;object-fit:contain;" />`
+      : ''
+  };
   const logoSmall = logoSrc(template?.logoSmall);
+
+  // Une image dont le logo est absent s'afficherait cassée : on la retire
+  const html = rawHtml.replace(/<img\b[^>]*\{\{\s*(LOGO_BIG|LOGO_SMALL)\s*\}\}[^>]*>/gi, (tag, key) =>
+    ((key === 'LOGO_BIG' ? logoBig : logoSmall) ? tag : ''));
 
   return html.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (match, key) => {
     if (key === 'LOGO_BIG') return escapeHtml(logoBig);
