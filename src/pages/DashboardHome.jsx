@@ -31,6 +31,7 @@ import { apiClient } from '../api/config';
 import HomeAnnouncements from '../components/HomeAnnouncementsDisplay.jsx';
 import { useHomeAnnouncements } from '../hooks/useHomeAnnouncements';
 import PollDisplay from '../components/PollDisplay';
+import CalendarCard from '../components/CalendarCard.jsx';
 
 const ANN_KEY = "rbe:announcements";
 
@@ -937,26 +938,8 @@ export default function DashboardHome() {
         {/* Sidebar */}
         <GridItem order={{ base: 2, lg: 2 }}>
           <VStack spacing={isMobile ? 4 : 6} align="stretch">
-            {/* Notes personnelles */}
-            <Card bg="#fff3a3" borderColor="#e7cf58" shadow="md" transform="rotate(-0.5deg)">
-              <CardHeader p={isMobile ? 4 : 6}>
-                <Heading size={isMobile ? "sm" : "md"} fontWeight="700" color="gray.800">Mes notes</Heading>
-              </CardHeader>
-              <CardBody p={isMobile ? 4 : 6}>
-                <Textarea
-                  value={personalNotes}
-                  onChange={handlePersonalNotesChange}
-                  placeholder="Écrivez vos notes personnelles..."
-                  minH={isMobile ? "160px" : "210px"}
-                  resize="vertical"
-                  variant="unstyled"
-                  color="gray.800"
-                  fontFamily="cursive"
-                  fontSize={isMobile ? "sm" : "md"}
-                  lineHeight="1.7"
-                />
-              </CardBody>
-            </Card>
+            {/* Calendrier (remplace les notes) */}
+            <CalendarCard isMobile={isMobile} />
 
             {/* Liens utiles */}
             <Card bg={cardBg} borderColor={borderColor} shadow="lg">
