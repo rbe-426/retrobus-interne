@@ -1,4 +1,4 @@
-export const bot920Subcommands = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'classement', 'sondage', 'suggestion', 'jeremonte', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
+export const bot920Subcommands = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'bus', 'panne', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'classement', 'sondage', 'suggestion', 'jeremonte', 'maremontee', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'] as const;
 
 export type Bot920Subcommand = typeof bot920Subcommands[number];
 
@@ -101,7 +101,7 @@ export const defaultBot920Configuration: Bot920Configuration = {
 };
 
 export function isBot920CommandEnabled(configuration: Bot920Configuration, command: Bot920Subcommand): boolean {
-  const funCommands: readonly Bot920Subcommand[] = ['phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'ecouter'];
+  const funCommands: readonly Bot920Subcommand[] = ['bus', 'panne', 'controle', 'diagnostic', 'tirage', 'ecouter'];
   return configuration.commands.enabled[command] !== false && (!funCommands.includes(command) || configuration.fun.enabled);
 }
 

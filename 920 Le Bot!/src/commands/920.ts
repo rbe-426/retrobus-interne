@@ -5,12 +5,12 @@ import {
   formatBreakdown,
   formatBus,
   formatControl,
-  formatDestiny,
   formatDiagnostic,
   formatHelp,
-  formatPhrase,
   drawCollectibleCard,
   formatCollectibleCard,
+  formatCardProgress,
+  formatFeedbackTickets,
   RBE_CARD_CATALOG,
 } from './funContent.js';
 import { executePing } from './ping.js';
@@ -68,17 +68,11 @@ export function createCommand920(
       .setName('anniversaire')
       .setDescription('Consulte les informations d’anniversaire.'))
     .addSubcommand((subcommand) => subcommand
-      .setName('phrase')
-      .setDescription('Affiche une phrase RBE aléatoire.'))
-    .addSubcommand((subcommand) => subcommand
       .setName('bus')
       .setDescription('Tire un bus RBE au sort.'))
     .addSubcommand((subcommand) => subcommand
       .setName('panne')
       .setDescription('Lance un diagnostic de panne humoristique.'))
-    .addSubcommand((subcommand) => subcommand
-      .setName('destin')
-      .setDescription('Consulte le destin RBE du jour.'))
     .addSubcommand((subcommand) => subcommand
       .setName('controle')
       .setDescription('Passe un contrôle technique RBE humoristique.'))
@@ -90,11 +84,16 @@ export function createCommand920(
         .setDescription('Le symptôme observé.')
         .setRequired(true)
         .addChoices(
-          { name: 'Bruit', value: 'bruit' },
-          { name: 'Fumée', value: 'fumee' },
-          { name: 'Fuite', value: 'fuite' },
-          { name: 'Voyant', value: 'voyant' },
-          { name: 'Perte de puissance', value: 'pertepuissance' },
+          { name: 'Un bruit qui n’était pas là hier', value: 'bruit_inquiet' },
+          { name: 'De la fumée, mais pas de barbecue', value: 'fumee' },
+          { name: 'Une flaque sous le bus', value: 'fuite' },
+          { name: 'Un voyant qui a décidé de s’exprimer', value: 'voyant' },
+          { name: 'Le moteur manque clairement d’entrain', value: 'puissance' },
+          { name: 'Une porte qui négocie son ouverture', value: 'porte' },
+          { name: 'Ça vibre plus que le groupe Discord', value: 'vibration' },
+          { name: 'Il démarre selon son humeur', value: 'demarrage' },
+          { name: 'L’air comprimé donne un concert', value: 'air' },
+          { name: 'Une odeur suspecte à bord', value: 'odeur' },
         )))
     .addSubcommand((subcommand) => subcommand
       .setName('tirage')
@@ -116,6 +115,9 @@ export function createCommand920(
         ))
       .addStringOption((option) => option.setName('titre').setDescription('Résumé en quelques mots.').setRequired(true).setMinLength(4).setMaxLength(120))
       .addStringOption((option) => option.setName('description').setDescription('Décris ta suggestion ou le dysfonctionnement.').setRequired(true).setMinLength(10).setMaxLength(2_000)))
+    .addSubcommand((subcommand) => subcommand
+      .setName('maremontee')
+      .setDescription('Consulte l’avancement de tes remontées (à traiter, en cours…).'))
     .addSubcommand((subcommand) => subcommand
       .setName('ecouter')
       .setDescription('Suggère une musique selon une ambiance.')
@@ -184,17 +186,11 @@ export function createCommand920(
       case 'anniversaire':
         await birthdayInteractions.showMenu(interaction);
         return;
-      case 'phrase':
-        await interaction.reply(formatPhrase());
-        return;
       case 'bus':
         await interaction.reply(formatBus());
         return;
       case 'panne':
         await interaction.reply(formatBreakdown());
-        return;
-      case 'destin':
-        await interaction.reply(formatDestiny());
         return;
       case 'controle':
         await interaction.reply(formatControl());
@@ -231,9 +227,9 @@ export function createCommand920(
               await interaction.reply({ content: 'Aucune nouvelle carte n’a été ajoutée ; aucun tirage ne t’a été retiré. Réessaie.', ephemeral: true });
               return;
             }
-            const duplicateText = owned.quantity > 1 ? `\n\n📚 Tu possèdes maintenant **${owned.quantity} exemplaires** de cette carte.` : '\n\n📚 Première carte ajoutée à ton Pokédex !';
+            const progress =  { discovered: collection.uniqueCards + 1, total: RBE_CARD_CATALOG.length, quantity: owned.quantity };
             const quotaText = `\n⏳ Tirages restants aujourd’hui : **${owned.drawsRemaining}/3**.`;
-            await interaction.reply(`${formatCollectibleCard(card)}${duplicateText}${quotaText}`);
+            await interaction.reply(`${formatCollectibleCard(card)}\n\n${formatCardProgress(progress)}${quotaText}`);
           } catch (error) {
             if (error instanceof DailyCardDrawLimitError) {
               await interaction.reply({ content: `Tu as atteint tes **3 tirages quotidiens**. Reviens <t:${Math.floor(new Date(error.resetAt).getTime() / 1_000)}:R> pour en ouvrir un nouveau.`, ephemeral: true });
@@ -262,9 +258,22 @@ export function createCommand920(
             title: interaction.options.getString('titre', true),
             description: interaction.options.getString('description', true),
           });
-          await interaction.editReply(`✅ Ta remontée #${feedback.id} a été transmise à l’équipe RBE. Merci !`);
+          await interaction.editReply(`✅ Ta remontée **${feedback.reference}** a été transmise à l’équipe RBE. Merci !\nSuis son avancement avec \`/920 maremontee\`.`);
         } catch {
           await interaction.editReply('⚠️ La remontée n’a pas pu être enregistrée. Réessaie dans quelques instants.');
+        }
+        return;
+      case 'maremontee':
+        if (!interaction.guildId || !feedbackRepository) {
+          await interaction.reply({ content: 'Le suivi des remontées est indisponible en message privé ou lorsque le service est hors ligne.', ephemeral: true });
+          return;
+        }
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const tickets = await feedbackRepository.listByAuthor(interaction.guildId, interaction.user.id);
+          await interaction.editReply(formatFeedbackTickets(tickets));
+        } catch {
+          await interaction.editReply('⚠️ Impossible de récupérer tes remontées pour le moment. Réessaie dans quelques instants.');
         }
         return;
       case 'ecouter':

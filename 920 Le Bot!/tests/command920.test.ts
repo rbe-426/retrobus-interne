@@ -10,8 +10,13 @@ test('/920 exposes the expected Phase 1 subcommands', () => {
   assert.equal(command.name, '920');
   assert.deepEqual(
     command.options?.map((option) => option.name),
-    ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban', 'admin'],
+    ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'bus', 'panne', 'controle', 'diagnostic', 'tirage', 'collection', 'jeremonte', 'maremontee', 'ecouter', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban', 'admin'],
   );
+  const jeRemonte = command.options?.find((option) => option.name === 'jeremonte');
+  assert.deepEqual(jeRemonte?.options?.map((option) => option.name), ['type', 'titre', 'description']);
+  assert.deepEqual(jeRemonte?.options?.[0]?.choices?.map((choice) => choice.value), ['SUGGESTION', 'INCIDENT']);
+  const diagnostic = command.options?.find((option) => option.name === 'diagnostic');
+  assert.deepEqual(diagnostic?.options?.[0]?.choices?.map((choice) => choice.value), ['bruit_inquiet', 'fumee', 'fuite', 'voyant', 'puissance', 'porte', 'vibration', 'demarrage', 'air', 'odeur']);
   const adminGroup = command.options?.find((option) => option.name === 'admin');
   assert.deepEqual(adminGroup?.options?.map((option) => option.name), ['roles', 'role-add', 'role-remove']);
   const music = command.options?.find((option) => option.name === 'ecouter');
@@ -24,6 +29,6 @@ test('Bot 920 respects persisted command and fun flags', () => {
   configuration.fun.enabled = false;
 
   assert.equal(isBot920CommandEnabled(configuration, 'ping'), false);
-  assert.equal(isBot920CommandEnabled(configuration, 'phrase'), false);
+  assert.equal(isBot920CommandEnabled(configuration, 'bus'), false);
   assert.equal(isBot920CommandEnabled(configuration, 'about'), true);
 });

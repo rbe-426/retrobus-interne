@@ -17,7 +17,7 @@ import {
 import {
   FiDollarSign, FiTrendingUp, FiTrendingDown, FiPlus, FiMinus,
   FiPieChart, FiBarChart, FiCalendar, FiCreditCard, FiDownload,
-  FiUpload, FiEdit3, FiTrash2, FiMoreHorizontal, FiCheck, FiX, 
+  FiUpload, FiEdit3, FiTrash2, FiArchive, FiMoreHorizontal, FiCheck, FiX, 
   FiRefreshCw, FiClock, FiRepeat, FiTarget, FiSettings, FiLock,
   FiUnlock, FiEye, FiEyeOff, FiActivity, FiTrendingDown as FiSimulation,
   FiDatabase, FiShield, FiAlertTriangle, FiInfo, FiSave, FiRotateCcw, FiCheckCircle, FiFileText
@@ -159,6 +159,7 @@ const AdminFinance = () => {
   // Devis & Factures
   const [documents, setDocuments] = useState([]); // {id,type:'QUOTE'|'INVOICE', number, title, date, amount, status, eventId?}
   const [documentFilter, setDocumentFilter] = useState('ALL'); // 'ALL', 'QUOTE', 'INVOICE'
+  const [showArchivedDocs, setShowArchivedDocs] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardDoc, setWizardDoc] = useState(null);
   const [wizardSourceQuote, setWizardSourceQuote] = useState(null);
@@ -1538,17 +1539,28 @@ const AdminFinance = () => {
   };
 
   const deleteDocument = async (id) => {
+    if (!window.confirm('Supprimer définitivement ce document ? (Vous pouvez aussi l\'archiver)')) return;
     try {
       const paths = buildPathCandidates(`/api/finance/documents/${encodeURIComponent(id)}`);
       await deleteFirst(paths, { 'Authorization': `Bearer ${localStorage.getItem('token')}` });
       await loadDocuments();
       toast({ status: 'success', title: 'Document supprimé' });
     } catch (e) {
-      // Fallback local
-      const updated = documents.filter(d => d.id !== id);
-      writeDocsLocal(updated);
-      setDocuments(updated);
-      toast({ status: 'info', title: 'Document supprimé (local)' });
+      toast({ status: 'error', title: 'Suppression impossible', description: e.message });
+    }
+  };
+
+  const archiveDocument = async (id, archived = true) => {
+    try {
+      await patchFirst(
+        buildPathCandidates(`/api/finance/documents/${encodeURIComponent(id)}/archive`),
+        { archived },
+        { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      );
+      await loadDocuments();
+      toast({ status: 'success', title: archived ? 'Document archivé' : 'Document restauré' });
+    } catch (e) {
+      toast({ status: 'error', title: 'Archivage impossible', description: e.message });
     }
   };
 
@@ -2676,6 +2688,16 @@ const AdminFinance = () => {
                         >
                           Factures ({documents.filter(d => d.type === 'INVOICE').length})
                         </Button>
+                        <Button
+                          size="sm"
+                          ml="auto"
+                          leftIcon={<FiArchive />}
+                          variant={showArchivedDocs ? 'solid' : 'outline'}
+                          colorScheme={showArchivedDocs ? 'orange' : 'gray'}
+                          onClick={() => setShowArchivedDocs(v => !v)}
+                        >
+                          {showArchivedDocs ? 'Voir les documents actifs' : `Archivés (${documents.filter(d => d.archived).length})`}
+                        </Button>
                       </HStack>
                     </VStack>
                   </CardBody>
@@ -2705,6 +2727,7 @@ const AdminFinance = () => {
                         </Thead>
                         <Tbody>
                           {documents
+                            .filter(doc => !!doc.archived === showArchivedDocs)
                             .filter(doc => documentFilter === 'ALL' || doc.type === documentFilter)
                             .map((doc) => (
                             <Tr key={doc.id} _hover={{ bg: bgSection }}>
@@ -2773,6 +2796,7 @@ const AdminFinance = () => {
                                     </MenuOptionGroup>
                                     
                                     <MenuDivider />
+                                    <MenuItem icon={<FiArchive />} onClick={() => archiveDocument(doc.id, !doc.archived)}>{doc.archived ? 'Restaurer' : 'Archiver'}</MenuItem>
                                     <MenuItem icon={<FiTrash2 />} color="red.500" onClick={() => deleteDocument(doc.id)}>Supprimer</MenuItem>
                                   </MenuList>
                                 </Menu>

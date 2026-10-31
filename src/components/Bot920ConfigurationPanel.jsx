@@ -5,7 +5,7 @@ import {
 } from '@chakra-ui/react';
 import { apiClient } from '../apiClient.js';
 
-const COMMANDS = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'phrase', 'bus', 'panne', 'destin', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'classement', 'sondage', 'suggestion', 'jeremonte', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'];
+const COMMANDS = ['ping', 'about', 'help', 'updatelog', 'anniversaire', 'bus', 'panne', 'controle', 'diagnostic', 'tirage', 'collection', 'ecouter', 'classement', 'sondage', 'suggestion', 'jeremonte', 'maremontee', 'kick', 'mute', 'unmute', 'ban', 'tempban', 'unban'];
 
 const PLUGINS = [
   ['reactionRoles', 'Rôles par réaction', 'Attribuez des rôles avec des réactions ou des boutons.'],

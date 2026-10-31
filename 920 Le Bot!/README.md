@@ -34,7 +34,7 @@ Le bot reste autonome. Son futur panel doit être intégré à l’URBEX et util
 - `/920 ping` : vérifie que le bot répond et retourne sa latence.
 - `/920 about` : présente le bot officiel RBE.
 - `/920 anniversaire` : sous-commande réservée pour le futur module communautaire.
-- `/920 bus`, `/920 panne`, `/920 destin`, `/920 phrase` et `/920 tirage` : commandes communautaires humoristiques.
+- `/920 bus`, `/920 panne` et `/920 tirage` : commandes communautaires humoristiques.
 - `/920 controle` : faux contrôle technique communautaire.
 - `/920 diagnostic symptome:<bruit|fumee|fuite|voyant|pertepuissance>` : contenu humoristique uniquement, jamais un diagnostic mécanique fiable.
 

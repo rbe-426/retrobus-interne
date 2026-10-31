@@ -476,16 +476,19 @@ export const useFinanceData = (currentUser = null) => {
   const deleteDocument = useCallback(
     async (id) => {
       try {
-        const res = await fetch(`${API_BASE}/api/finance/documents/${id}`, {
+        const res = await fetchWithCSRF(`${API_BASE}/api/finance/documents/${encodeURIComponent(id)}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
           }
         });
 
-        if (!res.ok) throw new Error("Erreur suppression");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Erreur suppression");
+        }
 
-        setDocuments(documents.filter(d => d.id !== id));
+        setDocuments(prev => prev.filter(d => d.id !== id));
         toast({
           title: "Succès",
           description: "Document supprimé",
@@ -493,15 +496,42 @@ export const useFinanceData = (currentUser = null) => {
         });
         // Recharger les données pour synchroniser avec le serveur
         await loadFinanceData();
+        return true;
       } catch (error) {
         toast({
           title: "Erreur",
           description: error.message,
           status: "error"
         });
+        return false;
       }
     },
-    [documents, toast]
+    [toast]
+  );
+
+  // Archiver / désarchiver un document
+  const archiveDocument = useCallback(
+    async (id, archived = true) => {
+      try {
+        const res = await fetchWithCSRF(`${API_BASE}/api/finance/documents/${encodeURIComponent(id)}/archive`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archived })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.details || err.error || "Erreur archivage");
+        }
+        const updated = await res.json();
+        setDocuments(prev => prev.map(d => (d.id === id ? { ...d, ...updated } : d)));
+        toast({ title: archived ? "Document archivé" : "Document restauré", status: "success" });
+        return true;
+      } catch (error) {
+        toast({ title: "Erreur", description: error.message, status: "error" });
+        return false;
+      }
+    },
+    [toast]
   );
 
   // Charger les données au montage
@@ -1426,6 +1456,7 @@ export const useFinanceData = (currentUser = null) => {
     setDocForm,
     addDocument,
     deleteDocument,
+    archiveDocument,
     updateDocumentStatus,
     // Opérations programmées
     scheduledOperations,

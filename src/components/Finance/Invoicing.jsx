@@ -13,7 +13,7 @@ import {
   useColorModeValue
 } from "@chakra-ui/react";
 import { 
-  FiPlus, FiTrash2,
+  FiPlus, FiTrash2, FiArchive,
   FiMoreHorizontal, FiTrendingUp, FiFileText, FiDollarSign 
 } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
@@ -28,12 +28,14 @@ const FinanceInvoicing = () => {
     documents,
     addDocument,
     deleteDocument,
+    archiveDocument,
     updateDocumentStatus,
     loading,
     loadFinanceData
   } = useFinanceData();
 
   const [documentFilter, setDocumentFilter] = useState('ALL'); // 'ALL', 'QUOTE', 'INVOICE'
+  const [showArchived, setShowArchived] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardDoc, setWizardDoc] = useState(null);
   const [wizardSourceQuote, setWizardSourceQuote] = useState(null);
@@ -48,13 +50,15 @@ const FinanceInvoicing = () => {
     loadFinanceData();
   }, [loadFinanceData]);
 
-  // Séparer les devis et factures
-  const quotes = documents.filter(d => d.type === 'QUOTE');
-  const invoices = documents.filter(d => d.type === 'INVOICE');
+  // Séparer les devis et factures (les archivés sont masqués par défaut)
+  const archivedCount = documents.filter(d => d.archived).length;
+  const visibleDocuments = documents.filter(d => !!d.archived === showArchived);
+  const quotes = visibleDocuments.filter(d => d.type === 'QUOTE');
+  const invoices = visibleDocuments.filter(d => d.type === 'INVOICE');
 
   // Documents filtrés selon le filtre actif
   const filteredDocuments = documentFilter === 'ALL' 
-    ? documents 
+    ? visibleDocuments 
     : documentFilter === 'QUOTE' 
       ? quotes 
       : invoices;
@@ -284,23 +288,8 @@ const FinanceInvoicing = () => {
 
   // Handler pour supprimer un document
   const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
-    
-    try {
-      await deleteDocument(id);
-      toast({
-        title: 'Document supprimé',
-        status: 'success',
-        duration: 2000
-      });
-    } catch (error) {
-      toast({
-        title: 'Erreur',
-        description: error.message,
-        status: 'error',
-        duration: 2000
-      });
-    }
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer définitivement ce document ? (Vous pouvez aussi l\'archiver)')) return;
+    await deleteDocument(id);
   };
 
   // Handler pour changer le statut
@@ -421,7 +410,7 @@ const FinanceInvoicing = () => {
               variant={documentFilter === 'ALL' ? 'solid' : 'outline'}
               onClick={() => setDocumentFilter('ALL')}
             >
-              Tous ({documents.length})
+              Tous ({visibleDocuments.length})
             </Button>
             <Button
               size="sm"
@@ -440,6 +429,16 @@ const FinanceInvoicing = () => {
               leftIcon={<Icon as={FiDollarSign} />}
             >
               Factures ({stats.totalInvoices})
+            </Button>
+            <Button
+              size="sm"
+              ml="auto"
+              colorScheme={showArchived ? 'orange' : 'gray'}
+              variant={showArchived ? 'solid' : 'outline'}
+              leftIcon={<Icon as={FiArchive} />}
+              onClick={() => setShowArchived(v => !v)}
+            >
+              {showArchived ? 'Voir les documents actifs' : `Archivés (${archivedCount})`}
             </Button>
           </HStack>
         </CardBody>
@@ -520,6 +519,12 @@ const FinanceInvoicing = () => {
                             )}
                             <MenuItem onClick={() => printDocument(doc)}>
                               Imprimer / PDF
+                            </MenuItem>
+                            <MenuItem
+                              icon={<FiArchive />}
+                              onClick={() => archiveDocument(doc.id, !doc.archived)}
+                            >
+                              {doc.archived ? 'Restaurer' : 'Archiver'}
                             </MenuItem>
                             <MenuItem 
                               icon={<FiTrash2 />} 

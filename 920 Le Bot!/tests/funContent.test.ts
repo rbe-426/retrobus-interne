@@ -1,40 +1,53 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  RBE_PHRASES,
   formatBreakdown,
   formatBus,
   formatControl,
-  formatDestiny,
   formatDiagnostic,
   formatDraw,
+  formatFeedbackTickets,
+  formatCardProgress,
+  formatCollectibleCard,
   drawCollectibleCard,
   CARD_RARITIES,
   RBE_CARD_CATALOG,
   formatHelp,
-  formatPhrase,
 } from '../src/commands/funContent.js';
 import { formatMusicSuggestion } from '../src/commands/musicSuggestion.js';
 import { buildCardDetailEmbed, buildCollectionComponents, buildCollectionEmbed } from '../src/services/cardCollectionInteractions.js';
-
-test('formatPhrase selects a deterministic RBE phrase', () => {
-  assert.equal(
-    formatPhrase(() => 0),
-    `🚌 **PHRASE RBE**\n\n« ${RBE_PHRASES[0]} »`,
-  );
-});
 
 test('fun command responses keep their RBE identity', () => {
   const first = () => 0;
 
   assert.match(formatBus(first), /BUS TIRÉ AU SORT/);
   assert.match(formatBreakdown(first), /PANNE DÉTECTÉE/);
-  assert.match(formatDestiny(first), /LE DESTIN RBE/);
   assert.match(formatControl(first), /CONTRÔLE TECHNIQUE RBE/);
   assert.match(formatDiagnostic('bruit', first), /HUMORISTIQUE/);
-  assert.match(formatDraw(first), /NOUVELLE CARTE RBE/);
+  assert.match(formatDraw(first), /🎴 \*\*CARTE/);
   assert.match(formatDraw(first), /Commun \(60 %\)/);
   assert.match(formatDraw(() => 0.999), /Mythique \(1 %\)/);
+});
+
+test('breakdown output varies while staying well-formed', () => {
+  let seed = 7;
+  const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const outputs = new Set(Array.from({ length: 60 }, () => formatBreakdown(random)));
+  assert.ok(outputs.size > 40);
+  for (const output of outputs) {
+    assert.match(output, /Véhicule : .+\nDéfaut : .+\nDiagnostic : « .+ »\nNiveau de confiance : \d{1,2} %\nGravité : .+\nSignalé par : .+\nAction conseillée : .+\nDélai estimé : .+/);
+  }
+});
+
+test('feedback tickets show references and statuses', () => {
+  const now = new Date().toISOString();
+  const text = formatFeedbackTickets([
+    { reference: 'waiyl-002', type: 'INCIDENT', title: 'Porte cassée', status: 'IN_PROGRESS', adminNote: 'Pièce commandée', createdAt: now, updatedAt: now },
+    { reference: 'waiyl-001', type: 'SUGGESTION', title: 'Nouvelle idée', status: 'OPEN', createdAt: now, updatedAt: now },
+  ]);
+  assert.match(text, /waiyl-002.*\n🔵 En cours.*\n> 💬 Pièce commandée/);
+  assert.match(text, /waiyl-001.*\n🟡 À traiter/);
+  assert.match(formatFeedbackTickets([]), /aucune remontée/);
 });
 
 test('weighted card draw returns common and mythic cards at probability bounds', () => {
@@ -42,8 +55,28 @@ test('weighted card draw returns common and mythic cards at probability bounds',
   assert.equal(drawCollectibleCard(() => 0.999).rarity, 'MYTHIQUE');
   assert.equal(Object.values(CARD_RARITIES).reduce((total, rarity) => total + rarity.chance, 0), 100);
   assert.equal(new Set(RBE_CARD_CATALOG.map((card) => card.id)).size, RBE_CARD_CATALOG.length);
-  assert.equal(RBE_CARD_CATALOG.length, 50);
-  assert.deepEqual(Object.keys(CARD_RARITIES).map((rarity) => RBE_CARD_CATALOG.filter((card) => card.rarity === rarity).length), [15, 13, 10, 7, 5]);
+  assert.equal(RBE_CARD_CATALOG.length, 70);
+  assert.deepEqual(Object.keys(CARD_RARITIES).map((rarity) => RBE_CARD_CATALOG.filter((card) => card.rarity === rarity).length), [21, 19, 14, 10, 6]);
+  assert.equal(RBE_CARD_CATALOG.filter((card) => card.series === 'Sorties & rassemblements').length, 20);
+  assert.ok(RBE_CARD_CATALOG.every((card) => /^[a-z0-9-]{1,80}$/i.test(card.id)));
+});
+
+test('card progress text matches the real Pokédex state', () => {
+  assert.match(formatCardProgress({ discovered: 1, total: 70, quantity: 1 }, () => 0), /lancé|Première|ouvert/);
+  assert.doesNotMatch(formatCardProgress({ discovered: 3, total: 70, quantity: 1 }, () => 0), /Première|lancé/);
+  assert.match(formatCardProgress({ discovered: 3, total: 70, quantity: 1 }, () => 0), /3/);
+  assert.match(formatCardProgress({ discovered: 12, total: 70, quantity: 2 }, () => 0), /2 exemplaires/);
+  assert.match(formatCardProgress({ discovered: 68, total: 70, quantity: 1 }, () => 0), /Plus que \*\*2\*\*/);
+});
+
+test('card text varies with the random roll but stays tied to the rarity', () => {
+  const mythic = RBE_CARD_CATALOG.find((card) => card.rarity === 'MYTHIQUE')!;
+  const texts = new Set([0, 0.3, 0.6, 0.99].map((roll) => formatCollectibleCard(mythic, () => roll)));
+  assert.ok(texts.size > 1);
+  for (const text of texts) {
+    assert.match(text, /MYTHIQUE/);
+    assert.match(text, /Mythique \(1 %\)/);
+  }
 });
 
 test('weighted card draw skips owned cards and rejects a complete collection', () => {
