@@ -21,8 +21,8 @@ export function buildCollectionEmbed(
   username: string,
   cards: OwnedCollectibleCard[],
   totalCards: number,
-  drawsRemaining = 3,
-  dailyDrawLimit = 3,
+  drawsRemaining = 5,
+  dailyDrawLimit = 5,
   resetAt?: string,
 ): EmbedBuilder {
   const ownedByRarity = new Map<CardRarity, OwnedCollectibleCard[]>();

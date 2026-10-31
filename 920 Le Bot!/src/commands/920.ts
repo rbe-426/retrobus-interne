@@ -228,11 +228,11 @@ export function createCommand920(
               return;
             }
             const progress =  { discovered: collection.uniqueCards + 1, total: RBE_CARD_CATALOG.length, quantity: owned.quantity };
-            const quotaText = `\n⏳ Tirages restants aujourd’hui : **${owned.drawsRemaining}/3**.`;
+            const quotaText = `\n⏳ Tirages restants aujourd’hui : **${owned.drawsRemaining}/5**.`;
             await interaction.reply(`${formatCollectibleCard(card)}\n\n${formatCardProgress(progress)}${quotaText}`);
           } catch (error) {
             if (error instanceof DailyCardDrawLimitError) {
-              await interaction.reply({ content: `Tu as atteint tes **3 tirages quotidiens**. Reviens <t:${Math.floor(new Date(error.resetAt).getTime() / 1_000)}:R> pour en ouvrir un nouveau.`, ephemeral: true });
+              await interaction.reply({ content: `Tu as atteint tes **5 tirages quotidiens**. Reviens <t:${Math.floor(new Date(error.resetAt).getTime() / 1_000)}:R> pour en ouvrir un nouveau.`, ephemeral: true });
               return;
             }
             await interaction.reply({ content: 'Le tirage n’a pas été effectué : la sauvegarde de collection est momentanément indisponible. Réessaie dans un instant.', ephemeral: true });
