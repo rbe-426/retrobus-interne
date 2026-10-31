@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardBody, CardHeader, Checkbox, FormControl, FormLabel, Grid, HStack, Heading,
   IconButton, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader,
-  ModalOverlay, Radio, RadioGroup, Switch, Text, Textarea, Tooltip, VStack, Badge, useDisclosure, useToast
+  ModalOverlay, Radio, RadioGroup, Select, Switch, Text, Textarea, Tooltip, VStack, Badge, useDisclosure, useToast
 } from '@chakra-ui/react';
 import { FiBell, FiCalendar, FiChevronLeft, FiChevronRight, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../lib/csrfClient.js';
@@ -15,9 +15,36 @@ const dayKey = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
 };
 const timeOf = (d) => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const atDay = (value) => {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+const recurrenceLabel = { DAILY: 'Tous les jours', WEEKLY: 'Chaque semaine', MONTHLY: 'Chaque mois', YEARLY: 'Chaque année' };
+const occursOnDay = (event, day) => {
+  const start = atDay(event.startAt);
+  const target = atDay(day);
+  const end = event.recurrenceEndAt ? atDay(event.recurrenceEndAt) : null;
+  if (target < start || (end && target > end)) return false;
+  const recurrence = event.recurrence || 'NONE';
+  if (recurrence === 'NONE') return target.getTime() === start.getTime();
+  const days = Math.round((target - start) / 86_400_000);
+  if (recurrence === 'DAILY') return true;
+  if (recurrence === 'WEEKLY') return days % 7 === 0;
+  if (recurrence === 'MONTHLY') {
+    const months = (target.getFullYear() - start.getFullYear()) * 12 + target.getMonth() - start.getMonth();
+    return months >= 0 && target.getDate() === Math.min(start.getDate(), daysInMonth(target.getFullYear(), target.getMonth()));
+  }
+  if (recurrence === 'YEARLY') {
+    return target.getFullYear() >= start.getFullYear()
+      && target.getMonth() === start.getMonth()
+      && target.getDate() === Math.min(start.getDate(), daysInMonth(target.getFullYear(), target.getMonth()));
+  }
+  return false;
+};
 
 const emptyForm = (date) => ({
-  id: null, title: '', description: '', date, time: '', kind: 'EVENT', shared: false
+  id: null, title: '', description: '', date, time: '', kind: 'EVENT', shared: false, recurrence: 'NONE', recurrenceEndDate: ''
 });
 
 export default function CalendarCard({ isMobile }) {
@@ -45,11 +72,7 @@ export default function CalendarCard({ isMobile }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const byDay = useMemo(() => {
-    const map = {};
-    events.forEach((e) => { (map[dayKey(e.startAt)] ||= []).push(e); });
-    return map;
-  }, [events]);
+  const eventsOn = useCallback((date) => events.filter((event) => occursOnDay(event, date)), [events]);
 
   const cells = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -59,14 +82,18 @@ export default function CalendarCard({ isMobile }) {
   }, [month]);
 
   const today = dayKey(new Date());
-  const dueReminders = events.filter((e) => e.kind === 'REMINDER' && !e.done && dayKey(e.startAt) <= today);
-  const dayEvents = byDay[selected] || [];
+  const dueReminders = events.filter((event) =>
+    event.kind === 'REMINDER' && !event.done
+    && (event.recurrence && event.recurrence !== 'NONE' ? occursOnDay(event, today) : dayKey(event.startAt) <= today)
+  );
+  const dayEvents = eventsOn(selected);
 
   const openCreate = () => { setForm(emptyForm(selected)); onOpen(); };
   const openEdit = (e) => {
     setForm({
       id: e.id, title: e.title, description: e.description || '', date: dayKey(e.startAt),
-      time: e.allDay ? '' : timeOf(e.startAt), kind: e.kind, shared: e.shared
+      time: e.allDay ? '' : timeOf(e.startAt), kind: e.kind, shared: e.shared,
+      recurrence: e.recurrence || 'NONE', recurrenceEndDate: e.recurrenceEndAt ? dayKey(e.recurrenceEndAt) : ''
     });
     onOpen();
   };
@@ -82,7 +109,10 @@ export default function CalendarCard({ isMobile }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title, description: form.description, startAt, allDay: !form.time,
-          kind: form.kind, shared: canShare && form.shared
+          kind: form.kind, shared: canShare && form.shared, recurrence: form.recurrence,
+          recurrenceEndAt: form.recurrence !== 'NONE' && form.recurrenceEndDate
+            ? new Date(`${form.recurrenceEndDate}T23:59:59`).toISOString()
+            : null
         })
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Erreur ${res.status}`);
@@ -120,9 +150,11 @@ export default function CalendarCard({ isMobile }) {
           <VStack align="stretch" spacing={1} mb={3} p={2} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200">
             {dueReminders.map((r) => (
               <HStack key={r.id}>
-                <Checkbox size="sm" onChange={() => toggleDone(r)}>
-                  <Text fontSize="xs" color="orange.800"><FiBell style={{ display: 'inline' }} /> {r.title}</Text>
-                </Checkbox>
+                {r.recurrence && r.recurrence !== 'NONE'
+                  ? <Text fontSize="xs" color="orange.800"><FiBell style={{ display: 'inline' }} /> {r.title} · {recurrenceLabel[r.recurrence]}</Text>
+                  : <Checkbox size="sm" onChange={() => toggleDone(r)}>
+                    <Text fontSize="xs" color="orange.800"><FiBell style={{ display: 'inline' }} /> {r.title}</Text>
+                  </Checkbox>}
               </HStack>
             ))}
           </VStack>
@@ -141,7 +173,7 @@ export default function CalendarCard({ isMobile }) {
           {cells.map((d, i) => {
             if (!d) return <Box key={`e${i}`} />;
             const k = dayKey(d);
-            const list = byDay[k] || [];
+            const list = eventsOn(k);
             const hasShared = list.some((e) => e.shared);
             const hasPerso = list.some((e) => !e.shared);
             return (
@@ -181,6 +213,7 @@ export default function CalendarCard({ isMobile }) {
                   <Text fontSize="sm" fontWeight="600" textDecoration={e.done ? 'line-through' : 'none'}>{e.title}</Text>
                   {!e.allDay && <Badge fontSize="9px">{timeOf(e.startAt)}</Badge>}
                   {e.shared && <Badge colorScheme="blue" fontSize="9px">Tous</Badge>}
+                  {e.recurrence && e.recurrence !== 'NONE' && <Badge colorScheme="purple" fontSize="9px">↻ {recurrenceLabel[e.recurrence]}</Badge>}
                 </HStack>
                 {e.description && <Text fontSize="xs" color="gray.600" whiteSpace="pre-line">{e.description}</Text>}
                 {e.shared && e.ownerName && <Text fontSize="10px" color="gray.400">par {e.ownerName}</Text>}
@@ -223,6 +256,22 @@ export default function CalendarCard({ isMobile }) {
                 <FormLabel>Détails</FormLabel>
                 <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </FormControl>
+              <FormControl>
+                <FormLabel>Récurrence</FormLabel>
+                <Select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value, recurrenceEndDate: e.target.value === 'NONE' ? '' : form.recurrenceEndDate })}>
+                  <option value="NONE">Aucune</option>
+                  <option value="DAILY">Tous les jours</option>
+                  <option value="WEEKLY">Chaque semaine</option>
+                  <option value="MONTHLY">Chaque mois</option>
+                  <option value="YEARLY">Chaque année</option>
+                </Select>
+              </FormControl>
+              {form.recurrence !== 'NONE' && (
+                <FormControl>
+                  <FormLabel>Fin de récurrence (optionnel)</FormLabel>
+                  <Input type="date" min={form.date} value={form.recurrenceEndDate} onChange={(e) => setForm({ ...form, recurrenceEndDate: e.target.value })} />
+                </FormControl>
+              )}
               {canShare && (
                 <FormControl display="flex" alignItems="center">
                   <Switch isChecked={form.shared} onChange={(e) => setForm({ ...form, shared: e.target.checked })} mr={2} />
