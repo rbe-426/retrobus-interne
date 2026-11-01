@@ -12,6 +12,7 @@ export const ineoAPI = {
   saveVehicleProfile: (parc, data) => apiClient.put(`/ineo/vehicle-profiles/${encodeURIComponent(parc)}`, data),
   listVehicleTrackers: () => apiClient.get('/ineo/vehicle-trackers'),
   saveVehicleTracker: (parc, data) => apiClient.put(`/ineo/vehicle-trackers/${encodeURIComponent(parc)}`, data),
+  listUcDevices: () => apiClient.get('/ineo/uc-devices'),
   reportVehicleTrackerPosition: (imei, position) => apiClient.post(`/ineo/vehicle-trackers/${encodeURIComponent(imei)}/position`, position),
   createFreeTrackingSession: (data = {}) => apiClient.post('/ineo/free-tracking-sessions', data),
   listFreeTrackingSessions: () => apiClient.get('/ineo/free-tracking-sessions'),
