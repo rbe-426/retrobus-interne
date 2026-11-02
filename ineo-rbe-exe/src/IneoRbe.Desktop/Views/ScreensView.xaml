@@ -1,0 +1,69 @@
+<UserControl x:Class="IneoRbe.Desktop.Views.ScreensView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="8">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="230" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <DockPanel Margin="0,0,8,0">
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+        <Button x:Name="NewButton" Content="Nouvel écran" Width="90" Height="24" Margin="0,0,6,0" Click="NewButton_Click" />
+        <Button x:Name="DeleteButton" Content="Supprimer" Width="80" Height="24" Click="DeleteButton_Click" />
+      </StackPanel>
+      <ListBox x:Name="ScreenList" DisplayMemberPath="DisplayText" SelectionChanged="ScreenList_SelectionChanged" />
+    </DockPanel>
+
+    <GroupBox Grid.Column="1" Header="Écran SAEIV" Padding="8">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Margin="0,0,0,8">
+          <TextBlock Text="Nom de l'écran :" VerticalAlignment="Center" Width="110" />
+          <TextBox x:Name="NameBox" MaxLength="120" />
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <GroupBox x:Name="OfflineGroup" Header="Image perte de connexion" Margin="0,0,4,0" Padding="6">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Bottom">
+                <TextBox x:Name="OfflineNameBox" IsReadOnly="True" Margin="0,6,0,6" />
+                <Button x:Name="ImportOfflineButton" Content="Importer..." Width="90" HorizontalAlignment="Left" Height="24" Click="ImportOfflineButton_Click" />
+              </StackPanel>
+              <Border BorderBrush="{x:Static SystemColors.ControlDarkBrush}" BorderThickness="1" Background="White">
+                <Image x:Name="OfflinePreview" Stretch="Uniform" />
+              </Border>
+            </DockPanel>
+          </GroupBox>
+
+          <GroupBox x:Name="OnlineGroup" Grid.Column="1" Header="Média / image si connecté" Margin="4,0,0,0" Padding="6">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Bottom">
+                <TextBox x:Name="OnlineNameBox" IsReadOnly="True" Margin="0,6,0,6" />
+                <Button x:Name="ImportOnlineButton" Content="Importer..." Width="90" HorizontalAlignment="Left" Height="24" Click="ImportOnlineButton_Click" />
+              </StackPanel>
+              <Border BorderBrush="{x:Static SystemColors.ControlDarkBrush}" BorderThickness="1" Background="White">
+                <Image x:Name="OnlinePreview" Stretch="Uniform" />
+              </Border>
+            </DockPanel>
+          </GroupBox>
+        </Grid>
+
+        <DockPanel Grid.Row="2" Margin="0,10,0,0">
+          <Button x:Name="SaveButton" DockPanel.Dock="Right" Content="Enregistrer" Width="100" Height="26" Click="SaveButton_Click" />
+          <TextBlock x:Name="ConnectionText" VerticalAlignment="Center" />
+        </DockPanel>
+      </Grid>
+    </GroupBox>
+  </Grid>
+</UserControl>

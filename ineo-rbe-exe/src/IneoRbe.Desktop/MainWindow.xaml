@@ -1,0 +1,73 @@
+<Window x:Class="IneoRbe.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:IneoRbe.Desktop.Views"
+        Title="Inéo RétroBus" Height="580" Width="840" MinHeight="500" MinWidth="760"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Tahoma" FontSize="12"
+        Background="{x:Static SystemColors.ControlBrush}">
+  <DockPanel>
+    <StatusBar DockPanel.Dock="Bottom">
+      <StatusBarItem>
+        <TextBlock x:Name="StatusNetworkText" Text="Réseau : vérification..." />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock x:Name="StatusVersionText" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock x:Name="StatusProfileText" Text="Profil : non identifié" />
+      </StatusBarItem>
+    </StatusBar>
+
+    <TabControl x:Name="MainTabs" Margin="6">
+      <TabItem Header="Ce poste (UC)">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="12">
+            <GroupBox Header="Ordinateur embarqué (UC)" Padding="10">
+              <StackPanel>
+                <DockPanel>
+                  <TextBlock Text="N° de série :" Width="110" VerticalAlignment="Center" />
+                  <Button x:Name="CopySerialButton" DockPanel.Dock="Right" Content="Copier" Width="70" Margin="6,0,0,0" IsEnabled="False" Click="CopySerialButton_Click" />
+                  <TextBox x:Name="SerialBox" IsReadOnly="True" />
+                </DockPanel>
+                <TextBlock x:Name="ProfileTitleText" Margin="0,12,0,0" FontSize="16" FontWeight="Bold" />
+                <TextBlock x:Name="ProfileDetailText" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="ScreenProfileText" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="IdentityStatusText" Margin="0,8,0,0" TextWrapping="Wrap" />
+                <Button x:Name="RefreshIdentityButton" Content="Actualiser le profil" HorizontalAlignment="Left" Width="140" Height="24" Margin="0,10,0,0" Click="RefreshIdentityButton_Click" />
+              </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Logiciel" Padding="10" Margin="0,10,0,0">
+              <StackPanel>
+                <TextBlock x:Name="InternetStatusText" Text="Vérification de la connexion Internet..." />
+                <TextBlock x:Name="VersionText" Margin="0,6,0,0" />
+                <TextBlock x:Name="UpdateStatusText" Margin="0,8,0,0" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                  <Button x:Name="CheckUpdateButton" Content="Vérifier les mises à jour" MinWidth="170" Height="26" Margin="0,0,8,0" Click="CheckUpdateButton_Click" />
+                  <Button x:Name="InstallUpdateButton" Content="Mettre à jour" MinWidth="110" Height="26" IsEnabled="False" Click="InstallUpdateButton_Click" />
+                </StackPanel>
+              </StackPanel>
+            </GroupBox>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Config SAEIV">
+        <TabControl Margin="6">
+          <TabItem Header="Configuration annonces sonores">
+            <views:AnnouncementsView x:Name="AnnouncementsPage" />
+          </TabItem>
+          <TabItem Header="Configurations d'écrans">
+            <views:ScreensView x:Name="ScreensPage" />
+          </TabItem>
+          <TabItem Header="Simulateur d'écrans">
+            <views:SimulatorView x:Name="SimulatorPage" />
+          </TabItem>
+        </TabControl>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>
