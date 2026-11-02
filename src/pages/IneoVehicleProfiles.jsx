@@ -7,7 +7,7 @@ import { FiSave } from 'react-icons/fi';
 import { ineoAPI } from '../api/ineo';
 
 const vehicleTypes = ['BUS STANDARD', 'BUS ARTICULE', 'BUS BI ARTICULE', 'BUS GABARIT REDUIT', 'VOITURES', 'DIVERS'];
-const emptyForm = { vehicleParc: '', vehicleType: '', maxSpeedKmh: '', lengthM: '', widthM: '', heightM: '', options: '', imei: '', deviceLabel: '', ucSerial: '' };
+const emptyForm = { vehicleParc: '', vehicleType: '', maxSpeedKmh: '', lengthM: '', widthM: '', heightM: '', options: '', imei: '', deviceLabel: '', ucSerial: '', screenProfileId: '' };
 const formatDate = (value) => (value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '-');
 const normalizeSerial = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
 
@@ -22,12 +22,14 @@ const toForm = (parc, profile) => ({
   imei: profile?.imei || '',
   deviceLabel: profile?.deviceLabel || '',
   ucSerial: profile?.ucSerial || '',
+  screenProfileId: profile?.screenProfileId || '',
 });
 
 export default function IneoVehicleProfiles({ vehicles, missions = [] }) {
   const toast = useToast();
   const [profiles, setProfiles] = useState([]);
   const [devices, setDevices] = useState([]);
+  const [screenProfiles, setScreenProfiles] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,12 +37,14 @@ export default function IneoVehicleProfiles({ vehicles, missions = [] }) {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [profileData, deviceData] = await Promise.all([
+      const [profileData, deviceData, screenData] = await Promise.all([
         ineoAPI.listVehicleProfiles(),
         ineoAPI.listUcDevices().catch(() => ({ devices: [] })),
+        ineoAPI.listScreenProfiles().catch(() => ({ profiles: [] })),
       ]);
       setProfiles(profileData?.profiles || []);
       setDevices(deviceData?.devices || []);
+      setScreenProfiles(screenData?.profiles || []);
     } catch (error) {
       toast({ status: 'error', title: 'Profils Inéo indisponibles', description: error.message });
     } finally {
@@ -93,9 +97,9 @@ export default function IneoVehicleProfiles({ vehicles, missions = [] }) {
 
     <Box overflowX="auto" border="1px solid" borderColor="#c6d0d8">
       <Table size="sm">
-        <Thead bg="#e9eff3"><Tr><Th>Véhicule</Th><Th>Modèle</Th><Th>Type</Th><Th>IMEI</Th><Th>N° de série UC</Th><Th isNumeric>Services affectés</Th></Tr></Thead>
+        <Thead bg="#e9eff3"><Tr><Th>Véhicule</Th><Th>Modèle</Th><Th>Type</Th><Th>IMEI</Th>        <Th>N° de série UC</Th><Th>Profil écran</Th><Th isNumeric>Services affectés</Th></Tr></Thead>
         <Tbody>
-          {loading && <Tr><Td colSpan={6}><Spinner size="sm" color="#005a9e" /></Td></Tr>}
+                  {loading && <Tr><Td colSpan={7}><Spinner size="sm" color="#005a9e" /></Td></Tr>}
           {!loading && vehicles.map((vehicle) => {
             const profile = profileByParc.get(vehicle.parc);
             const activeServices = missions.filter((mission) => mission.vehicleParc === vehicle.parc && mission.status !== 'COMPLETED' && mission.status !== 'CANCELLED').length;
@@ -105,6 +109,7 @@ export default function IneoVehicleProfiles({ vehicles, missions = [] }) {
               <Td>{profile?.vehicleType || <Text as="span" color="gray.400">-</Text>}</Td>
               <Td>{profile?.imei || <Text as="span" color="gray.400">-</Text>}</Td>
               <Td>{profile?.ucSerial ? <Badge colorScheme="green">{profile.ucSerial}</Badge> : <Text as="span" color="gray.400">-</Text>}</Td>
+              <Td>{screenProfiles.find((item) => item.id === profile?.screenProfileId)?.name || <Text as="span" color="gray.400">-</Text>}</Td>
               <Td isNumeric>{activeServices}</Td>
             </Tr>;
           })}
@@ -136,6 +141,13 @@ export default function IneoVehicleProfiles({ vehicles, missions = [] }) {
             {availableDevices.map((device) => <option key={device.id} value={device.serial}>{device.serial}{device.hostname ? ` - ${device.hostname}` : ''} (vu le {formatDate(device.lastSeenAt)})</option>)}
           </Select>
         </FormControl>}
+        <FormControl>
+          <FormLabel>Profil écran</FormLabel>
+          <Select bg="white" value={form.screenProfileId} onChange={(event) => update('screenProfileId', event.target.value)} placeholder="Aucun profil écran">
+            {screenProfiles.map((screenProfile) => <option key={screenProfile.id} value={screenProfile.id}>{screenProfile.name} ({screenProfile.screens.length} écran{screenProfile.screens.length > 1 ? 's' : ''})</option>)}
+          </Select>
+          <FormHelperText>Affiché sur les écrans de l’UC de ce véhicule. Les profils se créent dans « Profils écrans ».</FormHelperText>
+        </FormControl>
       </Grid>
 
       <Text fontWeight="700" mb={2}>Caractéristiques</Text>
