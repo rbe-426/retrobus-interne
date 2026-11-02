@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Device.Location;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -15,7 +14,7 @@ namespace IneoRbe.Desktop.Services
         private readonly MediaPlayer _player = new MediaPlayer();
         private readonly Queue<string> _queue = new Queue<string>();
         private readonly HashSet<string> _inside = new HashSet<string>();
-        private GeoCoordinateWatcher _watcher;
+        private GpsSource _source;
         private bool _playing;
 
         public AnnouncementEngine(SaeivConfig config)
@@ -33,37 +32,42 @@ namespace IneoRbe.Desktop.Services
 
         public event EventHandler StatusChanged;
         public string Status { get; private set; }
-        public bool IsRunning { get { return _watcher != null; } }
+        public bool IsRunning { get { return _source != null; } }
 
         public void Start()
         {
-            if (_watcher != null) return;
+            if (_source != null) return;
             _inside.Clear();
-            _watcher = new GeoCoordinateWatcher(GeoPositionAccuracy.High) { MovementThreshold = 3 };
-            _watcher.PositionChanged += OnPositionChanged;
-            _watcher.StatusChanged += OnWatcherStatusChanged;
-            if (!_watcher.TryStart(false, TimeSpan.FromSeconds(5)))
-            {
-                SetStatus("Aucun capteur GPS disponible : en attente de position.");
-            }
-            else
-            {
-                SetStatus("Diffusion automatique active : en attente de position GPS.");
-            }
+
+            _source = GpsSettings.Resolve(_config.GpsSource) == GpsSettings.Serial
+                ? (GpsSource)new SerialGpsSource(_config.GpsPort, _config.GpsBaud)
+                : new WindowsGpsSource();
+            _source.PositionChanged += OnPositionChanged;
+            _source.StatusChanged += OnSourceStatusChanged;
+            SetStatus("Diffusion automatique active : en attente de position GPS.");
+            _source.Start();
         }
 
         public void Stop()
         {
-            if (_watcher == null) return;
-            _watcher.PositionChanged -= OnPositionChanged;
-            _watcher.StatusChanged -= OnWatcherStatusChanged;
-            _watcher.Stop();
-            _watcher.Dispose();
-            _watcher = null;
+            var source = _source;
+            if (source == null) return;
+            _source = null;
+            source.PositionChanged -= OnPositionChanged;
+            source.StatusChanged -= OnSourceStatusChanged;
+            source.Dispose();
             _queue.Clear();
             _player.Stop();
             _playing = false;
             SetStatus("Diffusion automatique arrêtée.");
+        }
+
+        // Applique un changement de source GPS (type, port, vitesse) sans désactiver la diffusion.
+        public void Restart()
+        {
+            if (_source == null) return;
+            Stop();
+            Start();
         }
 
         public void PlayTest(string path)
@@ -85,23 +89,18 @@ namespace IneoRbe.Desktop.Services
             _player.Close();
         }
 
-        private void OnWatcherStatusChanged(object sender, GeoPositionStatusChangedEventArgs e)
+        // Les sources GPS notifient depuis leurs propres threads : tout repasse par le thread d'interface.
+        private void OnSourceStatusChanged(string status)
         {
-            Dispatch(() =>
-            {
-                if (e.Status == GeoPositionStatus.Disabled) SetStatus("Service de localisation désactivé sur ce poste.");
-                else if (e.Status == GeoPositionStatus.NoData) SetStatus("Capteur GPS actif, en attente de signal.");
-            });
+            Dispatch(() => SetStatus(status));
         }
 
-        private void OnPositionChanged(object sender, GeoPositionChangedEventArgs<GeoCoordinate> e)
+        private void OnPositionChanged(double latitude, double longitude)
         {
-            var location = e.Position.Location;
-            if (location.IsUnknown) return;
             Dispatch(() =>
             {
-                SetStatus(string.Format("Position GPS : {0:0.00000}, {1:0.00000}", location.Latitude, location.Longitude));
-                Evaluate(location.Latitude, location.Longitude);
+                if (_source == null) return;
+                Evaluate(latitude, longitude);
             });
         }
 

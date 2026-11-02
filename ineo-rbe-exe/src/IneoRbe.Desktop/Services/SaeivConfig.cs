@@ -83,6 +83,9 @@ namespace IneoRbe.Desktop.Services
             Announcements = new List<Announcement>();
             Screens = new List<ScreenConfig>();
             EngineEnabled = true;
+            GpsSource = "AUTO";
+            GpsPort = "AUTO";
+            GpsBaud = 9600;
         }
 
         [OnDeserialized]
@@ -93,6 +96,9 @@ namespace IneoRbe.Desktop.Services
         }
 
         [DataMember(Name = "engineEnabled")] public bool EngineEnabled { get; set; }
+        [DataMember(Name = "gpsSource")] public string GpsSource { get; set; }
+        [DataMember(Name = "gpsPort")] public string GpsPort { get; set; }
+        [DataMember(Name = "gpsBaud")] public int GpsBaud { get; set; }
         [DataMember(Name = "announcements")] public List<Announcement> Announcements { get; set; }
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
     }

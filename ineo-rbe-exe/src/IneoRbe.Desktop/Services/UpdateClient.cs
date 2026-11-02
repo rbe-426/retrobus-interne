@@ -1,12 +1,10 @@
 using System;
 using System.IO;
-using System.Net;
-using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace IneoRbe.Desktop.Services
 {
@@ -17,53 +15,47 @@ namespace IneoRbe.Desktop.Services
 
     public sealed class UpdateClient
     {
-        public async Task<UpdateCheckResult> CheckForUpdateAsync()
+        private const long MaxInstallerBytes = 80L * 1024 * 1024;
+
+        // Appels bloquants : à exécuter hors du thread d'interface.
+        public UpdateCheckResult CheckForUpdate()
         {
             if (!NetworkInterface.GetIsNetworkAvailable()) throw new InternetUnavailableException();
 
             var installedVersion = typeof(UpdateClient).Assembly.GetName().Version;
-            using (var client = ApiEndpoints.CreateHttpClient())
-            using (var response = await client.GetAsync(ApiEndpoints.UpdateUrl + "?version=" + Uri.EscapeDataString(ToReleaseVersion(installedVersion))))
+            var response = HttpTransport.Send("GET", ApiEndpoints.UpdateUrl + "?version=" + Uri.EscapeDataString(ToReleaseVersion(installedVersion)), null, null, 20000);
+            if (response.StatusCode == 503)
             {
-                if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-                {
-                    throw new InvalidOperationException("Le service de mise à jour n'est pas encore configuré.");
-                }
-                response.EnsureSuccessStatusCode();
-                using (var stream = await response.Content.ReadAsStreamAsync())
-                {
-                    var serializer = new DataContractJsonSerializer(typeof(UpdateResponse));
-                    var payload = (UpdateResponse)serializer.ReadObject(stream);
-                    if (payload == null || !payload.UpdateAvailable) return new UpdateCheckResult();
-                    var descriptor = new UpdateDescriptor
-                    {
-                        Version = payload.Version,
-                        InstallerUrl = payload.InstallerUrl,
-                        Sha256 = payload.Sha256,
-                        ReleaseNotes = payload.ReleaseNotes,
-                    };
-                    ValidateDescriptor(descriptor);
-                    return new UpdateCheckResult { UpdateAvailable = true, Update = descriptor };
-                }
+                throw new InvalidOperationException("Le service de mise à jour n'est pas encore configuré.");
             }
+            if (!response.IsSuccess) throw new InvalidOperationException("Le serveur de mise à jour a répondu " + response.StatusCode + ".");
+
+            UpdateResponse payload;
+            using (var stream = new MemoryStream(response.Body))
+            {
+                payload = (UpdateResponse)new DataContractJsonSerializer(typeof(UpdateResponse)).ReadObject(stream);
+            }
+            if (payload == null || !payload.UpdateAvailable) return new UpdateCheckResult();
+
+            var descriptor = new UpdateDescriptor
+            {
+                Version = payload.Version,
+                InstallerUrl = payload.InstallerUrl,
+                Sha256 = payload.Sha256,
+                ReleaseNotes = payload.ReleaseNotes,
+            };
+            ValidateDescriptor(descriptor);
+            return new UpdateCheckResult { UpdateAvailable = true, Update = descriptor };
         }
 
-        public async Task<string> DownloadAndVerifyInstallerAsync(UpdateDescriptor update)
+        public string DownloadAndVerifyInstaller(UpdateDescriptor update)
         {
             ValidateDescriptor(update);
             var installerPath = Path.Combine(Path.GetTempPath(), "IneoRbe-" + update.Version + "-Setup.exe");
             try
             {
-                using (var client = ApiEndpoints.CreateHttpClient())
-                using (var response = await client.GetAsync(update.InstallerUrl, HttpCompletionOption.ResponseHeadersRead))
-                {
-                    response.EnsureSuccessStatusCode();
-                    using (var input = await response.Content.ReadAsStreamAsync())
-                    using (var output = new FileStream(installerPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    {
-                        await input.CopyToAsync(output);
-                    }
-                }
+                var status = HttpTransport.DownloadToFile(update.InstallerUrl, installerPath, MaxInstallerBytes, 180000);
+                if (status != 200) throw new InvalidOperationException("Le téléchargement de l'installateur a échoué (code " + status + ").");
 
                 if (!HashMatches(installerPath, update.Sha256))
                 {
@@ -74,14 +66,14 @@ namespace IneoRbe.Desktop.Services
             }
             catch
             {
-                if (File.Exists(installerPath)) File.Delete(installerPath);
+                try { if (File.Exists(installerPath)) File.Delete(installerPath); } catch (Exception) { }
                 throw;
             }
         }
 
         private static bool HashMatches(string filePath, string expectedHash)
         {
-            using (var sha256 = SHA256.Create())
+            using (var sha256 = new SHA256Managed())
             using (var stream = File.OpenRead(filePath))
             {
                 var actual = BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", string.Empty);
@@ -100,6 +92,10 @@ namespace IneoRbe.Desktop.Services
                 || !IsHex(update.Sha256))
             {
                 throw new InvalidOperationException("Les informations de mise à jour reçues sont invalides.");
+            }
+            if (HttpTransport.UsesEmbeddedTls && !ApiEndpoints.IsTrustedHost(installerUri.Host))
+            {
+                throw new InvalidOperationException("Cette mise à jour est hébergée ailleurs que sur le serveur RétroBus : ce système ancien ne peut pas la télécharger. Publiez l'installateur depuis l'URBEX (Inéo RétroBus > Installateur UC).");
             }
         }
 
@@ -120,19 +116,14 @@ namespace IneoRbe.Desktop.Services
             return string.Format("{0}.{1}.{2}", version.Major, version.Minor, Math.Max(0, version.Build));
         }
 
-        [System.Runtime.Serialization.DataContract]
+        [DataContract]
         private sealed class UpdateResponse
         {
-            [System.Runtime.Serialization.DataMember(Name = "updateAvailable")]
-            public bool UpdateAvailable { get; set; }
-            [System.Runtime.Serialization.DataMember(Name = "version")]
-            public string Version { get; set; }
-            [System.Runtime.Serialization.DataMember(Name = "installerUrl")]
-            public string InstallerUrl { get; set; }
-            [System.Runtime.Serialization.DataMember(Name = "sha256")]
-            public string Sha256 { get; set; }
-            [System.Runtime.Serialization.DataMember(Name = "releaseNotes")]
-            public string ReleaseNotes { get; set; }
+            [DataMember(Name = "updateAvailable")] public bool UpdateAvailable { get; set; }
+            [DataMember(Name = "version")] public string Version { get; set; }
+            [DataMember(Name = "installerUrl")] public string InstallerUrl { get; set; }
+            [DataMember(Name = "sha256")] public string Sha256 { get; set; }
+            [DataMember(Name = "releaseNotes")] public string ReleaseNotes { get; set; }
         }
     }
 }

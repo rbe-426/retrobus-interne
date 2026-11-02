@@ -3,16 +3,17 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 
 namespace IneoRbe.Desktop.Services
 {
     // Lance l'installateur de mise à jour et garantit que le logiciel redémarre, même si l'installation échoue.
+    // Sans PowerShell (absent de Windows XP) : le relanceur est une copie de ce logiciel lancée en mode « /watch ».
     public static class UpdateInstaller
     {
         private const int ErrorSharingViolation = 32;
         private const int ErrorCancelledByUser = 1223;
+        private const string WatcherPrefix = "IneoRbe-watch-";
 
         public static string LogPath { get { return Path.Combine(SaeivStore.RootDirectory, "update-setup.log"); } }
         private static string MarkerPath { get { return Path.Combine(SaeivStore.RootDirectory, "update-pending.txt"); } }
@@ -36,10 +37,10 @@ namespace IneoRbe.Desktop.Services
             StartRelaunchWatcher(installer, Assembly.GetExecutingAssembly().Location);
         }
 
-        // Au démarrage : indique si la dernière mise à jour a abouti, et nettoie les installateurs téléchargés.
+        // Au démarrage : indique si la dernière mise à jour a abouti, et nettoie les fichiers temporaires.
         public static string ConsumePendingResult(Version installedVersion)
         {
-            CleanDownloadedInstallers();
+            CleanTemporaryFiles();
             if (!File.Exists(MarkerPath)) return null;
 
             string targetText;
@@ -53,6 +54,38 @@ namespace IneoRbe.Desktop.Services
             return installed >= wanted
                 ? "Mise à jour vers la version " + targetText + " installée."
                 : "La mise à jour vers la version " + targetText + " n'a pas abouti. Journal : " + LogPath;
+        }
+
+        // Exécuté par le processus relanceur : attend la fin de l'installateur, puis rouvre le logiciel s'il n'est pas déjà ouvert
+        // (installation réussie = le nouvel exécutable est déjà lancé ; échec = on rouvre l'ancienne version).
+        public static void RunRelaunchWatcher(string[] args)
+        {
+            try
+            {
+                int installerId;
+                if (args.Length < 3 || !int.TryParse(args[1], out installerId)) return;
+                var appPath = args[2];
+
+                try
+                {
+                    using (var installer = Process.GetProcessById(installerId)) installer.WaitForExit(20 * 60 * 1000);
+                }
+                catch (ArgumentException)
+                {
+                    // L'installateur est déjà terminé.
+                }
+
+                Thread.Sleep(4000);
+                var name = Path.GetFileNameWithoutExtension(appPath);
+                if (File.Exists(appPath) && Process.GetProcessesByName(name).Length == 0)
+                {
+                    Process.Start(new ProcessStartInfo { FileName = appPath, WorkingDirectory = Path.GetDirectoryName(appPath), UseShellExecute = false });
+                }
+            }
+            catch (Exception)
+            {
+                // Le relanceur est une sécurité : une erreur ici ne doit rien casser.
+            }
         }
 
         private static Process StartInstaller(string installerPath)
@@ -83,38 +116,35 @@ namespace IneoRbe.Desktop.Services
             }
         }
 
-        // Processus indépendant : attend la fin de l'installateur, puis relance le logiciel s'il n'est pas déjà ouvert
-        // (installation réussie = le nouvel exécutable est déjà lancé ; échec = on rouvre l'ancienne version).
         private static void StartRelaunchWatcher(Process installer, string appPath)
         {
             if (installer == null) return;
             try
             {
-                var processName = Path.GetFileNameWithoutExtension(appPath);
-                var script =
-                    "$id = " + installer.Id + "; $limit = (Get-Date).AddMinutes(20); " +
-                    "while ((Get-Process -Id $id -ErrorAction SilentlyContinue) -and (Get-Date) -lt $limit) { Start-Sleep -Seconds 1 }; " +
-                    "Start-Sleep -Seconds 4; " +
-                    "if (-not (Get-Process -Name '" + processName.Replace("'", "''") + "' -ErrorAction SilentlyContinue)) { Start-Process -FilePath '" + appPath.Replace("'", "''") + "' }";
+                // Copie temporaire : le dossier d'installation est remplacé pendant la mise à jour.
+                var copy = Path.Combine(Path.GetTempPath(), WatcherPrefix + Guid.NewGuid().ToString("N") + ".exe");
+                File.Copy(appPath, copy, true);
+                if (File.Exists(appPath + ".config")) File.Copy(appPath + ".config", copy + ".config", true);
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
-                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(script)),
+                    FileName = copy,
+                    Arguments = "/watch " + installer.Id + " \"" + appPath + "\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                 });
             }
             catch (Exception)
             {
-                // Le relanceur est une sécurité : son absence ne doit pas empêcher la mise à jour.
+                // Sans relanceur, la mise à jour fonctionne quand même ; seul le filet de sécurité manque.
             }
         }
 
-        private static void CleanDownloadedInstallers()
+        private static void CleanTemporaryFiles()
         {
             try
             {
                 foreach (var file in Directory.GetFiles(Path.GetTempPath(), "IneoRbe-*-Setup.exe")) TryDelete(file);
+                foreach (var file in Directory.GetFiles(Path.GetTempPath(), WatcherPrefix + "*")) TryDelete(file);
             }
             catch (Exception)
             {

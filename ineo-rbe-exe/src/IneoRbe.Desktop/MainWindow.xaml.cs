@@ -10,6 +10,8 @@ using IneoRbe.Desktop.Services;
 
 namespace IneoRbe.Desktop
 {
+    // Compatible .NET Framework 4.0 (Windows XP SP3 -> 11) : pas de async/await ni de HttpClient.
+    // Le réseau s'exécute sur un thread d'arrière-plan ; l'interface n'est modifiée que via Ui().
     public partial class MainWindow : Window
     {
         private readonly UpdateClient _updateClient = new UpdateClient();
@@ -18,14 +20,17 @@ namespace IneoRbe.Desktop
         private readonly AnnouncementEngine _engine;
         private readonly DispatcherTimer _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
         private readonly List<PilotCommandResult> _pendingResults = new List<PilotCommandResult>();
+        private readonly object _resultsLock = new object();
+        private readonly object _updateLock = new object();
         private readonly string _releaseVersion;
         private UpdateDescriptor _availableUpdate;
         private string _serial;
-        private string _screensRevision;
+        private volatile string _screensRevision;
         private bool _serialRead;
         private bool _cacheShown;
-        private bool _identityBusy;
-        private bool _syncAgain;
+        private bool _profileShown;
+        private bool _syncBusy;
+        private volatile bool _syncAgain;
 
         public MainWindow()
         {
@@ -35,15 +40,18 @@ namespace IneoRbe.Desktop
             var versionText = "Version installée : " + _releaseVersion;
             VersionText.Text = versionText;
             StatusVersionText.Text = versionText;
+            TlsModeText.Text = HttpTransport.UsesEmbeddedTls
+                ? "Chiffrement : TLS 1.2 embarqué (ce système ne le gère pas nativement)"
+                : "Chiffrement : TLS 1.2 du système";
 
             _engine = new AnnouncementEngine(_config);
             AnnouncementsPage.Initialize(_config, _engine);
             ScreensPage.Initialize(_config);
-            SimulatorPage.SyncRequested += async (s, e) => await RefreshIdentityAsync();
+            SimulatorPage.SyncRequested += (s, e) => StartSync(false);
 
             RefreshNetworkStatus();
             NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
-            _syncTimer.Tick += async (s, e) => await RefreshIdentityAsync();
+            _syncTimer.Tick += (s, e) => StartSync(false);
             Closed += (s, e) =>
             {
                 _syncTimer.Stop();
@@ -51,28 +59,72 @@ namespace IneoRbe.Desktop
                 _engine.Dispose();
             };
             var startupNotice = UpdateInstaller.ConsumePendingResult(version);
-            Loaded += async (s, e) =>
+            Loaded += (s, e) =>
             {
                 _syncTimer.Start();
-                await RefreshIdentityAsync();
-                await CheckForUpdatesAsync();
-                if (startupNotice != null) UpdateStatusText.Text = startupNotice + Environment.NewLine + UpdateStatusText.Text;
+                StartSync(true, startupNotice);
             };
         }
 
         private void OnNetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
         {
             var available = e.IsAvailable;
-            Dispatcher.BeginInvoke(new Action(async () =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 RefreshNetworkStatus();
-                if (available) await RefreshIdentityAsync();
+                if (available) StartSync(false);
             }));
         }
 
-        private async void RefreshIdentityButton_Click(object sender, RoutedEventArgs e)
+        // Exécute une action sur le thread d'interface et attend sa fin (sans erreur si la fenêtre se ferme).
+        private void Ui(Action action)
         {
-            await RefreshIdentityAsync();
+            try
+            {
+                if (Dispatcher.HasShutdownStarted) return;
+                Dispatcher.Invoke(action);
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }
+
+        // Lance le travail réseau hors du thread d'interface ; une seule synchronisation à la fois.
+        private void StartSync(bool thenCheckUpdates, string startupNotice = null)
+        {
+            if (_syncBusy) return;
+            _syncBusy = true;
+            RefreshIdentityButton.IsEnabled = false;
+
+            Task.Factory.StartNew(() =>
+            {
+                SyncWorker();
+                if (thenCheckUpdates)
+                {
+                    CheckForUpdatesBlocking();
+                    if (startupNotice != null) Ui(() => UpdateStatusText.Text = startupNotice + Environment.NewLine + UpdateStatusText.Text);
+                }
+            }).ContinueWith(task =>
+            {
+                var failure = task.Exception;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _syncBusy = false;
+                    RefreshIdentityButton.IsEnabled = true;
+                    if (failure != null) IdentityStatusText.Text = "Synchronisation interrompue : " + failure.GetBaseException().Message;
+                    // Des commandes viennent d'être exécutées : on remonte vite leur résultat au serveur.
+                    if (_syncAgain)
+                    {
+                        _syncAgain = false;
+                        StartSync(false);
+                    }
+                }));
+            });
+        }
+
+        private void RefreshIdentityButton_Click(object sender, RoutedEventArgs e)
+        {
+            StartSync(false);
         }
 
         private void CopySerialButton_Click(object sender, RoutedEventArgs e)
@@ -83,34 +135,38 @@ namespace IneoRbe.Desktop
         }
 
         // Synchronisation avec le serveur : profil du véhicule, profil écran (avec ses images) et commandes du véhicule pilote.
-        private async Task RefreshIdentityAsync()
+        private void SyncWorker()
         {
-            if (_identityBusy) return;
-            _identityBusy = true;
-            RefreshIdentityButton.IsEnabled = false;
-            try
+            if (!_serialRead)
             {
-                if (!_serialRead)
-                {
-                    _serial = await Task.Run(() => DeviceIdentity.ReadSerial());
-                    _serialRead = true;
-                }
-                if (_serial == null)
+                _serial = DeviceIdentity.ReadSerial();
+                _serialRead = true;
+            }
+            if (_serial == null)
+            {
+                Ui(() =>
                 {
                     SerialBox.Text = "Illisible";
                     ProfileTitleText.Text = "N° de série introuvable";
                     ProfileDetailText.Text = "Le numéro de série de cet ordinateur est absent ou générique (valeur par défaut du constructeur) : il ne peut pas être rattaché à un véhicule.";
                     IdentityStatusText.Text = string.Empty;
                     StatusProfileText.Text = "Profil : indisponible";
-                    return;
-                }
+                });
+                return;
+            }
 
+            Ui(() =>
+            {
                 SerialBox.Text = _serial;
                 CopySerialButton.IsEnabled = true;
+            });
+
+            if (!_cacheShown)
+            {
+                _cacheShown = true;
                 var cached = UcIdentityStore.Load(_serial);
-                if (!_cacheShown)
+                Ui(() =>
                 {
-                    _cacheShown = true;
                     if (cached != null)
                     {
                         ShowIdentity(cached, true);
@@ -118,67 +174,61 @@ namespace IneoRbe.Desktop
                         _screensRevision = cached.ScreenProfile != null ? cached.ScreenProfile.Revision : null;
                     }
                     else IdentityStatusText.Text = "Recherche du profil du véhicule...";
-                }
+                });
+            }
 
-                try
+            try
+            {
+                List<PilotCommandResult> sent;
+                lock (_resultsLock) sent = _pendingResults.ToList();
+
+                var identity = _identityClient.Sync(_serial, _releaseVersion, _screensRevision, sent);
+                lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
+
+                var mediaIds = MediaCache.IdsOf(identity.ScreenProfile).ToList();
+                if (identity.ScreenProfile != null) MediaCache.Ensure(mediaIds);
+                MediaCache.Prune(mediaIds);
+                UcIdentityStore.Save(identity);
+
+                Ui(() =>
                 {
-                    var sent = _pendingResults.ToList();
-                    var identity = await _identityClient.SyncAsync(_serial, _releaseVersion, _screensRevision, sent);
-                    foreach (var result in sent) _pendingResults.Remove(result);
-                    await ApplyIdentityAsync(identity);
-                }
-                catch (InternetUnavailableException)
+                    _screensRevision = identity.ScreenProfile != null ? identity.ScreenProfile.Revision : null;
+                    ShowIdentity(identity, false);
+                    SimulatorPage.SetProfile(identity.ScreenProfile);
+                    _syncTimer.Interval = TimeSpan.FromSeconds(identity.IsPilot ? 15 : 60);
+                });
+
+                var commands = identity.Commands ?? new List<PilotCommand>();
+                foreach (var command in commands) ExecuteCommand(command);
+                if (commands.Count > 0) _syncAgain = true;
+            }
+            catch (InternetUnavailableException)
+            {
+                Ui(() =>
                 {
-                    if (cached == null)
-                    {
-                        ProfileTitleText.Text = "Profil inconnu";
-                        ProfileDetailText.Text = string.Empty;
-                        IdentityStatusText.Text = "Hors connexion : le profil sera récupéré dès que Internet sera disponible.";
-                        StatusProfileText.Text = "Profil : inconnu";
-                    }
-                }
-                catch (Exception exception)
+                    if (_profileShown) return;
+                    ProfileTitleText.Text = "Profil inconnu";
+                    ProfileDetailText.Text = string.Empty;
+                    IdentityStatusText.Text = "Hors connexion : le profil sera récupéré dès que Internet sera disponible.";
+                    StatusProfileText.Text = "Profil : inconnu";
+                });
+            }
+            catch (Exception exception)
+            {
+                Ui(() =>
                 {
-                    if (cached == null)
+                    if (!_profileShown)
                     {
                         ProfileTitleText.Text = "Profil inconnu";
                         ProfileDetailText.Text = string.Empty;
                         StatusProfileText.Text = "Profil : inconnu";
                     }
                     IdentityStatusText.Text = "Identification impossible : " + exception.Message;
-                }
-            }
-            finally
-            {
-                RefreshIdentityButton.IsEnabled = true;
-                _identityBusy = false;
-                if (_syncAgain)
-                {
-                    // Des commandes viennent d'être exécutées : on remonte vite leur résultat au serveur.
-                    _syncAgain = false;
-                    _ = Dispatcher.BeginInvoke(new Action(async () => await RefreshIdentityAsync()));
-                }
+                });
             }
         }
 
-        private async Task ApplyIdentityAsync(UcIdentity identity)
-        {
-            var commands = identity.Commands ?? new List<PilotCommand>();
-            var mediaIds = MediaCache.IdsOf(identity.ScreenProfile).ToList();
-            if (identity.ScreenProfile != null) await MediaCache.EnsureAsync(mediaIds);
-            MediaCache.Prune(mediaIds);
-
-            _screensRevision = identity.ScreenProfile != null ? identity.ScreenProfile.Revision : null;
-            UcIdentityStore.Save(identity);
-            ShowIdentity(identity, false);
-            SimulatorPage.SetProfile(identity.ScreenProfile);
-            _syncTimer.Interval = TimeSpan.FromSeconds(identity.IsPilot ? 15 : 60);
-
-            foreach (var command in commands) await ExecuteCommandAsync(command);
-            if (commands.Count > 0) _syncAgain = true;
-        }
-
-        private async Task ExecuteCommandAsync(PilotCommand command)
+        private void ExecuteCommand(PilotCommand command)
         {
             try
             {
@@ -188,26 +238,31 @@ namespace IneoRbe.Desktop
                         Report(command, true, "Profil et écrans rechargés.");
                         break;
                     case "TEST_SCREEN":
-                        SimulatorPage.ShowTestCard(60);
+                        Ui(() => SimulatorPage.ShowTestCard(60));
                         Report(command, true, "Mire de test affichée pendant 60 secondes.");
                         break;
                     case "TEST_SOUND":
-                        var announcement = _config.Announcements.FirstOrDefault(item => item.Enabled && !string.IsNullOrEmpty(item.SoundFile));
-                        if (announcement != null)
+                        Ui(() =>
                         {
-                            _engine.PlayTest(SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile));
-                            Report(command, true, "Annonce « " + announcement.Name + " » jouée.");
-                        }
-                        else
-                        {
-                            System.Media.SystemSounds.Exclamation.Play();
-                            Report(command, true, "Aucune annonce configurée : son système joué.");
-                        }
+                            var announcement = _config.Announcements.FirstOrDefault(item => item.Enabled && !string.IsNullOrEmpty(item.SoundFile));
+                            if (announcement != null)
+                            {
+                                _engine.PlayTest(SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile));
+                                Report(command, true, "Annonce « " + announcement.Name + " » jouée.");
+                            }
+                            else
+                            {
+                                System.Media.SystemSounds.Exclamation.Play();
+                                Report(command, true, "Aucune annonce configurée : son système joué.");
+                            }
+                        });
                         break;
                     case "CHECK_UPDATE":
-                        if (!await CheckForUpdatesAsync())
+                        if (!CheckForUpdatesBlocking())
                         {
-                            Report(command, false, "Vérification impossible : " + UpdateStatusText.Text);
+                            string status = null;
+                            Ui(() => status = UpdateStatusText.Text);
+                            Report(command, false, "Vérification impossible : " + status);
                         }
                         else if (_availableUpdate == null)
                         {
@@ -217,8 +272,8 @@ namespace IneoRbe.Desktop
                         {
                             // Le logiciel se ferme pour s'installer : le résultat doit partir avant.
                             Report(command, true, "Version " + _availableUpdate.Version + " : installation lancée (autorisation administrateur requise sur le poste).");
-                            await FlushResultsAsync();
-                            await InstallAvailableUpdateAsync();
+                            FlushResults();
+                            InstallAvailableUpdateBlocking();
                         }
                         break;
                     default:
@@ -234,21 +289,25 @@ namespace IneoRbe.Desktop
 
         private void Report(PilotCommand command, bool success, string message)
         {
-            _pendingResults.Add(new PilotCommandResult
+            lock (_resultsLock)
             {
-                Id = command.Id,
-                Status = success ? "DONE" : "FAILED",
-                Result = message != null && message.Length > 280 ? message.Substring(0, 280) : message,
-            });
+                _pendingResults.Add(new PilotCommandResult
+                {
+                    Id = command.Id,
+                    Status = success ? "DONE" : "FAILED",
+                    Result = message != null && message.Length > 280 ? message.Substring(0, 280) : message,
+                });
+            }
         }
 
-        private async Task FlushResultsAsync()
+        private void FlushResults()
         {
             try
             {
-                var sent = _pendingResults.ToList();
-                await _identityClient.SyncAsync(_serial, _releaseVersion, _screensRevision, sent);
-                foreach (var result in sent) _pendingResults.Remove(result);
+                List<PilotCommandResult> sent;
+                lock (_resultsLock) sent = _pendingResults.ToList();
+                _identityClient.Sync(_serial, _releaseVersion, _screensRevision, sent);
+                lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
             }
             catch (Exception)
             {
@@ -258,6 +317,7 @@ namespace IneoRbe.Desktop
 
         private void ShowIdentity(UcIdentity identity, bool fromCache)
         {
+            _profileShown = true;
             if (identity.IsPilot)
             {
                 ProfileTitleText.Text = identity.PilotName != null && identity.PilotName.StartsWith("Véhicule pilote", StringComparison.OrdinalIgnoreCase)
@@ -292,7 +352,7 @@ namespace IneoRbe.Desktop
         private static string DescribeProfile(UcVehicleInfo vehicle, UcProfileInfo profile)
         {
             var lines = new List<string>();
-            var identification = string.Join(" ", new[] { vehicle.Marque, vehicle.Modele }.Where(part => !string.IsNullOrWhiteSpace(part)));
+            var identification = string.Join(" ", new[] { vehicle.Marque, vehicle.Modele }.Where(part => !string.IsNullOrWhiteSpace(part)).ToArray());
             if (!string.IsNullOrWhiteSpace(vehicle.Immat)) identification += (identification.Length > 0 ? " — " : string.Empty) + vehicle.Immat;
             if (identification.Length > 0) lines.Add(identification);
 
@@ -305,10 +365,10 @@ namespace IneoRbe.Desktop
                 {
                     characteristics.Add(string.Format("Dimensions : {0:0.##} × {1:0.##} × {2:0.##} m", profile.LengthM, profile.WidthM, profile.HeightM));
                 }
-                if (characteristics.Count > 0) lines.Add(string.Join(" · ", characteristics));
+                if (characteristics.Count > 0) lines.Add(string.Join(" · ", characteristics.ToArray()));
                 if (!string.IsNullOrWhiteSpace(profile.Options)) lines.Add("Options : " + profile.Options);
             }
-            return string.Join(Environment.NewLine, lines);
+            return string.Join(Environment.NewLine, lines.ToArray());
         }
 
         private void RefreshNetworkStatus()
@@ -319,81 +379,107 @@ namespace IneoRbe.Desktop
             SimulatorPage.SetConnectionState(online);
         }
 
-        private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
+        private void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
         {
-            await CheckForUpdatesAsync();
+            Task.Factory.StartNew(() => CheckForUpdatesBlocking());
         }
 
-        // Retourne false si la vérification elle-même a échoué (réseau, serveur…).
-        private async Task<bool> CheckForUpdatesAsync()
+        // Retourne false si la vérification elle-même a échoué (réseau, serveur…). À appeler hors du thread d'interface.
+        private bool CheckForUpdatesBlocking()
         {
-            CheckUpdateButton.IsEnabled = false;
-            InstallUpdateButton.IsEnabled = false;
-            _availableUpdate = null;
-            InternetStatusText.Text = "Vérification de la connexion Internet...";
-            UpdateStatusText.Text = string.Empty;
-
-            try
+            lock (_updateLock)
             {
-                var result = await _updateClient.CheckForUpdateAsync();
-                InternetStatusText.Text = "Connexion Internet : disponible";
-                if (!result.UpdateAvailable)
+                Ui(() =>
                 {
-                    UpdateStatusText.Text = "Le logiciel est à jour.";
+                    CheckUpdateButton.IsEnabled = false;
+                    InstallUpdateButton.IsEnabled = false;
+                    _availableUpdate = null;
+                    InternetStatusText.Text = "Vérification de la connexion Internet...";
+                    UpdateStatusText.Text = string.Empty;
+                });
+
+                try
+                {
+                    var result = _updateClient.CheckForUpdate();
+                    if (!result.UpdateAvailable)
+                    {
+                        Ui(() =>
+                        {
+                            InternetStatusText.Text = "Connexion Internet : disponible";
+                            UpdateStatusText.Text = "Le logiciel est à jour.";
+                        });
+                        return true;
+                    }
+
+                    Ui(() =>
+                    {
+                        _availableUpdate = result.Update;
+                        InternetStatusText.Text = "Connexion Internet : disponible";
+                        UpdateStatusText.Text = string.IsNullOrWhiteSpace(result.Update.ReleaseNotes)
+                            ? string.Format("Version {0} disponible.", result.Update.Version)
+                            : string.Format("Version {0} disponible : {1}", result.Update.Version, result.Update.ReleaseNotes);
+                        InstallUpdateButton.IsEnabled = true;
+                    });
                     return true;
                 }
-
-                _availableUpdate = result.Update;
-                UpdateStatusText.Text = string.IsNullOrWhiteSpace(_availableUpdate.ReleaseNotes)
-                    ? string.Format("Version {0} disponible.", _availableUpdate.Version)
-                    : string.Format("Version {0} disponible : {1}", _availableUpdate.Version, _availableUpdate.ReleaseNotes);
-                InstallUpdateButton.IsEnabled = true;
-                return true;
-            }
-            catch (InternetUnavailableException)
-            {
-                InternetStatusText.Text = "Connexion Internet : indisponible";
-                UpdateStatusText.Text = "Les services embarqués restent disponibles localement. Nouvelle vérification au prochain démarrage.";
-                return false;
-            }
-            catch (Exception exception)
-            {
-                InternetStatusText.Text = "Connexion Internet : disponible";
-                UpdateStatusText.Text = string.Format("La recherche de mise à jour a échoué : {0}", exception.Message);
-                return false;
-            }
-            finally
-            {
-                CheckUpdateButton.IsEnabled = true;
+                catch (InternetUnavailableException)
+                {
+                    Ui(() =>
+                    {
+                        InternetStatusText.Text = "Connexion Internet : indisponible";
+                        UpdateStatusText.Text = "Les services embarqués restent disponibles localement. Nouvelle vérification au prochain démarrage.";
+                    });
+                    return false;
+                }
+                catch (Exception exception)
+                {
+                    Ui(() =>
+                    {
+                        InternetStatusText.Text = "Connexion Internet : disponible";
+                        UpdateStatusText.Text = string.Format("La recherche de mise à jour a échoué : {0}", exception.Message);
+                    });
+                    return false;
+                }
+                finally
+                {
+                    Ui(() => CheckUpdateButton.IsEnabled = true);
+                }
             }
         }
 
-        private async void InstallUpdateButton_Click(object sender, RoutedEventArgs e)
+        private void InstallUpdateButton_Click(object sender, RoutedEventArgs e)
         {
-            await InstallAvailableUpdateAsync();
+            Task.Factory.StartNew(() => InstallAvailableUpdateBlocking());
         }
 
-        private async Task InstallAvailableUpdateAsync()
+        private void InstallAvailableUpdateBlocking()
         {
-            if (_availableUpdate == null) return;
+            var update = _availableUpdate;
+            if (update == null) return;
 
-            InstallUpdateButton.IsEnabled = false;
-            CheckUpdateButton.IsEnabled = false;
-            UpdateStatusText.Text = "Téléchargement et vérification de la mise à jour...";
+            Ui(() =>
+            {
+                InstallUpdateButton.IsEnabled = false;
+                CheckUpdateButton.IsEnabled = false;
+                UpdateStatusText.Text = "Téléchargement et vérification de la mise à jour...";
+            });
             try
             {
-                var installerPath = await _updateClient.DownloadAndVerifyInstallerAsync(_availableUpdate);
-                UpdateStatusText.Text = "Installation en cours : le logiciel va redémarrer tout seul.";
-                UpdateInstaller.Launch(installerPath, _availableUpdate.Version);
-                Application.Current.Shutdown();
+                var installerPath = _updateClient.DownloadAndVerifyInstaller(update);
+                Ui(() => UpdateStatusText.Text = "Installation en cours : le logiciel va redémarrer tout seul.");
+                UpdateInstaller.Launch(installerPath, update.Version);
+                Ui(() => Application.Current.Shutdown());
             }
             catch (Exception exception)
             {
-                UpdateStatusText.Text = exception is OperationCanceledException
-                    ? exception.Message
-                    : string.Format("La mise à jour n'a pas été installée : {0}", exception.Message);
-                CheckUpdateButton.IsEnabled = true;
-                InstallUpdateButton.IsEnabled = true;
+                Ui(() =>
+                {
+                    UpdateStatusText.Text = exception is OperationCanceledException
+                        ? exception.Message
+                        : string.Format("La mise à jour n'a pas été installée : {0}", exception.Message);
+                    CheckUpdateButton.IsEnabled = true;
+                    InstallUpdateButton.IsEnabled = true;
+                });
             }
         }
     }

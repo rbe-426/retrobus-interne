@@ -72,6 +72,27 @@
     <GroupBox Grid.Row="1" Grid.ColumnSpan="2" Header="Diffusion automatique" Margin="0,8,0,0" Padding="8">
       <StackPanel>
         <CheckBox x:Name="EngineCheck" Content="Diffuser les annonces automatiquement selon la position GPS" Checked="EngineCheck_Changed" Unchecked="EngineCheck_Changed" />
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="210" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="90" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Source GPS :" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <ComboBox x:Name="GpsSourceCombo" Grid.Column="1" SelectionChanged="GpsSettings_Changed">
+            <ComboBoxItem Tag="AUTO" Content="Automatique (selon Windows)" />
+            <ComboBoxItem Tag="WINDOWS" Content="Localisation Windows (7 et +)" />
+            <ComboBoxItem Tag="SERIAL" Content="Port série (GPS USB / COM)" />
+          </ComboBox>
+          <TextBlock Grid.Column="2" Text="Port :" VerticalAlignment="Center" Margin="12,0,6,0" />
+          <ComboBox x:Name="GpsPortCombo" Grid.Column="3" IsEditable="True" SelectionChanged="GpsSettings_Changed" LostFocus="GpsSettings_Changed" />
+          <TextBlock Grid.Column="4" Text="Bauds :" VerticalAlignment="Center" Margin="12,0,6,0" />
+          <ComboBox x:Name="GpsBaudCombo" Grid.Column="5" SelectionChanged="GpsSettings_Changed" />
+        </Grid>
         <TextBlock x:Name="EngineStatusText" Margin="0,6,0,0" TextWrapping="Wrap" />
       </StackPanel>
     </GroupBox>

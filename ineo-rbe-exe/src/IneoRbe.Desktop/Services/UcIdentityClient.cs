@@ -2,14 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace IneoRbe.Desktop.Services
 {
@@ -101,7 +98,8 @@ namespace IneoRbe.Desktop.Services
 
     public sealed class UcIdentityClient
     {
-        public async Task<UcIdentity> SyncAsync(string serial, string appVersion, string screensRevision, IList<PilotCommandResult> results)
+        // Appel bloquant : à exécuter hors du thread d'interface.
+        public UcIdentity Sync(string serial, string appVersion, string screensRevision, IList<PilotCommandResult> results)
         {
             if (!NetworkInterface.GetIsNetworkAvailable()) throw new InternetUnavailableException();
 
@@ -114,53 +112,27 @@ namespace IneoRbe.Desktop.Services
                 ScreensRevision = screensRevision,
                 CommandResults = results == null ? new List<PilotCommandResult>() : results.ToList(),
             };
-            string json;
+            byte[] json;
             using (var buffer = new MemoryStream())
             {
                 new DataContractJsonSerializer(typeof(UcSyncRequest)).WriteObject(buffer, request);
-                json = Encoding.UTF8.GetString(buffer.ToArray());
+                json = buffer.ToArray();
             }
 
-            using (var client = ApiEndpoints.CreateHttpClient())
-            {
-                var response = await Post(client, ApiEndpoints.SyncUrl, json);
-                try
-                {
-                    // Serveur pas encore mis à jour : on retombe sur l'ancienne identification (profil véhicule seul).
-                    if (response.StatusCode == HttpStatusCode.NotFound)
-                    {
-                        response.Dispose();
-                        response = await Post(client, ApiEndpoints.IdentifyUrl, json);
-                    }
-                    if (response.StatusCode == HttpStatusCode.BadRequest)
-                    {
-                        throw new InvalidOperationException("Le serveur refuse le numéro de série de cet ordinateur.");
-                    }
-                    if (response.StatusCode == (HttpStatusCode)429)
-                    {
-                        throw new InvalidOperationException("Trop de demandes, réessayez dans une minute.");
-                    }
-                    response.EnsureSuccessStatusCode();
-                    using (var stream = await response.Content.ReadAsStreamAsync())
-                    {
-                        var identity = (UcIdentity)new DataContractJsonSerializer(typeof(UcIdentity)).ReadObject(stream);
-                        if (identity == null) throw new InvalidOperationException("Réponse du serveur illisible.");
-                        identity.CheckedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-                        return identity;
-                    }
-                }
-                finally
-                {
-                    response.Dispose();
-                }
-            }
-        }
+            var response = HttpTransport.Send("POST", ApiEndpoints.SyncUrl, "application/json", json, 20000);
+            // Serveur pas encore mis à jour : on retombe sur l'ancienne identification (profil véhicule seul).
+            if (response.StatusCode == 404) response = HttpTransport.Send("POST", ApiEndpoints.IdentifyUrl, "application/json", json, 20000);
 
-        private static async Task<HttpResponseMessage> Post(HttpClient client, string url, string json)
-        {
-            using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
+            if (response.StatusCode == 400) throw new InvalidOperationException("Le serveur refuse le numéro de série de cet ordinateur.");
+            if (response.StatusCode == 429) throw new InvalidOperationException("Trop de demandes, réessayez dans une minute.");
+            if (!response.IsSuccess) throw new InvalidOperationException("Le serveur a répondu " + response.StatusCode + ".");
+
+            using (var stream = new MemoryStream(response.Body))
             {
-                return await client.PostAsync(url, content);
+                var identity = (UcIdentity)new DataContractJsonSerializer(typeof(UcIdentity)).ReadObject(stream);
+                if (identity == null) throw new InvalidOperationException("Réponse du serveur illisible.");
+                identity.CheckedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+                return identity;
             }
         }
     }
@@ -220,12 +192,12 @@ namespace IneoRbe.Desktop.Services
         private const long MaxBytes = 8L * 1024 * 1024;
         private static readonly Regex IdPattern = new Regex("^[a-f0-9]{32}$", RegexOptions.Compiled);
 
-        private static string Directory_ { get { return Path.Combine(SaeivStore.RootDirectory, "media"); } }
+        private static string CacheDirectory { get { return Path.Combine(SaeivStore.RootDirectory, "media"); } }
 
         public static string PathFor(string mediaId)
         {
             if (string.IsNullOrEmpty(mediaId) || !IdPattern.IsMatch(mediaId)) return null;
-            var path = Path.Combine(Directory_, mediaId);
+            var path = Path.Combine(CacheDirectory, mediaId);
             return File.Exists(path) ? path : null;
         }
 
@@ -240,7 +212,7 @@ namespace IneoRbe.Desktop.Services
         }
 
         // Télécharge les images manquantes ; retourne le nombre d'échecs (l'écran affichera alors un fond neutre).
-        public static async Task<int> EnsureAsync(IEnumerable<string> mediaIds)
+        public static int Ensure(IEnumerable<string> mediaIds)
         {
             var failures = 0;
             foreach (var id in mediaIds)
@@ -248,23 +220,9 @@ namespace IneoRbe.Desktop.Services
                 if (string.IsNullOrEmpty(id) || !IdPattern.IsMatch(id) || PathFor(id) != null) continue;
                 try
                 {
-                    System.IO.Directory.CreateDirectory(Directory_);
-                    using (var client = ApiEndpoints.CreateHttpClient())
-                    using (var response = await client.GetAsync(ApiEndpoints.MediaUrl(id), HttpCompletionOption.ResponseHeadersRead))
-                    {
-                        response.EnsureSuccessStatusCode();
-                        if (response.Content.Headers.ContentLength.HasValue && response.Content.Headers.ContentLength.Value > MaxBytes)
-                        {
-                            throw new InvalidOperationException("Image trop volumineuse.");
-                        }
-                        var temporary = Path.Combine(Directory_, id + ".tmp");
-                        using (var input = await response.Content.ReadAsStreamAsync())
-                        using (var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                        {
-                            await input.CopyToAsync(output);
-                        }
-                        File.Move(temporary, Path.Combine(Directory_, id));
-                    }
+                    Directory.CreateDirectory(CacheDirectory);
+                    var status = HttpTransport.DownloadToFile(ApiEndpoints.MediaUrl(id), Path.Combine(CacheDirectory, id), MaxBytes, 30000);
+                    if (status != 200) failures++;
                 }
                 catch (Exception)
                 {
@@ -280,8 +238,8 @@ namespace IneoRbe.Desktop.Services
             try
             {
                 var keep = new HashSet<string>(keepIds);
-                if (!System.IO.Directory.Exists(Directory_)) return;
-                foreach (var file in System.IO.Directory.GetFiles(Directory_))
+                if (!Directory.Exists(CacheDirectory)) return;
+                foreach (var file in Directory.GetFiles(CacheDirectory))
                 {
                     if (!keep.Contains(Path.GetFileName(file))) File.Delete(file);
                 }

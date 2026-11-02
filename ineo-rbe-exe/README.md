@@ -4,12 +4,15 @@ Application Windows embarquée destinée aux ordinateurs installés dans les bus
 
 ## Compatibilité et fonctionnement
 
-- Windows 7 SP1 à Windows 11 ;
-- .NET Framework 4.8 ;
+- **Windows XP SP3 à Windows 11** (32 et 64 bits) ;
+- **.NET Framework 4.0 minimum** (dernière version installable sur XP ; déjà présent ou installable sur Windows 7 et plus récent). L'installateur vérifie sa présence ;
 - interface locale minimaliste ;
 - vérification de l'accès Internet et des mises à jour au démarrage ;
 - démarrage automatique pour tous les utilisateurs du poste ;
-- installateur Inno Setup avec désinstallation propre.
+- installateur Inno Setup 5.6.1 (compatible XP) avec désinstallation propre ;
+- connexion sécurisée **TLS 1.2 embarquée** (BouncyCastle) pour les Windows qui ne la gèrent pas (XP, Vista) : le serveur est validé avec les racines Let's Encrypt (ISRG Root X1/X2) intégrées au programme, sans vérification de révocation, et seul le serveur RétroBus est joignable dans ce mode.
+
+Sur Windows 7 et plus récent avec .NET 4.5+, le chiffrement du système est utilisé. Sur XP/Vista, ou si Windows refuse TLS 1.2, le logiciel bascule seul sur le client embarqué (affiché sur la page « Ce poste »).
 
 Le programme ne télécharge jamais un exécutable sans que son empreinte SHA-256, publiée par l'API Railway, corresponde à l'empreinte du fichier téléchargé.
 
@@ -45,7 +48,9 @@ L'onglet **Config SAEIV** regroupe deux sous-onglets, dans une interface volonta
   - **Position GPS** : l'annonce se diffuse quand le bus entre dans le rayon du point ;
   - **Pré-annonce** : l'annonce se diffuse X mètres avant le point.
 - Le bouton **Écouter** permet de tester le son sans attendre le GPS.
-- La case **Diffuser les annonces automatiquement** démarre la lecture selon la position fournie par le service de localisation de Windows (capteur GPS USB/série compatible). Une annonce ne se rejoue qu'après que le bus s'est éloigné du point.
+- La case **Diffuser les annonces automatiquement** démarre la lecture selon la position GPS. Deux sources, au choix (`Automatique` par défaut) :
+  - **Localisation Windows** (Windows 7 et plus récent) ;
+  - **Port série** (obligatoire sous XP/Vista) : lecture d'un récepteur GPS USB/série qui émet des phrases NMEA 0183 (GGA/RMC, somme de contrôle vérifiée). Port `AUTO` = détection du port qui répond, sinon COMx et vitesse (4800 à 115200 bauds) à choisir. Une annonce ne se rejoue qu'après que le bus s'est éloigné du point.
 - Plusieurs annonces déclenchées en même temps sont lues l'une après l'autre.
 
 ### Configurations d'écrans
@@ -54,40 +59,29 @@ Pour chaque écran SAEIV : un nom, une **image de perte de connexion** (affiché
 
 ### Stockage
 
-La configuration est enregistrée dans `C:\ProgramData\IneoRbe\` (`saeiv-config.json`, dossiers `sounds` et `screens`), partagée par tous les comptes Windows du poste, et conservée lors d'une mise à jour ou d'une désinstallation.
+La configuration est enregistrée dans `C:\ProgramData\IneoRbe\` (`saeiv-config.json`, dossiers `sounds`, `screens` et `media`), partagée par tous les comptes Windows du poste, et conservée lors d'une mise à jour ou d'une désinstallation.
 
 ## Compiler l'installateur
 
-1. Installer Visual Studio Build Tools avec la charge de travail **.NET desktop build tools** et le pack de ciblage .NET Framework 4.8.
-2. Installer Inno Setup 6.
+1. Installer **Visual Studio Build Tools** avec la charge de travail « .NET desktop build tools ».
+2. Installer **Inno Setup 5.6.1** (`innosetup-5.6.1-unicode.exe` sur https://files.jrsoftware.org/is/5/) : la version 6 refuse de produire un installateur pour XP.
 3. Ouvrir PowerShell dans ce dossier puis exécuter :
 
 ```powershell
-.\build-installer.ps1
+powershell -ExecutionPolicy Bypass -File .\build-installer.ps1
 ```
 
-L'installateur est créé dans `artifacts\InéoRétroBus-Setup.exe`.
+Le script télécharge une fois, avec vérification de leur empreinte SHA-256, les assemblies de référence .NET 4.0 (`.refs\`) et BouncyCastle (`lib\`). Compiler contre les assemblies 4.0 garantit qu'aucune API plus récente que XP n'est utilisée. Il affiche à la fin la version et l'empreinte de l'installateur, créé dans `artifacts\InéoRétroBus-Setup.exe`.
 
 ## Publier une mise à jour
 
 1. Incrémenter `AssemblyVersion` et `AssemblyFileVersion` dans `src\IneoRbe.Desktop\Properties\AssemblyInfo.cs`.
-2. Compiler l'installateur.
-3. Publier l'installateur dans une GitHub Release.
-4. Calculer son SHA-256 :
+2. Compiler l'installateur (voir ci-dessus).
+3. Dans l'URBEX : **Inéo RétroBus > Logiciel > Installateur UC**, importer le fichier avec son numéro de version (et des notes facultatives).
+4. Ajouter une entrée au journal des modifications (`/api/changelog`).
 
-```powershell
-Get-FileHash .\artifacts\InéoRétroBus-Setup.exe -Algorithm SHA256
-```
+Aucune variable Railway n'est nécessaire : l'API propose la version la plus récente de l'URBEX et la sert elle-même (`GET /api/ineo-rbe-desktop/installer/:id`), ce qui est indispensable pour les Windows anciens qui ne peuvent joindre que le serveur RétroBus. Les variables `INEO_RBE_DESKTOP_*` (installateur hébergé ailleurs, par exemple une GitHub Release) restent prises en compte : la version la plus récente l'emporte, et à version égale celle de l'URBEX.
 
-5. Configurer Railway :
+L'application interroge `GET /api/ineo-rbe-desktop/update`, compare la version reçue avec la sienne et active le bouton **Mettre à jour** seulement si une version plus récente existe. Elle vérifie l'empreinte SHA-256 du fichier téléchargé avant de le lancer, et se relance seule après l'installation, réussie ou non.
 
-| Variable | Exemple |
-|---|---|
-| `INEO_RBE_DESKTOP_VERSION` | `1.0.1` |
-| `INEO_RBE_DESKTOP_INSTALLER_URL` | URL HTTPS directe de l'installateur de la GitHub Release |
-| `INEO_RBE_DESKTOP_INSTALLER_SHA256` | Empreinte SHA-256 hexadécimale de l'installateur |
-| `INEO_RBE_DESKTOP_RELEASE_NOTES` | Texte court des changements (facultatif) |
-
-L'application interroge `GET /api/ineo-rbe-desktop/update`, compare la version reçue avec sa version locale et active le bouton **Mettre à jour** seulement lorsqu'une version plus récente est disponible.
-
-> Ne publiez jamais une version dont l'empreinte SHA-256 ne correspond pas exactement à l'installateur GitHub : le programme refusera le téléchargement.
+> Mise à jour depuis une version installée avec un ancien installateur (Inno 6) : même identifiant d'application et même dossier, l'installation se fait par-dessus. Ne désactivez pas `ArchitecturesInstallIn64BitMode` dans `installer\IneoRbe.iss`, sinon une 2e copie serait créée dans `Program Files (x86)`.

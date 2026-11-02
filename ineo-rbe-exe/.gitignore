@@ -1,3 +1,5 @@
 artifacts/
+.refs/
 src/IneoRbe.Desktop/bin/
 src/IneoRbe.Desktop/obj/
+lib/
