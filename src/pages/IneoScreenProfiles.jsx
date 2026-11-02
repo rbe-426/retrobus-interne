@@ -67,7 +67,7 @@ export default function IneoScreenProfiles() {
     let active = true;
     const refresh = () => ineoAPI.getPilot().then((data) => { if (active) setPilot(data?.pilot || null); }).catch(() => {});
     refresh();
-    const timer = setInterval(refresh, 6000);
+    const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000);
     return () => { active = false; clearInterval(timer); };
   }, []);
 

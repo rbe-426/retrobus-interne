@@ -48,7 +48,7 @@ export default function IneoPilotVehicle() {
     });
     ineoAPI.listScreenProfiles().then((data) => setProfiles(data?.profiles || [])).catch(() => {});
     ineoAPI.listUcDevices().then((data) => setDevices(data?.devices || [])).catch(() => {});
-    const timer = setInterval(refresh, 4000);
+    const timer = setInterval(() => { if (!document.hidden) refresh(); }, 5000);
     return () => clearInterval(timer);
   }, [refresh]);
 
