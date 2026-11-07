@@ -87,6 +87,7 @@ const Members = lazy(() => import("./pages/Members"));
 const MembersManagement = lazy(() => import("./pages/MembersManagement"));
 const SupportSite = lazy(() => import("./pages/SupportSite"));
 const Procedures = lazy(() => import("./pages/Procedures"));
+const AppelsProjets = lazy(() => import("./pages/AppelsProjets"));
 const RetroMerch = lazy(() => import("./pages/RetroMerch"));
 const RetroPlanning = lazy(() => import("./pages/RetroPlanning"));
 const SharedPlanning = lazy(() => import("./pages/PlanningRBE"));
@@ -286,6 +287,7 @@ export default function App() {
         <Route path="/dashboard/support" element={<Navigate to="/accueil/myrbe/support" replace />} />
         <Route path="/accueil/myrbe/procedures/:categoryId?" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
         <Route path="/dashboard/procedures/:categoryId?" element={<LegacyProceduresRedirect />} />
+        <Route path="/accueil/myrbe/appels-projets" element={<ProtectedRoute><AppelsProjets /></ProtectedRoute>} />
         <Route path="/retromail" element={<ExternalRetromailRedirect />} />
         <Route path="/red/retromail" element={<Navigate to="/auth/rmail/login" replace />} />
         <Route path="/auth/rmail/login" element={<RoleProtectedRoute deniedRoles={['CLIENT', 'GUEST']}><Retromail /></RoleProtectedRoute>} />
