@@ -32,6 +32,7 @@ namespace IneoRbe.Desktop.Services
         private const int Tls12 = 3072;
         private const int MaxRedirects = 3;
         private const int MaxTextBytes = 5 * 1024 * 1024;
+        private const int MaxApiBytes = 100 * 1024 * 1024;
         private static readonly bool NativeTlsSupported = DetectNativeTls();
         private static volatile bool _forceEmbedded;
 
@@ -51,7 +52,9 @@ namespace IneoRbe.Desktop.Services
         {
             using (var sink = new MemoryStream())
             {
-                var status = Execute(method, url, contentType, body, timeoutMs, sink, MaxTextBytes);
+                // Les appels authentifiés à l'API (Planification) peuvent renvoyer de grosses listes (photos de véhicules en base64…).
+                var limit = _extraHeaders != null ? MaxApiBytes : MaxTextBytes;
+                var status = Execute(method, url, contentType, body, timeoutMs, sink, limit);
                 return new HttpResult { StatusCode = status, Body = sink.ToArray() };
             }
         }

@@ -109,12 +109,18 @@ namespace IneoRbe.Planning
                 {
                     PendingUpdate = check.Update;
                     Dispatcher.BeginInvoke(new Action(() => { _status.Foreground = Ui.Brush("#FFB4C8"); _status.FontWeight = FontWeights.Bold; }));
-                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 80);
+                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 66);
                     System.Threading.Thread.Sleep(1800);
                 }
             }
             catch (Exception) { }
-            Report("Préparation de l'interface…", 90);
+            Report("Connexion au serveur RétroBus…", 70);
+            try { HttpTransport.Send("GET", ApiEndpoints.ApiRoot + "/csrf-token", null, null, 30000); } catch (Exception) { }
+            Report("Lecture de la révision de contenu…", 80);
+            try { HttpTransport.Send("GET", ApiEndpoints.ContentRevisionUrl, null, null, 20000); } catch (Exception) { }
+            Report("Chargement de la configuration SAEIV…", 88);
+            try { SaeivStore.Load(); } catch (Exception) { }
+            Report("Préparation de l'interface…", 94);
             System.Threading.Thread.Sleep(250);
             Report("Prêt.", 100);
             System.Threading.Thread.Sleep(200);
