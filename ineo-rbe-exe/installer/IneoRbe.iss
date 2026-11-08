@@ -45,9 +45,16 @@ Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 
 [Run]
+; Ouvre le port de maintenance (TCP 47800) : Vista et plus = règle avancée ; XP = ouverture de port du pare-feu Windows.
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Inéo RétroBus Maintenance"" dir=in action=allow protocol=TCP localport=47800 profile=any"; Flags: runhidden; MinVersion: 0,6.0
+Filename: "{sys}\netsh.exe"; Parameters: "firewall add portopening protocol=TCP port=47800 name=""Inéo RétroBus Maintenance"" mode=ENABLE scope=ALL"; Flags: runhidden; OnlyBelowVersion: 0,6.0
 ; Sans « skipifsilent » : la mise à jour (installation silencieuse) relance aussi le logiciel. « runasoriginaluser » évite
 ; de le lancer avec les droits administrateur de l'installateur.
 Filename: "{app}\{#AppExeName}"; Description: "Lancer {#AppName}"; Flags: nowait postinstall runasoriginaluser
+
+[UninstallRun]
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Inéo RétroBus Maintenance"""; Flags: runhidden; MinVersion: 0,6.0
+Filename: "{sys}\netsh.exe"; Parameters: "firewall delete portopening protocol=TCP port=47800"; Flags: runhidden; OnlyBelowVersion: 0,6.0
 
 [Code]
 // .NET Framework 4.0 (ou plus récent) est indispensable ; il n'est pas préinstallé sur Windows XP.

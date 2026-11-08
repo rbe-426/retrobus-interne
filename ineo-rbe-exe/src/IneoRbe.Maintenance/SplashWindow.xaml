@@ -1,0 +1,34 @@
+<Window x:Class="IneoRbe.Maintenance.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Inéo RétroBus Maintenance" Width="440" Height="260"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen" Background="#0F172A"
+        FontFamily="Tahoma" Topmost="True">
+  <Border BorderBrush="#9F063A" BorderThickness="2">
+    <Grid Margin="16">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <Image Grid.Row="0" Source="Assets/splash-logo.png" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" />
+
+      <TextBlock x:Name="StatusText" Grid.Row="1" Foreground="#C5CED6" FontSize="11"
+                 Margin="0,0,0,6" Text="Démarrage…" />
+      <ProgressBar x:Name="LoadingBar" Grid.Row="2" Height="10" Minimum="0" Maximum="100"
+                   Foreground="#9F063A" Background="#1E293B" BorderThickness="0" />
+
+      <StackPanel x:Name="ErrorPanel" Grid.RowSpan="3" Visibility="Collapsed" Background="#0F172A" VerticalAlignment="Center">
+        <TextBlock Text="Poste non autorisé" Foreground="#9F063A" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" />
+        <TextBlock x:Name="ErrorText" Foreground="#C5CED6" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" />
+        <TextBlock x:Name="ErrorSerialText" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,10,0,0" HorizontalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+          <Button x:Name="CopySerialButton" Content="Copier le N° de série" Width="140" Height="26" Margin="0,0,8,0" Click="CopySerialButton_Click" />
+          <Button Content="Quitter" Width="90" Height="26" Click="QuitButton_Click" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

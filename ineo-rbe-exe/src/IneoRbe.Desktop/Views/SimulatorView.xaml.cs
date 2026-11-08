@@ -39,6 +39,32 @@ namespace IneoRbe.Desktop.Views
 
         public event EventHandler SyncRequested;
 
+        // Image PNG du plan des écrans (miroir pour l'outil Maintenance). À appeler sur le thread d'interface.
+        public byte[] CaptureSnapshot()
+        {
+            const int width = 1000;
+            const int height = 400;
+            // Le simulateur n'est affiché dans aucun onglet de l'UC : sans mise en page forcée, le plan n'a aucune taille et l'image est blanche.
+            Measure(new Size(1500, 600));
+            Arrange(new Rect(0, 0, 1500, 600));
+            UpdateLayout();
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                context.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
+                context.DrawRectangle(new VisualBrush(PlanCanvas), null, new Rect(0, 0, width, height));
+            }
+            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using (var stream = new System.IO.MemoryStream())
+            {
+                encoder.Save(stream);
+                return stream.ToArray();
+            }
+        }
+
         public void SetProfile(ScreenProfileInfo profile)
         {
             _profile = profile;
@@ -120,6 +146,7 @@ namespace IneoRbe.Desktop.Views
             PlanCanvas.Children.Add(windshield);
             AddLabel("AVANT ▶", 880, 366);
             AddLabel("◀ ARRIÈRE", 30, 366);
+            if (screens.Count == 0) AddLabel("Aucun profil écran rattaché à cet UC", 340, 180);
 
             var selected = ScreenList.SelectedIndex;
             for (var index = 0; index < screens.Count; index++)

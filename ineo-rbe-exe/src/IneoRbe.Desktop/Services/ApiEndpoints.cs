@@ -11,9 +11,12 @@ namespace IneoRbe.Desktop.Services
 
         public const string UserAgent = "IneoRbeDesktop/1.0";
 
+        // Racine de l'API RétroBus (…/api), utilisée par l'application Planification.
+        public static string ApiRoot { get { return BaseUrl.Substring(0, BaseUrl.LastIndexOf("/ineo-rbe-desktop", StringComparison.Ordinal)); } }
         public static string UpdateUrl { get { return BaseUrl + "/update"; } }
         public static string IdentifyUrl { get { return BaseUrl + "/identify"; } }
         public static string SyncUrl { get { return BaseUrl + "/sync"; } }
+        public static string MaintenanceCheckUrl { get { return BaseUrl + "/maintenance/check"; } }
 
         public static string MediaUrl(string mediaId)
         {

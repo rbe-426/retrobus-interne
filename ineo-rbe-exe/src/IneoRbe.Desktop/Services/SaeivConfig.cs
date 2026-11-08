@@ -86,6 +86,7 @@ namespace IneoRbe.Desktop.Services
             GpsSource = "AUTO";
             GpsPort = "AUTO";
             GpsBaud = 9600;
+            MaintenancePort = "NONE";
         }
 
         [OnDeserialized]
@@ -99,6 +100,8 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "gpsSource")] public string GpsSource { get; set; }
         [DataMember(Name = "gpsPort")] public string GpsPort { get; set; }
         [DataMember(Name = "gpsBaud")] public int GpsBaud { get; set; }
+        // Port série du câble USB-USB de maintenance (NONE = liaison USB désactivée).
+        [DataMember(Name = "maintenancePort")] public string MaintenancePort { get; set; }
         [DataMember(Name = "announcements")] public List<Announcement> Announcements { get; set; }
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
     }

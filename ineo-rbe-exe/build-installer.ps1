@@ -1,12 +1,20 @@
 ﻿[CmdletBinding()]
 param(
-  [string]$Configuration = 'Release'
+  [string]$Configuration = 'Release',
+  [ValidateSet('UC', 'MAINTENANCE', 'PLANNING')][string]$Product = 'UC'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSCommandPath
-$project = Join-Path $root 'src\IneoRbe.Desktop\IneoRbe.Desktop.csproj'
-$installer = Join-Path $root 'installer\IneoRbe.iss'
+if ($Product -eq 'MAINTENANCE') {
+  $projectName = 'IneoRbe.Maintenance'; $issName = 'IneoRbeMaintenance.iss'; $setupName = 'InéoRétroBus-Maintenance-Setup.exe'
+} elseif ($Product -eq 'PLANNING') {
+  $projectName = 'IneoRbe.Planning'; $issName = 'IneoRbePlanning.iss'; $setupName = 'InéoRétroBus-Planification-Setup.exe'
+} else {
+  $projectName = 'IneoRbe.Desktop'; $issName = 'IneoRbe.iss'; $setupName = 'InéoRétroBus-Setup.exe'
+}
+$project = Join-Path $root "src\$projectName\$projectName.csproj"
+$installer = Join-Path $root "installer\$issName"
 $artifacts = Join-Path $root 'artifacts'
 $refs = Join-Path $root '.refs\net40'
 $lib = Join-Path $root 'lib'
@@ -75,10 +83,10 @@ if ($LASTEXITCODE -ne 0) { throw 'La compilation de l''application a échoué.' 
 & $iscc "/DConfiguration=$Configuration" "/O$artifacts" $installer
 if ($LASTEXITCODE -ne 0) { throw 'La création de l''installateur a échoué.' }
 
-$setupPath = Join-Path $artifacts 'InéoRétroBus-Setup.exe'
-$builtExe = Join-Path $root "src\IneoRbe.Desktop\bin\$Configuration\IneoRbe.Desktop.exe"
+$setupPath = Join-Path $artifacts $setupName
+$builtExe = Join-Path $root "src\$projectName\bin\$Configuration\$projectName.exe"
 $assemblyVersion = [System.Reflection.AssemblyName]::GetAssemblyName($builtExe).Version
-$releaseVersion = '{0}.{1}.{2}' -f $assemblyVersion.Major, $assemblyVersion.Minor, [Math]::Max(0, $assemblyVersion.Build)
+$releaseVersion = '{0}.{1:00}.{2:000}' -f $assemblyVersion.Major, $assemblyVersion.Minor, [Math]::Max(0, $assemblyVersion.Build)
 $hash = (Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash.ToLower()
 
 Write-Host ''

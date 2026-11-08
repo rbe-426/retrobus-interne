@@ -74,6 +74,9 @@
     <Compile Include="Services\GpsSources.cs" />
     <Compile Include="Services\HttpTransport.cs" />
     <Compile Include="Services\NmeaParser.cs" />
+    <Compile Include="Services\ReleaseVersion.cs" />
+    <Compile Include="Services\MaintenanceProtocol.cs" />
+    <Compile Include="Services\MaintenanceLink.cs" />
     <Compile Include="Services\SaeivConfig.cs" />
     <Compile Include="Services\SaeivStore.cs" />
     <Compile Include="Services\TlsSupport.cs" />
@@ -81,19 +84,12 @@
     <Compile Include="Services\UpdateClient.cs" />
     <Compile Include="Services\UpdateDescriptor.cs" />
     <Compile Include="Services\UpdateInstaller.cs" />
-    <Page Include="Views\AnnouncementsView.xaml">
+    <Page Include="Views\GpsSettingsView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Compile Include="Views\AnnouncementsView.xaml.cs">
-      <DependentUpon>AnnouncementsView.xaml</DependentUpon>
-    </Compile>
-    <Page Include="Views\ScreensView.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Compile Include="Views\ScreensView.xaml.cs">
-      <DependentUpon>ScreensView.xaml</DependentUpon>
+    <Compile Include="Views\GpsSettingsView.xaml.cs">
+      <DependentUpon>GpsSettingsView.xaml</DependentUpon>
     </Compile>
     <Page Include="Views\SimulatorView.xaml">
       <Generator>MSBuild:Compile</Generator>

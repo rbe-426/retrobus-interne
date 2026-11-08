@@ -16,6 +16,17 @@ namespace IneoRbe.Desktop.Services
     public sealed class UpdateClient
     {
         private const long MaxInstallerBytes = 80L * 1024 * 1024;
+        private readonly string _product;
+        private readonly string _serial;
+
+        public UpdateClient() : this(null, null) { }
+
+        // product : « MAINTENANCE » pour l'outil des techniciens (le serveur exige alors un numéro de série enregistré), sinon l'UC.
+        public UpdateClient(string product, string serial)
+        {
+            _product = product;
+            _serial = serial;
+        }
 
         // Appels bloquants : à exécuter hors du thread d'interface.
         public UpdateCheckResult CheckForUpdate()
@@ -23,7 +34,13 @@ namespace IneoRbe.Desktop.Services
             if (!NetworkInterface.GetIsNetworkAvailable()) throw new InternetUnavailableException();
 
             var installedVersion = typeof(UpdateClient).Assembly.GetName().Version;
-            var response = HttpTransport.Send("GET", ApiEndpoints.UpdateUrl + "?version=" + Uri.EscapeDataString(ToReleaseVersion(installedVersion)), null, null, 20000);
+            var url = ApiEndpoints.UpdateUrl + "?version=" + Uri.EscapeDataString(ToReleaseVersion(installedVersion));
+            if (_product != null) url += "&product=" + Uri.EscapeDataString(_product) + "&serial=" + Uri.EscapeDataString(_serial ?? string.Empty);
+            var response = HttpTransport.Send("GET", url, null, null, 20000);
+            if (response.StatusCode == 403)
+            {
+                throw new InvalidOperationException("Ce PC n'est pas autorisé : son numéro de série n'est pas enregistré dans l'URBEX.");
+            }
             if (response.StatusCode == 503)
             {
                 throw new InvalidOperationException("Le service de mise à jour n'est pas encore configuré.");
@@ -113,7 +130,7 @@ namespace IneoRbe.Desktop.Services
 
         private static string ToReleaseVersion(Version version)
         {
-            return string.Format("{0}.{1}.{2}", version.Major, version.Minor, Math.Max(0, version.Build));
+            return ReleaseVersion.Format(version);
         }
 
         [DataContract]

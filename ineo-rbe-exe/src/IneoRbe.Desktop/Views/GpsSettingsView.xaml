@@ -1,0 +1,40 @@
+<UserControl x:Class="IneoRbe.Desktop.Views.GpsSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel Margin="12">
+    <GroupBox Header="Réglages GPS" Padding="10">
+      <StackPanel>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="210" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="90" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Source GPS :" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <ComboBox x:Name="GpsSourceCombo" Grid.Column="1" SelectionChanged="GpsSettings_Changed">
+            <ComboBoxItem Tag="AUTO" Content="Automatique (selon Windows)" />
+            <ComboBoxItem Tag="WINDOWS" Content="Localisation Windows (7 et +)" />
+            <ComboBoxItem Tag="SERIAL" Content="Port série (GPS USB / COM)" />
+          </ComboBox>
+          <TextBlock Grid.Column="2" Text="Port :" VerticalAlignment="Center" Margin="12,0,6,0" />
+          <ComboBox x:Name="GpsPortCombo" Grid.Column="3" IsEditable="True" SelectionChanged="GpsSettings_Changed" LostFocus="GpsSettings_Changed" />
+          <TextBlock Grid.Column="4" Text="Bauds :" VerticalAlignment="Center" Margin="12,0,6,0" />
+          <ComboBox x:Name="GpsBaudCombo" Grid.Column="5" SelectionChanged="GpsSettings_Changed" />
+        </Grid>
+        <TextBlock x:Name="EngineStatusText" Margin="0,8,0,0" TextWrapping="Wrap" />
+        <DockPanel Margin="0,12,0,0">
+          <TextBlock Text="Liaison USB-USB de maintenance, port :" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <ComboBox x:Name="MaintenancePortCombo" Width="110" IsEditable="True" SelectionChanged="MaintenancePort_Changed" LostFocus="MaintenancePort_Changed" HorizontalAlignment="Left" />
+        </DockPanel>
+        <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{x:Static SystemColors.GrayTextBrush}"
+                   Text="NONE = désactivée. Le Wi-Fi / réseau local reste toujours disponible pour l'outil Maintenance (port TCP 47800). Un changement de port s'applique au prochain démarrage." />
+        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{x:Static SystemColors.GrayTextBrush}"
+                   Text="Les annonces sonores et les écrans se configurent désormais avec l'outil Inéo RBE Maintenance." />
+      </StackPanel>
+    </GroupBox>
+  </StackPanel>
+</UserControl>

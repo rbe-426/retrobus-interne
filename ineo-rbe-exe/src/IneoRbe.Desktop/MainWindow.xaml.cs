@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using IneoRbe.Desktop.Services;
+using IneoRbe.Desktop.Views;
 
 namespace IneoRbe.Desktop
 {
@@ -18,6 +19,8 @@ namespace IneoRbe.Desktop
         private readonly UcIdentityClient _identityClient = new UcIdentityClient();
         private readonly SaeivConfig _config = SaeivStore.Load();
         private readonly AnnouncementEngine _engine;
+        // Plus affiché : sert uniquement à ouvrir les écrans et la mire de test commandés à distance par le véhicule pilote.
+        private readonly SimulatorView SimulatorPage = new SimulatorView();
         private readonly DispatcherTimer _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
         private readonly List<PilotCommandResult> _pendingResults = new List<PilotCommandResult>();
         private readonly object _resultsLock = new object();
@@ -26,6 +29,11 @@ namespace IneoRbe.Desktop
         private UpdateDescriptor _availableUpdate;
         private string _serial;
         private volatile string _screensRevision;
+        private MaintenanceLink _maintenanceLink;
+        private volatile string _updateLevel = MaintenanceProtocol.Unknown;
+        private volatile string _updateDetail = "Vérification pas encore effectuée.";
+        private volatile string _updateVersion;
+        private volatile string _profileName;
         private bool _serialRead;
         private bool _cacheShown;
         private bool _profileShown;
@@ -36,7 +44,7 @@ namespace IneoRbe.Desktop
         {
             InitializeComponent();
             var version = Assembly.GetExecutingAssembly().GetName().Version;
-            _releaseVersion = string.Format("{0}.{1}.{2}", version.Major, version.Minor, Math.Max(0, version.Build));
+            _releaseVersion = ReleaseVersion.Format(version);
             var versionText = "Version installée : " + _releaseVersion;
             VersionText.Text = versionText;
             StatusVersionText.Text = versionText;
@@ -45,9 +53,9 @@ namespace IneoRbe.Desktop
                 : "Chiffrement : TLS 1.2 du système";
 
             _engine = new AnnouncementEngine(_config);
-            AnnouncementsPage.Initialize(_config, _engine);
-            ScreensPage.Initialize(_config);
-            SimulatorPage.SyncRequested += (s, e) => StartSync(false);
+            GpsPage.Initialize(_config, _engine);
+            _maintenanceLink = new MaintenanceLink(HandleMaintenanceCommand, _config.MaintenancePort);
+            _maintenanceLink.Start();
 
             RefreshNetworkStatus();
             NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
@@ -56,6 +64,7 @@ namespace IneoRbe.Desktop
             {
                 _syncTimer.Stop();
                 NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
+                _maintenanceLink.Dispose();
                 _engine.Dispose();
             };
             var startupNotice = UpdateInstaller.ConsumePendingResult(version);
@@ -318,6 +327,7 @@ namespace IneoRbe.Desktop
         private void ShowIdentity(UcIdentity identity, bool fromCache)
         {
             _profileShown = true;
+            _profileName = identity.IsPilot ? identity.PilotName : identity.Vehicle != null ? identity.Vehicle.Parc : null;
             if (identity.IsPilot)
             {
                 ProfileTitleText.Text = identity.PilotName != null && identity.PilotName.StartsWith("Véhicule pilote", StringComparison.OrdinalIgnoreCase)
@@ -371,11 +381,79 @@ namespace IneoRbe.Desktop
             return string.Join(Environment.NewLine, lines.ToArray());
         }
 
+        // Appelé depuis un thread d'arrière-plan par la liaison de maintenance (Wi-Fi ou USB-USB).
+        private MaintenanceReply HandleMaintenanceCommand(string command)
+        {
+            var reply = new MaintenanceReply { Ok = true, Version = _releaseVersion };
+            if (command == MaintenanceProtocol.Ping) return reply;
+
+            if (command == MaintenanceProtocol.Mirror)
+            {
+                byte[] png = null;
+                Ui(() => png = SimulatorPage.CaptureSnapshot());
+                reply.PngBase64 = Convert.ToBase64String(png);
+                return reply;
+            }
+
+            if (command == MaintenanceProtocol.Update)
+            {
+                if (!CheckForUpdatesBlocking()) return MaintenanceReply.Failure(_updateDetail);
+                var pending = _availableUpdate;
+                if (pending == null)
+                {
+                    reply.Message = "UC déjà à jour (" + _releaseVersion + ").";
+                    return reply;
+                }
+                Task.Factory.StartNew(() => InstallAvailableUpdateBlocking());
+                reply.UpdateVersion = pending.Version;
+                reply.Message = "Installation de la version " + pending.Version + " lancée : l'UC va redémarrer.";
+                return reply;
+            }
+
+            var serial = _serial ?? DeviceIdentity.ReadSerial();
+            var online = NetworkInterface.GetIsNetworkAvailable();
+            double latitude, longitude;
+            TimeSpan age;
+            var hasPosition = _engine.TryGetLastPosition(out latitude, out longitude, out age);
+            var positionFresh = hasPosition && age < TimeSpan.FromMinutes(2);
+            var screensRevision = _screensRevision;
+            var profileName = _profileName;
+
+            reply.Serial = serial;
+            reply.Hostname = Environment.MachineName;
+            reply.DeviceTime = DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz");
+            reply.TimeZone = TimeZoneInfo.Local.DisplayName;
+            reply.HasPosition = hasPosition;
+            reply.Latitude = latitude;
+            reply.Longitude = longitude;
+            reply.PositionAgeSeconds = hasPosition ? (int)age.TotalSeconds : 0;
+            reply.Profile = profileName;
+            reply.ScreensRevision = screensRevision;
+            reply.UpdateVersion = _updateVersion;
+            reply.Statuses = new[]
+            {
+                Status("Connexion", online ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko, online ? "Réseau disponible." : "Pas de réseau."),
+                Status("Mise à jour", _updateLevel, _updateDetail),
+                Status("Contenu", screensRevision != null ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
+                    screensRevision != null ? "Profil écran chargé (révision " + screensRevision + ")." : "Aucun profil écran chargé."),
+                Status("Profil véhicule", profileName != null ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
+                    profileName != null ? "Rattaché à " + profileName + "." : "UC non rattaché à un véhicule."),
+                Status("GPS", positionFresh ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
+                    positionFresh ? "Position reçue il y a " + (int)age.TotalSeconds + " s." : hasPosition ? "Dernière position trop ancienne." : "Aucune position reçue."),
+                Status("Annonces", _engine.IsRunning ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko, _engine.Status),
+            };
+            return reply;
+        }
+
+        private static MaintenanceStatusItem Status(string name, string level, string detail)
+        {
+            return new MaintenanceStatusItem { Name = name, Level = level, Detail = detail };
+        }
+
         private void RefreshNetworkStatus()
         {
             var online = NetworkInterface.GetIsNetworkAvailable();
             StatusNetworkText.Text = online ? "Réseau : connecté" : "Réseau : connexion perdue";
-            ScreensPage.SetConnectionState(online);
             SimulatorPage.SetConnectionState(online);
         }
 
@@ -394,6 +472,9 @@ namespace IneoRbe.Desktop
                     CheckUpdateButton.IsEnabled = false;
                     InstallUpdateButton.IsEnabled = false;
                     _availableUpdate = null;
+                    _updateLevel = MaintenanceProtocol.Unknown;
+                    _updateDetail = "Vérification en cours.";
+                    _updateVersion = null;
                     InternetStatusText.Text = "Vérification de la connexion Internet...";
                     UpdateStatusText.Text = string.Empty;
                 });
@@ -403,6 +484,8 @@ namespace IneoRbe.Desktop
                     var result = _updateClient.CheckForUpdate();
                     if (!result.UpdateAvailable)
                     {
+                        _updateLevel = MaintenanceProtocol.Ok;
+                        _updateDetail = "Logiciel à jour (" + _releaseVersion + ").";
                         Ui(() =>
                         {
                             InternetStatusText.Text = "Connexion Internet : disponible";
@@ -411,6 +494,9 @@ namespace IneoRbe.Desktop
                         return true;
                     }
 
+                    _updateLevel = MaintenanceProtocol.Warn;
+                    _updateVersion = result.Update.Version;
+                    _updateDetail = "Version " + result.Update.Version + " disponible, non installée.";
                     Ui(() =>
                     {
                         _availableUpdate = result.Update;
@@ -424,6 +510,8 @@ namespace IneoRbe.Desktop
                 }
                 catch (InternetUnavailableException)
                 {
+                    _updateLevel = MaintenanceProtocol.Ko;
+                    _updateDetail = "Pas de connexion Internet pour vérifier les mises à jour.";
                     Ui(() =>
                     {
                         InternetStatusText.Text = "Connexion Internet : indisponible";
@@ -433,6 +521,8 @@ namespace IneoRbe.Desktop
                 }
                 catch (Exception exception)
                 {
+                    _updateLevel = MaintenanceProtocol.Ko;
+                    _updateDetail = "Recherche de mise à jour impossible : " + exception.Message;
                     Ui(() =>
                     {
                         InternetStatusText.Text = "Connexion Internet : disponible";

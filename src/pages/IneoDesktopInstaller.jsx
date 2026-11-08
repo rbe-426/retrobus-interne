@@ -39,6 +39,12 @@ const PRODUCT_LABELS = {
     name: 'Inéo RétroBus',
     steps: '1. Copiez le fichier sur le PC du bus (clé USB) et lancez-le. 2. Acceptez l’autorisation administrateur. 3. Le logiciel démarre avec Windows et apparaît dans « UC détectés » ; rattachez-le ensuite à son véhicule dans « Profils véhicules ».',
   },
+  PLANNING: {
+    title: 'Logiciel Planification — installateur',
+    intro: 'Installateur de l’application Inéo RétroBus Planification (services, itinéraires, conducteurs, flashs, suivi, pilotage). Compatible Windows XP SP3 à Windows 11.',
+    name: 'Inéo RétroBus Planification',
+    steps: '1. Copiez le fichier sur le PC de l’exploitation et lancez-le. 2. Connectez-vous avec votre compte URBEX. 3. Les mises à jour se proposent automatiquement au démarrage.',
+  },
   MAINTENANCE: {
     title: 'Logiciel Maintenance — installateur',
     intro: 'Installateur de l’outil Inéo RBE Maintenance, réservé aux PC des techniciens enregistrés dans « Ordinateurs Maintenance ».',

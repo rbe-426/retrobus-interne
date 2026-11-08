@@ -56,18 +56,8 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="Config SAEIV">
-        <TabControl Margin="6">
-          <TabItem Header="Configuration annonces sonores">
-            <views:AnnouncementsView x:Name="AnnouncementsPage" />
-          </TabItem>
-          <TabItem Header="Configurations d'écrans">
-            <views:ScreensView x:Name="ScreensPage" />
-          </TabItem>
-          <TabItem Header="Simulateur d'écrans">
-            <views:SimulatorView x:Name="SimulatorPage" />
-          </TabItem>
-        </TabControl>
+      <TabItem Header="GPS">
+        <views:GpsSettingsView x:Name="GpsPage" />
       </TabItem>
     </TabControl>
   </DockPanel>

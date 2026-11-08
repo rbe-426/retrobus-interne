@@ -13,9 +13,12 @@ namespace IneoRbe.Desktop.Services
         public const long MaxSoundBytes = 50L * 1024 * 1024;
         public const long MaxImageBytes = 20L * 1024 * 1024;
 
+        // Dossier de données commun à l'utilisateur du poste ; l'outil Maintenance utilise son propre dossier.
+        public static string RootFolderName = "IneoRbe";
+
         public static string RootDirectory
         {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "IneoRbe"); }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), RootFolderName); }
         }
 
         private static string ConfigPath { get { return Path.Combine(RootDirectory, "saeiv-config.json"); } }

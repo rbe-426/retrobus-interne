@@ -95,8 +95,31 @@ namespace IneoRbe.Desktop.Services
             Dispatch(() => SetStatus(status));
         }
 
+        private readonly object _positionLock = new object();
+        private double _lastLatitude;
+        private double _lastLongitude;
+        private DateTime _lastFixUtc = DateTime.MinValue;
+
+        // Dernière position reçue, pour l'outil Maintenance. Retourne false tant qu'aucun point n'a été reçu.
+        public bool TryGetLastPosition(out double latitude, out double longitude, out TimeSpan age)
+        {
+            lock (_positionLock)
+            {
+                latitude = _lastLatitude;
+                longitude = _lastLongitude;
+                age = DateTime.UtcNow - _lastFixUtc;
+                return _lastFixUtc != DateTime.MinValue;
+            }
+        }
+
         private void OnPositionChanged(double latitude, double longitude)
         {
+            lock (_positionLock)
+            {
+                _lastLatitude = latitude;
+                _lastLongitude = longitude;
+                _lastFixUtc = DateTime.UtcNow;
+            }
             Dispatch(() =>
             {
                 if (_source == null) return;

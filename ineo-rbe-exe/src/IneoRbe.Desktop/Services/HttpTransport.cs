@@ -37,6 +37,16 @@ namespace IneoRbe.Desktop.Services
 
         public static bool UsesEmbeddedTls { get { return _forceEmbedded || !NativeTlsSupported; } }
 
+        [ThreadStatic] private static IDictionary<string, string> _extraHeaders;
+
+        // Variante avec en-têtes supplémentaires (Authorization, X-CSRF-Token…), réservée aux appels vers l'API RétroBus.
+        public static HttpResult Send(string method, string url, string contentType, byte[] body, int timeoutMs, IDictionary<string, string> headers)
+        {
+            _extraHeaders = headers;
+            try { return Send(method, url, contentType, body, timeoutMs); }
+            finally { _extraHeaders = null; }
+        }
+
         public static HttpResult Send(string method, string url, string contentType, byte[] body, int timeoutMs)
         {
             using (var sink = new MemoryStream())
@@ -115,7 +125,11 @@ namespace IneoRbe.Desktop.Services
             request.UserAgent = ApiEndpoints.UserAgent;
             request.Timeout = timeoutMs;
             request.ReadWriteTimeout = timeoutMs;
-            request.AllowAutoRedirect = true;
+            request.AllowAutoRedirect = _extraHeaders == null;
+            if (_extraHeaders != null)
+            {
+                foreach (var pair in _extraHeaders) request.Headers[pair.Key] = pair.Value;
+            }
             if (body != null)
             {
                 request.ContentType = contentType;
@@ -188,6 +202,14 @@ namespace IneoRbe.Desktop.Services
             header.Append("Host: ").Append(uri.IsDefaultPort ? uri.Host : uri.Host + ":" + uri.Port).Append("\r\n");
             header.Append("User-Agent: ").Append(ApiEndpoints.UserAgent).Append("\r\n");
             header.Append("Accept: */*\r\nConnection: close\r\n");
+            if (_extraHeaders != null)
+            {
+                foreach (var pair in _extraHeaders)
+                {
+                    if (pair.Key.IndexOfAny(new[] { '\r', '\n', ':' }) >= 0 || pair.Value.IndexOfAny(new[] { '\r', '\n' }) >= 0) continue;
+                    header.Append(pair.Key).Append(": ").Append(pair.Value).Append("\r\n");
+                }
+            }
             if (body != null) header.Append("Content-Type: ").Append(contentType).Append("\r\nContent-Length: ").Append(body.Length).Append("\r\n");
             header.Append("\r\n");
 
