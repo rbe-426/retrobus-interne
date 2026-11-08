@@ -62,7 +62,8 @@ namespace IneoRbe.Desktop.Services
     {
         [DataMember(Name = "ok")] public bool Ok { get; set; }
         [DataMember(Name = "error")] public string Error { get; set; }
-        [DataMember(Name = "message")] public string Message { get; set; } public string Serial { get; set; }
+        [DataMember(Name = "message")] public string Message { get; set; }
+        [DataMember(Name = "serial")] public string Serial { get; set; }
         [DataMember(Name = "version")] public string Version { get; set; }
         [DataMember(Name = "hostname")] public string Hostname { get; set; }
         [DataMember(Name = "deviceTime")] public string DeviceTime { get; set; }

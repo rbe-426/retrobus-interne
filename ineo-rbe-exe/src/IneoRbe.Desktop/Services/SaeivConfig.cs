@@ -7,6 +7,8 @@ namespace IneoRbe.Desktop.Services
     {
         public const string Gps = "GPS";
         public const string PreAnnouncement = "PRE";
+        // À l'allumage du véhicule (lancement du logiciel).
+        public const string Startup = "START";
     }
 
     [DataContract]
@@ -40,7 +42,7 @@ namespace IneoRbe.Desktop.Services
         {
             get
             {
-                var kind = Trigger == AnnouncementTrigger.Gps ? "GPS" : "pré-annonce";
+                var kind = Trigger == AnnouncementTrigger.Gps ? "GPS" : Trigger == AnnouncementTrigger.Startup ? "allumage" : "pré-annonce";
                 return (Enabled ? string.Empty : "(désactivée) ") + Name + " [" + kind + "]";
             }
         }
@@ -58,10 +60,19 @@ namespace IneoRbe.Desktop.Services
         {
             Id = System.Guid.NewGuid().ToString("N");
             Name = string.Empty;
+            Place = "CUSTOM";
+            X = 40; Y = 60; WidthPct = 16; WidthPx = 1280; HeightPx = 720;
         }
 
         [DataMember(Name = "id")] public string Id { get; set; }
         [DataMember(Name = "name")] public string Name { get; set; }
+        // Emplacement dans le véhicule, position (en % du plan), largeur d'affichage (en % du plan) et résolution de l'écran.
+        [DataMember(Name = "place")] public string Place { get; set; }
+        [DataMember(Name = "x")] public double X { get; set; }
+        [DataMember(Name = "y")] public double Y { get; set; }
+        [DataMember(Name = "widthPct")] public double WidthPct { get; set; }
+        [DataMember(Name = "widthPx")] public int WidthPx { get; set; }
+        [DataMember(Name = "heightPx")] public int HeightPx { get; set; }
         [DataMember(Name = "offlineImage")] public string OfflineImage { get; set; }
         [DataMember(Name = "offlineName")] public string OfflineName { get; set; }
         [DataMember(Name = "onlineImage")] public string OnlineImage { get; set; }

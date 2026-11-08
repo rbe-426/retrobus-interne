@@ -23,12 +23,24 @@ namespace IneoRbe.Desktop.Services
 
         private static string ConfigPath { get { return Path.Combine(RootDirectory, "saeiv-config.json"); } }
 
-        public static SaeivConfig Load()
+        // Configuration propre à un véhicule (outil Planification) : saeiv-config-<parc>.json.
+        public static string ProfilePath(string key)
         {
-            if (!File.Exists(ConfigPath)) return new SaeivConfig();
+            if (string.IsNullOrEmpty(key)) return ConfigPath;
+            var safe = new System.Text.StringBuilder();
+            foreach (var c in key) safe.Append(char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_');
+            return Path.Combine(RootDirectory, "saeiv-config-" + safe + ".json");
+        }
+
+        public static SaeivConfig Load() { return Load(null); }
+
+        public static SaeivConfig Load(string key)
+        {
+            var path = ProfilePath(key);
+            if (!File.Exists(path)) return new SaeivConfig();
             try
             {
-                using (var stream = File.OpenRead(ConfigPath))
+                using (var stream = File.OpenRead(path))
                 {
                     var config = (SaeivConfig)new DataContractJsonSerializer(typeof(SaeivConfig)).ReadObject(stream);
                     return config ?? new SaeivConfig();
@@ -37,22 +49,25 @@ namespace IneoRbe.Desktop.Services
             catch (Exception)
             {
                 // Le fichier illisible est conservé pour analyse au lieu d'être écrasé.
-                var backup = ConfigPath + ".corrompu-" + DateTime.Now.ToString("yyyyMMddHHmmss");
-                try { File.Move(ConfigPath, backup); } catch (Exception) { }
+                var backup = path + ".corrompu-" + DateTime.Now.ToString("yyyyMMddHHmmss");
+                try { File.Move(path, backup); } catch (Exception) { }
                 return new SaeivConfig();
             }
         }
 
-        public static void Save(SaeivConfig config)
+        public static void Save(SaeivConfig config) { Save(config, null); }
+
+        public static void Save(SaeivConfig config, string key)
         {
+            var path = ProfilePath(key);
             Directory.CreateDirectory(RootDirectory);
-            var temporary = ConfigPath + ".tmp";
+            var temporary = path + ".tmp";
             using (var stream = File.Create(temporary))
             {
                 new DataContractJsonSerializer(typeof(SaeivConfig)).WriteObject(stream, config);
             }
-            if (File.Exists(ConfigPath)) File.Delete(ConfigPath);
-            File.Move(temporary, ConfigPath);
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(temporary, path);
         }
 
         public static string Import(string sourcePath, string folder, string[] allowedExtensions, long maxBytes)

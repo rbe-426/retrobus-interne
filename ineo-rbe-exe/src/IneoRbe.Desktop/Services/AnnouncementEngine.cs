@@ -16,6 +16,7 @@ namespace IneoRbe.Desktop.Services
         private readonly HashSet<string> _inside = new HashSet<string>();
         private GpsSource _source;
         private bool _playing;
+        private bool _startupPlayed;
 
         public AnnouncementEngine(SaeivConfig config)
         {
@@ -46,6 +47,20 @@ namespace IneoRbe.Desktop.Services
             _source.StatusChanged += OnSourceStatusChanged;
             SetStatus("Diffusion automatique active : en attente de position GPS.");
             _source.Start();
+            PlayStartupAnnouncements();
+        }
+
+        // Annonces « à l'allumage » : jouées une seule fois par lancement du logiciel.
+        private void PlayStartupAnnouncements()
+        {
+            if (_startupPlayed) return;
+            _startupPlayed = true;
+            foreach (var announcement in _config.Announcements.ToList())
+            {
+                if (!announcement.Enabled || announcement.Trigger != AnnouncementTrigger.Startup || string.IsNullOrEmpty(announcement.SoundFile)) continue;
+                _queue.Enqueue(SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile));
+            }
+            PlayNext();
         }
 
         public void Stop()
@@ -131,7 +146,7 @@ namespace IneoRbe.Desktop.Services
         {
             foreach (var announcement in _config.Announcements.ToList())
             {
-                if (!announcement.Enabled || string.IsNullOrEmpty(announcement.SoundFile)) continue;
+                if (!announcement.Enabled || announcement.Trigger == AnnouncementTrigger.Startup || string.IsNullOrEmpty(announcement.SoundFile)) continue;
                 var distance = DistanceMeters(latitude, longitude, announcement.Latitude, announcement.Longitude);
                 if (distance <= announcement.DistanceMeters)
                 {

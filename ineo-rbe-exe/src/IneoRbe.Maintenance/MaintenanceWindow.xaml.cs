@@ -19,11 +19,12 @@ namespace IneoRbe.Maintenance
         [DataMember(Name = "revision")] public string Revision { get; set; }
 
         // Dernière révision publiée par le serveur, ou null si le serveur est injoignable.
-        public static PublishedContent Fetch()
+        public static PublishedContent Fetch(string serial)
         {
             try
             {
-                var response = HttpTransport.Send("GET", ApiEndpoints.ContentRevisionUrl, null, null, 15000);
+                var url = ApiEndpoints.ContentRevisionUrl + (string.IsNullOrEmpty(serial) ? string.Empty : "?serial=" + Uri.EscapeDataString(serial));
+                var response = HttpTransport.Send("GET", url, null, null, 15000);
                 if (!response.IsSuccess) return null;
                 using (var stream = new System.IO.MemoryStream(response.Body))
                 {
@@ -56,6 +57,7 @@ namespace IneoRbe.Maintenance
         private MirrorWindow _mirror;
         private bool _busy;
         private string _ucVersion;
+        private string _ucSerial;
         private UpdateDescriptor _pendingUpdate;
 
         public MaintenanceWindow(StartupContext context)
@@ -352,9 +354,10 @@ namespace IneoRbe.Maintenance
                 ResultBox.Text = "Révision de contenu de l'UC : " + (string.IsNullOrEmpty(reply.ContentRevision) ? "aucune" : reply.ContentRevision)
                     + "\nRévision des écrans : " + (string.IsNullOrEmpty(reply.ScreensRevision) ? "—" : reply.ScreensRevision);
                 var ucRevision = reply.ContentRevision;
+                var serial = string.IsNullOrEmpty(reply.Serial) ? _ucSerial : reply.Serial;
                 ThreadPool.QueueUserWorkItem(delegate
                 {
-                    var published = PublishedContent.Fetch();
+                    var published = PublishedContent.Fetch(serial);
                     Dispatcher.BeginInvoke(new Action(() => ResultBox.Text += "\n" + PublishedContent.Compare(ucRevision, published)));
                 });
             });
@@ -367,6 +370,7 @@ namespace IneoRbe.Maintenance
             if (channel == null) { ResultBox.Text = "Aucun UC connecté."; return; }
             if (_busy) { ResultBox.Text = "Une requête est déjà en cours, réessayez."; return; }
             _busy = true;
+            var serialForCheck = _ucSerial;
             ResultBox.Text = "Mise à jour du contenu de l'UC en cours…";
             ThreadPool.QueueUserWorkItem(delegate
             {
@@ -374,7 +378,7 @@ namespace IneoRbe.Maintenance
                 string error = null;
                 try { reply = channel.Request(MaintenanceProtocol.Content); }
                 catch (Exception exception) { error = exception.Message; }
-                var published = PublishedContent.Fetch();
+                var published = PublishedContent.Fetch(serialForCheck);
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -464,6 +468,7 @@ namespace IneoRbe.Maintenance
             }
 
             UcSerialText.Text = string.IsNullOrEmpty(reply.Serial) ? "SN inconnu" : reply.Serial;
+            if (!string.IsNullOrEmpty(reply.Serial)) _ucSerial = reply.Serial;
             AddStatus("Connexion", MaintenanceProtocol.Ok, null);
             if (reply.Statuses == null) return;
             foreach (var item in reply.Statuses)

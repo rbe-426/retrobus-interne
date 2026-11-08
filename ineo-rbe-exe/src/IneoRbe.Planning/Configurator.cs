@@ -2,21 +2,43 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using IneoRbe.Desktop.Services;
 using Microsoft.Win32;
 
 namespace IneoRbe.Planning
 {
-    // Configurateur SAEIV : annonces sonores et écrans d'un véhicule, enregistrés localement puis exportables vers l'UC.
+    // Configurateur SAEIV : on choisit un véhicule, puis on édite son profil SAEIV (annonces sonores, écrans).
+    // La configuration est enregistrée par véhicule, exportable vers l'UC, et publiable sous forme de révision de contenu.
     public sealed class ConfiguratorView : DockPanel
     {
-        private readonly SaeivConfig _config = SaeivStore.Load();
+        private static readonly string[][] Places =
+        {
+            new[] { "FRONT_DESTINATION", "Girouette avant", "78", "4", "18", "1920", "300" },
+            new[] { "SIDE_DESTINATION", "Girouette latérale", "52", "4", "14", "1280", "300" },
+            new[] { "REAR_DESTINATION", "Girouette arrière", "4", "4", "14", "1280", "300" },
+            new[] { "INSIDE_FRONT", "Intérieur avant", "72", "38", "16", "1280", "720" },
+            new[] { "INSIDE_MIDDLE", "Intérieur milieu", "42", "38", "16", "1280", "720" },
+            new[] { "INSIDE_REAR", "Intérieur arrière", "12", "38", "16", "1280", "720" },
+            new[] { "CUSTOM", "Emplacement libre", "40", "64", "16", "1280", "720" },
+        };
+
+        private SaeivConfig _config = new SaeivConfig();
+        private string _parc;
+        private readonly ComboBox _vehicle = new ComboBox { MinWidth = 320, DisplayMemberPath = "Value", SelectedValuePath = "Key" };
+        private readonly TextBlock _vehicleInfo = Ui.Text(string.Empty, 11, false, Ui.Muted);
+        private readonly TabControl _tabs = new TabControl { IsEnabled = false };
         private readonly ListBox _announcementList = new ListBox { MinWidth = 260 };
         private readonly ListBox _screenList = new ListBox { MinWidth = 260 };
         private readonly TextBlock _status = Ui.Text(string.Empty, 11, false, Ui.Muted);
+        private readonly CheckBox _engine = new CheckBox { Content = "Moteur d'annonces actif", Margin = new Thickness(12, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         private bool _loading;
+        private Dictionary<string, object> _profiles = new Dictionary<string, object>();
 
         private readonly TextBox _name = new TextBox();
         private readonly ComboBox _trigger = new ComboBox();
@@ -27,33 +49,87 @@ namespace IneoRbe.Planning
         private readonly CheckBox _enabled = new CheckBox { Content = "Annonce activée", Margin = new Thickness(0, 8, 0, 0) };
 
         private readonly TextBox _screenName = new TextBox();
+        private readonly ComboBox _place = new ComboBox { DisplayMemberPath = "Value", SelectedValuePath = "Key", ItemsSource = Places.Select(p => new KeyValuePair<string, string>(p[0], p[1])).ToList() };
+        private readonly TextBox _x = new TextBox();
+        private readonly TextBox _y = new TextBox();
+        private readonly TextBox _widthPct = new TextBox();
+        private readonly TextBox _widthPx = new TextBox();
+        private readonly TextBox _heightPx = new TextBox();
         private readonly TextBlock _offline = Ui.Text(string.Empty, 12);
         private readonly TextBlock _online = Ui.Text(string.Empty, 12);
+        private readonly TextBlock _count = Ui.Text(string.Empty, 11, true);
+        private readonly Canvas _plan = new Canvas { Background = Ui.Panel, Height = 160, Width = 400, HorizontalAlignment = HorizontalAlignment.Left };
+        private StackPanel _screenForm;
+        private StackPanel _announcementForm;
 
         public ConfiguratorView()
         {
             Margin = new Thickness(14);
-            var engine = new CheckBox { Content = "Moteur d'annonces actif", IsChecked = _config.EngineEnabled, Margin = new Thickness(12, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            engine.Click += (s, e) => { _config.EngineEnabled = engine.IsChecked == true; };
-            var bar = Ui.Toolbar(Ui.Button("Enregistrer", (s, e) => Save(), true), Ui.Button("Exporter vers l'UC…", (s, e) => Export()), engine);
+            _engine.Click += (s, e) => { _config.EngineEnabled = _engine.IsChecked == true; };
+            var bar = Ui.Toolbar(
+                Ui.Button("Enregistrer", (s, e) => Save(), true),
+                Ui.Button("Exporter vers l'UC…", (s, e) => Export()),
+                Ui.Button("Publier la révision actuelle…", (s, e) => Publish()),
+                _engine);
             SetDock(bar, Dock.Top);
-            Children.Add(Ui.Title("Configurateur SAEIV"));
-            SetDock(Children[0], Dock.Top);
-            Children.Add(Ui.Text("Annonces et écrans de l'UC. Enregistrez, puis exportez le dossier vers une clé USB à copier dans C:\\ProgramData\\IneoRbe de l'UC.", 11, false, Ui.Muted));
-            SetDock(Children[1], Dock.Top);
+
+            var title = Ui.Title("Configurateur SAEIV");
+            SetDock(title, Dock.Top);
+            Children.Add(title);
+
+            var chooser = new StackPanel { Margin = new Thickness(0, 6, 0, 6) };
+            chooser.Children.Add(Ui.Text("Véhicule à configurer", 11, true, Ui.Muted));
+            chooser.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { _vehicle } });
+            chooser.Children.Add(_vehicleInfo);
+            SetDock(chooser, Dock.Top);
+            Children.Add(chooser);
             Children.Add(bar);
             SetDock(_status, Dock.Bottom);
             Children.Add(_status);
 
-            var tabs = new TabControl();
-            tabs.Items.Add(new TabItem { Header = "Annonces", Content = BuildAnnouncements() });
-            tabs.Items.Add(new TabItem { Header = "Écrans", Content = BuildScreens() });
-            Children.Add(tabs);
+            _tabs.Items.Add(new TabItem { Header = "Équipements embarqués : annonces sonores", Content = BuildAnnouncements() });
+            _tabs.Items.Add(new TabItem { Header = "Profil d'écrans", Content = BuildScreens() });
+            Children.Add(_tabs);
 
             _trigger.Items.Add("Pré-annonce");
             _trigger.Items.Add("Point GPS");
+            _trigger.Items.Add("À l'allumage du véhicule");
+            bar.IsEnabled = false;
+            _vehicle.SelectionChanged += (s, e) => { if (!_loading) SelectVehicle(_vehicle.SelectedValue as string); };
+            Loaded += (s, e) => { if (_vehicle.Items.Count == 0) LoadVehicles(bar); };
+        }
+
+        private void LoadVehicles(UIElement bar)
+        {
+            _status.Text = "Chargement des véhicules…";
+            Ui.Run(Dispatcher, () => new[] { Data.Vehicles(), Data.List("/ineo/vehicle-profiles", "profiles") }, data =>
+            {
+                _profiles = new Dictionary<string, object>();
+                foreach (var profile in data[1]) _profiles[Json.Str(profile, "vehicleParc")] = profile;
+                _vehicle.ItemsSource = Data.Options(data[0], v => Json.Str(v, "parc"), Data.VehicleLabel);
+                bar.IsEnabled = true;
+                _status.Text = "Choisissez un véhicule pour éditer son profil SAEIV.";
+            }, error => _status.Text = "Erreur : " + error);
+        }
+
+        private void SelectVehicle(string parc)
+        {
+            if (string.IsNullOrEmpty(parc)) return;
+            if (_parc != null) SaeivStore.Save(_config, _parc);
+            _parc = parc;
+            _config = SaeivStore.Load(parc);
+            _engine.IsChecked = _config.EngineEnabled;
+            _tabs.IsEnabled = true;
+            object profile;
+            if (_profiles.TryGetValue(parc, out profile))
+            {
+                var serial = Json.Str(profile, "ucSerial");
+                _vehicleInfo.Text = "UC associé : " + (serial.Length == 0 ? "aucun (à renseigner dans « Profils véhicules »)" : serial);
+            }
+            else _vehicleInfo.Text = "Aucun profil véhicule : créez-le dans « Profils véhicules » pour associer un UC.";
             RefreshAnnouncements(-1);
             RefreshScreens(-1);
+            _status.Text = "Profil SAEIV du véhicule " + parc + " chargé.";
         }
 
         private static StackPanel Field(string label, UIElement control)
@@ -77,19 +153,19 @@ namespace IneoRbe.Planning
             left.Children.Add(_announcementList);
             grid.Children.Add(left);
 
-            var form = new StackPanel { Width = 420, HorizontalAlignment = HorizontalAlignment.Left };
-            form.Children.Add(Field("Nom", _name));
-            form.Children.Add(Field("Déclencheur", _trigger));
-            form.Children.Add(Field("Latitude", _latitude));
-            form.Children.Add(Field("Longitude", _longitude));
-            form.Children.Add(Field("Distance de déclenchement (m)", _distance));
+            _announcementForm = new StackPanel { Width = 420, HorizontalAlignment = HorizontalAlignment.Left };
+            _announcementForm.Children.Add(Field("Nom", _name));
+            _announcementForm.Children.Add(Field("Condition de déclenchement", _trigger));
+            _announcementForm.Children.Add(Field("Latitude", _latitude));
+            _announcementForm.Children.Add(Field("Longitude", _longitude));
+            _announcementForm.Children.Add(Field("Distance de déclenchement (m)", _distance));
             var soundRow = new StackPanel { Orientation = Orientation.Horizontal };
             soundRow.Children.Add(Ui.Button("Choisir un son…", (s, e) => ChooseSound()));
             soundRow.Children.Add(_sound);
-            form.Children.Add(Field("Fichier son (wav, mp3, wma)", soundRow));
-            form.Children.Add(_enabled);
-            Grid.SetColumn(form, 1);
-            grid.Children.Add(form);
+            _announcementForm.Children.Add(Field("Fichier son (wav, mp3, wma)", soundRow));
+            _announcementForm.Children.Add(_enabled);
+            Grid.SetColumn(_announcementForm, 1);
+            grid.Children.Add(_announcementForm);
 
             _announcementList.SelectionChanged += (s, e) => LoadAnnouncement();
             _name.TextChanged += (s, e) => ApplyAnnouncement();
@@ -110,25 +186,42 @@ namespace IneoRbe.Planning
             var left = new DockPanel { Margin = new Thickness(0, 0, 12, 0) };
             var buttons = Ui.Toolbar(Ui.Button("Ajouter", (s, e) => AddScreen()), Ui.Button("Supprimer", (s, e) => RemoveScreen()));
             DockPanel.SetDock(buttons, Dock.Bottom);
+            DockPanel.SetDock(_count, Dock.Top);
+            left.Children.Add(_count);
             left.Children.Add(buttons);
             left.Children.Add(_screenList);
             grid.Children.Add(left);
 
-            var form = new StackPanel { Width = 420, HorizontalAlignment = HorizontalAlignment.Left };
-            form.Children.Add(Field("Nom de l'écran", _screenName));
+            _screenForm = new StackPanel { Width = 440, HorizontalAlignment = HorizontalAlignment.Left };
+            _screenForm.Children.Add(Field("Nom de l'écran", _screenName));
+            _screenForm.Children.Add(Field("Emplacement dans le véhicule", _place));
+            var position = new UniformGrid { Columns = 2 };
+            position.Children.Add(Field("Position horizontale (% du plan)", _x));
+            position.Children.Add(Field("Position verticale (% du plan)", _y));
+            position.Children.Add(Field("Largeur à l'affichage (% du plan)", _widthPct));
+            position.Children.Add(new StackPanel());
+            position.Children.Add(Field("Largeur de l'écran (px)", _widthPx));
+            position.Children.Add(Field("Hauteur de l'écran (px)", _heightPx));
+            _screenForm.Children.Add(position);
             var offlineRow = new StackPanel { Orientation = Orientation.Horizontal };
             offlineRow.Children.Add(Ui.Button("Choisir une image…", (s, e) => ChooseImage(false)));
             offlineRow.Children.Add(_offline);
-            form.Children.Add(Field("Image hors ligne", offlineRow));
+            _screenForm.Children.Add(Field("Affichage hors ligne", offlineRow));
             var onlineRow = new StackPanel { Orientation = Orientation.Horizontal };
             onlineRow.Children.Add(Ui.Button("Choisir une image…", (s, e) => ChooseImage(true)));
             onlineRow.Children.Add(_online);
-            form.Children.Add(Field("Image en ligne", onlineRow));
-            Grid.SetColumn(form, 1);
-            grid.Children.Add(form);
+            _screenForm.Children.Add(Field("Affichage en ligne", onlineRow));
+            _screenForm.Children.Add(Ui.Button("Simuler l'affichage…", (s, e) => Simulate(), true));
+            _screenForm.Children.Add(Ui.Text("Plan du véhicule", 11, true, Ui.Muted));
+            _screenForm.Children.Add(_plan);
+            Grid.SetColumn(_screenForm, 1);
+            grid.Children.Add(new ScrollViewer { Content = _screenForm, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalAlignment = HorizontalAlignment.Left });
+            Grid.SetColumn((UIElement)grid.Children[grid.Children.Count - 1], 1);
 
             _screenList.SelectionChanged += (s, e) => LoadScreen();
             _screenName.TextChanged += (s, e) => ApplyScreen();
+            _place.SelectionChanged += (s, e) => ApplyPlace();
+            foreach (var box in new[] { _x, _y, _widthPct, _widthPx, _heightPx }) box.TextChanged += (s, e) => ApplyScreen();
             return grid;
         }
 
@@ -155,20 +248,30 @@ namespace IneoRbe.Planning
             LoadScreen();
         }
 
+        private static string Num(double value) { return value.ToString("0.######", CultureInfo.InvariantCulture); }
+
         private void LoadAnnouncement()
         {
             if (_loading) return;
             var item = CurrentAnnouncement;
             _loading = true;
-            _name.IsEnabled = _trigger.IsEnabled = _latitude.IsEnabled = _longitude.IsEnabled = _distance.IsEnabled = _enabled.IsEnabled = item != null;
+            _announcementForm.IsEnabled = item != null;
             _name.Text = item == null ? string.Empty : item.Name;
-            _trigger.SelectedIndex = item != null && item.Trigger == AnnouncementTrigger.Gps ? 1 : 0;
-            _latitude.Text = item == null ? string.Empty : item.Latitude.ToString(CultureInfo.InvariantCulture);
-            _longitude.Text = item == null ? string.Empty : item.Longitude.ToString(CultureInfo.InvariantCulture);
+            _trigger.SelectedIndex = item == null ? 0 : item.Trigger == AnnouncementTrigger.Gps ? 1 : item.Trigger == AnnouncementTrigger.Startup ? 2 : 0;
+            _latitude.Text = item == null ? string.Empty : Num(item.Latitude);
+            _longitude.Text = item == null ? string.Empty : Num(item.Longitude);
             _distance.Text = item == null ? string.Empty : item.DistanceMeters.ToString(CultureInfo.InvariantCulture);
             _sound.Text = item == null || string.IsNullOrEmpty(item.SoundName) ? "  (aucun son)" : "  " + item.SoundName;
             _enabled.IsChecked = item != null && item.Enabled;
+            UpdateTriggerFields();
             _loading = false;
+        }
+
+        // Une annonce à l'allumage ne dépend d'aucune position GPS.
+        private void UpdateTriggerFields()
+        {
+            var positional = _trigger.SelectedIndex != 2;
+            _latitude.IsEnabled = _longitude.IsEnabled = _distance.IsEnabled = positional;
         }
 
         private static double ParseDouble(string text)
@@ -184,7 +287,7 @@ namespace IneoRbe.Planning
             var item = CurrentAnnouncement;
             if (item == null) return;
             item.Name = _name.Text;
-            item.Trigger = _trigger.SelectedIndex == 1 ? AnnouncementTrigger.Gps : AnnouncementTrigger.PreAnnouncement;
+            item.Trigger = _trigger.SelectedIndex == 1 ? AnnouncementTrigger.Gps : _trigger.SelectedIndex == 2 ? AnnouncementTrigger.Startup : AnnouncementTrigger.PreAnnouncement;
             item.Latitude = ParseDouble(_latitude.Text);
             item.Longitude = ParseDouble(_longitude.Text);
             item.DistanceMeters = (int)ParseDouble(_distance.Text);
@@ -193,6 +296,7 @@ namespace IneoRbe.Planning
             _loading = true;
             _announcementList.Items[index] = item.DisplayText;
             _announcementList.SelectedIndex = index;
+            UpdateTriggerFields();
             _loading = false;
         }
 
@@ -233,11 +337,31 @@ namespace IneoRbe.Planning
             if (_loading) return;
             var item = CurrentScreen;
             _loading = true;
-            _screenName.IsEnabled = item != null;
+            _screenForm.IsEnabled = item != null;
             _screenName.Text = item == null ? string.Empty : item.Name;
+            _place.SelectedValue = item == null ? null : item.Place;
+            _x.Text = item == null ? string.Empty : Num(item.X);
+            _y.Text = item == null ? string.Empty : Num(item.Y);
+            _widthPct.Text = item == null ? string.Empty : Num(item.WidthPct);
+            _widthPx.Text = item == null ? string.Empty : item.WidthPx.ToString(CultureInfo.InvariantCulture);
+            _heightPx.Text = item == null ? string.Empty : item.HeightPx.ToString(CultureInfo.InvariantCulture);
             _offline.Text = item == null || string.IsNullOrEmpty(item.OfflineName) ? "  (aucune image)" : "  " + item.OfflineName;
             _online.Text = item == null || string.IsNullOrEmpty(item.OnlineName) ? "  (aucune image)" : "  " + item.OnlineName;
             _loading = false;
+            DrawPlan();
+        }
+
+        private void ApplyPlace()
+        {
+            if (_loading) return;
+            var item = CurrentScreen;
+            var key = _place.SelectedValue as string;
+            if (item == null || key == null) return;
+            var preset = Places.First(p => p[0] == key);
+            _loading = true;
+            _x.Text = preset[2]; _y.Text = preset[3]; _widthPct.Text = preset[4]; _widthPx.Text = preset[5]; _heightPx.Text = preset[6];
+            _loading = false;
+            ApplyScreen();
         }
 
         private void ApplyScreen()
@@ -246,11 +370,43 @@ namespace IneoRbe.Planning
             var item = CurrentScreen;
             if (item == null) return;
             item.Name = _screenName.Text;
+            item.Place = _place.SelectedValue as string ?? "CUSTOM";
+            item.X = Math.Max(0, Math.Min(100, ParseDouble(_x.Text)));
+            item.Y = Math.Max(0, Math.Min(100, ParseDouble(_y.Text)));
+            item.WidthPct = Math.Max(1, Math.Min(100, ParseDouble(_widthPct.Text)));
+            item.WidthPx = Math.Max(16, (int)ParseDouble(_widthPx.Text));
+            item.HeightPx = Math.Max(16, (int)ParseDouble(_heightPx.Text));
             var index = _screenList.SelectedIndex;
             _loading = true;
             _screenList.Items[index] = item.DisplayText;
             _screenList.SelectedIndex = index;
             _loading = false;
+            DrawPlan();
+        }
+
+        private void DrawPlan()
+        {
+            _count.Text = "Nombre d'écrans : " + _config.Screens.Count;
+            _plan.Children.Clear();
+            var selected = CurrentScreen;
+            var number = 0;
+            foreach (var screen in _config.Screens)
+            {
+                number++;
+                var width = Math.Max(10, _plan.Width * screen.WidthPct / 100);
+                var height = Math.Max(6, width * screen.HeightPx / Math.Max(1, screen.WidthPx));
+                var rect = new Border
+                {
+                    Width = width, Height = height,
+                    Background = screen == selected ? Ui.Brush("#FBD5E3") : Ui.Brush("#E2E8F0"),
+                    BorderBrush = screen == selected ? Ui.Red : Ui.Muted,
+                    BorderThickness = new Thickness(screen == selected ? 2 : 1),
+                    Child = new TextBlock { Text = number.ToString(CultureInfo.InvariantCulture), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                };
+                Canvas.SetLeft(rect, Math.Min(_plan.Width - width, _plan.Width * screen.X / 100));
+                Canvas.SetTop(rect, Math.Min(_plan.Height - height, _plan.Height * screen.Y / 100));
+                _plan.Children.Add(rect);
+            }
         }
 
         private void AddScreen()
@@ -285,25 +441,34 @@ namespace IneoRbe.Planning
             catch (Exception exception) { Ui.Error(exception.Message); }
         }
 
-        private void Save()
+        private void Simulate()
         {
+            var item = CurrentScreen;
+            if (item == null) return;
+            new ScreenSimulationWindow(Window.GetWindow(this), item).Show();
+        }
+
+        private bool Save()
+        {
+            if (_parc == null) { Ui.Error("Choisissez d'abord un véhicule."); return false; }
             try
             {
-                SaeivStore.Save(_config);
-                _status.Text = "Configuration enregistrée (" + SaeivStore.RootDirectory + ").";
+                SaeivStore.Save(_config, _parc);
+                _status.Text = "Profil SAEIV du véhicule " + _parc + " enregistré.";
+                return true;
             }
-            catch (Exception exception) { Ui.Error("Enregistrement impossible : " + exception.Message); }
+            catch (Exception exception) { Ui.Error("Enregistrement impossible : " + exception.Message); return false; }
         }
 
         private void Export()
         {
-            Save();
+            if (!Save()) return;
             var dialog = new SaveFileDialog { FileName = "saeiv-config.json", Title = "Choisir le dossier de destination (clé USB)", Filter = "Configuration SAEIV|saeiv-config.json" };
             if (dialog.ShowDialog() != true) return;
             try
             {
                 var target = Path.GetDirectoryName(dialog.FileName);
-                File.Copy(Path.Combine(SaeivStore.RootDirectory, "saeiv-config.json"), Path.Combine(target, "saeiv-config.json"), true);
+                File.Copy(SaeivStore.ProfilePath(_parc), Path.Combine(target, "saeiv-config.json"), true);
                 foreach (var folder in new[] { SaeivStore.SoundsFolder, SaeivStore.ScreensFolder })
                 {
                     var source = Path.Combine(SaeivStore.RootDirectory, folder);
@@ -315,6 +480,120 @@ namespace IneoRbe.Planning
                 _status.Text = "Exporté vers " + target + " : copiez ce contenu dans C:\\ProgramData\\IneoRbe de l'UC.";
             }
             catch (Exception exception) { Ui.Error("Export impossible : " + exception.Message); }
+        }
+
+        // Publie une nouvelle révision de contenu, pour tous les véhicules ou uniquement pour l'UC du véhicule choisi.
+        private void Publish()
+        {
+            if (!Save()) return;
+            var dialog = new PublishRevisionWindow(Window.GetWindow(this), _parc);
+            if (dialog.ShowDialog() != true) return;
+            var body = new Dictionary<string, object> { { "notes", dialog.Notes } };
+            if (!dialog.AllVehicles) body["targetParc"] = _parc;
+            _status.Text = "Publication de la révision…";
+            Ui.Run(Dispatcher, () => Api.Post("/ineo/content-revisions", body), result =>
+            {
+                var revision = Json.Str(result, "revision.revision");
+                _status.Text = "Révision " + revision + " publiée " + (dialog.AllVehicles ? "pour tous les véhicules." : "pour le véhicule " + _parc + " (UC associé).");
+            }, error => { _status.Text = "Publication impossible : " + error; Ui.Error(error); });
+        }
+    }
+
+    // Choix de la portée d'une révision : tous les véhicules ou seulement le profil du véhicule sélectionné.
+    public sealed class PublishRevisionWindow : Window
+    {
+        private readonly RadioButton _all = new RadioButton { Content = "Tous les véhicules", Margin = new Thickness(0, 6, 0, 0) };
+        private readonly RadioButton _one = new RadioButton { IsChecked = true, Margin = new Thickness(0, 6, 0, 0) };
+        private readonly TextBox _notes = new TextBox { MaxLength = 500, Margin = new Thickness(0, 4, 0, 12) };
+
+        public bool AllVehicles { get { return _all.IsChecked == true; } }
+        public string Notes { get { return _notes.Text.Trim(); } }
+
+        public PublishRevisionWindow(Window owner, string parc)
+        {
+            Owner = owner;
+            Title = "Publier la révision actuelle";
+            Width = 460; SizeToContent = SizeToContent.Height;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ResizeMode = ResizeMode.NoResize;
+            _one.Content = "Seulement le profil du véhicule " + parc + " (assignée à son UC associé)";
+            var panel = new StackPanel { Margin = new Thickness(16) };
+            panel.Children.Add(Ui.Text("À quels véhicules s'applique cette révision ?", 13, true));
+            panel.Children.Add(_all);
+            panel.Children.Add(_one);
+            panel.Children.Add(Ui.Text("Notes (facultatif)", 11, true, Ui.Muted));
+            panel.Children.Add(_notes);
+            panel.Children.Add(new StackPanel
+            {
+                Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
+                Children = { Ui.Button("Publier", (s, e) => { DialogResult = true; }, true), Ui.Button("Annuler", (s, e) => { DialogResult = false; }) },
+            });
+            Content = panel;
+        }
+    }
+
+    // Fenêtre de simulation : affiche l'écran à sa résolution réelle (réduite pour tenir dans l'écran du PC), en ligne ou hors ligne.
+    public sealed class ScreenSimulationWindow : Window
+    {
+        private readonly ScreenConfig _screen;
+        private readonly Border _surface = new Border { Background = Brushes.Black, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        private readonly Image _image = new Image { Stretch = Stretch.Fill };
+        private readonly TextBlock _caption = new TextBlock { Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
+        private readonly TextBlock _info = Ui.Text(string.Empty, 11, false, Ui.Muted);
+
+        public ScreenSimulationWindow(Window owner, ScreenConfig screen)
+        {
+            _screen = screen;
+            Owner = owner;
+            Title = "Simulation : " + screen.Name;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ShowInTaskbar = false;
+
+            var area = SystemParameters.WorkArea;
+            var scale = Math.Min(1.0, Math.Min((area.Width - 80) / screen.WidthPx, (area.Height - 160) / screen.HeightPx));
+            var width = Math.Max(40, Math.Floor(screen.WidthPx * scale));
+            var height = Math.Max(24, Math.Floor(screen.HeightPx * scale));
+            _surface.Width = width; _surface.Height = height;
+            var layer = new Grid();
+            layer.Children.Add(_image);
+            layer.Children.Add(_caption);
+            _surface.Child = layer;
+            _info.Text = screen.WidthPx + " × " + screen.HeightPx + " px — affiché à " + Math.Round(scale * 100) + " %";
+
+            var online = Ui.Button("En ligne", (s, e) => Show(true), true);
+            var offline = Ui.Button("Hors ligne", (s, e) => Show(false));
+            var bar = Ui.Toolbar(online, offline, _info);
+            DockPanel.SetDock(bar, Dock.Top);
+            var root = new DockPanel { Margin = new Thickness(10) };
+            root.Children.Add(bar);
+            root.Children.Add(_surface);
+            Content = root;
+            SizeToContent = SizeToContent.WidthAndHeight;
+            MinWidth = 380;
+            Show(true);
+        }
+
+        private void Show(bool online)
+        {
+            var stored = online ? _screen.OnlineImage : _screen.OfflineImage;
+            var path = SaeivStore.ResolvePath(SaeivStore.ScreensFolder, stored);
+            _image.Source = null;
+            if (path != null && File.Exists(path))
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.UriSource = new Uri(path);
+                    bitmap.EndInit();
+                    _image.Source = bitmap;
+                    _caption.Text = string.Empty;
+                    return;
+                }
+                catch (Exception) { }
+            }
+            _caption.Text = (online ? "Affichage en ligne" : "Affichage hors ligne") + "\n(aucune image définie)";
         }
     }
 }
