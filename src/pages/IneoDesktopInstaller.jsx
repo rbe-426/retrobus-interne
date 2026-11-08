@@ -32,8 +32,24 @@ const sha256Of = async (blob) => {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
-export default function IneoDesktopInstaller() {
+const PRODUCT_LABELS = {
+  UC: {
+    title: 'Logiciel UC — installateur',
+    intro: 'Installateur du logiciel Inéo RétroBus à poser sur l’ordinateur embarqué (UC) d’un bus. Compatible Windows XP SP3 à Windows 11.',
+    name: 'Inéo RétroBus',
+    steps: '1. Copiez le fichier sur le PC du bus (clé USB) et lancez-le. 2. Acceptez l’autorisation administrateur. 3. Le logiciel démarre avec Windows et apparaît dans « UC détectés » ; rattachez-le ensuite à son véhicule dans « Profils véhicules ».',
+  },
+  MAINTENANCE: {
+    title: 'Logiciel Maintenance — installateur',
+    intro: 'Installateur de l’outil Inéo RBE Maintenance, réservé aux PC des techniciens enregistrés dans « Ordinateurs Maintenance ».',
+    name: 'Inéo RBE Maintenance',
+    steps: '1. Enregistrez d’abord le numéro de série du PC dans « Ordinateurs Maintenance ». 2. Copiez le fichier sur ce PC et lancez-le. 3. Le contrôle du numéro de série se fait à chaque démarrage, pendant l’écran de chargement.',
+  },
+};
+
+export default function IneoDesktopInstaller({ product = 'UC' }) {
   const toast = useToast();
+  const labels = PRODUCT_LABELS[product] || PRODUCT_LABELS.UC;
   const [releases, setReleases] = useState([]);
   const [latestId, setLatestId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +59,7 @@ export default function IneoDesktopInstaller() {
 
   const load = useCallback(async () => {
     try {
-      const data = await ineoAPI.listDesktopReleases();
+      const data = await ineoAPI.listDesktopReleases(product);
       setReleases(data?.releases || []);
       setLatestId(data?.latestId || null);
     } catch (error) {
@@ -51,7 +67,7 @@ export default function IneoDesktopInstaller() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, product]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -90,7 +106,7 @@ export default function IneoDesktopInstaller() {
     }
     try {
       setUploading(true);
-      await ineoAPI.uploadDesktopRelease({ version: form.version.trim(), notes: form.notes, dataBase64: await readFileAsBase64(form.file) });
+      await ineoAPI.uploadDesktopRelease({ product, version: form.version.trim(), notes: form.notes, dataBase64: await readFileAsBase64(form.file) });
       toast({ status: 'success', title: `Version ${form.version.trim()} enregistrée` });
       setForm({ version: '', notes: '', file: null });
       await load();
@@ -125,8 +141,8 @@ export default function IneoDesktopInstaller() {
 
   return <VStack align="stretch" spacing={5}>
     <Box>
-      <Text fontSize="20px" fontWeight="700" color="#17364d">Logiciel UC — installateur</Text>
-      <Text color="#60727e">Installateur du logiciel Inéo RétroBus à poser sur l’ordinateur embarqué (UC) d’un bus. Compatible Windows 7 SP1 à Windows 11.</Text>
+      <Text fontSize="20px" fontWeight="700" color="#17364d">{labels.title}</Text>
+      <Text color="#60727e">{labels.intro}</Text>
     </Box>
 
     <Box border="1px solid" borderColor="#c6d0d8" bg="#f8fafb" p={5}>
@@ -134,14 +150,14 @@ export default function IneoDesktopInstaller() {
       {!loading && !latest && <Text color="gray.600">Aucun installateur n’est encore disponible. Importez le fichier généré par <b>build-installer.ps1</b> ci-dessous.</Text>}
       {latest && <HStack justify="space-between" align="center" flexWrap="wrap" gap={4}>
         <Box>
-          <HStack mb={1}><Text fontSize="18px" fontWeight="700">Inéo RétroBus {latest.version}</Text><Badge colorScheme="green">Dernière version</Badge></HStack>
+          <HStack mb={1}><Text fontSize="18px" fontWeight="700">{labels.name} {latest.version}</Text><Badge colorScheme="green">Dernière version</Badge></HStack>
           <Text fontSize="sm" color="#60727e">{formatSize(latest.size)} · mise en ligne le {formatDate(latest.createdAt)}{latest.notes ? ` · ${latest.notes}` : ''}</Text>
         </Box>
         <Button size="lg" colorScheme="blue" borderRadius="2px" leftIcon={<FiDownload />} isLoading={downloading === latest.id} onClick={() => download(latest)}>Télécharger l’installateur</Button>
       </HStack>}
       <Box mt={4} fontSize="sm" color="#44525d">
-        <Text fontWeight="700" mb={1}>Installation sur l’UC</Text>
-        <Text>1. Copiez le fichier sur le PC du bus (clé USB) et lancez-le. 2. Acceptez l’autorisation administrateur. 3. Le logiciel démarre avec Windows et apparaît dans « UC détectés » ; rattachez-le ensuite à son véhicule dans « Profils véhicules ».</Text>
+        <Text fontWeight="700" mb={1}>Installation</Text>
+        <Text>{labels.steps}</Text>
       </Box>
     </Box>
 
