@@ -35,6 +35,7 @@
                 <TextBlock x:Name="ProfileTitleText" Margin="0,12,0,0" FontSize="16" FontWeight="Bold" />
                 <TextBlock x:Name="ProfileDetailText" Margin="0,4,0,0" TextWrapping="Wrap" />
                 <TextBlock x:Name="ScreenProfileText" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="ContentRevisionText" Margin="0,4,0,0" TextWrapping="Wrap" FontWeight="Bold" />
                 <TextBlock x:Name="IdentityStatusText" Margin="0,8,0,0" TextWrapping="Wrap" />
                 <Button x:Name="RefreshIdentityButton" Content="Actualiser le profil" HorizontalAlignment="Left" Width="140" Height="24" Margin="0,10,0,0" Click="RefreshIdentityButton_Click" />
               </StackPanel>

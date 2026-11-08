@@ -7,7 +7,41 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using IneoRbe.Desktop.Services;
+
+namespace IneoRbe.Maintenance
+{
+    [DataContract]
+    internal sealed class PublishedContent
+    {
+        [DataMember(Name = "revision")] public string Revision { get; set; }
+
+        // Dernière révision publiée par le serveur, ou null si le serveur est injoignable.
+        public static PublishedContent Fetch()
+        {
+            try
+            {
+                var response = HttpTransport.Send("GET", ApiEndpoints.ContentRevisionUrl, null, null, 15000);
+                if (!response.IsSuccess) return null;
+                using (var stream = new System.IO.MemoryStream(response.Body))
+                {
+                    return (PublishedContent)new DataContractJsonSerializer(typeof(PublishedContent)).ReadObject(stream);
+                }
+            }
+            catch (Exception) { return null; }
+        }
+
+        public static string Compare(string ucRevision, PublishedContent published)
+        {
+            if (published == null) return "Révision publiée : impossible de joindre le serveur depuis ce PC.";
+            if (string.IsNullOrEmpty(published.Revision)) return "Révision publiée : aucune pour l'instant.";
+            if (ucRevision == published.Revision) return "Révision publiée : " + published.Revision + " → l'UC est à jour.";
+            return "Révision publiée : " + published.Revision + " → l'UC n'est PAS à jour (" + (string.IsNullOrEmpty(ucRevision) ? "aucune" : ucRevision) + "). Utilisez « Forcer le contenu ».";
+        }
+    }
+}
 
 namespace IneoRbe.Maintenance
 {
@@ -312,8 +346,50 @@ namespace IneoRbe.Maintenance
 
         private void ContentButton_Click(object sender, RoutedEventArgs e)
         {
-            Query(reply => ResultBox.Text = "Révision de contenu : " + (string.IsNullOrEmpty(reply.ContentRevision) ? "non disponible (numéro de contenu à venir)" : reply.ContentRevision)
-                + "\nRévision des écrans : " + (string.IsNullOrEmpty(reply.ScreensRevision) ? "—" : reply.ScreensRevision));
+            ResultBox.Text = "Lecture des révisions…";
+            Query(reply =>
+            {
+                ResultBox.Text = "Révision de contenu de l'UC : " + (string.IsNullOrEmpty(reply.ContentRevision) ? "aucune" : reply.ContentRevision)
+                    + "\nRévision des écrans : " + (string.IsNullOrEmpty(reply.ScreensRevision) ? "—" : reply.ScreensRevision);
+                var ucRevision = reply.ContentRevision;
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    var published = PublishedContent.Fetch();
+                    Dispatcher.BeginInvoke(new Action(() => ResultBox.Text += "\n" + PublishedContent.Compare(ucRevision, published)));
+                });
+            });
+        }
+
+        // Force la synchronisation du contenu : l'UC récupère lui-même la dernière révision publiée (Wi-Fi ou câble, mais il lui faut Internet).
+        private void ForceContentButton_Click(object sender, RoutedEventArgs e)
+        {
+            var channel = _channel;
+            if (channel == null) { ResultBox.Text = "Aucun UC connecté."; return; }
+            if (_busy) { ResultBox.Text = "Une requête est déjà en cours, réessayez."; return; }
+            _busy = true;
+            ResultBox.Text = "Mise à jour du contenu de l'UC en cours…";
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                MaintenanceReply reply = null;
+                string error = null;
+                try { reply = channel.Request(MaintenanceProtocol.Content); }
+                catch (Exception exception) { error = exception.Message; }
+                var published = PublishedContent.Fetch();
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _busy = false;
+                    if (reply == null || !reply.Ok)
+                    {
+                        var detail = error ?? (reply == null ? "pas de réponse" : reply.Error);
+                        if (error != null && error.Contains("404")) detail = "cet UC ne gère pas encore la révision de contenu : mettez-le à jour (26.11.005 ou plus récent).";
+                        ResultBox.Text = "Mise à jour du contenu impossible : " + detail;
+                        return;
+                    }
+                    ResultBox.Text = reply.Message + "\n" + PublishedContent.Compare(reply.ContentRevision, published);
+                    RefreshStatuses();
+                }));
+            });
         }
 
         private void ShowInfo(MaintenanceReply reply)

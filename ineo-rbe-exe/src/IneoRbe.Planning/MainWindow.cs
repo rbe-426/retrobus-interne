@@ -17,7 +17,7 @@ namespace IneoRbe.Planning
         private readonly Button _updateButton;
         private UpdateDescriptor _pending;
 
-        public MainWindow(string updateNotice)
+        public MainWindow(string updateNotice, UpdateDescriptor pendingUpdate)
         {
             Title = "Inéo RétroBus Planification";
             Width = 1180; Height = 740; MinWidth = 900; MinHeight = 560;
@@ -32,9 +32,10 @@ namespace IneoRbe.Planning
             DockPanel.SetDock(header, Dock.Top);
             root.Children.Add(header);
 
-            _updateButton = Ui.Button("Mettre à jour", (s, e) => Install(), true);
+            _updateButton = Ui.Button("Update disponible", (s, e) => Install(), true);
             _updateButton.Visibility = Visibility.Collapsed;
-            _updateButton.Margin = new Thickness(10, 0, 0, 0);
+            _updateButton.Margin = new Thickness(0, 2, 8, 2);
+            DockPanel.SetDock(_updateButton, Dock.Right);
             var statusBar = new DockPanel { Background = Ui.Carbon, Height = 30 };
             var user = Ui.Text("Connecté : " + Api.UserName + "  ·  version " + ReleaseVersion.Format(_version), 11, false, Brushes.White);
             user.Margin = new Thickness(12, 0, 0, 0);
@@ -45,9 +46,9 @@ namespace IneoRbe.Planning
             _updateText.VerticalAlignment = VerticalAlignment.Center;
             _updateText.Margin = new Thickness(14, 0, 0, 0);
             statusBar.Children.Add(logout);
+            statusBar.Children.Add(_updateButton);
             statusBar.Children.Add(user);
             statusBar.Children.Add(_updateText);
-            statusBar.Children.Add(_updateButton);
             DockPanel.SetDock(statusBar, Dock.Bottom);
             root.Children.Add(statusBar);
 
@@ -67,9 +68,10 @@ namespace IneoRbe.Planning
                 Entry("vehicles", "Profils véhicules", Views.VehicleProfiles),
                 Entry("screens", "Profils écrans", Views2.ScreenProfiles),
                 Entry("pilot", "Véhicule pilote", Views2.Pilot),
+                Entry("content", "Révisions de contenu", Views2.ContentRevisions),
                 Entry("pcs", "Ordinateurs Maintenance", Views.MaintenancePcs),
             });
-            AddGroup(tree, "Logiciel", new[] { Entry("installers", "Installateurs", Views2.Installers) });
+            AddGroup(tree, "Logiciel", new[] { Entry("saeiv", "Configurateur SAEIV", () => new ConfiguratorView()), Entry("installers", "Installateurs", Views2.Installers) });
             root.Children.Add(tree);
             root.Children.Add(_content);
             Content = root;
@@ -78,7 +80,13 @@ namespace IneoRbe.Planning
             {
                 Show("missions");
                 if (!string.IsNullOrEmpty(updateNotice)) _updateText.Text = updateNotice;
-                CheckUpdate();
+                if (pendingUpdate != null)
+                {
+                    _pending = pendingUpdate;
+                    _updateText.Text = "Version " + pendingUpdate.Version + " prête : cliquez sur « Update disponible ».";
+                    _updateButton.Visibility = Visibility.Visible;
+                }
+                else CheckUpdate();
             };
         }
 

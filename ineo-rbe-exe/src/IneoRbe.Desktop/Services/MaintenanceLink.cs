@@ -136,7 +136,7 @@ namespace IneoRbe.Desktop.Services
         private static string NormalizeCommand(string command)
         {
             command = (command ?? string.Empty).Trim().ToLowerInvariant();
-            return command == MaintenanceProtocol.Ping || command == MaintenanceProtocol.Info || command == MaintenanceProtocol.Mirror || command == MaintenanceProtocol.Update ? command : null;
+            return command == MaintenanceProtocol.Ping || command == MaintenanceProtocol.Info || command == MaintenanceProtocol.Mirror || command == MaintenanceProtocol.Update || command == MaintenanceProtocol.Content ? command : null;
         }
 
         private MaintenanceReply Safe(string command)

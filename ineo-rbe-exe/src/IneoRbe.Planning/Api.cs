@@ -43,13 +43,82 @@ namespace IneoRbe.Planning
         public static void Logout()
         {
             lock (Gate) { _token = null; _refresh = null; _csrf = null; UserName = null; }
+            Invalidate();
         }
 
-        public static object Get(string path) { return Call("GET", path, null); }
-        public static object Post(string path, object body) { return Call("POST", path, body); }
-        public static object Put(string path, object body) { return Call("PUT", path, body); }
-        public static object Patch(string path, object body) { return Call("PATCH", path, body); }
-        public static object Delete(string path) { return Call("DELETE", path, null); }
+        // Listes de référence préchargées pendant le démarrage ; servies instantanément puis rafraîchies en arrière-plan.
+        public static readonly string[] Preloaded =
+        {
+            "/vehicles", "/ineo/routes", "/ineo/missions", "/ineo/driver-profiles", "/ineo/screen-profiles",
+            "/ineo/vehicle-profiles", "/ineo/vehicle-trackers", "/ineo/flashes", "/ineo/maintenance-pcs",
+        };
+
+        private static readonly TimeSpan CacheFresh = TimeSpan.FromSeconds(20);
+        private static readonly Dictionary<string, KeyValuePair<DateTime, object>> Cache = new Dictionary<string, KeyValuePair<DateTime, object>>();
+        private static readonly HashSet<string> Refreshing = new HashSet<string>();
+
+        public static object Get(string path)
+        {
+            if (Array.IndexOf(Preloaded, path) < 0) return Call("GET", path, null);
+            KeyValuePair<DateTime, object> hit;
+            bool found;
+            lock (Cache) { found = Cache.TryGetValue(path, out hit); }
+            if (!found) return Fetch(path);
+            if (DateTime.UtcNow - hit.Key > CacheFresh)
+            {
+                lock (Cache) { if (!Refreshing.Add(path)) return hit.Value; }
+                System.Threading.ThreadPool.QueueUserWorkItem(delegate
+                {
+                    try { Fetch(path); } catch (Exception) { }
+                    finally { lock (Cache) { Refreshing.Remove(path); } }
+                });
+            }
+            return hit.Value;
+        }
+
+        private static object Fetch(string path)
+        {
+            var value = Call("GET", path, null);
+            lock (Cache) { Cache[path] = new KeyValuePair<DateTime, object>(DateTime.UtcNow, value); }
+            return value;
+        }
+
+        // Précharge toutes les listes en parallèle ; renvoie le nombre d'échecs.
+        public static int Preload(Action<int, int> progress)
+        {
+            var total = Preloaded.Length;
+            var done = 0;
+            var failed = 0;
+            var threads = new List<System.Threading.Thread>();
+            foreach (var path in Preloaded)
+            {
+                var target = path;
+                var thread = new System.Threading.Thread(() =>
+                {
+                    try { Fetch(target); } catch (Exception) { System.Threading.Interlocked.Increment(ref failed); }
+                    var count = System.Threading.Interlocked.Increment(ref done);
+                    if (progress != null) progress(count, total);
+                });
+                thread.IsBackground = true;
+                thread.Start();
+                threads.Add(thread);
+            }
+            foreach (var thread in threads) thread.Join(60000);
+            return failed;
+        }
+
+        private static void Invalidate() { lock (Cache) { Cache.Clear(); } }
+
+        public static object Post(string path, object body) { return Mutate("POST", path, body); }
+        public static object Put(string path, object body) { return Mutate("PUT", path, body); }
+        public static object Patch(string path, object body) { return Mutate("PATCH", path, body); }
+        public static object Delete(string path) { return Mutate("DELETE", path, null); }
+
+        private static object Mutate(string method, string path, object body)
+        {
+            try { return Call(method, path, body); }
+            finally { Invalidate(); }
+        }
 
         public static byte[] GetBytes(string path)
         {

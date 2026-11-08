@@ -45,9 +45,15 @@ namespace IneoRbe.Planning
                 var login = new LoginWindow();
                 splash.Close();
                 if (login.ShowDialog() != true) { Shutdown(); return; }
-                var main = new MainWindow(splash.UpdateNotice);
-                main.Closed += (s, a) => Shutdown();
-                main.Show();
+                var loader = new SplashWindow(true);
+                loader.Completed += (s2, e2) =>
+                {
+                    loader.Close();
+                    var main = new MainWindow(splash.UpdateNotice, splash.PendingUpdate);
+                    main.Closed += (s, a) => Shutdown();
+                    main.Show();
+                };
+                loader.Show();
             };
             splash.Show();
         }
@@ -59,10 +65,16 @@ namespace IneoRbe.Planning
         private readonly ProgressBar _bar = new ProgressBar { Height = 10, Minimum = 0, Maximum = 100, Foreground = Ui.Red, Background = Ui.Brush("#1E293B"), BorderThickness = new Thickness(0) };
 
         public string UpdateNotice { get; private set; }
+        public UpdateDescriptor PendingUpdate { get; private set; }
         public event EventHandler Completed;
 
-        public SplashWindow()
+        private readonly bool _loadData;
+
+        public SplashWindow() : this(false) { }
+
+        public SplashWindow(bool loadData)
         {
+            _loadData = loadData;
             Title = "Inéo RétroBus Planification";
             Width = 440; Height = 260;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
@@ -82,16 +94,41 @@ namespace IneoRbe.Planning
 
         private void Steps()
         {
+            if (_loadData) { LoadData(); return; }
             Report("Chargement des certificats…", 0);
             try { TrustedRoots.Load(); } catch (Exception) { }
             System.Threading.Thread.Sleep(250);
             Report("Recherche des mises à jour installées…", 40);
             try { UpdateNotice = UpdateInstaller.ConsumePendingResult(typeof(SplashWindow).Assembly.GetName().Version); } catch (Exception) { }
             System.Threading.Thread.Sleep(250);
-            Report("Préparation de l'interface…", 80);
+            Report("Recherche des mises à jour…", 60);
+            try
+            {
+                var check = new UpdateClient("PLANNING", null).CheckForUpdate();
+                if (check != null && check.UpdateAvailable)
+                {
+                    PendingUpdate = check.Update;
+                    Dispatcher.BeginInvoke(new Action(() => { _status.Foreground = Ui.Brush("#FFB4C8"); _status.FontWeight = FontWeights.Bold; }));
+                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 80);
+                    System.Threading.Thread.Sleep(1800);
+                }
+            }
+            catch (Exception) { }
+            Report("Préparation de l'interface…", 90);
             System.Threading.Thread.Sleep(250);
             Report("Prêt.", 100);
             System.Threading.Thread.Sleep(200);
+            Dispatcher.BeginInvoke(new Action(() => { var handler = Completed; if (handler != null) handler(this, EventArgs.Empty); }));
+        }
+
+        private void LoadData()
+        {
+            Report("Chargement des données (missions, véhicules, conducteurs, profils…)", 5);
+            var failed = 0;
+            try { failed = Api.Preload((done, total) => Report("Chargement des données… " + done + "/" + total, 5 + 90.0 * done / total)); }
+            catch (Exception) { failed = 1; }
+            Report(failed == 0 ? "Prêt." : "Prêt (certaines données seront chargées à la demande).", 100);
+            System.Threading.Thread.Sleep(300);
             Dispatcher.BeginInvoke(new Action(() => { var handler = Completed; if (handler != null) handler(this, EventArgs.Empty); }));
         }
 

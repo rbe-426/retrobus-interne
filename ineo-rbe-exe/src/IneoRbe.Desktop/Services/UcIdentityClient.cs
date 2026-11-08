@@ -81,6 +81,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "vehicle")] public UcVehicleInfo Vehicle { get; set; }
         [DataMember(Name = "profile")] public UcProfileInfo Profile { get; set; }
         [DataMember(Name = "screenProfile")] public ScreenProfileInfo ScreenProfile { get; set; }
+        [DataMember(Name = "contentRevision")] public string ContentRevision { get; set; }
         [DataMember(Name = "commands")] public List<PilotCommand> Commands { get; set; }
         [DataMember(Name = "checkedAt")] public string CheckedAt { get; set; }
     }
@@ -93,13 +94,14 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "appVersion")] public string AppVersion { get; set; }
         [DataMember(Name = "online")] public bool Online { get; set; }
         [DataMember(Name = "screensRevision")] public string ScreensRevision { get; set; }
+        [DataMember(Name = "contentRevision")] public string ContentRevision { get; set; }
         [DataMember(Name = "commandResults")] public List<PilotCommandResult> CommandResults { get; set; }
     }
 
     public sealed class UcIdentityClient
     {
         // Appel bloquant : à exécuter hors du thread d'interface.
-        public UcIdentity Sync(string serial, string appVersion, string screensRevision, IList<PilotCommandResult> results)
+        public UcIdentity Sync(string serial, string appVersion, string screensRevision, string contentRevision, IList<PilotCommandResult> results)
         {
             if (!NetworkInterface.GetIsNetworkAvailable()) throw new InternetUnavailableException();
 
@@ -110,6 +112,7 @@ namespace IneoRbe.Desktop.Services
                 AppVersion = appVersion,
                 Online = true,
                 ScreensRevision = screensRevision,
+                ContentRevision = contentRevision,
                 CommandResults = results == null ? new List<PilotCommandResult>() : results.ToList(),
             };
             byte[] json;

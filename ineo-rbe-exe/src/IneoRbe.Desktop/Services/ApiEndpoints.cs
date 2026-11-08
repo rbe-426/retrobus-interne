@@ -16,6 +16,7 @@ namespace IneoRbe.Desktop.Services
         public static string UpdateUrl { get { return BaseUrl + "/update"; } }
         public static string IdentifyUrl { get { return BaseUrl + "/identify"; } }
         public static string SyncUrl { get { return BaseUrl + "/sync"; } }
+        public static string ContentRevisionUrl { get { return BaseUrl + "/content-revision"; } }
         public static string MaintenanceCheckUrl { get { return BaseUrl + "/maintenance/check"; } }
 
         public static string MediaUrl(string mediaId)

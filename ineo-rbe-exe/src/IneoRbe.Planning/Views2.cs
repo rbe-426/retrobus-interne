@@ -222,6 +222,65 @@ namespace IneoRbe.Planning
             return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
+        // ----- Révisions de contenu -----
+
+        public static UIElement ContentRevisions()
+        {
+            var current = Ui.Text(string.Empty, 16, true);
+            var summary = Ui.Text(string.Empty, 11, false, Ui.Muted);
+            var notes = new TextBox { MaxLength = 500 };
+            var history = new ListBox { Height = 160 };
+            var devices = new ListBox { Height = 220 };
+            var status = Ui.Text(string.Empty, 11, false, Ui.Muted);
+            var root = new StackPanel { Margin = new Thickness(14), MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Left };
+
+            Action reload = null;
+            reload = () => Ui.Run(root.Dispatcher, () => new[] { Api.Get("/ineo/content-revisions"), Api.Get("/ineo/uc-devices") }, data =>
+            {
+                var revision = Json.Str(data[0], "current");
+                current.Text = "Révision de contenu en vigueur : " + (revision.Length == 0 ? "aucune" : revision);
+                summary.Text = Json.Str(data[0], "devicesUpToDate") + " UC à jour sur " + Json.Str(data[0], "devices") + " détecté(s).";
+                history.ItemsSource = Json.List(data[0], "revisions").Select(r => Json.Str(r, "revision") + " — " + Data.Date(r, "createdAt") + (Json.Str(r, "notes").Length == 0 ? string.Empty : " — " + Json.Str(r, "notes"))).ToList();
+                devices.ItemsSource = Json.List(data[1], "devices").Select(d =>
+                {
+                    var applied = Json.Str(d, "contentRevision");
+                    var mark = revision.Length > 0 && applied == revision ? "✔ à jour" : "✖ en retard";
+                    return Json.Str(d, "serial") + " · " + Json.Str(d, "vehicleParc") + " · contenu " + (applied.Length == 0 ? "aucun" : applied) + " · " + mark + " · vu le " + Data.Date(d, "lastSeenAt");
+                }).ToList();
+            }, error => status.Text = "Erreur : " + error);
+
+            root.Children.Add(Ui.Title("Révisions de contenu"));
+            root.Children.Add(Ui.Text("Une révision est publiée ici ; chaque UC connecté à Internet l'applique automatiquement. Le logiciel Maintenance peut la forcer.", 11, false, Ui.Muted));
+            root.Children.Add(current);
+            root.Children.Add(summary);
+            root.Children.Add(Ui.Text("Notes de la nouvelle révision (facultatif)", 11, false, Ui.Muted));
+            root.Children.Add(notes);
+            root.Children.Add(new StackPanel
+            {
+                Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 10),
+                Children =
+                {
+                    Ui.Button("Publier une nouvelle révision", (s, e) =>
+                    {
+                        if (!Ui.Confirm("Publier une nouvelle révision de contenu ? Tous les UC la récupéreront à leur prochaine synchronisation.")) return;
+                        Ui.Run(root.Dispatcher, () => Api.Post("/ineo/content-revisions", new Dictionary<string, object> { { "notes", notes.Text.Trim() } }), r => { notes.Text = string.Empty; status.Text = "Révision " + Json.Str(r, "revision.revision") + " publiée."; reload(); }, error => status.Text = "Erreur : " + error);
+                    }, true),
+                    Ui.Button("Actualiser", (s, e) => reload()),
+                },
+            });
+            root.Children.Add(status);
+            root.Children.Add(Ui.Text("Historique", 12, true));
+            root.Children.Add(history);
+            root.Children.Add(Ui.Text("UC détectés", 12, true));
+            root.Children.Add(devices);
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            timer.Tick += (s, e) => reload();
+            root.Loaded += (s, e) => { reload(); timer.Start(); };
+            root.Unloaded += (s, e) => timer.Stop();
+            return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        }
+
         // ----- Profils d'écrans -----
 
         private static readonly string[][] Places =

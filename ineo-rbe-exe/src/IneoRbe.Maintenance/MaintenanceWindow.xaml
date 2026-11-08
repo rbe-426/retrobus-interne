@@ -93,6 +93,7 @@
             <Button Content="Date et heure" Padding="10,4" Margin="0,0,6,6" Click="TimeButton_Click" />
             <Button Content="Position" Padding="10,4" Margin="0,0,6,6" Click="PositionButton_Click" />
             <Button Content="Révision de contenu" Padding="10,4" Margin="0,0,6,6" Click="ContentButton_Click" />
+            <Button Content="Forcer le contenu" Padding="10,4" Margin="0,0,6,6" Click="ForceContentButton_Click" />
             <Button Content="Tout actualiser" Padding="10,4" Margin="0,0,6,6" Click="RefreshAllButton_Click" />
             <Button Content="Ouvrir le miroir" Padding="10,4" Margin="0,0,6,6" Click="MirrorButton_Click" />
             <Button Content="Mettre à jour l'UC" Padding="10,4" Margin="0,0,6,6" Click="RemoteUpdateButton_Click" />

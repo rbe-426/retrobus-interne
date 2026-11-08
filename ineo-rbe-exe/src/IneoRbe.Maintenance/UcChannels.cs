@@ -38,7 +38,7 @@ namespace IneoRbe.Maintenance
         protected override MaintenanceReply Exchange(string command)
         {
             var request = (HttpWebRequest)WebRequest.Create("http://" + _host + ":" + MaintenanceProtocol.TcpPort + "/maintenance/" + command);
-            request.Timeout = command == MaintenanceProtocol.Update ? 40000 : 8000;
+            request.Timeout = command == MaintenanceProtocol.Update || command == MaintenanceProtocol.Content ? 40000 : 8000;
             request.ReadWriteTimeout = 15000;
             request.Proxy = null;
             using (var response = (HttpWebResponse)request.GetResponse())
@@ -71,7 +71,7 @@ namespace IneoRbe.Maintenance
         protected override MaintenanceReply Exchange(string command)
         {
             _port.DiscardInBuffer();
-            _port.ReadTimeout = command == MaintenanceProtocol.Update ? 45000 : 20000;
+            _port.ReadTimeout = command == MaintenanceProtocol.Update || command == MaintenanceProtocol.Content ? 45000 : 20000;
             _port.WriteLine(MaintenanceProtocol.ToJson(new MaintenanceRequest { Command = command }));
             return MaintenanceProtocol.FromJson<MaintenanceReply>(_port.ReadLine().Trim());
         }

@@ -15,6 +15,7 @@ namespace IneoRbe.Desktop.Services
         public const string Ping = "ping";
         public const string Info = "info";
         public const string Mirror = "mirror";
+        public const string Content = "content";
         // Ordre de mise à jour à distance : l'UC recherche, télécharge (empreinte vérifiée) et installe lui-même la version officielle.
         public const string Update = "update";
 

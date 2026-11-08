@@ -29,6 +29,8 @@ namespace IneoRbe.Desktop
         private UpdateDescriptor _availableUpdate;
         private string _serial;
         private volatile string _screensRevision;
+        private volatile string _contentRevision;
+        private readonly object _syncLock = new object();
         private MaintenanceLink _maintenanceLink;
         private volatile string _updateLevel = MaintenanceProtocol.Unknown;
         private volatile string _updateDetail = "Vérification pas encore effectuée.";
@@ -146,6 +148,11 @@ namespace IneoRbe.Desktop
         // Synchronisation avec le serveur : profil du véhicule, profil écran (avec ses images) et commandes du véhicule pilote.
         private void SyncWorker()
         {
+            lock (_syncLock) SyncWorkerCore();
+        }
+
+        private void SyncWorkerCore()
+        {
             if (!_serialRead)
             {
                 _serial = DeviceIdentity.ReadSerial();
@@ -181,6 +188,8 @@ namespace IneoRbe.Desktop
                         ShowIdentity(cached, true);
                         SimulatorPage.SetProfile(cached.ScreenProfile);
                         _screensRevision = cached.ScreenProfile != null ? cached.ScreenProfile.Revision : null;
+                        _contentRevision = cached.ContentRevision;
+                        ContentRevisionText.Text = DescribeContentRevision(cached.ContentRevision);
                     }
                     else IdentityStatusText.Text = "Recherche du profil du véhicule...";
                 });
@@ -191,7 +200,7 @@ namespace IneoRbe.Desktop
                 List<PilotCommandResult> sent;
                 lock (_resultsLock) sent = _pendingResults.ToList();
 
-                var identity = _identityClient.Sync(_serial, _releaseVersion, _screensRevision, sent);
+                var identity = _identityClient.Sync(_serial, _releaseVersion, _screensRevision, _contentRevision, sent);
                 lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
 
                 var mediaIds = MediaCache.IdsOf(identity.ScreenProfile).ToList();
@@ -202,6 +211,8 @@ namespace IneoRbe.Desktop
                 Ui(() =>
                 {
                     _screensRevision = identity.ScreenProfile != null ? identity.ScreenProfile.Revision : null;
+                    _contentRevision = identity.ContentRevision;
+                    ContentRevisionText.Text = DescribeContentRevision(identity.ContentRevision);
                     ShowIdentity(identity, false);
                     SimulatorPage.SetProfile(identity.ScreenProfile);
                     _syncTimer.Interval = TimeSpan.FromSeconds(identity.IsPilot ? 15 : 60);
@@ -315,7 +326,7 @@ namespace IneoRbe.Desktop
             {
                 List<PilotCommandResult> sent;
                 lock (_resultsLock) sent = _pendingResults.ToList();
-                _identityClient.Sync(_serial, _releaseVersion, _screensRevision, sent);
+                _identityClient.Sync(_serial, _releaseVersion, _screensRevision, _contentRevision, sent);
                 lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
             }
             catch (Exception)
@@ -357,6 +368,11 @@ namespace IneoRbe.Desktop
             IdentityStatusText.Text = fromCache
                 ? "Dernier profil connu (vérifié le " + identity.CheckedAt + ")."
                 : "Profil à jour (vérifié le " + identity.CheckedAt + ").";
+        }
+
+        private static string DescribeContentRevision(string revision)
+        {
+            return "Révision de contenu : " + (string.IsNullOrEmpty(revision) ? "aucune publiée" : revision);
         }
 
         private static string DescribeProfile(UcVehicleInfo vehicle, UcProfileInfo profile)
@@ -410,6 +426,20 @@ namespace IneoRbe.Desktop
                 return reply;
             }
 
+            if (command == MaintenanceProtocol.Content)
+            {
+                // Synchronisation immédiate : récupère le profil, les images et le numéro de révision publié.
+                try { SyncWorker(); }
+                catch (Exception exception) { return MaintenanceReply.Failure("Synchronisation impossible : " + exception.Message); }
+                reply.ContentRevision = _contentRevision;
+                reply.ScreensRevision = _screensRevision;
+                var reachable = NetworkInterface.GetIsNetworkAvailable();
+                reply.Message = !reachable
+                    ? "L'UC n'a pas accès à Internet : le contenu n'a pas pu être récupéré."
+                    : string.IsNullOrEmpty(_contentRevision) ? "Synchronisation faite : aucune révision de contenu publiée." : "Contenu à jour : révision " + _contentRevision + ".";
+                return reply;
+            }
+
             var serial = _serial ?? DeviceIdentity.ReadSerial();
             var online = NetworkInterface.GetIsNetworkAvailable();
             double latitude, longitude;
@@ -429,13 +459,15 @@ namespace IneoRbe.Desktop
             reply.PositionAgeSeconds = hasPosition ? (int)age.TotalSeconds : 0;
             reply.Profile = profileName;
             reply.ScreensRevision = screensRevision;
+            reply.ContentRevision = _contentRevision;
             reply.UpdateVersion = _updateVersion;
             reply.Statuses = new[]
             {
                 Status("Connexion", online ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko, online ? "Réseau disponible." : "Pas de réseau."),
                 Status("Mise à jour", _updateLevel, _updateDetail),
                 Status("Contenu", screensRevision != null ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
-                    screensRevision != null ? "Profil écran chargé (révision " + screensRevision + ")." : "Aucun profil écran chargé."),
+                    (screensRevision != null ? "Profil écran chargé (révision " + screensRevision + ")." : "Aucun profil écran chargé.")
+                    + " Révision de contenu : " + (string.IsNullOrEmpty(_contentRevision) ? "aucune" : _contentRevision) + "."),
                 Status("Profil véhicule", profileName != null ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
                     profileName != null ? "Rattaché à " + profileName + "." : "UC non rattaché à un véhicule."),
                 Status("GPS", positionFresh ? MaintenanceProtocol.Ok : MaintenanceProtocol.Ko,
