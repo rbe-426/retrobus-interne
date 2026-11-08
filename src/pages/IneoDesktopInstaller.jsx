@@ -150,7 +150,7 @@ export default function IneoDesktopInstaller() {
       <Grid templateColumns={{ base: '1fr', md: '1fr 2fr' }} gap={4}>
         <FormControl isRequired>
           <FormLabel>Numéro de version</FormLabel>
-          <Input bg="white" value={form.version} onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))} placeholder="1.0.2" pattern="\d+\.\d+\.\d+" />
+          <Input bg="white" value={form.version} onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))} placeholder="26.11.001" pattern="\d{2}\.(0[1-9]|1[0-2])\.\d{3}" />
           <FormHelperText>Celui affiché par le script de compilation.</FormHelperText>
         </FormControl>
         <FormControl>
