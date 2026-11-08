@@ -61,7 +61,7 @@ namespace IneoRbe.Planning
 
     public sealed class SplashWindow : Window
     {
-        private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, Margin = new Thickness(0, 0, 0, 6), Text = "Démarrage…" };
+        private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, Margin = new Thickness(0, 0, 0, 6), TextWrapping = TextWrapping.Wrap, MinHeight = 30, Text = "Démarrage…" };
         private readonly ProgressBar _bar = new ProgressBar { Height = 10, Minimum = 0, Maximum = 100, Foreground = Ui.Red, Background = Ui.Brush("#1E293B"), BorderThickness = new Thickness(0) };
 
         public string UpdateNotice { get; private set; }
@@ -131,7 +131,7 @@ namespace IneoRbe.Planning
         {
             Report("Chargement des données (missions, véhicules, conducteurs, profils…)", 5);
             var failed = 0;
-            try { failed = Api.Preload((done, total) => Report("Chargement des données… " + done + "/" + total, 5 + 90.0 * done / total)); }
+            try { failed = Api.Preload((done, total, active) => Report(active.Length == 0 ? "Finalisation…" : "Chargement : " + active, 5 + 90.0 * done / total)); }
             catch (Exception) { failed = 1; }
             Report(failed == 0 ? "Prêt." : "Prêt (certaines données seront chargées à la demande).", 100);
             System.Threading.Thread.Sleep(300);

@@ -47,19 +47,31 @@ namespace IneoRbe.Planning
         }
 
         // Listes de référence préchargées pendant le démarrage ; servies instantanément puis rafraîchies en arrière-plan.
-        public static readonly string[] Preloaded =
+        public static readonly string[][] Modules =
         {
-            "/vehicles", "/ineo/routes", "/ineo/missions", "/ineo/driver-profiles", "/ineo/screen-profiles",
-            "/ineo/vehicle-profiles", "/ineo/vehicle-trackers", "/ineo/flashes", "/ineo/maintenance-pcs",
+            new[] { "/vehicles", "Véhicules" }, new[] { "/ineo/routes", "Lignes" }, new[] { "/ineo/missions", "Missions" },
+            new[] { "/ineo/driver-profiles", "Conducteurs" }, new[] { "/ineo/screen-profiles", "Profils d'écrans" },
+            new[] { "/ineo/vehicle-profiles", "Profils véhicules" }, new[] { "/ineo/vehicle-trackers", "Balises" },
+            new[] { "/ineo/free-tracking-sessions", "Suivi libre" }, new[] { "/ineo/flashes", "Flashs" },
+            new[] { "/ineo/maintenance-pcs", "PC maintenance" }, new[] { "/ineo/uc-devices", "UC détectés" },
+            new[] { "/ineo/content-revisions", "Révisions de contenu" },
+            new[] { "/ineo/desktop-releases?product=UC", "Installateur UC" }, new[] { "/ineo/desktop-releases?product=MAINTENANCE", "Installateur Maintenance" },
+            new[] { "/ineo/desktop-releases?product=PLANNING", "Installateur Planification" },
         };
 
-        private static readonly TimeSpan CacheFresh = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan CacheFresh = TimeSpan.FromMinutes(2);
         private static readonly Dictionary<string, KeyValuePair<DateTime, object>> Cache = new Dictionary<string, KeyValuePair<DateTime, object>>();
         private static readonly HashSet<string> Refreshing = new HashSet<string>();
 
+        private static bool IsPreloaded(string path)
+        {
+            foreach (var module in Modules) if (module[0] == path) return true;
+            return false;
+        }
+
         public static object Get(string path)
         {
-            if (Array.IndexOf(Preloaded, path) < 0) return Call("GET", path, null);
+            if (!IsPreloaded(path)) return Call("GET", path, null);
             KeyValuePair<DateTime, object> hit;
             bool found;
             lock (Cache) { found = Cache.TryGetValue(path, out hit); }
@@ -83,27 +95,37 @@ namespace IneoRbe.Planning
             return value;
         }
 
-        // Précharge toutes les listes en parallèle ; renvoie le nombre d'échecs.
-        public static int Preload(Action<int, int> progress)
+        // Précharge toutes les listes en parallèle ; progress reçoit (terminés, total, modules en cours). Renvoie le nombre d'échecs.
+        public static int Preload(Action<int, int, string> progress)
         {
-            var total = Preloaded.Length;
+            var total = Modules.Length;
             var done = 0;
             var failed = 0;
+            var active = new List<string>();
             var threads = new List<System.Threading.Thread>();
-            foreach (var path in Preloaded)
+            Action notify = () =>
             {
-                var target = path;
+                string names;
+                lock (active) { names = string.Join(", ", active.ToArray()); }
+                if (progress != null) progress(done, total, names);
+            };
+            foreach (var module in Modules)
+            {
+                var target = module;
+                lock (active) { active.Add(target[1]); }
                 var thread = new System.Threading.Thread(() =>
                 {
-                    try { Fetch(target); } catch (Exception) { System.Threading.Interlocked.Increment(ref failed); }
-                    var count = System.Threading.Interlocked.Increment(ref done);
-                    if (progress != null) progress(count, total);
+                    try { Fetch(target[0]); } catch (Exception) { System.Threading.Interlocked.Increment(ref failed); }
+                    lock (active) { active.Remove(target[1]); }
+                    System.Threading.Interlocked.Increment(ref done);
+                    notify();
                 });
                 thread.IsBackground = true;
                 thread.Start();
                 threads.Add(thread);
             }
-            foreach (var thread in threads) thread.Join(60000);
+            notify();
+            foreach (var thread in threads) thread.Join(90000);
             return failed;
         }
 
