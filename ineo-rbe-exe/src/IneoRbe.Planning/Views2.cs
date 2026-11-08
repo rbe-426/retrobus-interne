@@ -201,7 +201,11 @@ namespace IneoRbe.Planning
                 Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 10),
                 Children =
                 {
-                    Ui.Button("Enregistrer", (s, e) => Ui.Run(root.Dispatcher, () => Api.Put("/ineo/pilot", new Dictionary<string, object> { { "name", name.Text.Trim() }, { "ucSerial", serial.Text.Trim() }, { "screenProfileId", screens.SelectedValue as string ?? string.Empty } }), r => reload(), null), true),
+                    Ui.Button("Enregistrer", (s, e) =>
+                    {
+                        var body = new Dictionary<string, object> { { "name", name.Text.Trim() }, { "ucSerial", serial.Text.Trim() }, { "screenProfileId", screens.SelectedValue as string ?? string.Empty } };
+                        Ui.Run(root.Dispatcher, () => Api.Put("/ineo/pilot", body), r => reload(), null);
+                    }, true),
                     Ui.Button("Actualiser", (s, e) => reload()),
                 },
             });
@@ -263,7 +267,8 @@ namespace IneoRbe.Planning
                     Ui.Button("Publier une nouvelle révision", (s, e) =>
                     {
                         if (!Ui.Confirm("Publier une nouvelle révision de contenu ? Tous les UC la récupéreront à leur prochaine synchronisation.")) return;
-                        Ui.Run(root.Dispatcher, () => Api.Post("/ineo/content-revisions", new Dictionary<string, object> { { "notes", notes.Text.Trim() } }), r => { notes.Text = string.Empty; status.Text = "Révision " + Json.Str(r, "revision.revision") + " publiée."; reload(); }, error => status.Text = "Erreur : " + error);
+                        var body = new Dictionary<string, object> { { "notes", notes.Text.Trim() } };
+                        Ui.Run(root.Dispatcher, () => Api.Post("/ineo/content-revisions", body), r => { notes.Text = string.Empty; status.Text = "Révision " + Json.Str(r, "revision.revision") + " publiée."; reload(); }, error => status.Text = "Erreur : " + error);
                     }, true),
                     Ui.Button("Actualiser", (s, e) => reload()),
                 },
