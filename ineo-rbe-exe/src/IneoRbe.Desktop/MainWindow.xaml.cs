@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -30,6 +33,7 @@ namespace IneoRbe.Desktop
         private string _serial;
         private volatile string _screensRevision;
         private volatile string _contentRevision = ContentSync.LoadApplied();
+        private volatile string _contentNote;
         private readonly object _syncLock = new object();
         private MaintenanceLink _maintenanceLink;
         private volatile string _updateLevel = MaintenanceProtocol.Unknown;
@@ -350,13 +354,20 @@ namespace IneoRbe.Desktop
             if (string.IsNullOrEmpty(published) || published == _contentRevision) return false;
             try
             {
-                _contentRevision = ContentSync.Apply(_serial, _config);
+                var revision = ContentSync.Apply(_serial, _config);
+                if (!ContentSync.LastHadContent)
+                {
+                    _contentNote = "La révision " + revision + " publiée ne contient AUCUN contenu : republiez-la depuis la Planification (serveur à jour).";
+                    return false;
+                }
+                _contentRevision = revision;
+                _contentNote = null;
                 return true;
             }
             catch (Exception exception)
             {
                 // La révision reste « non appliquée » : l'UC la déclare telle quelle au serveur et réessaie à la prochaine synchronisation.
-                Ui(() => IdentityStatusText.Text = "Révision " + published + " non appliquée : " + exception.Message);
+                _contentNote = "Révision " + published + " non appliquée : " + exception.Message;
                 return false;
             }
         }
@@ -395,7 +406,8 @@ namespace IneoRbe.Desktop
             IdentityStatusText.Text = (fromCache
                 ? "Dernier profil connu (vérifié le " + identity.CheckedAt + ")."
                 : "Profil à jour (vérifié le " + identity.CheckedAt + ").")
-                + " " + _config.Announcements.Count + " annonce(s) dont " + startupCount + " à l'allumage.";
+                + " " + _config.Announcements.Count + " annonce(s) dont " + startupCount + " à l'allumage."
+                + (_contentNote == null ? string.Empty : " " + _contentNote);
         }
 
         private static string DescribeContentRevision(string revision)
@@ -451,6 +463,31 @@ namespace IneoRbe.Desktop
                 Task.Factory.StartNew(() => InstallAvailableUpdateBlocking());
                 reply.UpdateVersion = pending.Version;
                 reply.Message = "Installation de la version " + pending.Version + " lancée : l'UC va redémarrer.";
+                return reply;
+            }
+
+            if (command == MaintenanceProtocol.Restart)
+            {
+                reply.Message = "Redémarrage du logiciel de l'UC en cours.";
+                Task.Factory.StartNew(() =>
+                {
+                    Thread.Sleep(1000);
+                    try
+                    {
+                        // Le nouveau processus démarre après la fermeture de celui-ci (le délai évite le conflit d'instance unique).
+                        var exe = Assembly.GetExecutingAssembly().Location;
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                            Arguments = "/c ping -n 5 127.0.0.1 >nul & start \"\" \"" + exe + "\"",
+                            WorkingDirectory = Path.GetDirectoryName(exe),
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                        });
+                    }
+                    catch (Exception) { return; }
+                    Ui(() => Application.Current.Shutdown());
+                });
                 return reply;
             }
 

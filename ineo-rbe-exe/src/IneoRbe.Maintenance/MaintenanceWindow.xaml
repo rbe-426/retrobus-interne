@@ -97,6 +97,7 @@
             <Button Content="Tout actualiser" Padding="10,4" Margin="0,0,6,6" Click="RefreshAllButton_Click" />
             <Button Content="Ouvrir le miroir" Padding="10,4" Margin="0,0,6,6" Click="MirrorButton_Click" />
             <Button Content="Mettre à jour l'UC" Padding="10,4" Margin="0,0,6,6" Click="RemoteUpdateButton_Click" />
+            <Button Content="Redémarrer l'UC" Padding="10,4" Margin="0,0,6,6" Click="RestartUcButton_Click" />
             <Button Content="Déconnecter" Padding="10,4" Margin="0,0,6,6" Click="DisconnectButton_Click" />
           </WrapPanel>
           <TextBox x:Name="ResultBox" Grid.Row="2" IsReadOnly="True" FontFamily="Consolas" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" />

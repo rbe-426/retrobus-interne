@@ -18,6 +18,8 @@ namespace IneoRbe.Desktop.Services
         public const string Content = "content";
         // Ordre de mise à jour à distance : l'UC recherche, télécharge (empreinte vérifiée) et installe lui-même la version officielle.
         public const string Update = "update";
+        // Ordre de redémarrage du logiciel UC (sans redémarrer le PC ni le bus).
+        public const string Restart = "restart";
 
         // Niveau d'un voyant : vert, rouge, orange (mise à jour disponible non installée), gris (inconnu).
         public const string Ok = "OK";

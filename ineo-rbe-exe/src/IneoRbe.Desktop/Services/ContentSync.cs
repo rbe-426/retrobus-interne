@@ -46,8 +46,11 @@ namespace IneoRbe.Desktop.Services
         }
 
         // Appel bloquant. Retourne la révision appliquée, ou lève une exception (rien n'est alors modifié : nouvelle tentative à la prochaine synchronisation).
+        public static bool LastHadContent { get; private set; }
+
         public static string Apply(string serial, SaeivConfig config)
         {
+            LastHadContent = false;
             var response = HttpTransport.Send("GET", ApiEndpoints.ContentUrl(serial), null, null, Timeout);
             if (!response.IsSuccess) throw new InvalidOperationException("Le serveur a répondu " + response.StatusCode + " pour le contenu.");
 
@@ -58,12 +61,8 @@ namespace IneoRbe.Desktop.Services
             }
             if (package == null || string.IsNullOrEmpty(package.Revision)) throw new InvalidOperationException("Contenu du serveur illisible.");
 
-            // Anciennes révisions sans contenu : seul le numéro change, la configuration locale est conservée.
-            if (!package.HasContent)
-            {
-                SaveApplied(package.Revision);
-                return package.Revision;
-            }
+            // Révision sans contenu (publiée avant l'envoi du contenu) : elle n'est pas considérée comme appliquée.
+            if (!package.HasContent) return package.Revision;
 
             var announcements = package.Announcements ?? new List<Announcement>();
             var screens = package.Screens ?? new List<ScreenConfig>();
@@ -85,6 +84,7 @@ namespace IneoRbe.Desktop.Services
             config.Screens = screens;
             SaeivStore.Save(config);
             SaveApplied(package.Revision);
+            LastHadContent = true;
             return package.Revision;
         }
 

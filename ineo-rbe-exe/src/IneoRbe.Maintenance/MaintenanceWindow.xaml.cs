@@ -446,6 +446,38 @@ namespace IneoRbe.Maintenance
             });
         }
 
+        // Redémarre uniquement le logiciel de l'UC : évite de couper le bus pour recharger la configuration.
+        private void RestartUcButton_Click(object sender, RoutedEventArgs e)
+        {
+            var channel = _channel;
+            if (channel == null) { ResultBox.Text = "Aucun UC connecté."; return; }
+            if (_busy) { ResultBox.Text = "Une requête est déjà en cours, réessayez."; return; }
+            if (!BrandDialog.Show(this, "Redémarrer l'UC", "Redémarrer le logiciel de l'UC ? La liaison sera coupée quelques secondes, les annonces d'allumage seront rejouées.", true)) return;
+
+            _busy = true;
+            ResultBox.Text = "Ordre de redémarrage envoyé…";
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                MaintenanceReply reply = null;
+                string error = null;
+                try { reply = channel.Request(MaintenanceProtocol.Restart); }
+                catch (Exception exception) { error = exception.Message; }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _busy = false;
+                    if (reply == null || !reply.Ok)
+                    {
+                        var detail = error ?? (reply == null ? "pas de réponse" : reply.Error);
+                        if (error != null && error.Contains("404")) detail = "cet UC ne gère pas encore le redémarrage à distance : installez la dernière version sur le poste.";
+                        ResultBox.Text = "Redémarrage impossible : " + detail;
+                        return;
+                    }
+                    ResultBox.Text = reply.Message + "\nReconnectez-vous à l'UC une fois redémarré.";
+                }));
+            });
+        }
+
         private void MirrorButton_Click(object sender, RoutedEventArgs e)
         {
             if (_channel == null) { ResultBox.Text = "Aucun UC connecté."; return; }
