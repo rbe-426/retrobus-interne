@@ -66,7 +66,6 @@ namespace IneoRbe.Planning
             {
                 Entry("drivers", "Conducteurs", Views.Drivers),
                 Entry("vehicles", "Profils véhicules", Views.VehicleProfiles),
-                Entry("screens", "Profils écrans", Views2.ScreenProfiles),
                 Entry("pilot", "Véhicule pilote", Views2.Pilot),
                 Entry("content", "Révisions de contenu", Views2.ContentRevisions),
                 Entry("pcs", "Ordinateurs Maintenance", Views.MaintenancePcs),

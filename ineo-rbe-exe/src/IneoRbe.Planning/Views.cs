@@ -221,10 +221,9 @@ namespace IneoRbe.Planning
             var types = new[] { "BUS STANDARD", "BUS ARTICULE", "BUS BI ARTICULE", "BUS GABARIT REDUIT", "VOITURES", "DIVERS" };
             var typeField = new FieldDef("vehicleType", "Type de véhicule", FieldKind.Combo);
             typeField.Options = types.Select(t => new KeyValuePair<string, string>(t, t)).ToList();
-            var screens = new FieldDef("screenProfileId", "Profil d'écrans", FieldKind.Combo);
             var view = new EditorView
             {
-                Note = "Sélectionnez un véhicule du parc pour renseigner son profil, son boîtier de suivi (IMEI) et le PC UC embarqué.",
+                Note = "Sélectionnez un véhicule du parc pour renseigner son profil, son boîtier de suivi (IMEI) et le PC UC embarqué. Les écrans et annonces se configurent dans « Configurateur SAEIV ».",
                 Fields =
                 {
                     new FieldDef("vehicleParc", "Parc", FieldKind.Text) { ReadOnly = true },
@@ -237,7 +236,6 @@ namespace IneoRbe.Planning
                     new FieldDef("imei", "IMEI du boîtier", FieldKind.Text) { Hint = "14 à 17 chiffres" },
                     new FieldDef("deviceLabel", "Nom du boîtier"),
                     new FieldDef("ucSerial", "N° de série du PC UC"),
-                    screens,
                 },
                 Columns =
                 {
@@ -248,7 +246,6 @@ namespace IneoRbe.Planning
                     new ColDef("UC", 120, "ucSerial"),
                 },
             };
-            view.Prepare = () => screens.Options = Data.Options(Data.List("/ineo/screen-profiles", "profiles"), p => Json.Str(p, "id"), p => Json.Str(p, "name"));
             view.Load = () =>
             {
                 var vehicles = Data.Vehicles();
@@ -261,7 +258,7 @@ namespace IneoRbe.Planning
                     var profile = profiles.FirstOrDefault(p => Json.Str(p, "vehicleParc") == parc);
                     var tracker = trackers.FirstOrDefault(t => Json.Str(t, "vehicleParc") == parc);
                     var row = new Dictionary<string, object> { { "vehicleParc", parc }, { "label", Data.VehicleLabel(vehicle) } };
-                    foreach (var key in new[] { "vehicleType", "maxSpeedKmh", "lengthM", "widthM", "heightM", "options", "ucSerial", "screenProfileId" })
+                    foreach (var key in new[] { "vehicleType", "maxSpeedKmh", "lengthM", "widthM", "heightM", "options", "ucSerial" })
                         row[key] = Json.Get(profile, key);
                     row["imei"] = Json.Get(tracker, "imei");
                     row["deviceLabel"] = Json.Get(tracker, "deviceLabel");
@@ -274,7 +271,7 @@ namespace IneoRbe.Planning
                 if (existing == null) throw new InvalidOperationException("Sélectionnez d'abord un véhicule dans la liste.");
                 var parc = Json.Str(existing, "vehicleParc");
                 var body = new Dictionary<string, object>();
-                foreach (var key in new[] { "vehicleType", "maxSpeedKmh", "lengthM", "widthM", "heightM", "options", "ucSerial", "screenProfileId" }) body[key] = v[key];
+                foreach (var key in new[] { "vehicleType", "maxSpeedKmh", "lengthM", "widthM", "heightM", "options", "ucSerial" }) body[key] = v[key];
                 var result = Api.Put("/ineo/vehicle-profiles/" + Data.Encode(parc), body);
                 var imei = ((string)v["imei"]).Replace(" ", string.Empty);
                 if (imei.Length > 0)

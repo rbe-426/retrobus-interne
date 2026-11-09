@@ -22,6 +22,7 @@ export const ineoAPI = {
   savePilot: (data) => apiClient.put('/ineo/pilot', data),
   sendPilotCommand: (type) => apiClient.post('/ineo/pilot/commands', { type }),
   listDesktopReleases: (product = 'UC') => apiClient.get(`/ineo/desktop-releases?product=${encodeURIComponent(product)}`),
+  getConsoleApk: () => apiClient.get('/ineo/console-apk'),
   uploadDesktopRelease: (data) => apiClient.post('/ineo/desktop-releases', data),
   deleteDesktopRelease: (id) => apiClient.delete(`/ineo/desktop-releases/${encodeURIComponent(id)}`),
   listMaintenancePcs: () => apiClient.get('/ineo/maintenance-pcs'),

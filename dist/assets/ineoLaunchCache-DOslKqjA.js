@@ -1,1 +1,0 @@
-const n="ineo:ops:cache:v1";const c=()=>{try{const e=sessionStorage.getItem(n);if(!e)return null;const t=JSON.parse(e);return!t?.cachedAt||Date.now()-t.cachedAt>12e4?null:t}catch{return null}},a=e=>{try{sessionStorage.setItem(n,JSON.stringify({...e,cachedAt:Date.now()}))}catch{}};export{c as r,a as w};
