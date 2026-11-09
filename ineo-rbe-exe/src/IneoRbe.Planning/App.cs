@@ -46,7 +46,7 @@ namespace IneoRbe.Planning
                 var login = new LoginWindow();
                 splash.Close();
                 if (login.ShowDialog() != true) { Shutdown(); return; }
-                var loader = new SplashWindow(true);
+                var loader = new SplashWindow(true, splash.PendingUpdate);
                 loader.Completed += (s2, e2) =>
                 {
                     loader.Close();
@@ -71,9 +71,9 @@ namespace IneoRbe.Planning
 
         private readonly bool _loadData;
 
-        public SplashWindow() : this(false) { }
+        public SplashWindow() : this(false, null) { }
 
-        public SplashWindow(bool loadData)
+        public SplashWindow(bool loadData, UpdateDescriptor pending)
         {
             _loadData = loadData;
             Title = "Inéo RétroBus Gestionnaire";
@@ -85,10 +85,16 @@ namespace IneoRbe.Planning
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var logo = new Image { Source = AppImages.Load("splash-logo.png"), Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 0, 8) };
             grid.Children.Add(logo);
-            Grid.SetRow(_status, 1); grid.Children.Add(_status);
-            Grid.SetRow(_bar, 2); grid.Children.Add(_bar);
+            if (pending != null)
+            {
+                var notice = new TextBlock { Text = "Mise à jour " + pending.Version + " prête : à installer depuis la fenêtre principale.", Foreground = Ui.Brush("#FFB4C8"), FontWeight = FontWeights.Bold, FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
+                Grid.SetRow(notice, 1); grid.Children.Add(notice);
+            }
+            Grid.SetRow(_status, 2); grid.Children.Add(_status);
+            Grid.SetRow(_bar, 3); grid.Children.Add(_bar);
             Content = new Border { BorderBrush = Ui.Red, BorderThickness = new Thickness(2), Child = grid };
             Loaded += (s, e) => System.Threading.ThreadPool.QueueUserWorkItem(delegate { Steps(); });
         }
@@ -111,7 +117,7 @@ namespace IneoRbe.Planning
                     PendingUpdate = check.Update;
                     Dispatcher.BeginInvoke(new Action(() => { _status.Foreground = Ui.Brush("#FFB4C8"); _status.FontWeight = FontWeights.Bold; }));
                     Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 66);
-                    System.Threading.Thread.Sleep(1800);
+                    System.Threading.Thread.Sleep(2500);
                 }
             }
             catch (Exception) { }

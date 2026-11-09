@@ -6,5 +6,5 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCompany("RétroBus Essonne")]
 [assembly: AssemblyProduct("Inéo RétroBus Gestionnaire")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("26.11.15.0")]
-[assembly: AssemblyFileVersion("26.11.15.0")]
+[assembly: AssemblyVersion("26.11.16.0")]
+[assembly: AssemblyFileVersion("26.11.16.0")]
