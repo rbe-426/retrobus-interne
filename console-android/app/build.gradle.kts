@@ -11,8 +11,8 @@ android {
         applicationId = "fr.retrobus.console"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2611004
-        versionName = "26.11.004"
+        versionCode = 2611005
+        versionName = "26.11.005"
         buildConfigField("String", "API_BASE", "\"https://attractive-kindness-rbe-serveurs.up.railway.app\"")
     }
 

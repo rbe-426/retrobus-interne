@@ -51,7 +51,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         lastPositionSent = now
         val speed = if (location.hasSpeed()) location.speed * 3.6 else null
         val accuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else null
-        thread { runCatching { DriverApi.sendPosition(mission.missionId, location.latitude, location.longitude, speed, accuracy) } }
+        val imei = DeviceIdentity.readImei(activity)
+        thread { runCatching { DriverApi.sendPosition(mission.missionId, location.latitude, location.longitude, speed, accuracy, imei) } }
     }
 
     private val tick = object : Runnable {

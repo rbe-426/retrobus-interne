@@ -1,10 +1,10 @@
-ï»¿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("InÃ©o RÃ©troBus Gestionnaire")]
-[assembly: AssemblyDescription("Gestionnaire InÃ©o RÃ©troBus (planification, ressources, SAEIV)")]
-[assembly: AssemblyCompany("RÃ©troBus Essonne")]
-[assembly: AssemblyProduct("InÃ©o RÃ©troBus Gestionnaire")]
+[assembly: AssemblyTitle("Inéo RétroBus Gestionnaire")]
+[assembly: AssemblyDescription("Gestionnaire Inéo RétroBus (planification, ressources, SAEIV)")]
+[assembly: AssemblyCompany("RétroBus Essonne")]
+[assembly: AssemblyProduct("Inéo RétroBus Gestionnaire")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("26.11.18.0")]
-[assembly: AssemblyFileVersion("26.11.18.0")]
+[assembly: AssemblyVersion("26.11.21.0")]
+[assembly: AssemblyFileVersion("26.11.21.0")]

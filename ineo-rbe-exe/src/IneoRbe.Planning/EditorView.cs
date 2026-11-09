@@ -74,7 +74,7 @@ namespace IneoRbe.Planning
             ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
             ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star), MinWidth = 300 });
 
-            _toolbar.Children.Add(Ui.Button("Actualiser", (s, e) => Reload()));
+            _toolbar.Children.Add(Ui.Button("Actualiser", (s, e) => { Api.Refresh(); Reload(); }));
             _toolbar.Children.Add(Ui.Button(NewLabel, (s, e) => Select(null)));
             _deleteButton = Ui.Button("Supprimer", (s, e) => DeleteCurrent());
             _toolbar.Children.Add(_deleteButton);
@@ -137,7 +137,13 @@ namespace IneoRbe.Planning
         {
             Build();
             Reload();
+            // Les listes liées (trajets, véhicules, conducteurs) se resynchronisent à chaque retour sur l'écran.
+            if (_syncHooked) return;
+            _syncHooked = true;
+            IsVisibleChanged += (s, e) => { if ((bool)e.NewValue) Reload(); };
         }
+
+        private bool _syncHooked;
 
         private void Build()
         {

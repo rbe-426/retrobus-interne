@@ -94,8 +94,9 @@ object DriverApi {
         )
     }
 
-    fun sendPosition(missionId: String, latitude: Double, longitude: Double, speedKmh: Double?, accuracy: Double?) {
+    fun sendPosition(missionId: String, latitude: Double, longitude: Double, speedKmh: Double?, accuracy: Double?, imei: String? = null) {
         val body = JSONObject().put("latitude", latitude).put("longitude", longitude)
+        if (imei != null) body.put("imei", imei)
         if (speedKmh != null) body.put("speedKmh", speedKmh)
         if (accuracy != null) body.put("accuracy", accuracy)
         request("POST", "/api/ineo/missions/$missionId/position", body)

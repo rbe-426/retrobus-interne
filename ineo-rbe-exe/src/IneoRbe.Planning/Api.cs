@@ -95,10 +95,15 @@ namespace IneoRbe.Planning
             return hit.Value;
         }
 
+        private static int _generation;
+
         private static object Fetch(string path)
         {
+            int generation;
+            lock (Cache) { generation = _generation; }
             var value = Call("GET", path, null);
-            lock (Cache) { Cache[path] = new KeyValuePair<DateTime, object>(DateTime.UtcNow, value); }
+            // Une réponse obtenue avant une modification ou une actualisation ne doit pas remplir le cache.
+            lock (Cache) { if (generation == _generation) Cache[path] = new KeyValuePair<DateTime, object>(DateTime.UtcNow, value); }
             return value;
         }
 
@@ -136,7 +141,10 @@ namespace IneoRbe.Planning
             return failed;
         }
 
-        private static void Invalidate() { lock (Cache) { Cache.Clear(); } }
+        private static void Invalidate() { lock (Cache) { _generation++; Cache.Clear(); } }
+
+        // Force le prochain accès aux listes à interroger le serveur.
+        public static void Refresh() { Invalidate(); }
 
         public static object Post(string path, object body) { return Mutate("POST", path, body); }
         public static object Put(string path, object body) { return Mutate("PUT", path, body); }

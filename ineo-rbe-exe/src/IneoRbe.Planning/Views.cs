@@ -152,6 +152,12 @@ namespace IneoRbe.Planning
             {
                 var reference = ((string)v["courseReference"]).ToUpperInvariant();
                 if (existing != null) reference = Json.Str(existing, "courseReference");
+                var service = ((string)v["serviceReference"] ?? string.Empty).Trim().ToUpperInvariant();
+                if (!System.Text.RegularExpressions.Regex.IsMatch(service, @"^RBE-\d{3}-\d{3}$"))
+                    throw new InvalidOperationException("Format du code service attendu : RBE-999-999.");
+                if (!System.Text.RegularExpressions.Regex.IsMatch(reference, @"^\d{3}-\d{5}-\d{3,4}$"))
+                    throw new InvalidOperationException("Format du code course attendu : 999-26726-920.");
+                v["serviceReference"] = service;
                 var body = new Dictionary<string, object>
                 {
                     { "courseReference", reference }, { "routeName", v["routeName"] }, { "serviceReference", v["serviceReference"] },

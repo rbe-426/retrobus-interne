@@ -15,6 +15,12 @@ namespace IneoRbe.Planning
     {
         // ----- Suivi en temps réel -----
 
+        // Les consoles mobiles n'existent que sur un serveur à jour : leur absence ne doit pas bloquer le suivi.
+        private static List<object> SafeList(string path, string key)
+        {
+            try { return Data.List(path, key); } catch (Exception) { return new List<object>(); }
+        }
+
         public static UIElement Live()
         {
             var root = new Grid { Margin = new Thickness(14) };
@@ -35,7 +41,7 @@ namespace IneoRbe.Planning
             {
                 if (busy) return;
                 busy = true;
-                Ui.Run(root.Dispatcher, () => new[] { Data.List("/ineo/vehicle-trackers", "trackers"), Data.List("/ineo/free-tracking-sessions", "sessions") }, data =>
+                Ui.Run(root.Dispatcher, () => new[] { Data.List("/ineo/vehicle-trackers", "trackers"), Data.List("/ineo/free-tracking-sessions", "sessions"), SafeList("/ineo/console-devices", "devices") }, data =>
                 {
                     busy = false;
                     map.Markers.Clear();
@@ -45,12 +51,24 @@ namespace IneoRbe.Planning
                     {
                         var lat = Json.Num(tracker, "lastLatitude");
                         var lng = Json.Num(tracker, "lastLongitude");
-                        var name = Json.Str(tracker, "vehicleParc");
+                        var name = "UC " + Json.Str(tracker, "vehicleParc");
                         if (lat == null || lng == null) { lines.Add(name + " — pas de position"); continue; }
                         var speed = Json.Num(tracker, "lastSpeedKmh");
                         map.Markers.Add(new MapMarker { Lat = lat.Value, Lng = lng.Value, Label = name + (speed == null ? string.Empty : " · " + Math.Round(speed.Value) + " km/h") });
                         points.Add(new Point(lat.Value, lng.Value));
                         lines.Add(name + " — " + Data.Date(tracker, "lastPositionAt"));
+                    }
+                    foreach (var device in data[2])
+                    {
+                        var lat = Json.Num(device, "lastLatitude");
+                        var lng = Json.Num(device, "lastLongitude");
+                        var parc = Json.Str(device, "vehicleParc");
+                        var name = "Mobile " + (parc.Length > 0 ? parc : Json.Str(device, "model"));
+                        if (lat == null || lng == null) { lines.Add(name + " — pas de position"); continue; }
+                        var speed = Json.Num(device, "lastSpeedKmh");
+                        map.Markers.Add(new MapMarker { Lat = lat.Value, Lng = lng.Value, Label = name + (speed == null ? string.Empty : " · " + Math.Round(speed.Value) + " km/h"), Color = Ui.Brush("#15803D") });
+                        points.Add(new Point(lat.Value, lng.Value));
+                        lines.Add(name + " — " + Data.Date(device, "lastPositionAt"));
                     }
                     foreach (var session in data[1].Where(s => Json.Str(s, "status") == "ACTIVE"))
                     {
