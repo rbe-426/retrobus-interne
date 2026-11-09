@@ -128,11 +128,21 @@ class MainActivity : Activity() {
         }
     }
 
+    private var driver: DriverScreen? = null
+
     private fun showHome(activation: Activation) {
-        root.removeAllViews()
-        root.addView(label("Console RétroBus", 28f, true))
-        root.addView(label("Véhicule : ${activation.vehicleParc}${activation.vehicleLabel?.let { " — $it" } ?: ""}"))
-        root.addView(label("UC associé : ${activation.ucSerial}"))
-        root.addView(label("Révision de contenu : ${activation.contentRevision ?: "aucune"}"))
+        root.setPadding(0, 0, 0, 0)
+        driver?.stop()
+        driver = DriverScreen(this, root, activation.vehicleParc).also { it.show() }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        driver?.onPermissionResult()
+    }
+
+    override fun onDestroy() {
+        driver?.stop()
+        super.onDestroy()
     }
 }
