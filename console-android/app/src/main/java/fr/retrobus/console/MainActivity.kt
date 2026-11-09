@@ -1,6 +1,9 @@
 package fr.retrobus.console
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.pm.ApplicationInfo
+import android.view.WindowManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -23,7 +26,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = LinearLayout(this).apply {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        stopOtherApps()
+        root =  LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(carbon)
             setPadding(48, 48, 48, 48)
@@ -129,6 +134,19 @@ class MainActivity : Activity() {
     }
 
     private var driver: DriverScreen? = null
+
+    // Android ne permet de stopper que les processus d'arrière-plan des autres applications.
+    private fun stopOtherApps() {
+        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        packageManager.getInstalledApplications(0)
+            .filter { it.packageName != packageName && (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 }
+            .forEach { runCatching { manager.killBackgroundProcesses(it.packageName) } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        stopOtherApps()
+    }
 
     private fun showHome(activation: Activation) {
         root.setPadding(0, 0, 0, 0)
