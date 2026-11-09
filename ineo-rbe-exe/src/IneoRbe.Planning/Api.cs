@@ -224,7 +224,7 @@ namespace IneoRbe.Planning
             var url = path.StartsWith("http", StringComparison.Ordinal) ? path : ApiEndpoints.ApiRoot + path;
             try
             {
-                return HttpTransport.Send(method, url, payload == null ? null : "application/json", payload, 45000, headers);
+                return HttpTransport.Send(method, url, payload == null ? null : "application/json", payload, payload != null && payload.Length > 1024 * 1024 ? 240000 : 45000, headers);
             }
             catch (HttpTransportException exception)
             {

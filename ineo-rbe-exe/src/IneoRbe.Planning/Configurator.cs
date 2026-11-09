@@ -482,7 +482,8 @@ namespace IneoRbe.Planning
             catch (Exception exception) { Ui.Error("Export impossible : " + exception.Message); }
         }
 
-        // Publie une nouvelle révision de contenu, pour tous les véhicules ou uniquement pour l'UC du véhicule choisi.
+        // Publie une nouvelle révision de contenu (annonces et écrans du véhicule choisi, avec leurs sons et images),
+        // pour tous les véhicules ou uniquement pour l'UC du véhicule choisi.
         private void Publish()
         {
             if (!Save()) return;
@@ -490,11 +491,53 @@ namespace IneoRbe.Planning
             if (dialog.ShowDialog() != true) return;
             var body = new Dictionary<string, object> { { "notes", dialog.Notes } };
             if (!dialog.AllVehicles) body["targetParc"] = _parc;
-            _status.Text = "Publication de la révision…";
-            Ui.Run(Dispatcher, () => Api.Post("/ineo/content-revisions", body), result =>
+
+            var files = new List<string>();
+            var announcements = new List<object>();
+            foreach (var item in _config.Announcements)
+            {
+                announcements.Add(new Dictionary<string, object>
+                {
+                    { "id", item.Id }, { "name", item.Name }, { "trigger", item.Trigger }, { "latitude", item.Latitude }, { "longitude", item.Longitude },
+                    { "distanceMeters", item.DistanceMeters }, { "soundFile", item.SoundFile }, { "soundName", item.SoundName }, { "enabled", item.Enabled },
+                });
+                if (!string.IsNullOrEmpty(item.SoundFile)) files.Add(item.SoundFile);
+            }
+            var screens = new List<object>();
+            foreach (var item in _config.Screens)
+            {
+                screens.Add(new Dictionary<string, object>
+                {
+                    { "id", item.Id }, { "name", item.Name }, { "place", item.Place }, { "x", item.X }, { "y", item.Y }, { "widthPct", item.WidthPct },
+                    { "widthPx", item.WidthPx }, { "heightPx", item.HeightPx }, { "offlineImage", item.OfflineImage }, { "offlineName", item.OfflineName },
+                    { "onlineImage", item.OnlineImage }, { "onlineName", item.OnlineName },
+                });
+                if (!string.IsNullOrEmpty(item.OfflineImage)) files.Add(item.OfflineImage);
+                if (!string.IsNullOrEmpty(item.OnlineImage)) files.Add(item.OnlineImage);
+            }
+            body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens } };
+            var names = files.Distinct().Select(name => (object)name).ToList();
+            var summary = announcements.Count + " annonce(s), " + screens.Count + " écran(s)";
+
+            _status.Text = "Envoi du contenu (" + summary + ") et publication…";
+            Ui.Run(Dispatcher, () =>
+            {
+                var missing = names.Count == 0 ? new List<object>() : Json.List(Api.Post("/ineo/content-files/missing", new Dictionary<string, object> { { "names", names } }), "missing");
+                foreach (var entry in missing)
+                {
+                    var name = Convert.ToString(entry);
+                    var folder = Array.IndexOf(SaeivStore.ImageExtensions, Path.GetExtension(name).ToLowerInvariant()) >= 0 ? SaeivStore.ScreensFolder : SaeivStore.SoundsFolder;
+                    var path = SaeivStore.ResolvePath(folder, name);
+                    if (path == null || !File.Exists(path)) throw new InvalidOperationException("Fichier introuvable sur ce PC : « " + name + " ». Réimportez le son ou l'image concerné.");
+                    var bytes = File.ReadAllBytes(path);
+                    if (bytes.Length > 25 * 1024 * 1024) throw new InvalidOperationException("Le fichier « " + name + " » dépasse 25 Mo : utilisez un fichier plus léger.");
+                    Api.Put("/ineo/content-files/" + name, new Dictionary<string, object> { { "dataBase64", Convert.ToBase64String(bytes) } });
+                }
+                return Api.Post("/ineo/content-revisions", body);
+            }, result =>
             {
                 var revision = Json.Str(result, "revision.revision");
-                _status.Text = "Révision " + revision + " publiée " + (dialog.AllVehicles ? "pour tous les véhicules." : "pour le véhicule " + _parc + " (UC associé).");
+                _status.Text = "Révision " + revision + " publiée (" + summary + ") " + (dialog.AllVehicles ? "pour tous les véhicules." : "pour le véhicule " + _parc + " (UC associé).");
             }, error => { _status.Text = "Publication impossible : " + error; Ui.Error(error); });
         }
     }
