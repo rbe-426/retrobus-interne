@@ -27,6 +27,7 @@ export default function IneoOperations() {
       <IneoDesktopInstaller product="PLANNING" />
       <IneoDesktopInstaller />
       <IneoDesktopInstaller product="MAINTENANCE" />
+      <IneoDesktopInstaller product="CONSOLE" />
     </VStack>
   );
 }

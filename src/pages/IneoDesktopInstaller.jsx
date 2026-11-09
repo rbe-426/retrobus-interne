@@ -45,6 +45,13 @@ const PRODUCT_LABELS = {
     name: 'Inéo RétroBus Planification',
     steps: '1. Copiez le fichier sur le PC de l’exploitation et lancez-le. 2. Connectez-vous avec votre compte URBEX. 3. Les mises à jour se proposent automatiquement au démarrage.',
   },
+  CONSOLE: {
+    title: 'Console mobile — APK',
+    intro: 'Application Android « Console » (pupitre conducteur). Android 10 ou plus ; elle ne s’active que sur un IMEI rattaché à un véhicule équipé d’une UC.',
+    name: 'Console RétroBus',
+    steps: '1. Téléchargez l’APK sur la tablette/le téléphone et autorisez l’installation de sources inconnues. 2. Ouvrez l’application : elle lit l’IMEI (sinon saisissez-le, *#06#). 3. Renseignez cet IMEI dans « Profils véhicules » pour activer la console.',
+    isApk: true,
+  },
   MAINTENANCE: {
     title: 'Logiciel Maintenance — installateur',
     intro: 'Installateur de l’outil Inéo RBE Maintenance, réservé aux PC des techniciens enregistrés dans « Ordinateurs Maintenance ».',
@@ -103,7 +110,7 @@ export default function IneoDesktopInstaller({ product = 'UC' }) {
   const upload = async (event) => {
     event.preventDefault();
     if (!form.file) {
-      toast({ status: 'warning', title: 'Choisissez le fichier .exe' });
+      toast({ status: 'warning', title: `Choisissez le fichier ${labels.isApk ? '.apk' : '.exe'}` });
       return;
     }
     if (form.file.size > MAX_INSTALLER_MB * 1024 * 1024) {
@@ -183,8 +190,8 @@ export default function IneoDesktopInstaller({ product = 'UC' }) {
       <HStack mt={4} justify="space-between" flexWrap="wrap">
         <HStack>
           <Button as="label" size="sm" leftIcon={<FiUpload />} cursor="pointer" borderRadius="2px">
-            Choisir l’installateur (.exe)
-            <input type="file" accept=".exe,application/vnd.microsoft.portable-executable,application/x-msdownload" hidden onChange={(event) => { setForm((current) => ({ ...current, file: event.target.files?.[0] || null })); event.target.value = ''; }} />
+            {labels.isApk ? 'Choisir l’APK (.apk)' : 'Choisir l’installateur (.exe)'}
+            <input type="file" accept={labels.isApk ? '.apk,application/vnd.android.package-archive' : '.exe,application/vnd.microsoft.portable-executable,application/x-msdownload'} hidden onChange={(event) => { setForm((current) => ({ ...current, file: event.target.files?.[0] || null })); event.target.value = ''; }} />
           </Button>
           <Text fontSize="sm" color="#60727e">{form.file ? `${form.file.name} (${formatSize(form.file.size)})` : 'Aucun fichier choisi'}</Text>
         </HStack>
