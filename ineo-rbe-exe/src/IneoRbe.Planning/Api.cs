@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using IneoRbe.Desktop.Services;
@@ -30,8 +30,15 @@ namespace IneoRbe.Planning
             lock (Gate)
             {
                 var body = new Dictionary<string, object> { { "email", identifier }, { "password", password } };
-                var result = Raw("POST", "/auth/login", body, null, false);
-                if (!result.IsSuccess) throw Failure(result, "Identifiants invalides");
+                HttpResult result;
+                try { result = Raw("POST", "/auth/login", body, null, false); }
+                catch (ApiException exception) { throw new ApiException(exception.Status, "Identification impossible : " + exception.Message, null); }
+                if (!result.IsSuccess)
+                {
+                    var failure = Failure(result, "Identifiants invalides");
+                    if (result.StatusCode >= 500) throw new ApiException(failure.Status, "Identification impossible : " + failure.Message, null);
+                    throw failure;
+                }
                 Store(Json.Parse(result.BodyText));
                 var user = Json.Get(Json.Parse(result.BodyText), "user");
                 UserName = (Json.Str(user, "firstName") + " " + Json.Str(user, "lastName")).Trim();
@@ -56,7 +63,7 @@ namespace IneoRbe.Planning
             new[] { "/ineo/maintenance-pcs", "PC maintenance" }, new[] { "/ineo/uc-devices", "UC détectés" },
             new[] { "/ineo/content-revisions", "Révisions de contenu" },
             new[] { "/ineo/desktop-releases?product=UC", "Installateur UC" }, new[] { "/ineo/desktop-releases?product=MAINTENANCE", "Installateur Maintenance" },
-            new[] { "/ineo/desktop-releases?product=PLANNING", "Installateur Planification" },
+            new[] { "/ineo/desktop-releases?product=PLANNING", "Installateur Gestionnaire" },
         };
 
         private static readonly TimeSpan CacheFresh = TimeSpan.FromMinutes(2);
@@ -221,8 +228,25 @@ namespace IneoRbe.Planning
             }
             catch (HttpTransportException exception)
             {
-                throw new ApiException(0, "Serveur injoignable : " + exception.Message, null);
+                throw new ApiException(0, Explain(exception), null);
             }
+        }
+
+        public const string GenericServerMessage = "Le service RétroBus est momentanément indisponible. Réessayez dans quelques instants ; si le problème persiste, contactez un administrateur.";
+
+        // Traduit une panne de transport en message utilisateur (jamais le nom du serveur ni un détail technique).
+        private static string Explain(HttpTransportException exception)
+        {
+            if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+                return "Votre poste n'est pas connecté à un réseau. Vérifiez le câble réseau ou le Wi-Fi.";
+            try { System.Net.Dns.GetHostEntry(new Uri(ApiEndpoints.ApiRoot).Host); }
+            catch (Exception) { return "Votre poste n'est pas connecté à internet (ou l'accès est bloqué). Vérifiez votre connexion puis réessayez."; }
+            var text = exception.Message ?? string.Empty;
+            if (text.IndexOf("TLS 1.2", StringComparison.Ordinal) >= 0)
+                return "Ce poste ne gère pas la connexion sécurisée requise (TLS 1.2). Mettez à jour Windows ou utilisez un autre poste.";
+            if (text.IndexOf("certificat", StringComparison.OrdinalIgnoreCase) >= 0 || text.IndexOf("Connexion sécurisée", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "La connexion sécurisée a échoué. Vérifiez la date et l'heure de ce poste, ainsi que tout pare-feu ou proxy.";
+            return GenericServerMessage;
         }
 
         private static ApiException Failure(HttpResult result, string fallback)
@@ -231,6 +255,7 @@ namespace IneoRbe.Planning
             try { payload = Json.Parse(result.BodyText); } catch (Exception) { }
             var message = Json.Str(payload, "error");
             if (message.Length == 0) message = Json.Str(payload, "message");
+            if (result.StatusCode >= 500 && result.StatusCode != 501) message = GenericServerMessage;
             return new ApiException(result.StatusCode, message.Length == 0 ? fallback : message, payload);
         }
     }

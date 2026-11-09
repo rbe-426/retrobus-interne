@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -41,12 +41,12 @@ namespace IneoRbe.Planning
 
         public static void Error(string message)
         {
-            MessageBox.Show(message, "Inéo RétroBus Planification", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(message, "Inéo RétroBus Gestionnaire", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         public static bool Confirm(string message)
         {
-            return MessageBox.Show(message, "Inéo RétroBus Planification", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
+            return MessageBox.Show(message, "Inéo RétroBus Gestionnaire", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
         }
 
         public static Button Button(string text, RoutedEventHandler click, bool primary = false)

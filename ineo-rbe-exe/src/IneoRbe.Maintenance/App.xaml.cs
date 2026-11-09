@@ -9,6 +9,7 @@ namespace IneoRbe.Maintenance
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            AppIcon.Install();
             SaeivStore.RootFolderName = "IneoRbeMaintenance";
 
             // Mode « relanceur » : processus sans fenêtre lancé avant une mise à jour (voir UpdateInstaller).

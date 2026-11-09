@@ -7,6 +7,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>IneoRbe.Planning</RootNamespace>
     <AssemblyName>IneoRbe.Planning</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <LangVersion>7.3</LangVersion>
@@ -51,6 +52,8 @@
     <EmbeddedResource Include="..\..\certs\*.cer">
       <LogicalName>certs.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <Resource Include="Assets\app.ico" />
+    <Compile Include="..\IneoRbe.Desktop\Services\AppIcon.cs"><Link>Shared\AppIcon.cs</Link></Compile>
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\splash-logo.png" />
     <Resource Include="Assets\header-logo-right.png" />

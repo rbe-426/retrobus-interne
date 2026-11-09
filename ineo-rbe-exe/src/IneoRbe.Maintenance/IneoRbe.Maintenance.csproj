@@ -7,6 +7,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>IneoRbe.Maintenance</RootNamespace>
     <AssemblyName>IneoRbe.Maintenance</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <LangVersion>7.3</LangVersion>
@@ -78,6 +79,8 @@
     <Compile Include="MirrorWindow.xaml.cs">
       <DependentUpon>MirrorWindow.xaml</DependentUpon>
     </Compile>
+    <Resource Include="Assets\app.ico" />
+    <Compile Include="..\IneoRbe.Desktop\Services\AppIcon.cs"><Link>Shared\AppIcon.cs</Link></Compile>
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\splash-logo.png" />
     <Resource Include="Assets\header-logo-right.png" />

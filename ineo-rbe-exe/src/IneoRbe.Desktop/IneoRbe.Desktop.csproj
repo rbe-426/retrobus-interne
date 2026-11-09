@@ -7,6 +7,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>IneoRbe.Desktop</RootNamespace>
     <AssemblyName>IneoRbe.Desktop</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- .NET Framework 4.0 : dernière version installable sur Windows XP SP3. Compiler contre ses assemblies de référence
          garantit qu'aucune API plus récente (HttpClient, async/await...) n'est utilisée. -->
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
@@ -79,6 +80,8 @@
     <Compile Include="Services\MaintenanceLink.cs" />
     <Compile Include="Services\SaeivConfig.cs" />
     <Compile Include="Services\SaeivStore.cs" />
+    <Compile Include="Services\AppIcon.cs" />
+    <Resource Include="Assets\app.ico" />
     <Compile Include="Services\TlsSupport.cs" />
     <Compile Include="Services\UcIdentityClient.cs" />
     <Compile Include="Services\UpdateClient.cs" />

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -519,8 +519,8 @@ namespace IneoRbe.Planning
         {
             var root = new StackPanel { Margin = new Thickness(14), MaxWidth = 720, HorizontalAlignment = HorizontalAlignment.Left };
             root.Children.Add(Ui.Title("Installateurs"));
-            root.Children.Add(Ui.Text("Publication des logiciels Inéo RétroBus : UC embarqué, Maintenance et Planification.", 11, false, Ui.Muted));
-            foreach (var pair in new[] { new[] { "UC", "UC embarqué" }, new[] { "MAINTENANCE", "Maintenance" }, new[] { "PLANNING", "Planification" } })
+            root.Children.Add(Ui.Text("Publication des logiciels Inéo RétroBus : UC embarqué, Maintenance et Gestionnaire.", 11, false, Ui.Muted));
+            foreach (var pair in new[] { new[] { "UC", "UC embarqué" }, new[] { "MAINTENANCE", "Maintenance" }, new[] { "PLANNING", "Gestionnaire" } })
             {
                 var product = pair[0];
                 var list = new ListBox { Height = 110, Margin = new Thickness(0, 4, 0, 0) };

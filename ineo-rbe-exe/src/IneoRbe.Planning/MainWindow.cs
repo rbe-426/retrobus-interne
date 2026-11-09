@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,7 +19,7 @@ namespace IneoRbe.Planning
 
         public MainWindow(string updateNotice, UpdateDescriptor pendingUpdate)
         {
-            Title = "Inéo RétroBus Planification";
+            Title = "Inéo RétroBus Gestionnaire";
             Width = 1180; Height = 740; MinWidth = 900; MinHeight = 560;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FontFamily = new FontFamily("Tahoma");

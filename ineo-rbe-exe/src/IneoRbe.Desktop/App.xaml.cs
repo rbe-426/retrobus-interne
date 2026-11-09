@@ -8,6 +8,7 @@ namespace IneoRbe.Desktop
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            Services.AppIcon.Install();
 
             // Mode « relanceur » : processus sans fenêtre lancé avant une mise à jour (voir UpdateInstaller).
             if (e.Args.Length > 0 && string.Equals(e.Args[0], "/watch", StringComparison.OrdinalIgnoreCase))

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +23,7 @@ namespace IneoRbe.Planning
         public static int Main(string[] args)
         {
             var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            AppIcon.Install();
             app.Startup += (s, e) => app.Begin(args);
             return app.Run();
         }
@@ -75,7 +76,7 @@ namespace IneoRbe.Planning
         public SplashWindow(bool loadData)
         {
             _loadData = loadData;
-            Title = "Inéo RétroBus Planification";
+            Title = "Inéo RétroBus Gestionnaire";
             Width = 440; Height = 260;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -153,7 +154,7 @@ namespace IneoRbe.Planning
 
         public LoginWindow()
         {
-            Title = "Inéo RétroBus Planification — Connexion";
+            Title = "Inéo RétroBus Gestionnaire — Connexion";
             Width = 380; SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FontFamily = new FontFamily("Tahoma");
