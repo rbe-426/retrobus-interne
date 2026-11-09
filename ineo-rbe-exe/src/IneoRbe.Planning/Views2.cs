@@ -568,7 +568,7 @@ namespace IneoRbe.Planning
             var box = new TextBox { MinWidth = 280, Margin = new Thickness(0, 6, 0, 10) };
             var window = new Window { Title = title, Owner = owner, SizeToContent = SizeToContent.WidthAndHeight, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize };
             var ok = Ui.Button("OK", (s, e) => { window.DialogResult = true; }, true);
-            window.Content = IneoRbe.Desktop.Services.BrandDialog.Wrap(new StackPanel { Margin = new Thickness(14), Children = { new TextBlock { Text = question }, box, new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, Ui.Button("Annuler", (s, e) => { window.DialogResult = false; }) } } } }, title);
+            window.Content = (new StackPanel { Margin = new Thickness(14), Children = { new TextBlock { Text = question }, box, new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, Ui.Button("Annuler", (s, e) => { window.DialogResult = false; }) } } } });
             return window.ShowDialog() == true ? box.Text.Trim() : null;
         }
     }

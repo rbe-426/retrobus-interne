@@ -1,12 +1,11 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace IneoRbe.Desktop.Services
 {
-    // Fenêtres contextuelles aux couleurs RétroBus : bandeau carbone avec logo et titre.
+    // Messages et confirmations : fenêtre simple dont le cadre est aux couleurs RétroBus (voir AppIcon).
     public static class BrandDialog
     {
         private static readonly Brush Carbon = Freeze("#0F172A");
@@ -17,27 +16,6 @@ namespace IneoRbe.Desktop.Services
             var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex);
             brush.Freeze();
             return brush;
-        }
-
-        public static UIElement Header(string title)
-        {
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            try
-            {
-                row.Children.Add(new Image { Source = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/logo.png", UriKind.Absolute)), Height = 28, Margin = new Thickness(0, 0, 12, 0) });
-            }
-            catch (Exception) { }
-            row.Children.Add(new TextBlock { Text = title, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
-            return new Border { Background = Carbon, Padding = new Thickness(14, 10, 14, 10), Child = row };
-        }
-
-        // Habille le contenu d'une fenêtre contextuelle avec le bandeau carbone.
-        public static UIElement Wrap(UIElement body, string title)
-        {
-            var stack = new StackPanel();
-            stack.Children.Add(Header(title));
-            stack.Children.Add(body);
-            return stack;
         }
 
         public static bool Show(Window owner, string title, string message, bool confirm)
@@ -67,7 +45,7 @@ namespace IneoRbe.Desktop.Services
             var body = new StackPanel { Margin = new Thickness(20) };
             body.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
             body.Children.Add(buttons);
-            window.Content = Wrap(body, title);
+            window.Content = body;
             window.ShowDialog();
             return result;
         }

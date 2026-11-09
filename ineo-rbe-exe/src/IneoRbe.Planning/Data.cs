@@ -83,7 +83,7 @@ namespace IneoRbe.Planning
             panel.Children.Add(_results);
             panel.Children.Add(_status);
             panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0), Children = { ok, Ui.Button("Annuler", (s, e) => { DialogResult = false; }) } });
-            Content = IneoRbe.Desktop.Services.BrandDialog.Wrap(panel, Title);
+            Content = panel;
             _results.MouseDoubleClick += (s, e) => Accept();
         }
 
