@@ -30,7 +30,45 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
         setContentView(root)
-        activate(DeviceIdentity.readImei(this))
+        showMessage("Console RétroBus", "Recherche de mise à jour…", null, false)
+        thread {
+            val update = UpdateManager.check(BuildConfig.VERSION_NAME)
+            runOnUiThread {
+                if (update != null) offerUpdate(update) else activate(DeviceIdentity.readImei(this))
+            }
+        }
+    }
+
+    // La mise à jour est proposée à chaque ouverture tant qu'elle n'est pas installée.
+    private fun offerUpdate(update: UpdateInfo, error: String? = null) {
+        root.removeAllViews()
+        root.addView(label("Mise à jour disponible", 28f, true))
+        root.addView(label("Version ${update.version} (installée : ${BuildConfig.VERSION_NAME})."))
+        if (update.notes.isNotBlank()) root.addView(label(update.notes, 15f))
+        if (error != null) root.addView(label(error, 15f).apply { setTextColor(Color.parseColor("#FCA5A5")) })
+        root.addView(Button(this).apply {
+            text = "Mettre à jour maintenant"
+            setBackgroundColor(accent)
+            setTextColor(Color.WHITE)
+            setOnClickListener { downloadAndInstall(update) }
+        })
+        root.addView(Button(this).apply { text = "Plus tard"; setOnClickListener { activate(DeviceIdentity.readImei(this@MainActivity)) } })
+    }
+
+    private fun downloadAndInstall(update: UpdateInfo) {
+        showMessage("Mise à jour", "Téléchargement de la version ${update.version}…", null, false)
+        thread {
+            val outcome = runCatching { UpdateManager.download(this, update) }
+            runOnUiThread {
+                outcome.onSuccess { apk ->
+                    if (UpdateManager.install(this, apk)) {
+                        offerUpdate(update, "Installation lancée. Si rien ne s'affiche, appuyez de nouveau sur « Mettre à jour ».")
+                    } else {
+                        offerUpdate(update, "Autorisez l'installation depuis cette application dans les réglages, puis revenez et appuyez de nouveau.")
+                    }
+                }.onFailure { offerUpdate(update, it.message ?: "Téléchargement impossible.") }
+            }
+        }
     }
 
     private fun label(text: String, size: Float = 18f, bold: Boolean = false) = TextView(this).apply {

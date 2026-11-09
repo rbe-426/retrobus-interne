@@ -3,3 +3,4 @@ local
 color carbon
 string app_name
 style Theme.Console
+xml file_paths

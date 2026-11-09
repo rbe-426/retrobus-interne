@@ -1,3 +1,4 @@
+fr.retrobus.console:xml/file_paths = 0x7f0b0000
 fr.retrobus.console:styleable/FontFamilyFont = 0x7f0a0003
 fr.retrobus.console:style/Widget.Compat.NotificationActionText = 0x7f090007
 fr.retrobus.console:style/Theme.Console = 0x7f090005
