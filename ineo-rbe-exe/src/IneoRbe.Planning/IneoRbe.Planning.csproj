@@ -54,6 +54,7 @@
     </EmbeddedResource>
     <Resource Include="Assets\app.ico" />
     <Compile Include="..\IneoRbe.Desktop\Services\AppIcon.cs"><Link>Shared\AppIcon.cs</Link></Compile>
+    <Compile Include="..\IneoRbe.Desktop\Services\BrandDialog.cs"><Link>Shared\BrandDialog.cs</Link></Compile>
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\splash-logo.png" />
     <Resource Include="Assets\header-logo-right.png" />

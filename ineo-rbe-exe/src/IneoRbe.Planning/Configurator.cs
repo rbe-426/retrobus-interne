@@ -528,7 +528,7 @@ namespace IneoRbe.Planning
                 Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
                 Children = { Ui.Button("Publier", (s, e) => { DialogResult = true; }, true), Ui.Button("Annuler", (s, e) => { DialogResult = false; }) },
             });
-            Content = panel;
+            Content = IneoRbe.Desktop.Services.BrandDialog.Wrap(panel, Title);
         }
     }
 

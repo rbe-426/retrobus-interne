@@ -41,12 +41,12 @@ namespace IneoRbe.Planning
 
         public static void Error(string message)
         {
-            MessageBox.Show(message, "Inéo RétroBus Gestionnaire", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IneoRbe.Desktop.Services.BrandDialog.Show(IneoRbe.Desktop.Services.BrandDialog.ActiveWindow(), "Inéo RétroBus Gestionnaire", message, false);
         }
 
         public static bool Confirm(string message)
         {
-            return MessageBox.Show(message, "Inéo RétroBus Gestionnaire", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
+            return IneoRbe.Desktop.Services.BrandDialog.Show(IneoRbe.Desktop.Services.BrandDialog.ActiveWindow(), "Inéo RétroBus Gestionnaire", message, true);
         }
 
         public static Button Button(string text, RoutedEventHandler click, bool primary = false)

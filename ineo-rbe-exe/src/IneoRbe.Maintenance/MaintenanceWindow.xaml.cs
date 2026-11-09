@@ -154,7 +154,7 @@ namespace IneoRbe.Maintenance
         {
             var update = _pendingUpdate;
             if (update == null) return;
-            if (MessageBox.Show(this, "Installer la version " + update.Version + " ? Le logiciel va se fermer puis redémarrer.", "Mise à jour", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            if (!BrandDialog.Show(this, "Mise à jour", "Installer la version " + update.Version + " ? Le logiciel va se fermer puis redémarrer.", true)) return;
 
             InstallUpdateButton.IsEnabled = false;
             CheckUpdateButton.IsEnabled = false;
@@ -416,7 +416,7 @@ namespace IneoRbe.Maintenance
             var channel = _channel;
             if (channel == null) { ResultBox.Text = "Aucun UC connecté."; return; }
             if (_busy) { ResultBox.Text = "Une requête est déjà en cours, réessayez."; return; }
-            if (MessageBox.Show(this, "Lancer la mise à jour de l'UC ? S'il existe une version plus récente, l'UC l'installera puis redémarrera (la liaison sera coupée).", "Mise à jour de l'UC", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            if (!BrandDialog.Show(this, "Mise à jour de l'UC", "Lancer la mise à jour de l'UC ? S'il existe une version plus récente, l'UC l'installera puis redémarrera (la liaison sera coupée).", true)) return;
 
             _busy = true;
             ResultBox.Text = "Recherche de mise à jour sur l'UC…";
