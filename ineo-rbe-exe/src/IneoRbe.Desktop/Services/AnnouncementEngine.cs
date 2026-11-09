@@ -50,15 +50,29 @@ namespace IneoRbe.Desktop.Services
         }
 
         // Annonces « à l'allumage » : jouées une seule fois par lancement du logiciel, même sans diffusion GPS.
+        // Tant qu'aucune n'a pu être jouée (configuration pas encore reçue), un nouvel appel reste possible.
         public void PlayStartupAnnouncements()
         {
             if (_startupPlayed) return;
-            _startupPlayed = true;
+            var found = 0;
+            var missing = 0;
             foreach (var announcement in _config.Announcements.ToList())
             {
-                if (!announcement.Enabled || announcement.Trigger != AnnouncementTrigger.Startup || string.IsNullOrEmpty(announcement.SoundFile)) continue;
-                _queue.Enqueue(SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile));
+                if (!announcement.Enabled || announcement.Trigger != AnnouncementTrigger.Startup) continue;
+                var path = SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile);
+                if (path == null || !File.Exists(path)) { missing++; continue; }
+                found++;
+                _queue.Enqueue(path);
             }
+            if (found == 0)
+            {
+                SetStatus(missing > 0
+                    ? "Annonce à l'allumage : fichier audio introuvable sur cette UC ("+ missing + ")." 
+                    : "Aucune annonce à l'allumage dans la configuration de cette UC.");
+                return;
+            }
+            SetStatus("Annonce à l'allumage en cours de lecture.");
+            _startupPlayed = true;
             PlayNext();
         }
 

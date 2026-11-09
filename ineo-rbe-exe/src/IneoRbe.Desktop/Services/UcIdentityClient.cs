@@ -204,6 +204,25 @@ namespace IneoRbe.Desktop.Services
             return File.Exists(path) ? path : null;
         }
 
+        // Identifiant d'une image du configurateur : son nom de fichier sans extension (32 caractères hexadécimaux).
+        public static string IdOfStored(string storedName)
+        {
+            if (string.IsNullOrEmpty(storedName)) return null;
+            var id = Path.GetFileNameWithoutExtension(storedName);
+            return IdPattern.IsMatch(id) ? id : null;
+        }
+
+        // Rend une image du configurateur (déjà téléchargée dans le dossier des écrans) disponible au simulateur.
+        public static void Adopt(string storedName)
+        {
+            var id = IdOfStored(storedName);
+            if (id == null || PathFor(id) != null) return;
+            var source = SaeivStore.ResolvePath(SaeivStore.ScreensFolder, storedName);
+            if (source == null || !File.Exists(source)) return;
+            Directory.CreateDirectory(CacheDirectory);
+            File.Copy(source, Path.Combine(CacheDirectory, id), true);
+        }
+
         public static IEnumerable<string> IdsOf(ScreenProfileInfo profile)
         {
             if (profile == null || profile.Screens == null) return new string[0];

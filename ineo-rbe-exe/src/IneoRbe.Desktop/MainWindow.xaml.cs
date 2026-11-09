@@ -29,7 +29,7 @@ namespace IneoRbe.Desktop
         private UpdateDescriptor _availableUpdate;
         private string _serial;
         private volatile string _screensRevision;
-        private volatile string _contentRevision;
+        private volatile string _contentRevision = ContentSync.LoadApplied();
         private readonly object _syncLock = new object();
         private MaintenanceLink _maintenanceLink;
         private volatile string _updateLevel = MaintenanceProtocol.Unknown;
@@ -73,7 +73,9 @@ namespace IneoRbe.Desktop
             Loaded += (s, e) =>
             {
                 _syncTimer.Start();
-                _engine.PlayStartupAnnouncements();
+                var startupTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                startupTimer.Tick += (t, a) => { startupTimer.Stop(); _engine.PlayStartupAnnouncements(); };
+                startupTimer.Start();
                 StartSync(true, startupNotice);
             };
         }
@@ -186,11 +188,11 @@ namespace IneoRbe.Desktop
                 {
                     if (cached != null)
                     {
-                        ShowIdentity(cached, true);
-                        SimulatorPage.SetProfile(cached.ScreenProfile);
+                        var shown = ContentSync.BuildScreenProfile(_config, _contentRevision) ?? cached.ScreenProfile;
+                        ShowIdentity(cached, true, shown);
+                        SimulatorPage.SetProfile(shown);
                         _screensRevision = cached.ScreenProfile != null ? cached.ScreenProfile.Revision : null;
-                        _contentRevision = cached.ContentRevision;
-                        ContentRevisionText.Text = DescribeContentRevision(cached.ContentRevision);
+                        ContentRevisionText.Text = DescribeContentRevision(_contentRevision);
                     }
                     else IdentityStatusText.Text = "Recherche du profil du véhicule...";
                 });
@@ -204,19 +206,24 @@ namespace IneoRbe.Desktop
                 var identity = _identityClient.Sync(_serial, _releaseVersion, _screensRevision, _contentRevision, sent);
                 lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
 
-                var mediaIds = MediaCache.IdsOf(identity.ScreenProfile).ToList();
-                if (identity.ScreenProfile != null) MediaCache.Ensure(mediaIds);
+                var contentApplied = ApplyPublishedContent(identity);
+
+                // Les écrans du configurateur (révision publiée) priment sur le profil écran de l'URBEX.
+                var screenProfile = ContentSync.BuildScreenProfile(_config, _contentRevision) ?? identity.ScreenProfile;
+                var mediaIds = MediaCache.IdsOf(screenProfile).ToList();
+                if (screenProfile != null && screenProfile == identity.ScreenProfile) MediaCache.Ensure(mediaIds);
                 MediaCache.Prune(mediaIds);
                 UcIdentityStore.Save(identity);
 
                 Ui(() =>
                 {
                     _screensRevision = identity.ScreenProfile != null ? identity.ScreenProfile.Revision : null;
-                    _contentRevision = identity.ContentRevision;
-                    ContentRevisionText.Text = DescribeContentRevision(identity.ContentRevision);
-                    ShowIdentity(identity, false);
-                    SimulatorPage.SetProfile(identity.ScreenProfile);
+                    ContentRevisionText.Text = DescribeContentRevision(_contentRevision);
+                    ShowIdentity(identity, false, screenProfile);
+                    SimulatorPage.SetProfile(screenProfile);
                     _syncTimer.Interval = TimeSpan.FromSeconds(identity.IsPilot ? 15 : 60);
+                    // Révision reçue après le démarrage : les annonces « à l'allumage » n'avaient alors rien à jouer.
+                    if (contentApplied) _engine.PlayStartupAnnouncements();
                 });
 
                 var commands = identity.Commands ?? new List<PilotCommand>();
@@ -336,7 +343,25 @@ namespace IneoRbe.Desktop
             }
         }
 
-        private void ShowIdentity(UcIdentity identity, bool fromCache)
+        // Applique la révision de contenu publiée si elle diffère de celle déjà appliquée ; retourne true si de nouveaux contenus ont été installés.
+        private bool ApplyPublishedContent(UcIdentity identity)
+        {
+            var published = identity.ContentRevision;
+            if (string.IsNullOrEmpty(published) || published == _contentRevision) return false;
+            try
+            {
+                _contentRevision = ContentSync.Apply(_serial, _config);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                // La révision reste « non appliquée » : l'UC la déclare telle quelle au serveur et réessaie à la prochaine synchronisation.
+                Ui(() => IdentityStatusText.Text = "Révision " + published + " non appliquée : " + exception.Message);
+                return false;
+            }
+        }
+
+        private void ShowIdentity(UcIdentity identity, bool fromCache, ScreenProfileInfo screenProfile)
         {
             _profileShown = true;
             _profileName = identity.IsPilot ? identity.PilotName : identity.Vehicle != null ? identity.Vehicle.Parc : null;
@@ -362,13 +387,15 @@ namespace IneoRbe.Desktop
                 StatusProfileText.Text = "Profil : " + vehicle.Parc;
             }
 
-            ScreenProfileText.Text = identity.ScreenProfile == null
+            ScreenProfileText.Text = screenProfile == null
                 ? "Profil écran : aucun"
-                : "Profil écran : " + identity.ScreenProfile.Name + " (" + (identity.ScreenProfile.Screens == null ? 0 : identity.ScreenProfile.Screens.Count) + " écran(s), révision " + identity.ScreenProfile.Revision + ")";
+                : "Profil écran : " + screenProfile.Name + " (" + (screenProfile.Screens == null ? 0 : screenProfile.Screens.Count) + " écran(s), révision " + screenProfile.Revision + ")";
 
-            IdentityStatusText.Text = fromCache
+            var startupCount = _config.Announcements.Count(item => item.Enabled && item.Trigger == AnnouncementTrigger.Startup);
+            IdentityStatusText.Text = (fromCache
                 ? "Dernier profil connu (vérifié le " + identity.CheckedAt + ")."
-                : "Profil à jour (vérifié le " + identity.CheckedAt + ").";
+                : "Profil à jour (vérifié le " + identity.CheckedAt + ").")
+                + " " + _config.Announcements.Count + " annonce(s) dont " + startupCount + " à l'allumage.";
         }
 
         private static string DescribeContentRevision(string revision)

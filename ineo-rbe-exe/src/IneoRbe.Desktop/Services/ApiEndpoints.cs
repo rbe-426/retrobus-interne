@@ -24,6 +24,16 @@ namespace IneoRbe.Desktop.Services
             return BaseUrl + "/media/" + Uri.EscapeDataString(mediaId);
         }
 
+        public static string ContentUrl(string serial)
+        {
+            return BaseUrl + "/content?serial=" + Uri.EscapeDataString(serial);
+        }
+
+        public static string ContentFileUrl(string storedName)
+        {
+            return BaseUrl + "/content-file/" + Uri.EscapeDataString(storedName);
+        }
+
         // Serveurs joignables par le client TLS embarqué (anciens Windows) : uniquement l'API RétroBus.
         public static bool IsTrustedHost(string host)
         {
