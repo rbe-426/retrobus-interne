@@ -501,7 +501,8 @@ namespace IneoRbe.Desktop
                 var reachable = NetworkInterface.GetIsNetworkAvailable();
                 reply.Message = !reachable
                     ? "L'UC n'a pas accès à Internet : le contenu n'a pas pu être récupéré."
-                    : string.IsNullOrEmpty(_contentRevision) ? "Synchronisation faite : aucune révision de contenu publiée." : "Contenu à jour : révision " + _contentRevision + ".";
+                    : !string.IsNullOrEmpty(_contentNote) ? _contentNote
+                    : string.IsNullOrEmpty(_contentRevision) ? "Synchronisation faite : aucune révision de contenu appliquée." : "Contenu à jour : révision " + _contentRevision + ".";
                 return reply;
             }
 
