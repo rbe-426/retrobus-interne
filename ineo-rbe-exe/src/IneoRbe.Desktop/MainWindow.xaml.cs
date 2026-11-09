@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -73,6 +73,7 @@ namespace IneoRbe.Desktop
             Loaded += (s, e) =>
             {
                 _syncTimer.Start();
+                _engine.PlayStartupAnnouncements();
                 StartSync(true, startupNotice);
             };
         }

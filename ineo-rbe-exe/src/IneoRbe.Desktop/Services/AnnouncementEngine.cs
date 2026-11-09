@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -47,11 +47,10 @@ namespace IneoRbe.Desktop.Services
             _source.StatusChanged += OnSourceStatusChanged;
             SetStatus("Diffusion automatique active : en attente de position GPS.");
             _source.Start();
-            PlayStartupAnnouncements();
         }
 
-        // Annonces « à l'allumage » : jouées une seule fois par lancement du logiciel.
-        private void PlayStartupAnnouncements()
+        // Annonces « à l'allumage » : jouées une seule fois par lancement du logiciel, même sans diffusion GPS.
+        public void PlayStartupAnnouncements()
         {
             if (_startupPlayed) return;
             _startupPlayed = true;
