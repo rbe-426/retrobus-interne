@@ -27,6 +27,9 @@ data class Service(
     val arrival: String?,
     val stops: List<Stop>,
     val stopByStop: Boolean,
+    val courseNumber: Int = 0,
+    val courseCount: Int = 0,
+    val direction: String? = null,
 )
 
 data class Flash(val id: String, val message: String)
@@ -83,15 +86,21 @@ object DriverApi {
             arrival = clockOf(mission.optString("scheduledArrival")) ?: route?.optString("scheduledArrival")?.ifBlank { null },
             stops = stops,
             stopByStop = response.optJSONObject("freeTracking")?.optBoolean("stopByStop") == true,
+            courseNumber = route?.optInt("courseNumber") ?: 0,
+            courseCount = route?.optInt("courseCount") ?: 0,
+            direction = route?.optString("direction")?.ifBlank { null },
         )
     }
 
     // La prise de service est confirmée par le code service ; le code course est celui de l'affectation.
     fun startService(service: Service, serviceCode: String) {
-        request(
-            "POST", "/api/ineo/missions/${service.missionId}/start",
-            JSONObject().put("serviceReference", serviceCode.trim().uppercase()).put("courseReference", service.courseReference.trim().uppercase()),
-        )
+        val body = JSONObject().put("serviceReference", serviceCode.trim().uppercase())
+        if (service.courseCount == 0 && service.courseReference.isNotBlank()) body.put("courseReference", service.courseReference.trim().uppercase())
+        request("POST", "/api/ineo/missions/${service.missionId}/start", body)
+    }
+
+    fun nextCourse(missionId: String) {
+        request("POST", "/api/ineo/missions/$missionId/next-course", JSONObject())
     }
 
     fun sendPosition(missionId: String, latitude: Double, longitude: Double, speedKmh: Double?, accuracy: Double?, imei: String? = null) {

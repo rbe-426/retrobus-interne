@@ -56,7 +56,7 @@ namespace IneoRbe.Planning
         // Listes de référence préchargées pendant le démarrage ; servies instantanément puis rafraîchies en arrière-plan.
         public static readonly string[][] Modules =
         {
-            new[] { "/vehicles", "Véhicules" }, new[] { "/ineo/routes", "Lignes" }, new[] { "/ineo/missions", "Missions" },
+            new[] { "/vehicles", "Véhicules" }, new[] { "/ineo/lines", "Lignes" }, new[] { "/ineo/missions", "Missions" },
             new[] { "/ineo/driver-profiles", "Conducteurs" }, new[] { "/ineo/screen-profiles", "Profils d'écrans" },
             new[] { "/ineo/vehicle-profiles", "Profils véhicules" }, new[] { "/ineo/vehicle-trackers", "Balises" },
             new[] { "/ineo/free-tracking-sessions", "Suivi libre" }, new[] { "/ineo/flashes", "Flashs" },

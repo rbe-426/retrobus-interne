@@ -25,53 +25,63 @@ namespace IneoRbe.Planning
 
         public static UIElement Missions()
         {
-            var routes = new List<object>();
-            var course = new FieldDef("courseReference", "Trajet / code course", FieldKind.Combo);
+            var lines = new List<object>();
             var vehicle = new FieldDef("vehicleParc", "Véhicule", FieldKind.Combo);
             var driver = new FieldDef("driverIdentifier", "Conducteur", FieldKind.Combo) { Hint = "permis D + carte conducteur" };
             var view = new EditorView
             {
-                Note = "Le code service est repris du trajet choisi. Créez d'abord le trajet dans « Trajets et codes course ».",
+                Note = "Un service = un numéro libre (celui que le conducteur saisit dans la console) et une suite de courses : aller, retour, aller-retour ou haut-le-pied. Utilisez « Courses du service… » pour les définir.",
                 Fields =
                 {
-                    new FieldDef("serviceName", "Nom du service"),
-                    course, vehicle, driver,
+                    new FieldDef("serviceReference", "Numéro de service") { Hint = "libre, ex. 12-03" },
+                    new FieldDef("serviceName", "Nom du service") { Hint = "facultatif" },
+                    vehicle, driver,
                     new FieldDef("scheduledDeparture", "Départ prévu", FieldKind.DateTime) { Hint = EditorView.DateFormat },
                     new FieldDef("scheduledArrival", "Arrivée prévue", FieldKind.DateTime) { Hint = EditorView.DateFormat },
                     new FieldDef("notes", "Notes", FieldKind.Multiline),
+                    new FieldDef("coursesJson", "Courses", FieldKind.Hidden),
                 },
                 Columns =
                 {
                     new ColDef("Statut", 80, i => Label(StatusLabels, Json.Str(i, "status"))),
                     new ColDef("Départ", 120, i => Data.Date(i, "scheduledDeparture")),
-                    new ColDef("Service", 150, "serviceName"),
-                    new ColDef("Code course", 120, "courseReference"),
+                    new ColDef("Service", 110, "serviceReference"),
+                    new ColDef("Courses", 200, i => CoursesSummary(i)),
                     new ColDef("Véhicule", 70, "vehicleParc"),
                     new ColDef("Conducteur", 110, "driverIdentifier"),
                 },
             };
             view.Prepare = () =>
             {
-                routes = Data.List("/ineo/routes", "routes");
-                course.Options = Data.Options(routes, r => Json.Str(r, "courseReference"), r => Json.Str(r, "courseReference") + " — " + Json.Str(r, "routeName"));
+                lines = Data.List("/ineo/lines", "lines");
                 vehicle.Options = Data.Options(Data.Vehicles(), v => Json.Str(v, "parc"), Data.VehicleLabel);
                 var profiles = Data.List("/ineo/driver-profiles", "profiles").Where(p => Json.Bool(p, "hasCategoryDLicense") && Json.Bool(p, "hasDriverCard"));
                 driver.Options = Data.Options(profiles, p => Json.Str(p, "driverIdentifier"), p => Json.Str(p, "driverIdentifier"));
             };
-            view.Load = () => Data.List("/ineo/missions", "missions");
+            view.Load = () =>
+            {
+                var missions = Data.List("/ineo/missions", "missions");
+                foreach (var mission in missions) Json.Obj(mission)["coursesJson"] = Json.Write(CoursesToJson(LineData.ReadCourses(mission)));
+                return missions;
+            };
+            view.AddButton("Courses du service…", item =>
+            {
+                var options = lines.Select(l => new KeyValuePair<string, string>(Json.Str(l, "id"), Json.Str(l, "name"))).ToList();
+                if (options.Count == 0) { Ui.Error("Créez d'abord une ligne dans « Lignes et itinéraires »."); return; }
+                var dialog = new CoursesDialog(Window.GetWindow(view), options, ParseCourses(view.GetValue("coursesJson")));
+                if (dialog.ShowDialog() == true) view.SetValue("coursesJson", Json.Write(CoursesToJson(dialog.Courses)));
+            });
             view.Save = (v, existing) =>
             {
-                var courseReference = (string)v["courseReference"];
-                var route = routes.FirstOrDefault(r => Json.Str(r, "courseReference") == courseReference);
-                if (route == null) throw new InvalidOperationException("Choisissez un trajet (code course).");
-                var serviceReference = Json.Str(route, "serviceReference");
-                if (serviceReference.Length == 0) throw new InvalidOperationException("Le trajet choisi n'a pas de code service : complétez-le dans « Trajets et codes course ».");
-                if (string.IsNullOrEmpty((string)v["serviceName"])) v["serviceName"] = Json.Str(route, "routeName");
+                var service = ((string)v["serviceReference"] ?? string.Empty).Trim().ToUpperInvariant();
+                if (service.Length == 0) throw new InvalidOperationException("Numéro de service requis.");
+                var courses = CoursesToJson(ParseCourses((string)v["coursesJson"]));
+                if (courses.Count == 0) throw new InvalidOperationException("Ajoutez au moins une course (bouton « Courses du service… »).");
                 return Data.RetryFimo(allow =>
                 {
                     var body = new Dictionary<string, object>
                     {
-                        { "serviceName", v["serviceName"] }, { "serviceReference", serviceReference }, { "courseReference", courseReference },
+                        { "serviceName", string.IsNullOrEmpty((string)v["serviceName"]) ? service : v["serviceName"] }, { "serviceReference", service }, { "courses", courses },
                         { "vehicleParc", v["vehicleParc"] }, { "driverIdentifier", v["driverIdentifier"] }, { "driverName", v["driverIdentifier"] },
                         { "scheduledDeparture", v["scheduledDeparture"] }, { "scheduledArrival", v["scheduledArrival"] },
                         { "notes", v["notes"] }, { "allowExpiredFimo", allow },
@@ -85,98 +95,103 @@ namespace IneoRbe.Planning
             return view;
         }
 
-        // ----- Trajets et codes course -----
-
-        private static string StopsToText(object route)
+        private static string CoursesSummary(object mission)
         {
-            var builder = new StringBuilder();
-            foreach (var stop in Json.List(route, "stops"))
+            var courses = Json.List(mission, "courses");
+            if (courses.Count == 0) return Json.Str(mission, "courseReference");
+            return courses.Count + " : " + string.Join(" ", courses.Select(c =>
             {
-                builder.Append(Json.Str(stop, "label")).Append(';').Append(Json.Str(stop, "scheduledTime")).Append(';')
-                    .Append(Json.Num(stop, "lat") ?? 0).Append(';').Append(Json.Num(stop, "lng") ?? 0).Append("\r\n");
-            }
-            return builder.ToString().Replace(',', '.');
+                var direction = Json.Str(c, "direction");
+                var name = Json.Str(c, "lineName");
+                return direction == "HLP" ? "HLP" : name + (direction == "ALLER" ? " A" : " R");
+            }).ToArray());
         }
 
-        private static List<object> TextToStops(string text)
+        private static List<CourseRow> ParseCourses(string json)
         {
-            var stops = new List<object>();
-            var lines = (text ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var line in lines)
+            var rows = new List<CourseRow>();
+            foreach (var item in Json.Arr(Json.Parse(json)))
             {
-                var parts = line.Split(';');
-                double lat, lng;
-                if (parts.Length < 4 || !double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lat) || !double.TryParse(parts[3].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lng))
-                    throw new FormatException("Arrêt illisible : « " + line + " ». Format : libellé;HH:mm;latitude;longitude.");
-                stops.Add(new Dictionary<string, object> { { "label", parts[0].Trim() }, { "scheduledTime", parts[1].Trim() }, { "lat", lat }, { "lng", lng } });
+                rows.Add(new CourseRow { LineId = Json.Str(item, "lineId"), Direction = Json.Str(item, "direction"), DepartureTime = Json.Str(item, "departureTime") });
             }
-            return stops;
+            return rows;
         }
 
-        public static UIElement Routes()
+        private static List<object> CoursesToJson(IEnumerable<CourseRow> courses)
         {
-            var vehicle = new FieldDef("vehicleParc", "Véhicule imposé", FieldKind.Combo);
+            return courses.Select(c => (object)new Dictionary<string, object>
+            {
+                { "lineId", c.Direction == "HLP" ? string.Empty : c.LineId }, { "direction", c.Direction }, { "departureTime", string.IsNullOrWhiteSpace(c.DepartureTime) ? string.Empty : c.DepartureTime.Trim() },
+            }).ToList();
+        }
+
+        // ----- Lignes et itinéraires -----
+
+        private static readonly KeyValuePair<string, string>[] LineColors =
+        {
+            new KeyValuePair<string, string>("#9F063A", "Bordeaux RétroBus"), new KeyValuePair<string, string>("#DC2626", "Rouge"),
+            new KeyValuePair<string, string>("#EA580C", "Orange"), new KeyValuePair<string, string>("#CA8A04", "Jaune"),
+            new KeyValuePair<string, string>("#16A34A", "Vert"), new KeyValuePair<string, string>("#0D9488", "Turquoise"),
+            new KeyValuePair<string, string>("#2563EB", "Bleu"), new KeyValuePair<string, string>("#1E3A8A", "Bleu marine"),
+            new KeyValuePair<string, string>("#7C3AED", "Violet"), new KeyValuePair<string, string>("#DB2777", "Rose"),
+            new KeyValuePair<string, string>("#78350F", "Marron"), new KeyValuePair<string, string>("#475569", "Gris"),
+            new KeyValuePair<string, string>("#0F172A", "Noir"),
+        };
+
+        public static UIElement Lines()
+        {
+            var colorField = new FieldDef("color", "Couleur de la ligne", FieldKind.Combo) { Options = LineColors.ToList() };
             var view = new EditorView
             {
-                Note = "Un arrêt par ligne : libellé;HH:mm;latitude;longitude. Le bouton « Ajouter un arrêt » cherche une adresse.",
+                Note = "Une ligne = un nom, deux destinations (hors déviation) et une couleur. Enregistrez-la, sélectionnez-la, puis éditez l'itinéraire aller (destination 1 → 2) et l'itinéraire retour (2 → 1) : tableau d'arrêts + carte avec tracé.",
                 Fields =
                 {
-                    new FieldDef("courseReference", "Code course", FieldKind.Text) { ReadOnly = true, Hint = "999-26726-920" },
-                    new FieldDef("routeName", "Nom du trajet"),
-                    new FieldDef("serviceReference", "Code service", FieldKind.Text) { Hint = "RBE-999-999" },
-                    new FieldDef("lineName", "Ligne"),
-                    vehicle,
-                    new FieldDef("scheduledDeparture", "Heure de départ", FieldKind.Text) { Hint = "HH:mm" },
-                    new FieldDef("scheduledArrival", "Heure d'arrivée", FieldKind.Text) { Hint = "HH:mm" },
-                    new FieldDef("stopsText", "Arrêts", FieldKind.Multiline),
-                    new FieldDef("notes", "Notes", FieldKind.Multiline),
-                    new FieldDef("isFreeTracking", "Traçage libre", FieldKind.Check),
+                    new FieldDef("name", "Nom de la ligne"),
+                    new FieldDef("destination1", "Destination 1"),
+                    new FieldDef("destination2", "Destination 2"),
+                    colorField,
                 },
                 Columns =
                 {
-                    new ColDef("Code course", 120, "courseReference"),
-                    new ColDef("Trajet", 170, "routeName"),
-                    new ColDef("Service", 100, "serviceReference"),
-                    new ColDef("Ligne", 70, "lineName"),
-                    new ColDef("Arrêts", 50, i => Json.List(i, "stops").Count.ToString()),
+                    new ColDef("Ligne", 110, "name"),
+                    new ColDef("Destination 1", 130, "destination1"),
+                    new ColDef("Destination 2", 130, "destination2"),
+                    new ColDef("Couleur", 100, i => LineColors.Where(c => c.Key == Json.Str(i, "color")).Select(c => c.Value).FirstOrDefault() ?? Json.Str(i, "color")),
+                    new ColDef("Arrêts aller", 80, i => Json.List(i, "outboundStops").Count.ToString()),
+                    new ColDef("Arrêts retour", 85, i => Json.List(i, "returnStops").Count.ToString()),
                 },
             };
-            view.Prepare = () => vehicle.Options = Data.Options(Data.Vehicles(), v => Json.Str(v, "parc"), Data.VehicleLabel);
-            view.Load = () =>
-            {
-                var routes = Data.List("/ineo/routes", "routes");
-                foreach (var route in routes) Json.Obj(route)["stopsText"] = StopsToText(route);
-                return routes;
-            };
+            view.Load = () => Data.List("/ineo/lines", "lines");
             view.Save = (v, existing) =>
             {
-                var reference = ((string)v["courseReference"]).ToUpperInvariant();
-                if (existing != null) reference = Json.Str(existing, "courseReference");
-                var service = ((string)v["serviceReference"] ?? string.Empty).Trim().ToUpperInvariant();
-                if (!System.Text.RegularExpressions.Regex.IsMatch(service, @"^RBE-\d{3}-\d{3}$"))
-                    throw new InvalidOperationException("Format du code service attendu : RBE-999-999.");
-                if (!System.Text.RegularExpressions.Regex.IsMatch(reference, @"^\d{3}-\d{5}-\d{3,4}$"))
-                    throw new InvalidOperationException("Format du code course attendu : 999-26726-920.");
-                v["serviceReference"] = service;
+                if (string.IsNullOrEmpty((string)v["name"]) || string.IsNullOrEmpty((string)v["destination1"]) || string.IsNullOrEmpty((string)v["destination2"]))
+                    throw new InvalidOperationException("Nom et destinations 1 et 2 requis.");
                 var body = new Dictionary<string, object>
                 {
-                    { "courseReference", reference }, { "routeName", v["routeName"] }, { "serviceReference", v["serviceReference"] },
-                    { "lineName", v["lineName"] }, { "vehicleParc", v["vehicleParc"] }, { "scheduledDeparture", v["scheduledDeparture"] },
-                    { "scheduledArrival", v["scheduledArrival"] }, { "stops", TextToStops((string)v["stopsText"]) },
-                    { "notes", v["notes"] }, { "isFreeTracking", v["isFreeTracking"] },
+                    { "name", v["name"] }, { "destination1", v["destination1"] }, { "destination2", v["destination2"] },
+                    { "color", string.IsNullOrEmpty((string)v["color"]) ? LineColors[0].Key : v["color"] },
                 };
-                return Api.Put("/ineo/routes/reference/" + Data.Encode(reference), body);
+                return existing == null ? Api.Post("/ineo/lines", body) : Api.Put("/ineo/lines/" + Json.Str(existing, "id"), body);
             };
-            view.Remove = item => Api.Delete("/ineo/routes/reference/" + Data.Encode(Json.Str(item, "courseReference")));
-            view.AddButton("Ajouter un arrêt", item =>
-            {
-                var dialog = new GeocodeDialog(Window.GetWindow(view));
-                if (dialog.ShowDialog() != true) return;
-                var line = dialog.Label.Replace(';', ',') + ";;" + dialog.Lat.ToString(CultureInfo.InvariantCulture) + ";" + dialog.Lng.ToString(CultureInfo.InvariantCulture);
-                view.AppendValue("stopsText", line);
-            });
+            view.Remove = item => Api.Delete("/ineo/lines/" + Json.Str(item, "id"));
+            view.AddButton("Itinéraire aller…", item => EditItinerary(view, item, true));
+            view.AddButton("Itinéraire retour…", item => EditItinerary(view, item, false));
             view.Loaded += (s, e) => { if (view.Items.Count == 0) view.Start(); };
             return view;
+        }
+
+        private static void EditItinerary(EditorView view, object line, bool outbound)
+        {
+            if (line == null) { Ui.Error("Enregistrez puis sélectionnez une ligne avant d'éditer son itinéraire."); return; }
+            var first = Json.Str(line, outbound ? "destination1" : "destination2");
+            var last = Json.Str(line, outbound ? "destination2" : "destination1");
+            var prefix = outbound ? "outbound" : "return";
+            var dialog = new ItineraryDialog(Window.GetWindow(view), (outbound ? "Itinéraire aller : " : "Itinéraire retour : ") + Json.Str(line, "name") + " (" + first + " → " + last + ")",
+                Json.Str(line, "color"), LineData.ReadStops(line, prefix + "Stops"), LineData.ReadPath(line, prefix + "Path"));
+            if (dialog.ShowDialog() != true) return;
+            var body = new Dictionary<string, object> { { prefix + "Stops", LineData.StopsJson(dialog.Stops) }, { prefix + "Path", LineData.PathJson(dialog.Path) } };
+            view.SetStatus("Enregistrement de l'itinéraire…");
+            Ui.Run(view.Dispatcher, () => Api.Put("/ineo/lines/" + Json.Str(line, "id"), body), result => view.Reload(), error => Ui.Error(error));
         }
 
         // ----- Conducteurs -----

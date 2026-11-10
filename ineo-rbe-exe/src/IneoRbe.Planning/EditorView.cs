@@ -7,7 +7,7 @@ using System.Windows.Controls;
 
 namespace IneoRbe.Planning
 {
-    public enum FieldKind { Text, Multiline, Number, Check, Combo, DateTime }
+    public enum FieldKind { Text, Multiline, Number, Check, Combo, DateTime, Hidden }
 
     public sealed class FieldDef
     {
@@ -121,6 +121,16 @@ namespace IneoRbe.Planning
             }
         }
 
+        public string GetValue(string key)
+        {
+            foreach (var pair in _controls)
+            {
+                var box = pair.Value as TextBox;
+                if (pair.Key.Key == key && box != null) return box.Text;
+            }
+            return string.Empty;
+        }
+
         public void SetValue(string key, string value)
         {
             foreach (var pair in _controls)
@@ -164,6 +174,7 @@ namespace IneoRbe.Planning
             _list.View = grid;
             foreach (var field in Fields)
             {
+                if (field.Kind == FieldKind.Hidden) { _controls[field] = new TextBox(); continue; }
                 Control control;
                 switch (field.Kind)
                 {

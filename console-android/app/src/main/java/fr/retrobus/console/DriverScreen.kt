@@ -183,7 +183,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private fun serviceForm(current: Service, error: String? = null): Unit = page {
         addView(title("Prise de service"))
         addView(label("Agent : ${DriverApi.agentName}"))
-        addView(label("${current.name} — course ${current.courseReference}", 20f, true))
+        addView(label("${current.name} — ${courseTitle(current)}", 20f, true))
         addView(label(listOfNotNull(current.line?.let { "Ligne $it" }, current.origin, current.destination).joinToString(" → ")))
         addView(label("Départ ${current.departure ?: "--:--"} · Arrivée ${current.arrival ?: "--:--"} · ${current.stops.size} arrêt(s)", 15f))
         val code = field("Code service (ex. ${current.serviceReference})")
@@ -211,7 +211,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             setPadding(24, 12, 24, 12)
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(label("${current.line?.let { "Ligne $it · " } ?: ""}${current.name}", 18f, true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+        top.addView(label("${current.line?.let { "Ligne $it · " } ?: ""}${current.name} · ${courseTitle(current)}", 18f, true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         top.addView(label(DriverApi.agentName, 14f))
         clockView = label(clockFormat.format(Date()), 26f, true).apply { setPadding(24, 0, 0, 0) }
         top.addView(clockView)
@@ -239,12 +239,29 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         if (current.stopByStop) {
             bar.addView(button("Marquer l'arrêt", true) { markStop(current) }.apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         }
+        if (current.courseCount > 0 && current.courseNumber < current.courseCount) {
+            bar.addView(button("Course suivante", true) { goNextCourse(current) }.apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+        }
         bar.addView(button("Terminer le service") { confirmEnd(current) }.apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         root.addView(bar)
 
         startLocation()
         handler.post(tick)
         handler.post(flashPoll)
+    }
+
+    private fun courseTitle(current: Service): String {
+        if (current.courseCount == 0) return "course ${current.courseReference}"
+        val sens = when (current.direction) { "ALLER" -> "aller"; "RETOUR" -> "retour"; "HLP" -> "HLP"; else -> "" }
+        return "course ${current.courseNumber}/${current.courseCount} $sens".trim()
+    }
+
+    private fun goNextCourse(current: Service) {
+        infoView?.text = "Passage à la course suivante…"
+        thread {
+            val result = runCatching { DriverApi.nextCourse(current.missionId) }
+            activity.runOnUiThread { result.onSuccess { loadService() }.onFailure { infoView?.text = it.message ?: "Changement impossible." } }
+        }
     }
 
     // Prochain arrêt : premier arrêt dont l'horaire n'est pas encore passé.
@@ -278,7 +295,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
     private fun confirmEnd(current: Service): Unit = page {
         addView(title("Terminer le service ?"))
-        addView(label("${current.name} — course ${current.courseReference}"))
+        addView(label("${current.name} — ${courseTitle(current)}"))
         addView(button("Oui, terminer", true) {
             message("Fin de service…")
             thread {

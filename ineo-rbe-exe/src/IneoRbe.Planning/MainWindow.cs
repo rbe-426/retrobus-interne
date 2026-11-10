@@ -56,8 +56,8 @@ namespace IneoRbe.Planning
             DockPanel.SetDock(tree, Dock.Left);
             AddGroup(tree, "Exploitation", new[]
             {
+                Entry("lines", "Lignes et itinéraires", Views.Lines),
                 Entry("missions", "Planifier les services", Views.Missions),
-                Entry("routes", "Trajets et codes course", Views.Routes),
                 Entry("live", "Suivi en temps réel", Views2.Live),
                 Entry("free", "Traçage libre", Views2.FreeTracking),
                 Entry("flash", "Flash conducteurs", Views.Flashes),
