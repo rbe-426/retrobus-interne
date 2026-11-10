@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -57,8 +58,8 @@ namespace IneoRbe.Desktop.Services
                 var old = _listener;
                 if (old != null) { try { old.Stop(); } catch (Exception) { } }
                 var listener = new TcpListener(IPAddress.Any, MaintenanceProtocol.TcpPort);
-                listener.ExclusiveAddressUse = false;
                 listener.Start();
+                NoInherit(listener.Server);
                 _listener = listener;
                 return true;
             }
@@ -89,8 +90,19 @@ namespace IneoRbe.Desktop.Services
                     OpenListener();
                     continue;
                 }
+                NoInherit(client.Client);
                 ThreadPool.QueueUserWorkItem(delegate { Serve(client); });
             }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetHandleInformation(IntPtr handle, int mask, int flags);
+
+        // Les processus lancés par l'UC (redémarrage, mise à jour) héritent sinon des sockets ouverts : le nouvel UC
+        // retrouvait alors le port 47800 « déjà pris » par la copie héritée, qui n'accepte plus aucune connexion.
+        private static void NoInherit(Socket socket)
+        {
+            try { SetHandleInformation(socket.Handle, 1, 0); } catch (Exception) { }
         }
         private void Serve(TcpClient client)
         {

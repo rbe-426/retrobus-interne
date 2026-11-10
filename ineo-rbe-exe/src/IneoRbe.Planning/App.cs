@@ -19,6 +19,9 @@ namespace IneoRbe.Planning
 
     public sealed class App : Application
     {
+        // Passer à false pour rouvrir le Gestionnaire une fois les travaux terminés.
+        private const bool MaintenanceMode = true;
+
         [STAThread]
         public static int Main(string[] args)
         {
@@ -40,6 +43,14 @@ namespace IneoRbe.Planning
                 return;
             }
 
+            if (MaintenanceMode)
+            {
+                var locked = new MaintenanceLockWindow();
+                locked.Closed += (s, e) => Shutdown();
+                locked.Show();
+                return;
+            }
+
             var splash = new SplashWindow();
             splash.Completed += (sender, e) =>
             {
@@ -57,6 +68,67 @@ namespace IneoRbe.Planning
                 loader.Show();
             };
             splash.Show();
+        }
+    }
+
+    // Écran bloquant pendant les travaux : seul le message s'affiche, mais la fenêtre cherche et installe seule la version qui rouvrira le logiciel.
+    public sealed class MaintenanceLockWindow : Window
+    {
+        private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) };
+        private bool _installing;
+
+        public MaintenanceLockWindow()
+        {
+            Title = "Inéo RétroBus Gestionnaire";
+            Width = 520; Height = 340;
+            WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Background = Ui.Carbon; Topmost = true; FontFamily = new FontFamily("Tahoma");
+            var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24) };
+            stack.Children.Add(new Image { Source = AppImages.Load("splash-logo.png"), Stretch = Stretch.Uniform, Height = 90, Margin = new Thickness(0, 0, 0, 16) });
+            stack.Children.Add(new TextBlock { Text = "Une opération de mise à jour est en cours.", Foreground = Brushes.White, FontSize = 15, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap });
+            stack.Children.Add(new TextBlock { Text = "L'application InéoRBE Gestionnaire est indisponible le temps des travaux.", Foreground = Ui.Brush("#C5CED6"), FontSize = 12, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
+            stack.Children.Add(new TextBlock { Text = "CONTOURNEMENT --> MODE PAPIER", Foreground = Ui.Brush("#FFB4C8"), FontSize = 14, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 18, 0, 0) });
+            stack.Children.Add(_status);
+            var close = Ui.Button("Fermer", (s, e) => Close());
+            close.HorizontalAlignment = HorizontalAlignment.Center;
+            close.Margin = new Thickness(0, 16, 0, 0);
+            stack.Children.Add(close);
+            Content = new Border { BorderBrush = Ui.Red, BorderThickness = new Thickness(2), Child = stack };
+            Loaded += (s, e) => System.Threading.ThreadPool.QueueUserWorkItem(delegate { Watch(); });
+        }
+
+        private void Watch()
+        {
+            try { TrustedRoots.Load(); } catch (Exception) { }
+            try { UpdateInstaller.ConsumePendingResult(typeof(MaintenanceLockWindow).Assembly.GetName().Version); } catch (Exception) { }
+            while (!_installing)
+            {
+                try
+                {
+                    var check = new UpdateClient("PLANNING", null).CheckForUpdate();
+                    if (check != null && check.UpdateAvailable)
+                    {
+                        _installing = true;
+                        Say("Version " + check.Update.Version + " disponible : installation en cours…");
+                        var path = new UpdateClient("PLANNING", null).DownloadAndVerifyInstaller(check.Update);
+                        UpdateInstaller.Launch(path, check.Update.Version);
+                        Dispatcher.BeginInvoke(new Action(() => Application.Current.Shutdown()));
+                        return;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _installing = false;
+                    Say("Vérification impossible : " + exception.Message);
+                }
+                System.Threading.Thread.Sleep(60000);
+            }
+        }
+
+        private void Say(string text)
+        {
+            Dispatcher.BeginInvoke(new Action(() => _status.Text = text));
         }
     }
 
