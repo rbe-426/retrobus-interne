@@ -108,14 +108,28 @@ namespace IneoRbe.Planning
             Loaded += (s, e) => { if (_vehicle.Items.Count == 0) LoadVehicles(bar); RefreshLineChanges(); };
         }
 
+        private const string PilotParc = "PILOTE";
+
+        private static object SafePilot()
+        {
+            try { return Json.Get(Api.Get("/ineo/pilot"), "pilot"); }
+            catch (Exception) { return null; }
+        }
+
         private void LoadVehicles(UIElement bar)
         {
             _status.Text = "Chargement des véhicules…";
-            Ui.Run(Dispatcher, () => new[] { Data.Vehicles(), Data.List("/ineo/vehicle-profiles", "profiles") }, data =>
+            Ui.Run(Dispatcher, () => new object[] { Data.Vehicles(), Data.List("/ineo/vehicle-profiles", "profiles"), SafePilot() }, data =>
             {
                 _profiles = new Dictionary<string, object>();
-                foreach (var profile in data[1]) _profiles[Json.Str(profile, "vehicleParc")] = profile;
-                _vehicle.ItemsSource = Data.Options(data[0], v => Json.Str(v, "parc"), Data.VehicleLabel);
+                foreach (var profile in (List<object>)data[1]) _profiles[Json.Str(profile, "vehicleParc")] = profile;
+                var options = Data.Options((List<object>)data[0], v => Json.Str(v, "parc"), Data.VehicleLabel);
+                // Le véhicule pilote n'existe que dans les outils Inéo : il est ajouté ici, jamais dans la liste des véhicules du parc.
+                var pilot = data[2];
+                _profiles[PilotParc] = pilot ?? new Dictionary<string, object>();
+                var pilotName = pilot == null ? string.Empty : Json.Str(pilot, "name");
+                options.Insert(0, new KeyValuePair<string, string>(PilotParc, PilotParc + " — " + (pilotName.Length == 0 ? "Véhicule pilote" : pilotName)));
+                _vehicle.ItemsSource = options;
                 bar.IsEnabled = true;
                 _status.Text = "Choisissez un véhicule pour éditer son profil SAEIV.";
             }, error => _status.Text = "Erreur : " + error);
@@ -130,7 +144,12 @@ namespace IneoRbe.Planning
             _engine.IsChecked = _config.EngineEnabled;
             foreach (var tab in _vehicleTabs) tab.IsEnabled = true;
             object profile;
-            if (_profiles.TryGetValue(parc, out profile))
+            if (parc == PilotParc)
+            {
+                var pilotSerial = _profiles.ContainsKey(PilotParc) ? Json.Str(_profiles[PilotParc], "ucSerial") : string.Empty;
+                _vehicleInfo.Text = "Véhicule pilote (PC de test, absent du parc et des autres écrans) — UC associé : " + (pilotSerial.Length == 0 ? "aucun (à renseigner dans « Véhicule pilote »)" : pilotSerial);
+            }
+            else if (_profiles.TryGetValue(parc, out profile))
             {
                 var serial = Json.Str(profile, "ucSerial");
                 _vehicleInfo.Text = "UC associé : " + (serial.Length == 0 ? "aucun (à renseigner dans « Profils véhicules »)" : serial);
