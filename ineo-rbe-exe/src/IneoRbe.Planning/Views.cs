@@ -143,6 +143,7 @@ namespace IneoRbe.Planning
             var colorField = new FieldDef("color", "Couleur de la ligne", FieldKind.Hidden);
             var view = new EditorView
             {
+                ColorKey = "color",
                 Note = "Une ligne = un nom, deux destinations (hors déviation) et une couleur. Enregistrez-la, sélectionnez-la, puis éditez l'itinéraire aller (destination 1 → 2) et l'itinéraire retour (2 → 1) : tableau d'arrêts + carte avec tracé.",
                 Fields =
                 {
@@ -156,7 +157,7 @@ namespace IneoRbe.Planning
                     new ColDef("Ligne", 110, "name"),
                     new ColDef("Destination 1", 130, "destination1"),
                     new ColDef("Destination 2", 130, "destination2"),
-                    new ColDef("Couleur", 100, i => Json.Str(i, "color")),
+                    new ColDef("Couleur", 100, i => Json.Str(i, "color").ToUpperInvariant()) { IsColor = true },
                     new ColDef("Arrêts aller", 80, i => Json.List(i, "outboundStops").Count.ToString()),
                     new ColDef("Arrêts retour", 85, i => Json.List(i, "returnStops").Count.ToString()),
                 },

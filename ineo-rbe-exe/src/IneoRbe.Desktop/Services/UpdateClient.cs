@@ -65,6 +65,18 @@ namespace IneoRbe.Desktop.Services
             return new UpdateCheckResult { UpdateAvailable = true, Update = descriptor };
         }
 
+        // Plusieurs versions peuvent avoir été publiées depuis la détection : on installe toujours la plus récente, en une seule fois.
+        public UpdateDescriptor Latest(UpdateDescriptor known)
+        {
+            try
+            {
+                var check = CheckForUpdate();
+                if (check.UpdateAvailable && check.Update != null) return check.Update;
+            }
+            catch (Exception) { }
+            return known;
+        }
+
         public string DownloadAndVerifyInstaller(UpdateDescriptor update)
         {
             ValidateDescriptor(update);

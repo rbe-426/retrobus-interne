@@ -32,6 +32,35 @@ namespace IneoRbe.Planning
         public Func<object, string> Get;
         public ColDef(string header, double width, Func<object, string> get) { Header = header; Width = width; Get = get; }
         public ColDef(string header, double width, string path) : this(header, width, item => Json.Str(item, path)) { }
+        // Cellule affichée avec la couleur hexadécimale en fond et le texte hexa dessus.
+        public bool IsColor;
+    }
+
+    public sealed class ColorBrushConverter : System.Windows.Data.IValueConverter
+    {
+        public bool Text;
+
+        public static System.Windows.Media.Color? Parse(string hex)
+        {
+            if (string.IsNullOrEmpty(hex) || hex.Length != 7 || hex[0] != '#') return null;
+            try { return (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex); }
+            catch (Exception) { return null; }
+        }
+
+        public static System.Windows.Media.Brush ForegroundFor(System.Windows.Media.Color color)
+        {
+            var luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
+            return luminance > 0.6 ? System.Windows.Media.Brushes.Black : System.Windows.Media.Brushes.White;
+        }
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var color = Parse(value as string);
+            if (!color.HasValue) return Text ? System.Windows.Media.Brushes.Black : System.Windows.Media.Brushes.Transparent;
+            return Text ? ForegroundFor(color.Value) : new System.Windows.Media.SolidColorBrush(color.Value);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) { throw new NotSupportedException(); }
     }
 
     // Liste à gauche, formulaire à droite : sert à la plupart des sections.
@@ -111,6 +140,30 @@ namespace IneoRbe.Planning
 
         public void SetStatus(string text) { _status.Text = text; }
 
+        // Clé du champ couleur : affiche un aperçu (fond de la couleur, code hexa dessus) en haut du formulaire.
+        public string ColorKey;
+        private readonly Border _preview = new Border { Height = 44, CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 0, 0, 6), BorderBrush = System.Windows.Media.Brushes.LightGray, BorderThickness = new Thickness(1) };
+        private readonly TextBlock _previewText = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 16, FontWeight = FontWeights.Bold };
+
+        private void UpdatePreview()
+        {
+            if (string.IsNullOrEmpty(ColorKey)) return;
+            var hex = GetValue(ColorKey);
+            var color = ColorBrushConverter.Parse(hex);
+            if (color.HasValue)
+            {
+                _preview.Background = new System.Windows.Media.SolidColorBrush(color.Value);
+                _previewText.Text = hex.ToUpperInvariant();
+                _previewText.Foreground = ColorBrushConverter.ForegroundFor(color.Value);
+            }
+            else
+            {
+                _preview.Background = System.Windows.Media.Brushes.Transparent;
+                _previewText.Text = "Aucune couleur";
+                _previewText.Foreground = Ui.Muted;
+            }
+        }
+
         public void AppendValue(string key, string line)
         {
             foreach (var pair in _controls)
@@ -141,6 +194,7 @@ namespace IneoRbe.Planning
                 if (box != null) box.Text = value;
                 else if (combo != null) combo.SelectedValue = value;
             }
+            UpdatePreview();
         }
 
         public void Start()
@@ -163,15 +217,30 @@ namespace IneoRbe.Planning
             var grid = new GridView();
             foreach (var column in Columns)
             {
-                var path = column;
-                grid.Columns.Add(new GridViewColumn
+                var bindingPath = "[" + Columns.IndexOf(column) + "]";
+                var gridColumn = new GridViewColumn { Header = column.Header, Width = column.Width };
+                if (column.IsColor)
                 {
-                    Header = column.Header,
-                    Width = column.Width,
-                    DisplayMemberBinding = new System.Windows.Data.Binding("[" + Columns.IndexOf(column) + "]"),
-                });
+                    var border = new FrameworkElementFactory(typeof(Border));
+                    border.SetBinding(Border.BackgroundProperty, new System.Windows.Data.Binding(bindingPath) { Converter = new ColorBrushConverter() });
+                    border.SetValue(Border.PaddingProperty, new Thickness(6, 1, 6, 1));
+                    var label = new FrameworkElementFactory(typeof(TextBlock));
+                    label.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(bindingPath));
+                    label.SetBinding(TextBlock.ForegroundProperty, new System.Windows.Data.Binding(bindingPath) { Converter = new ColorBrushConverter { Text = true } });
+                    label.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+                    border.AppendChild(label);
+                    gridColumn.CellTemplate = new DataTemplate { VisualTree = border };
+                }
+                else gridColumn.DisplayMemberBinding = new System.Windows.Data.Binding(bindingPath);
+                grid.Columns.Add(gridColumn);
             }
             _list.View = grid;
+            if (!string.IsNullOrEmpty(ColorKey))
+            {
+                _preview.Child = _previewText;
+                _form.Children.Add(_preview);
+                UpdatePreview();
+            }
             foreach (var field in Fields)
             {
                 if (field.Kind == FieldKind.Hidden) { _controls[field] = new TextBox(); continue; }
@@ -253,6 +322,7 @@ namespace IneoRbe.Planning
                 else if (field.Kind == FieldKind.DateTime) box.Text = FormatDate(Json.Str(item, field.Key));
                 else box.Text = item == null ? string.Empty : Json.Str(item, field.Key);
             }
+            UpdatePreview();
             if (Describe != null) _status.Text = item == null ? "Nouvel élément." : Describe(item);
         }
 

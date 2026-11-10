@@ -163,7 +163,13 @@ namespace IneoRbe.Maintenance
             {
                 string path = null;
                 string error = null;
-                try { path = new UpdateClient("MAINTENANCE", Serial).DownloadAndVerifyInstaller(update); }
+                var target = update;
+                try
+                {
+                    var client = new UpdateClient("MAINTENANCE", Serial);
+                    target = client.Latest(update);
+                    path = client.DownloadAndVerifyInstaller(target);
+                }
                 catch (Exception exception) { error = exception.Message; }
 
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -172,7 +178,7 @@ namespace IneoRbe.Maintenance
                     {
                         try
                         {
-                            UpdateInstaller.Launch(path, update.Version);
+                            UpdateInstaller.Launch(path, target.Version);
                             Application.Current.Shutdown();
                             return;
                         }

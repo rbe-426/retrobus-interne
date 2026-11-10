@@ -169,7 +169,7 @@ namespace IneoRbe.Planning
         {
             _hint.Text = _modeStops.IsChecked == true
                 ? "Chaque clic ajoute un arrêt en bas du tableau. Renommez la ville et l'arrêt dans le tableau. Molette = zoom, glisser = déplacer."
-                : "Clic = point du tracé en ligne droite. MAJ + clic = tracé qui suit les routes depuis le dernier point (courbes, virages). Sans tracé, la carte relie simplement les arrêts.";
+                : "Chaque clic ajoute un point du tracé, relié en ligne droite au précédent : multipliez les points dans les courbes. Le tracé est libre (sites propres, voies privées) et n'empêche pas la détection du véhicule sur l'itinéraire. Sans tracé, la carte relie simplement les arrêts.";
         }
 
         private void Fit()
@@ -198,7 +198,6 @@ namespace IneoRbe.Planning
 
         // Tailles des segments ajoutés au tracé (un clic simple = 1 point, un maj+clic = tout le trajet routier) pour l'annulation.
         private readonly List<int> _segments = new List<int>();
-        private bool _routing;
 
         private void UndoPath()
         {
@@ -218,39 +217,10 @@ namespace IneoRbe.Planning
 
         private void OnMapClicked(double lat, double lng)
         {
-            if (_routing) return;
             var target = new Point(Math.Round(lat, 6), Math.Round(lng, 6));
             if (_modePath.IsChecked == true)
             {
-                // Maj+clic : le tracé suit les routes depuis le dernier point (courbes, virages) au lieu d'une ligne droite.
-                if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0 && _path.Count > 0)
-                {
-                    var from = _path[_path.Count - 1];
-                    _routing = true;
-                    _hint.Text = "Calcul du tracé routier…";
-                    Ui.Run(Dispatcher, () => Api.Get("/ineo/route?from=" + Coord(from) + "&to=" + Coord(target)), result =>
-                    {
-                        _routing = false;
-                        var points = new List<Point>();
-                        foreach (var item in Json.Arr(Json.Get(result, "points")))
-                        {
-                            var pair = item as List<object>;
-                            if (pair != null && pair.Count >= 2 && pair[0] is double && pair[1] is double) points.Add(new Point((double)pair[0], (double)pair[1]));
-                        }
-                        if (points.Count == 0) points.Add(target);
-                        else points[points.Count - 1] = target;
-                        AddPathPoints(points);
-                        UpdateHint();
-                        Refresh();
-                    }, error =>
-                    {
-                        _routing = false;
-                        AddPathPoints(new[] { target });
-                        Refresh();
-                        _hint.Text = "Route introuvable (" + error + ") : segment droit ajouté.";
-                    });
-                    return;
-                }
+                // Tracé manuel : certaines lignes empruntent des sites propres absents des cartes routières.
                 AddPathPoints(new[] { target });
             }
             else

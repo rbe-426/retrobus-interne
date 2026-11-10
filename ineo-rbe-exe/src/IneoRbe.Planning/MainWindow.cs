@@ -147,9 +147,14 @@ namespace IneoRbe.Planning
             if (!Ui.Confirm("Installer la version " + update.Version + " ? Le logiciel va se fermer puis redémarrer.")) return;
             _updateButton.IsEnabled = false;
             _updateText.Text = "Téléchargement…";
-            Ui.Run(Dispatcher, () => new UpdateClient("PLANNING", null).DownloadAndVerifyInstaller(update), path =>
+            Ui.Run(Dispatcher, () =>
             {
-                try { UpdateInstaller.Launch(path, update.Version); Application.Current.Shutdown(); }
+                var client = new UpdateClient("PLANNING", null);
+                var target = client.Latest(update);
+                return new KeyValuePair<string, string>(client.DownloadAndVerifyInstaller(target), target.Version);
+            }, installer =>
+            {
+                try { UpdateInstaller.Launch(installer.Key, installer.Value); Application.Current.Shutdown(); }
                 catch (Exception exception) { _updateText.Text = "Échec : " + exception.Message; _updateButton.IsEnabled = true; }
             }, error => { _updateText.Text = "Échec de la mise à jour : " + error; _updateButton.IsEnabled = true; });
         }

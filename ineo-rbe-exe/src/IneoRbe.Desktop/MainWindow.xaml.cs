@@ -684,6 +684,7 @@ namespace IneoRbe.Desktop
             });
             try
             {
+                update = _updateClient.Latest(update);
                 var installerPath = _updateClient.DownloadAndVerifyInstaller(update);
                 Ui(() => UpdateStatusText.Text = "Installation en cours : le logiciel va redémarrer tout seul.");
                 UpdateInstaller.Launch(installerPath, update.Version);
