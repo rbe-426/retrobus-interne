@@ -11,6 +11,30 @@ namespace IneoRbe.Desktop.Services
         public const string Startup = "START";
     }
 
+    // Ligne publiée depuis le configurateur : destinations, couleur et itinéraires (arrêts + tracé [lat, lng]).
+    [DataContract]
+    public sealed class LineStop
+    {
+        [DataMember(Name = "city")] public string City { get; set; }
+        [DataMember(Name = "label")] public string Label { get; set; }
+        [DataMember(Name = "lat")] public double Lat { get; set; }
+        [DataMember(Name = "lng")] public double Lng { get; set; }
+    }
+
+    [DataContract]
+    public sealed class LineConfig
+    {
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "name")] public string Name { get; set; }
+        [DataMember(Name = "color")] public string Color { get; set; }
+        [DataMember(Name = "destination1")] public string Destination1 { get; set; }
+        [DataMember(Name = "destination2")] public string Destination2 { get; set; }
+        [DataMember(Name = "outboundStops")] public List<LineStop> OutboundStops { get; set; }
+        [DataMember(Name = "outboundPath")] public List<List<double>> OutboundPath { get; set; }
+        [DataMember(Name = "returnStops")] public List<LineStop> ReturnStops { get; set; }
+        [DataMember(Name = "returnPath")] public List<List<double>> ReturnPath { get; set; }
+    }
+
     [DataContract]
     public sealed class Announcement
     {
@@ -105,6 +129,7 @@ namespace IneoRbe.Desktop.Services
         {
             if (Announcements == null) Announcements = new List<Announcement>();
             if (Screens == null) Screens = new List<ScreenConfig>();
+            if (Lines == null) Lines = new List<LineConfig>();
         }
 
         [DataMember(Name = "engineEnabled")] public bool EngineEnabled { get; set; }
@@ -115,5 +140,6 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "maintenancePort")] public string MaintenancePort { get; set; }
         [DataMember(Name = "announcements")] public List<Announcement> Announcements { get; set; }
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
+        [DataMember(Name = "lines")] public List<LineConfig> Lines { get; set; }
     }
 }

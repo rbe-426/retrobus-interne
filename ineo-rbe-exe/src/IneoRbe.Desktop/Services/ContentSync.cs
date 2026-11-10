@@ -16,6 +16,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "hasContent")] public bool HasContent { get; set; }
         [DataMember(Name = "announcements")] public List<Announcement> Announcements { get; set; }
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
+        [DataMember(Name = "lines")] public List<LineConfig> Lines { get; set; }
     }
 
     // Applique sur cet UC la révision de contenu publiée : tant que ce n'est pas fait, l'UC ne déclare pas la révision comme appliquée.
@@ -82,6 +83,7 @@ namespace IneoRbe.Desktop.Services
             // Réglages propres à l'UC (GPS, liaison de maintenance) conservés : seuls les annonces et les écrans viennent de la révision.
             config.Announcements = announcements;
             config.Screens = screens;
+            if (package.Lines != null) config.Lines = package.Lines;
             SaeivStore.Save(config);
             SaveApplied(package.Revision);
             LastHadContent = true;

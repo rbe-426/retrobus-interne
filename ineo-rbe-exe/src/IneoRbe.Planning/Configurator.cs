@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using IneoRbe.Desktop.Services;
@@ -32,7 +33,10 @@ namespace IneoRbe.Planning
         private string _parc;
         private readonly ComboBox _vehicle = new ComboBox { MinWidth = 320, DisplayMemberPath = "Value", SelectedValuePath = "Key" };
         private readonly TextBlock _vehicleInfo = Ui.Text(string.Empty, 11, false, Ui.Muted);
-        private readonly TabControl _tabs = new TabControl { IsEnabled = false };
+        private readonly TabControl _tabs = new TabControl();
+        private readonly DataGrid _lineGrid = new DataGrid { AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, HeadersVisibility = DataGridHeadersVisibility.Column, SelectionMode = DataGridSelectionMode.Single };
+        private readonly TextBlock _lineSummary = Ui.Text(string.Empty, 12, true);
+        private UIElement[] _vehicleTabs;
         private readonly ListBox _announcementList = new ListBox { MinWidth = 260 };
         private readonly ListBox _screenList = new ListBox { MinWidth = 260 };
         private readonly TextBlock _status = Ui.Text(string.Empty, 11, false, Ui.Muted);
@@ -87,8 +91,13 @@ namespace IneoRbe.Planning
             SetDock(_status, Dock.Bottom);
             Children.Add(_status);
 
-            _tabs.Items.Add(new TabItem { Header = "Équipements embarqués : annonces sonores", Content = BuildAnnouncements() });
-            _tabs.Items.Add(new TabItem { Header = "Profil d'écrans", Content = BuildScreens() });
+            var announcementsTab = BuildAnnouncements();
+            var screensTab = BuildScreens();
+            _vehicleTabs = new[] { announcementsTab, screensTab };
+            foreach (var tab in _vehicleTabs) tab.IsEnabled = false;
+            _tabs.Items.Add(new TabItem { Header = "Équipements embarqués : annonces sonores", Content = announcementsTab });
+            _tabs.Items.Add(new TabItem { Header = "Profil d'écrans", Content = screensTab });
+            _tabs.Items.Add(new TabItem { Header = "Lignes", Content = BuildLines() });
             Children.Add(_tabs);
 
             _trigger.Items.Add("Pré-annonce");
@@ -96,7 +105,7 @@ namespace IneoRbe.Planning
             _trigger.Items.Add("À l'allumage du véhicule");
             bar.IsEnabled = false;
             _vehicle.SelectionChanged += (s, e) => { if (!_loading) SelectVehicle(_vehicle.SelectedValue as string); };
-            Loaded += (s, e) => { if (_vehicle.Items.Count == 0) LoadVehicles(bar); };
+            Loaded += (s, e) => { if (_vehicle.Items.Count == 0) LoadVehicles(bar); RefreshLineChanges(); };
         }
 
         private void LoadVehicles(UIElement bar)
@@ -119,7 +128,7 @@ namespace IneoRbe.Planning
             _parc = parc;
             _config = SaeivStore.Load(parc);
             _engine.IsChecked = _config.EngineEnabled;
-            _tabs.IsEnabled = true;
+            foreach (var tab in _vehicleTabs) tab.IsEnabled = true;
             object profile;
             if (_profiles.TryGetValue(parc, out profile))
             {
@@ -175,6 +184,100 @@ namespace IneoRbe.Planning
             _distance.TextChanged += (s, e) => ApplyAnnouncement();
             _enabled.Click += (s, e) => ApplyAnnouncement();
             return grid;
+        }
+
+        private UIElement BuildLines()
+        {
+            var panel = new DockPanel { Margin = new Thickness(0, 10, 0, 0) };
+            var note = Ui.Text("Les lignes se modifient dans « Lignes et itinéraires ». Cette liste compare les lignes actuelles à la dernière révision publiée pour tous les véhicules : les lignes nouvelles, modifiées ou supprimées sont mises en évidence et partent avec « Publier la révision actuelle… ».", 11, false, Ui.Muted);
+            note.TextWrapping = TextWrapping.Wrap;
+            DockPanel.SetDock(note, Dock.Top);
+            panel.Children.Add(note);
+            var toolbar = Ui.Toolbar(Ui.Button("Actualiser", (s, e) => RefreshLineChanges()), _lineSummary);
+            DockPanel.SetDock(toolbar, Dock.Top);
+            panel.Children.Add(toolbar);
+            _lineGrid.Columns.Add(new DataGridTextColumn { Header = "Ligne", Binding = new Binding("Name"), Width = 110 });
+            _lineGrid.Columns.Add(new DataGridTextColumn { Header = "Destinations", Binding = new Binding("Destinations"), Width = 260 });
+            _lineGrid.Columns.Add(new DataGridTextColumn { Header = "État", Binding = new Binding("Status"), Width = 100 });
+            _lineGrid.Columns.Add(new DataGridTextColumn { Header = "Modifications depuis la dernière révision", Binding = new Binding("Detail"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+            _lineGrid.LoadingRow += (s, e) =>
+            {
+                var change = e.Row.Item as LineChange;
+                if (change != null) e.Row.Background = change.Highlight;
+            };
+            panel.Children.Add(_lineGrid);
+            return panel;
+        }
+
+        public sealed class LineChange
+        {
+            public string Name { get; set; }
+            public string Destinations { get; set; }
+            public string Status { get; set; }
+            public string Detail { get; set; }
+            public Brush Highlight { get; set; }
+        }
+
+        private static Brush Tint(string argb) { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(argb)); }
+
+        private static string StopsSignature(object line, string key)
+        {
+            return string.Join(";", LineData.ReadStops(line, key).Select(s => s.City + "|" + s.Label + "|" + Num(Math.Round(s.Lat, 6)) + "|" + Num(Math.Round(s.Lng, 6))).ToArray());
+        }
+
+        private static string PathSignature(object line, string key)
+        {
+            return string.Join(";", LineData.ReadPath(line, key).Select(p => Num(Math.Round(p.X, 6)) + "," + Num(Math.Round(p.Y, 6))).ToArray());
+        }
+
+        // Liste des éléments qui diffèrent entre la ligne actuelle et sa version publiée.
+        private static List<string> LineDifferences(object current, object published)
+        {
+            var parts = new List<string>();
+            if (Json.Str(current, "name") != Json.Str(published, "name")) parts.Add("nom");
+            if (Json.Str(current, "destination1") != Json.Str(published, "destination1") || Json.Str(current, "destination2") != Json.Str(published, "destination2")) parts.Add("destinations");
+            if (!string.Equals(Json.Str(current, "color"), Json.Str(published, "color"), StringComparison.OrdinalIgnoreCase)) parts.Add("couleur");
+            if (StopsSignature(current, "outboundStops") != StopsSignature(published, "outboundStops")) parts.Add("arrêts aller");
+            if (PathSignature(current, "outboundPath") != PathSignature(published, "outboundPath")) parts.Add("tracé aller");
+            if (StopsSignature(current, "returnStops") != StopsSignature(published, "returnStops")) parts.Add("arrêts retour");
+            if (PathSignature(current, "returnPath") != PathSignature(published, "returnPath")) parts.Add("tracé retour");
+            return parts;
+        }
+
+        private void RefreshLineChanges()
+        {
+            _lineSummary.Text = "Comparaison avec la dernière révision…";
+            Api.Refresh();
+            Ui.Run(Dispatcher, () => new object[] { Data.List("/ineo/lines", "lines"), Api.Get("/ineo/content-revisions/latest-lines") }, data =>
+            {
+                var current = (List<object>)data[0];
+                var latest = data[1];
+                var published = Json.List(latest, "lines");
+                var rows = new List<LineChange>();
+                foreach (var line in current)
+                {
+                    var match = published.FirstOrDefault(p => Json.Str(p, "id") == Json.Str(line, "id"));
+                    var change = new LineChange { Name = Json.Str(line, "name"), Destinations = Json.Str(line, "destination1") + " ⇄ " + Json.Str(line, "destination2") };
+                    if (match == null) { change.Status = "Nouvelle"; change.Detail = "Jamais publiée"; change.Highlight = Tint("#4016A34A"); }
+                    else
+                    {
+                        var diff = LineDifferences(line, match);
+                        if (diff.Count == 0) { change.Status = "Inchangée"; change.Detail = string.Empty; change.Highlight = Brushes.Transparent; }
+                        else { change.Status = "Modifiée"; change.Detail = string.Join(", ", diff.ToArray()); change.Highlight = Tint("#40EA580C"); }
+                    }
+                    rows.Add(change);
+                }
+                foreach (var old in published)
+                {
+                    if (current.Any(line => Json.Str(line, "id") == Json.Str(old, "id"))) continue;
+                    rows.Add(new LineChange { Name = Json.Str(old, "name"), Destinations = Json.Str(old, "destination1") + " ⇄ " + Json.Str(old, "destination2"), Status = "Supprimée", Detail = "Retirée à la prochaine révision", Highlight = Tint("#40DC2626") });
+                }
+                _lineGrid.ItemsSource = rows.OrderBy(r => r.Status == "Inchangée" ? 1 : 0).ThenBy(r => r.Name).ToList();
+                var pending = rows.Count(r => r.Status != "Inchangée");
+                var revision = Json.Str(latest, "revision");
+                _lineSummary.Text = (pending == 0 ? "Lignes à jour" : pending + " ligne(s) à publier") + (revision.Length == 0 ? " (aucune révision publiée)." : " (révision " + revision + ").");
+                _lineSummary.Foreground = pending == 0 ? Ui.Muted : Tint("#EA580C");
+            }, error => _lineSummary.Text = "Erreur : " + error);
         }
 
         private UIElement BuildScreens()
@@ -522,6 +625,19 @@ namespace IneoRbe.Planning
             _status.Text = "Envoi du contenu (" + summary + ") et publication…";
             Ui.Run(Dispatcher, () =>
             {
+                Api.Refresh();
+                var lines = new List<object>();
+                foreach (var line in Data.List("/ineo/lines", "lines"))
+                {
+                    lines.Add(new Dictionary<string, object>
+                    {
+                        { "id", Json.Str(line, "id") }, { "name", Json.Str(line, "name") }, { "color", Json.Str(line, "color") },
+                        { "destination1", Json.Str(line, "destination1") }, { "destination2", Json.Str(line, "destination2") },
+                        { "outboundStops", Json.Get(line, "outboundStops") }, { "outboundPath", Json.Get(line, "outboundPath") },
+                        { "returnStops", Json.Get(line, "returnStops") }, { "returnPath", Json.Get(line, "returnPath") },
+                    });
+                }
+                ((Dictionary<string, object>)body["config"])["lines"] = lines;
                 var missing = names.Count == 0 ? new List<object>() : Json.List(Api.Post("/ineo/content-files/missing", new Dictionary<string, object> { { "names", names } }), "missing");
                 foreach (var entry in missing)
                 {
@@ -537,7 +653,8 @@ namespace IneoRbe.Planning
             }, result =>
             {
                 var revision = Json.Str(result, "revision.revision");
-                _status.Text = "Révision " + revision + " publiée (" + summary + ") " + (dialog.AllVehicles ? "pour tous les véhicules." : "pour le véhicule " + _parc + " (UC associé).");
+                _status.Text = "Révision " + revision + " publiée (" + summary + " et lignes) " + (dialog.AllVehicles ? "pour tous les véhicules." : "pour le véhicule " + _parc + " (UC associé).");
+                RefreshLineChanges();
             }, error => { _status.Text = "Publication impossible : " + error; Ui.Error(error); });
         }
     }
