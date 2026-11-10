@@ -140,7 +140,7 @@ namespace IneoRbe.Planning
 
         public static UIElement Lines()
         {
-            var colorField = new FieldDef("color", "Couleur de la ligne", FieldKind.Combo) { Options = LineColors.ToList() };
+            var colorField = new FieldDef("color", "Couleur de la ligne", FieldKind.Hidden);
             var view = new EditorView
             {
                 Note = "Une ligne = un nom, deux destinations (hors déviation) et une couleur. Enregistrez-la, sélectionnez-la, puis éditez l'itinéraire aller (destination 1 → 2) et l'itinéraire retour (2 → 1) : tableau d'arrêts + carte avec tracé.",
@@ -156,7 +156,7 @@ namespace IneoRbe.Planning
                     new ColDef("Ligne", 110, "name"),
                     new ColDef("Destination 1", 130, "destination1"),
                     new ColDef("Destination 2", 130, "destination2"),
-                    new ColDef("Couleur", 100, i => LineColors.Where(c => c.Key == Json.Str(i, "color")).Select(c => c.Value).FirstOrDefault() ?? Json.Str(i, "color")),
+                    new ColDef("Couleur", 100, i => Json.Str(i, "color")),
                     new ColDef("Arrêts aller", 80, i => Json.List(i, "outboundStops").Count.ToString()),
                     new ColDef("Arrêts retour", 85, i => Json.List(i, "returnStops").Count.ToString()),
                 },
@@ -174,6 +174,15 @@ namespace IneoRbe.Planning
                 return existing == null ? Api.Post("/ineo/lines", body) : Api.Put("/ineo/lines/" + Json.Str(existing, "id"), body);
             };
             view.Remove = item => Api.Delete("/ineo/lines/" + Json.Str(item, "id"));
+            view.AddButton("Couleur de la ligne…", item =>
+            {
+                var current = view.GetValue("color");
+                var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true, AnyColor = true };
+                try { if (current.Length == 7) dialog.Color = System.Drawing.ColorTranslator.FromHtml(current); } catch (Exception) { }
+                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                view.SetValue("color", "#" + dialog.Color.R.ToString("X2") + dialog.Color.G.ToString("X2") + dialog.Color.B.ToString("X2"));
+                view.SetStatus("Couleur " + view.GetValue("color") + " choisie : enregistrez la ligne.");
+            });
             view.AddButton("Itinéraire aller…", item => EditItinerary(view, item, true));
             view.AddButton("Itinéraire retour…", item => EditItinerary(view, item, false));
             view.Loaded += (s, e) => { if (view.Items.Count == 0) view.Start(); };

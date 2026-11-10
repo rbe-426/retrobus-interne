@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace IneoRbe.Planning
@@ -128,8 +129,8 @@ namespace IneoRbe.Planning
             var modes = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
             modes.Children.Add(_modeStops);
             modes.Children.Add(_modePath);
-            modes.Children.Add(Ui.Button("Annuler le dernier point", (s, e) => { if (_path.Count > 0) _path.RemoveAt(_path.Count - 1); Refresh(); }));
-            modes.Children.Add(Ui.Button("Effacer le tracé", (s, e) => { _path.Clear(); Refresh(); }));
+            modes.Children.Add(Ui.Button("Annuler le dernier point", (s, e) => UndoPath()));
+            modes.Children.Add(Ui.Button("Effacer le tracé", (s, e) => { _path.Clear(); _segments.Clear(); Refresh(); }));
             DockPanel.SetDock(modes, Dock.Top);
             right.Children.Add(modes);
             DockPanel.SetDock(_hint, Dock.Bottom);
@@ -168,7 +169,7 @@ namespace IneoRbe.Planning
         {
             _hint.Text = _modeStops.IsChecked == true
                 ? "Chaque clic ajoute un arrêt en bas du tableau. Renommez la ville et l'arrêt dans le tableau. Molette = zoom, glisser = déplacer."
-                : "Chaque clic ajoute un point au tracé (trait de la couleur de la ligne). Sans tracé, la carte relie simplement les arrêts.";
+                : "Clic = point du tracé en ligne droite. MAJ + clic = tracé qui suit les routes depuis le dernier point (courbes, virages). Sans tracé, la carte relie simplement les arrêts.";
         }
 
         private void Fit()
@@ -195,16 +196,75 @@ namespace IneoRbe.Planning
             _map.Render();
         }
 
+        // Tailles des segments ajoutés au tracé (un clic simple = 1 point, un maj+clic = tout le trajet routier) pour l'annulation.
+        private readonly List<int> _segments = new List<int>();
+        private bool _routing;
+
+        private void UndoPath()
+        {
+            if (_path.Count == 0) return;
+            var count = _segments.Count > 0 ? Math.Min(_segments[_segments.Count - 1], _path.Count) : 1;
+            if (_segments.Count > 0) _segments.RemoveAt(_segments.Count - 1);
+            _path.RemoveRange(_path.Count - count, count);
+            Refresh();
+        }
+
+        private void AddPathPoints(IEnumerable<Point> points)
+        {
+            var added = 0;
+            foreach (var point in points) { _path.Add(point); added++; }
+            _segments.Add(added);
+        }
+
         private void OnMapClicked(double lat, double lng)
         {
-            if (_modePath.IsChecked == true) _path.Add(new Point(Math.Round(lat, 6), Math.Round(lng, 6)));
+            if (_routing) return;
+            var target = new Point(Math.Round(lat, 6), Math.Round(lng, 6));
+            if (_modePath.IsChecked == true)
+            {
+                // Maj+clic : le tracé suit les routes depuis le dernier point (courbes, virages) au lieu d'une ligne droite.
+                if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0 && _path.Count > 0)
+                {
+                    var from = _path[_path.Count - 1];
+                    _routing = true;
+                    _hint.Text = "Calcul du tracé routier…";
+                    Ui.Run(Dispatcher, () => Api.Get("/ineo/route?from=" + Coord(from) + "&to=" + Coord(target)), result =>
+                    {
+                        _routing = false;
+                        var points = new List<Point>();
+                        foreach (var item in Json.Arr(Json.Get(result, "points")))
+                        {
+                            var pair = item as List<object>;
+                            if (pair != null && pair.Count >= 2 && pair[0] is double && pair[1] is double) points.Add(new Point((double)pair[0], (double)pair[1]));
+                        }
+                        if (points.Count == 0) points.Add(target);
+                        else points[points.Count - 1] = target;
+                        AddPathPoints(points);
+                        UpdateHint();
+                        Refresh();
+                    }, error =>
+                    {
+                        _routing = false;
+                        AddPathPoints(new[] { target });
+                        Refresh();
+                        _hint.Text = "Route introuvable (" + error + ") : segment droit ajouté.";
+                    });
+                    return;
+                }
+                AddPathPoints(new[] { target });
+            }
             else
             {
-                _stops.Add(new StopRow { City = string.Empty, Label = "Arrêt " + (_stops.Count + 1), Lat = Math.Round(lat, 6), Lng = Math.Round(lng, 6) });
+                _stops.Add(new StopRow { City = string.Empty, Label = "Arrêt " + (_stops.Count + 1), Lat = target.X, Lng = target.Y });
                 _grid.SelectedIndex = _stops.Count - 1;
                 _grid.ScrollIntoView(_grid.SelectedItem);
             }
             Refresh();
+        }
+
+        private static string Coord(Point point)
+        {
+            return point.X.ToString("0.000000", CultureInfo.InvariantCulture) + "," + point.Y.ToString("0.000000", CultureInfo.InvariantCulture);
         }
 
         private void SearchPlace()
