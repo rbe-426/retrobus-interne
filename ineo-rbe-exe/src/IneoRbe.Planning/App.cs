@@ -79,7 +79,7 @@ namespace IneoRbe.Planning
 
         public MaintenanceLockWindow()
         {
-            Title = "In�o R�troBus Gestionnaire";
+            Title = "Inéo RétroBus Gestionnaire";
             Width = 520; Height = 340;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -148,7 +148,7 @@ namespace IneoRbe.Planning
         public SplashWindow(bool loadData, UpdateDescriptor pending)
         {
             _loadData = loadData;
-            Title = "In�o R�troBus Gestionnaire";
+            Title = "Inéo RétroBus Gestionnaire";
             Width = 440; Height = 260;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -162,7 +162,7 @@ namespace IneoRbe.Planning
             grid.Children.Add(logo);
             if (pending != null)
             {
-                var notice = new TextBlock { Text = "Mise à jour " + pending.Version + " prête : à installer depuis la fen�tre principale.", Foreground = Ui.Brush("#FFB4C8"), FontWeight = FontWeights.Bold, FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
+                var notice = new TextBlock { Text = "Mise à jour " + pending.Version + " prête : à installer depuis la fenêtre principale.", Foreground = Ui.Brush("#FFB4C8"), FontWeight = FontWeights.Bold, FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
                 Grid.SetRow(notice, 1); grid.Children.Add(notice);
             }
             Grid.SetRow(_status, 2); grid.Children.Add(_status);
@@ -188,7 +188,7 @@ namespace IneoRbe.Planning
                 {
                     PendingUpdate = check.Update;
                     Dispatcher.BeginInvoke(new Action(() => { _status.Foreground = Ui.Brush("#FFB4C8"); _status.FontWeight = FontWeights.Bold; }));
-                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fen�tre principale.", 66);
+                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 66);
                     System.Threading.Thread.Sleep(2500);
                 }
             }
