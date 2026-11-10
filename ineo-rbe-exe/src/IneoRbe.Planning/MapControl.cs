@@ -16,12 +16,16 @@ namespace IneoRbe.Planning
         public double Lng;
         public string Label;
         public Brush Color;
+        public double Size = 14;
+        public double Opacity = 1;
     }
 
     public sealed class MapLine
     {
         public List<Point> LatLng = new List<Point>(); // X = lat, Y = lng
         public Brush Color;
+        public double Thickness = 4;
+        public double Opacity = 1;
     }
 
     // Carte à tuiles OpenStreetMap relayées par le serveur RétroBus (glisser pour déplacer, molette pour zoomer).
@@ -147,7 +151,7 @@ namespace IneoRbe.Planning
 
             foreach (var line in Lines)
             {
-                var polyline = new Polyline { Stroke = line.Color ?? Ui.Red, StrokeThickness = 4, StrokeLineJoin = PenLineJoin.Round };
+                var polyline = new Polyline { Stroke = line.Color ?? Ui.Red, StrokeThickness = line.Thickness, Opacity = line.Opacity, StrokeLineJoin = PenLineJoin.Round };
                 foreach (var p in line.LatLng) polyline.Points.Add(new Point(LngToX(p.Y, _zoom) - originX, LatToY(p.X, _zoom) - originY));
                 Children.Add(polyline);
             }
@@ -157,9 +161,9 @@ namespace IneoRbe.Planning
                 var x = LngToX(marker.Lng, _zoom) - originX;
                 var y = LatToY(marker.Lat, _zoom) - originY;
                 if (x < -50 || y < -50 || x > ActualWidth + 50 || y > ActualHeight + 50) continue;
-                var dot = new Ellipse { Width = 14, Height = 14, Fill = marker.Color ?? Ui.Red, Stroke = Brushes.White, StrokeThickness = 2 };
-                SetLeft(dot, x - 7);
-                SetTop(dot, y - 7);
+                var dot = new Ellipse { Width = marker.Size, Height = marker.Size, Fill = marker.Color ?? Ui.Red, Stroke = Brushes.White, StrokeThickness = 2, Opacity = marker.Opacity };
+                SetLeft(dot, x - marker.Size / 2);
+                SetTop(dot, y - marker.Size / 2);
                 Children.Add(dot);
                 if (!string.IsNullOrEmpty(marker.Label))
                 {

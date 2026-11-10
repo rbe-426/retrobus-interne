@@ -79,9 +79,21 @@ namespace IneoRbe.Planning
         }
     }
 
+    public sealed class OtherLine
+    {
+        public string Name;
+        public Brush Color;
+        public List<Point> Stops = new List<Point>();
+        public List<Point> Path = new List<Point>();
+    }
+
     // Éditeur d'itinéraire : tableau VILLE | ARRÊT | LATITUDE | LONGITUDE et carte OpenStreetMap (clic = arrêt ou point du tracé).
     public sealed class ItineraryDialog : Window
     {
+        // Choix mémorisé pendant la session : 0 = normal, 1 = atténué, 2 = masqué.
+        private static int _lastOthersMode = 1;
+        private readonly List<OtherLine> _others;
+        private readonly ComboBox _othersMode = new ComboBox { Width = 230, Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         private readonly ObservableCollection<StopRow> _stops;
         private readonly List<Point> _path;
         private readonly MapControl _map = new MapControl { MinHeight = 300 };
@@ -95,8 +107,9 @@ namespace IneoRbe.Planning
         public List<StopRow> Stops { get { return _stops.ToList(); } }
         public List<Point> Path { get { return new List<Point>(_path); } }
 
-        public ItineraryDialog(Window owner, string title, string colorHex, List<StopRow> stops, List<Point> path)
+        public ItineraryDialog(Window owner, string title, string colorHex, List<StopRow> stops, List<Point> path, List<OtherLine> others = null)
         {
+            _others = others;
             Owner = owner;
             Title = title;
             Width = 1120; Height = 700;
@@ -131,6 +144,15 @@ namespace IneoRbe.Planning
             modes.Children.Add(_modePath);
             modes.Children.Add(Ui.Button("Annuler le dernier point", (s, e) => UndoPath()));
             modes.Children.Add(Ui.Button("Effacer le tracé", (s, e) => { _path.Clear(); _segments.Clear(); Refresh(); }));
+            if (_others != null && _others.Count > 0)
+            {
+                _othersMode.Items.Add("Autres lignes : affichage normal");
+                _othersMode.Items.Add("Autres lignes : atténuées");
+                _othersMode.Items.Add("Autres lignes : masquées");
+                _othersMode.SelectedIndex = _lastOthersMode;
+                _othersMode.SelectionChanged += (s, e) => { _lastOthersMode = _othersMode.SelectedIndex; Refresh(); };
+                modes.Children.Add(_othersMode);
+            }
             DockPanel.SetDock(modes, Dock.Top);
             right.Children.Add(modes);
             DockPanel.SetDock(_hint, Dock.Bottom);
@@ -177,6 +199,8 @@ namespace IneoRbe.Planning
             if (_map.ActualWidth < 50) return;
             _fitted = true;
             var points = _stops.Select(s => new Point(s.Lat, s.Lng)).Concat(_path).ToList();
+            if (points.Count == 0 && _others != null)
+                foreach (var other in _others) points.AddRange(other.Path.Count >= 2 ? other.Path : other.Stops);
             if (points.Count > 0) _map.FitTo(points);
             else _map.SetView(48.62, 2.35, 10);
         }
@@ -184,13 +208,25 @@ namespace IneoRbe.Planning
         private void Refresh()
         {
             _map.Markers.Clear();
+            _map.Lines.Clear();
+            var mode = _othersMode == null ? 1 : _othersMode.SelectedIndex;
+            if (_others != null && mode != 2)
+            {
+                var dim = mode == 1;
+                foreach (var other in _others)
+                {
+                    var otherPoints = other.Path.Count >= 2 ? other.Path : other.Stops;
+                    if (otherPoints.Count >= 2) _map.Lines.Add(new MapLine { LatLng = new List<Point>(otherPoints), Color = other.Color, Thickness = dim ? 3 : 4, Opacity = dim ? 0.3 : 0.85 });
+                    foreach (var stop in other.Stops)
+                        _map.Markers.Add(new MapMarker { Lat = stop.X, Lng = stop.Y, Color = other.Color, Size = dim ? 8 : 10, Opacity = dim ? 0.35 : 0.9 });
+                }
+            }
             var number = 1;
             foreach (var stop in _stops)
             {
                 _map.Markers.Add(new MapMarker { Lat = stop.Lat, Lng = stop.Lng, Label = number + ". " + stop.Label, Color = _color });
                 number++;
             }
-            _map.Lines.Clear();
             var points = _path.Count >= 2 ? _path : _stops.Select(s => new Point(s.Lat, s.Lng)).ToList();
             if (points.Count >= 2) _map.Lines.Add(new MapLine { LatLng = new List<Point>(points), Color = _color });
             _map.Render();

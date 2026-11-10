@@ -196,8 +196,21 @@ namespace IneoRbe.Planning
             var first = Json.Str(line, outbound ? "destination1" : "destination2");
             var last = Json.Str(line, outbound ? "destination2" : "destination1");
             var prefix = outbound ? "outbound" : "return";
+            var others = new List<OtherLine>();
+            foreach (var other in view.Items)
+            {
+                var sameLine = Json.Str(other, "id") == Json.Str(line, "id");
+                foreach (var key in new[] { "outbound", "return" })
+                {
+                    if (sameLine && key == prefix) continue;
+                    var item = new OtherLine { Name = Json.Str(other, "name"), Color = Ui.Brush(string.IsNullOrEmpty(Json.Str(other, "color")) ? "#9F063A" : Json.Str(other, "color")) };
+                    item.Stops = LineData.ReadStops(other, key + "Stops").Select(s => new Point(s.Lat, s.Lng)).ToList();
+                    item.Path = LineData.ReadPath(other, key + "Path");
+                    if (item.Stops.Count > 0 || item.Path.Count > 0) others.Add(item);
+                }
+            }
             var dialog = new ItineraryDialog(Window.GetWindow(view), (outbound ? "Itinéraire aller : " : "Itinéraire retour : ") + Json.Str(line, "name") + " (" + first + " → " + last + ")",
-                Json.Str(line, "color"), LineData.ReadStops(line, prefix + "Stops"), LineData.ReadPath(line, prefix + "Path"));
+                Json.Str(line, "color"), LineData.ReadStops(line, prefix + "Stops"), LineData.ReadPath(line, prefix + "Path"), others);
             if (dialog.ShowDialog() != true) return;
             var body = new Dictionary<string, object> { { prefix + "Stops", LineData.StopsJson(dialog.Stops) }, { prefix + "Path", LineData.PathJson(dialog.Path) } };
             view.SetStatus("Enregistrement de l'itinéraire…");
