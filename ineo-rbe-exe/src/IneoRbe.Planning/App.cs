@@ -19,7 +19,7 @@ namespace IneoRbe.Planning
 
     public sealed class App : Application
     {
-        // Passer à false pour rouvrir le Gestionnaire une fois les travaux terminés.
+        // Passer Ã  false pour rouvrir le Gestionnaire une fois les travaux terminÃ©s.
         private const bool MaintenanceMode = false;
 
         [STAThread]
@@ -35,7 +35,7 @@ namespace IneoRbe.Planning
         {
             SaeivStore.RootFolderName = "IneoRbePlanning";
 
-            // Mode « relanceur » : processus sans fenêtre lancé avant une mise à jour (voir UpdateInstaller).
+            // Mode Â« relanceur Â» : processus sans fenÃªtre lancÃ© avant une mise Ã  jour (voir UpdateInstaller).
             if (args.Length > 0 && string.Equals(args[0], "/watch", StringComparison.OrdinalIgnoreCase))
             {
                 UpdateInstaller.RunRelaunchWatcher(args);
@@ -71,7 +71,7 @@ namespace IneoRbe.Planning
         }
     }
 
-    // Écran bloquant pendant les travaux : seul le message s'affiche, mais la fenêtre cherche et installe seule la version qui rouvrira le logiciel.
+    // Ã‰cran bloquant pendant les travaux : seul le message s'affiche, mais la fenÃªtre cherche et installe seule la version qui rouvrira le logiciel.
     public sealed class MaintenanceLockWindow : Window
     {
         private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 0) };
@@ -79,15 +79,15 @@ namespace IneoRbe.Planning
 
         public MaintenanceLockWindow()
         {
-            Title = "Inéo RétroBus Gestionnaire";
+            Title = "Inï¿½o Rï¿½troBus Gestionnaire";
             Width = 520; Height = 340;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Ui.Carbon; Topmost = true; FontFamily = new FontFamily("Tahoma");
             var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24) };
             stack.Children.Add(new Image { Source = AppImages.Load("splash-logo.png"), Stretch = Stretch.Uniform, Height = 90, Margin = new Thickness(0, 0, 0, 16) });
-            stack.Children.Add(new TextBlock { Text = "Une opération de mise à jour est en cours.", Foreground = Brushes.White, FontSize = 15, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap });
-            stack.Children.Add(new TextBlock { Text = "L'application InéoRBE Gestionnaire est indisponible le temps des travaux.", Foreground = Ui.Brush("#C5CED6"), FontSize = 12, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
+            stack.Children.Add(new TextBlock { Text = "Une opÃ©ration de mise Ã  jour est en cours.", Foreground = Brushes.White, FontSize = 15, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap });
+            stack.Children.Add(new TextBlock { Text = "L'application InÃ©oRBE Gestionnaire est indisponible le temps des travaux.", Foreground = Ui.Brush("#C5CED6"), FontSize = 12, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
             stack.Children.Add(new TextBlock { Text = "CONTOURNEMENT --> MODE PAPIER", Foreground = Ui.Brush("#FFB4C8"), FontSize = 14, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 18, 0, 0) });
             stack.Children.Add(_status);
             var close = Ui.Button("Fermer", (s, e) => Close());
@@ -110,7 +110,7 @@ namespace IneoRbe.Planning
                     if (check != null && check.UpdateAvailable)
                     {
                         _installing = true;
-                        Say("Version " + check.Update.Version + " disponible : installation en cours…");
+                        Say("Version " + check.Update.Version + " disponible : installation en coursâ€¦");
                         var path = new UpdateClient("PLANNING", null).DownloadAndVerifyInstaller(check.Update);
                         UpdateInstaller.Launch(path, check.Update.Version);
                         Dispatcher.BeginInvoke(new Action(() => Application.Current.Shutdown()));
@@ -120,7 +120,7 @@ namespace IneoRbe.Planning
                 catch (Exception exception)
                 {
                     _installing = false;
-                    Say("Vérification impossible : " + exception.Message);
+                    Say("VÃ©rification impossible : " + exception.Message);
                 }
                 System.Threading.Thread.Sleep(60000);
             }
@@ -134,7 +134,7 @@ namespace IneoRbe.Planning
 
     public sealed class SplashWindow : Window
     {
-        private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, Margin = new Thickness(0, 0, 0, 6), TextWrapping = TextWrapping.Wrap, MinHeight = 30, Text = "Démarrage…" };
+        private readonly TextBlock _status = new TextBlock { Foreground = Ui.Brush("#C5CED6"), FontSize = 11, Margin = new Thickness(0, 0, 0, 6), TextWrapping = TextWrapping.Wrap, MinHeight = 30, Text = "DÃ©marrageâ€¦" };
         private readonly ProgressBar _bar = new ProgressBar { Height = 10, Minimum = 0, Maximum = 100, Foreground = Ui.Red, Background = Ui.Brush("#1E293B"), BorderThickness = new Thickness(0) };
 
         public string UpdateNotice { get; private set; }
@@ -148,7 +148,7 @@ namespace IneoRbe.Planning
         public SplashWindow(bool loadData, UpdateDescriptor pending)
         {
             _loadData = loadData;
-            Title = "Inéo RétroBus Gestionnaire";
+            Title = "Inï¿½o Rï¿½troBus Gestionnaire";
             Width = 440; Height = 260;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -162,7 +162,7 @@ namespace IneoRbe.Planning
             grid.Children.Add(logo);
             if (pending != null)
             {
-                var notice = new TextBlock { Text = "Mise à jour " + pending.Version + " prête : à installer depuis la fenêtre principale.", Foreground = Ui.Brush("#FFB4C8"), FontWeight = FontWeights.Bold, FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
+                var notice = new TextBlock { Text = "Mise Ã  jour " + pending.Version + " prÃªte : Ã  installer depuis la fenï¿½tre principale.", Foreground = Ui.Brush("#FFB4C8"), FontWeight = FontWeights.Bold, FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
                 Grid.SetRow(notice, 1); grid.Children.Add(notice);
             }
             Grid.SetRow(_status, 2); grid.Children.Add(_status);
@@ -174,13 +174,13 @@ namespace IneoRbe.Planning
         private void Steps()
         {
             if (_loadData) { LoadData(); return; }
-            Report("Chargement des certificats…", 0);
+            Report("Chargement des certificatsâ€¦", 0);
             try { TrustedRoots.Load(); } catch (Exception) { }
             System.Threading.Thread.Sleep(250);
-            Report("Recherche des mises à jour installées…", 40);
+            Report("Recherche des mises Ã  jour installÃ©esâ€¦", 40);
             try { UpdateNotice = UpdateInstaller.ConsumePendingResult(typeof(SplashWindow).Assembly.GetName().Version); } catch (Exception) { }
             System.Threading.Thread.Sleep(250);
-            Report("Recherche des mises à jour…", 60);
+            Report("Recherche des mises Ã  jourâ€¦", 60);
             try
             {
                 var check = new UpdateClient("PLANNING", null).CheckForUpdate();
@@ -188,31 +188,31 @@ namespace IneoRbe.Planning
                 {
                     PendingUpdate = check.Update;
                     Dispatcher.BeginInvoke(new Action(() => { _status.Foreground = Ui.Brush("#FFB4C8"); _status.FontWeight = FontWeights.Bold; }));
-                    Report("Mise à jour " + check.Update.Version + " prête : à installer depuis la fenêtre principale.", 66);
+                    Report("Mise Ã  jour " + check.Update.Version + " prÃªte : Ã  installer depuis la fenï¿½tre principale.", 66);
                     System.Threading.Thread.Sleep(2500);
                 }
             }
             catch (Exception) { }
-            Report("Connexion au serveur RétroBus…", 70);
+            Report("Connexion au serveur RÃ©troBusâ€¦", 70);
             try { HttpTransport.Send("GET", ApiEndpoints.ApiRoot + "/csrf-token", null, null, 30000); } catch (Exception) { }
-            Report("Lecture de la révision de contenu…", 80);
+            Report("Lecture de la rÃ©vision de contenuâ€¦", 80);
             try { HttpTransport.Send("GET", ApiEndpoints.ContentRevisionUrl, null, null, 20000); } catch (Exception) { }
-            Report("Chargement de la configuration SAEIV…", 88);
+            Report("Chargement de la configuration SAEIVâ€¦", 88);
             try { SaeivStore.Load(); } catch (Exception) { }
-            Report("Préparation de l'interface…", 94);
+            Report("PrÃ©paration de l'interfaceâ€¦", 94);
             System.Threading.Thread.Sleep(250);
-            Report("Prêt.", 100);
+            Report("PrÃªt.", 100);
             System.Threading.Thread.Sleep(200);
             Dispatcher.BeginInvoke(new Action(() => { var handler = Completed; if (handler != null) handler(this, EventArgs.Empty); }));
         }
 
         private void LoadData()
         {
-            Report("Chargement des données (missions, véhicules, conducteurs, profils…)", 5);
+            Report("Chargement des donnÃ©es (missions, vÃ©hicules, conducteurs, profilsâ€¦)", 5);
             var failed = 0;
-            try { failed = Api.Preload((done, total, active) => Report(active.Length == 0 ? "Finalisation…" : "Chargement : " + active, 5 + 90.0 * done / total)); }
+            try { failed = Api.Preload((done, total, active) => Report(active.Length == 0 ? "Finalisationâ€¦" : "Chargement : " + active, 5 + 90.0 * done / total)); }
             catch (Exception) { failed = 1; }
-            Report(failed == 0 ? "Prêt." : "Prêt (certaines données seront chargées à la demande).", 100);
+            Report(failed == 0 ? "PrÃªt." : "PrÃªt (certaines donnÃ©es seront chargÃ©es Ã  la demande).", 100);
             System.Threading.Thread.Sleep(300);
             Dispatcher.BeginInvoke(new Action(() => { var handler = Completed; if (handler != null) handler(this, EventArgs.Empty); }));
         }
@@ -232,7 +232,7 @@ namespace IneoRbe.Planning
 
         public LoginWindow()
         {
-            Title = "Inéo RétroBus Gestionnaire — Connexion";
+            Title = "InÃ©o RÃ©troBus Gestionnaire â€“ Connexion";
             Width = 380; SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FontFamily = new FontFamily("Tahoma");
@@ -260,7 +260,7 @@ namespace IneoRbe.Planning
             var password = _password.Password;
             if (user.Length == 0 || password.Length == 0) { _error.Text = "Identifiant et mot de passe requis."; return; }
             _login.IsEnabled = false;
-            _error.Text = "Connexion…";
+            _error.Text = "Connexionâ€¦";
             Ui.Run<bool>(Dispatcher, () => { Api.Login(user, password); return true; }, ok =>
             {
                 DialogResult = true;
