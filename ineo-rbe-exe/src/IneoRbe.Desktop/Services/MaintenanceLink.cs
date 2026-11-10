@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Ports;
 using System.Net;
@@ -26,24 +26,15 @@ namespace IneoRbe.Desktop.Services
 
         public void Start()
         {
-            try
-            {
-                _listener = new TcpListener(IPAddress.Any, MaintenanceProtocol.TcpPort);
-                _listener.Start();
-                Background(AcceptLoop, "maintenance-http");
-            }
-            catch (Exception)
-            {
-                // Port déjà pris ou pare-feu : la liaison USB-USB reste utilisable.
-                _listener = null;
-            }
+            // Le port peut rester occupé quelques secondes par l'ancien processus (redémarrage ou mise à jour à distance) :
+            // la boucle réessaie jusqu'à obtenir le port au lieu d'abandonner définitivement.
+            Background(AcceptLoop, "maintenance-http");
 
             if (!string.IsNullOrEmpty(_serialPortName) && !string.Equals(_serialPortName, "NONE", StringComparison.OrdinalIgnoreCase))
             {
                 Background(SerialLoop, "maintenance-serial");
             }
         }
-
         public void Dispose()
         {
             _stopped = true;
@@ -59,40 +50,48 @@ namespace IneoRbe.Desktop.Services
             new Thread(work) { IsBackground = true, Name = name }.Start();
         }
 
-        // Une erreur d'acceptation isolée (client coupé brutalement, réseau Wi-Fi qui change) ne doit jamais arrêter la liaison.
-        private void AcceptLoop()
-        {
-            while (!_stopped)
-            {
-                TcpClient client = null;
-                try { client = _listener.AcceptTcpClient(); }
-                catch (Exception)
-                {
-                    if (_stopped) return;
-                    Thread.Sleep(500);
-                    RestartListener();
-                    continue;
-                }
-                ThreadPool.QueueUserWorkItem(delegate { Serve(client); });
-            }
-        }
-
-        private void RestartListener()
+        private bool OpenListener()
         {
             try
             {
                 var old = _listener;
                 if (old != null) { try { old.Stop(); } catch (Exception) { } }
                 var listener = new TcpListener(IPAddress.Any, MaintenanceProtocol.TcpPort);
+                listener.ExclusiveAddressUse = false;
                 listener.Start();
                 _listener = listener;
+                return true;
             }
             catch (Exception)
             {
-                // Port momentanément indisponible : nouvelle tentative au prochain tour.
+                _listener = null;
+                return false;
             }
         }
 
+        // Aucune erreur isolée (client coupé brutalement, Wi-Fi qui change, port encore pris) ne doit arrêter la liaison.
+        private void AcceptLoop()
+        {
+            while (!_stopped)
+            {
+                var listener = _listener;
+                if (listener == null)
+                {
+                    if (!OpenListener()) Thread.Sleep(2000);
+                    continue;
+                }
+                TcpClient client;
+                try { client = listener.AcceptTcpClient(); }
+                catch (Exception)
+                {
+                    if (_stopped) return;
+                    Thread.Sleep(500);
+                    OpenListener();
+                    continue;
+                }
+                ThreadPool.QueueUserWorkItem(delegate { Serve(client); });
+            }
+        }
         private void Serve(TcpClient client)
         {
             using (client)
