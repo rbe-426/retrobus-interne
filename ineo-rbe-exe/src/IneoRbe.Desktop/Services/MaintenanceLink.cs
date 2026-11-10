@@ -15,7 +15,7 @@ namespace IneoRbe.Desktop.Services
         private const int SerialRetryMs = 5000;
         private readonly Func<string, MaintenanceReply> _handler;
         private readonly string _serialPortName;
-        private TcpListener _listener;
+        private volatile TcpListener _listener;
         private volatile bool _stopped;
 
         public MaintenanceLink(Func<string, MaintenanceReply> handler, string serialPortName)
@@ -59,14 +59,37 @@ namespace IneoRbe.Desktop.Services
             new Thread(work) { IsBackground = true, Name = name }.Start();
         }
 
+        // Une erreur d'acceptation isolée (client coupé brutalement, réseau Wi-Fi qui change) ne doit jamais arrêter la liaison.
         private void AcceptLoop()
         {
             while (!_stopped)
             {
-                TcpClient client;
+                TcpClient client = null;
                 try { client = _listener.AcceptTcpClient(); }
-                catch (Exception) { return; }
+                catch (Exception)
+                {
+                    if (_stopped) return;
+                    Thread.Sleep(500);
+                    RestartListener();
+                    continue;
+                }
                 ThreadPool.QueueUserWorkItem(delegate { Serve(client); });
+            }
+        }
+
+        private void RestartListener()
+        {
+            try
+            {
+                var old = _listener;
+                if (old != null) { try { old.Stop(); } catch (Exception) { } }
+                var listener = new TcpListener(IPAddress.Any, MaintenanceProtocol.TcpPort);
+                listener.Start();
+                _listener = listener;
+            }
+            catch (Exception)
+            {
+                // Port momentanément indisponible : nouvelle tentative au prochain tour.
             }
         }
 

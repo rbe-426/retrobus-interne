@@ -64,6 +64,11 @@ namespace IneoRbe.Desktop
             _maintenanceLink.Start();
 
             RefreshNetworkStatus();
+            RefreshLiveInfo();
+            var liveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            liveTimer.Tick += (s, e) => RefreshLiveInfo();
+            liveTimer.Start();
+            Closed += (s, e) => liveTimer.Stop();
             NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
             _syncTimer.Tick += (s, e) => StartSync(false);
             Closed += (s, e) =>
@@ -546,6 +551,32 @@ namespace IneoRbe.Desktop
         private static MaintenanceStatusItem Status(string name, string level, string detail)
         {
             return new MaintenanceStatusItem { Name = name, Level = level, Detail = detail };
+        }
+
+        // Adresses IPv4 des interfaces actives et dernière position GPS reçue par le moteur d'annonces.
+        private void RefreshLiveInfo()
+        {
+            var addresses = new List<string>();
+            try
+            {
+                foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    foreach (var unicast in nic.GetIPProperties().UnicastAddresses)
+                    {
+                        if (unicast.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                        addresses.Add(unicast.Address + " (" + nic.Name + ")");
+                    }
+                }
+            }
+            catch (Exception) { }
+            IpAddressText.Text = "Adresse IP : " + (addresses.Count == 0 ? "aucune connexion" : string.Join(", ", addresses.ToArray()));
+
+            double latitude, longitude;
+            TimeSpan age;
+            GpsPositionText.Text = _engine != null && _engine.TryGetLastPosition(out latitude, out longitude, out age)
+                ? string.Format(System.Globalization.CultureInfo.InvariantCulture, "Position GPS : {0:0.00000}, {1:0.00000} (il y a {2} s)", latitude, longitude, (int)age.TotalSeconds)
+                : "Position GPS : aucune position reçue";
         }
 
         private void RefreshNetworkStatus()

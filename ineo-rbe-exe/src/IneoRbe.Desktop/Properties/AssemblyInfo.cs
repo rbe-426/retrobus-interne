@@ -1,10 +1,10 @@
-ï»¿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("InÃ©o RÃ©troBus")]
-[assembly: AssemblyDescription("Services embarquÃ©s RÃ©troBus Essonne")]
-[assembly: AssemblyCompany("RÃ©troBus Essonne")]
-[assembly: AssemblyProduct("InÃ©o RÃ©troBus")]
+[assembly: AssemblyTitle("Inéo RétroBus")]
+[assembly: AssemblyDescription("Services embarqués RétroBus Essonne")]
+[assembly: AssemblyCompany("RétroBus Essonne")]
+[assembly: AssemblyProduct("Inéo RétroBus")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("26.11.14.0")]
-[assembly: AssemblyFileVersion("26.11.14.0")]
+[assembly: AssemblyVersion("26.11.15.0")]
+[assembly: AssemblyFileVersion("26.11.15.0")]
