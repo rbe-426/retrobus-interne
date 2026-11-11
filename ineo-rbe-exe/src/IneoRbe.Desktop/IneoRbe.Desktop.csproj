@@ -70,6 +70,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Services\AnnouncementEngine.cs" />
+    <Compile Include="Services\TtsEngine.cs" />
     <Compile Include="Services\ContentSync.cs" />
     <Compile Include="Services\ApiEndpoints.cs" />
     <Compile Include="Services\DeviceIdentity.cs" />

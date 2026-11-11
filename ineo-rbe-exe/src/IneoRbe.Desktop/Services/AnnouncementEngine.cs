@@ -59,6 +59,12 @@ namespace IneoRbe.Desktop.Services
             foreach (var announcement in _config.Announcements.ToList())
             {
                 if (!announcement.Enabled || announcement.Trigger != AnnouncementTrigger.Startup) continue;
+                if (string.IsNullOrEmpty(announcement.SoundFile) && !string.IsNullOrEmpty(announcement.Text))
+                {
+                    found++;
+                    _queue.Enqueue(QueueItemOf(announcement));
+                    continue;
+                }
                 var path = SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile);
                 if (path == null || !File.Exists(path)) { missing++; continue; }
                 found++;
@@ -86,6 +92,7 @@ namespace IneoRbe.Desktop.Services
             source.Dispose();
             _queue.Clear();
             _player.Stop();
+            TtsEngine.Cancel();
             _playing = false;
             SetStatus("Diffusion automatique arrêtée.");
         }
@@ -159,13 +166,14 @@ namespace IneoRbe.Desktop.Services
         {
             foreach (var announcement in _config.Announcements.ToList())
             {
-                if (!announcement.Enabled || announcement.Trigger == AnnouncementTrigger.Startup || string.IsNullOrEmpty(announcement.SoundFile)) continue;
+                if (!announcement.Enabled || announcement.Trigger == AnnouncementTrigger.Startup) continue;
+                if (string.IsNullOrEmpty(announcement.SoundFile) && string.IsNullOrEmpty(announcement.Text)) continue;
                 var distance = DistanceMeters(latitude, longitude, announcement.Latitude, announcement.Longitude);
                 if (distance <= announcement.DistanceMeters)
                 {
                     if (_inside.Add(announcement.Id))
                     {
-                        _queue.Enqueue(SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile));
+                        _queue.Enqueue(QueueItemOf(announcement));
                         PlayNext();
                     }
                 }
@@ -177,12 +185,43 @@ namespace IneoRbe.Desktop.Services
             }
         }
 
+        private const string TtsPrefix = "tts:";
+
+        // Un fichier son prime ; sans fichier, le texte est lu par la voix embarquée.
+        private static string QueueItemOf(Announcement announcement)
+        {
+            return string.IsNullOrEmpty(announcement.SoundFile)
+                ? TtsPrefix + announcement.Text
+                : SaeivStore.ResolvePath(SaeivStore.SoundsFolder, announcement.SoundFile);
+        }
+
+        public void SpeakTest(string text)
+        {
+            _queue.Clear();
+            _queue.Enqueue(TtsPrefix + text);
+            _playing = false;
+            PlayNext();
+        }
+
         private void PlayNext()
         {
             if (_playing) return;
             while (_queue.Count > 0)
             {
                 var path = _queue.Dequeue();
+                if (path != null && path.StartsWith(TtsPrefix, StringComparison.Ordinal))
+                {
+                    var norm = _config.Norms != null ? _config.Norms.Tts : null;
+                    if (norm != null && !norm.Enabled) continue;
+                    _playing = true;
+                    TtsEngine.Speak(path.Substring(TtsPrefix.Length), norm, error => Dispatch(() =>
+                    {
+                        if (error != null) SetStatus("Voix embarquée : " + error);
+                        _playing = false;
+                        PlayNext();
+                    }));
+                    return;
+                }
                 if (!File.Exists(path)) continue;
                 _playing = true;
                 _player.Open(new Uri(path));

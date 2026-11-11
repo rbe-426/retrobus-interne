@@ -57,6 +57,34 @@ namespace IneoRbe.Desktop.Services
 
         public static void Save(SaeivConfig config) { Save(config, null); }
 
+        // Norme SAEIV commune à tous les véhicules (outil Planification) ; chaque véhicule peut la surcharger.
+        private static string NormsPath { get { return Path.Combine(RootDirectory, "saeiv-norms.json"); } }
+
+        public static SaeivNorms LoadNorms()
+        {
+            try
+            {
+                if (!File.Exists(NormsPath)) return new SaeivNorms();
+                using (var stream = File.OpenRead(NormsPath))
+                {
+                    return (SaeivNorms)new DataContractJsonSerializer(typeof(SaeivNorms)).ReadObject(stream) ?? new SaeivNorms();
+                }
+            }
+            catch (Exception) { return new SaeivNorms(); }
+        }
+
+        public static void SaveNorms(SaeivNorms norms)
+        {
+            Directory.CreateDirectory(RootDirectory);
+            var temporary = NormsPath + ".tmp";
+            using (var stream = File.Create(temporary))
+            {
+                new DataContractJsonSerializer(typeof(SaeivNorms)).WriteObject(stream, norms);
+            }
+            if (File.Exists(NormsPath)) File.Delete(NormsPath);
+            File.Move(temporary, NormsPath);
+        }
+
         public static void Save(SaeivConfig config, string key)
         {
             var path = ProfilePath(key);

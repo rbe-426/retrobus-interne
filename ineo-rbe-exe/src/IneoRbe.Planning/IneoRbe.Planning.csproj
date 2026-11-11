@@ -72,6 +72,7 @@
     <Compile Include="Views.cs" />
     <Compile Include="Views2.cs" />
     <Compile Include="Configurator.cs" />
+    <Compile Include="NormsView.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="..\IneoRbe.Desktop\Services\UpdateClient.cs"><Link>Shared\UpdateClient.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\UpdateInstaller.cs"><Link>Shared\UpdateInstaller.cs</Link></Compile>
@@ -79,6 +80,7 @@
     <Compile Include="..\IneoRbe.Desktop\Services\ReleaseVersion.cs"><Link>Shared\ReleaseVersion.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\SaeivStore.cs"><Link>Shared\SaeivStore.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\SaeivConfig.cs"><Link>Shared\SaeivConfig.cs</Link></Compile>
+    <Compile Include="..\IneoRbe.Desktop\Services\TtsEngine.cs"><Link>Shared\TtsEngine.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\ApiEndpoints.cs"><Link>Shared\ApiEndpoints.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\HttpTransport.cs"><Link>Shared\HttpTransport.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\TlsSupport.cs"><Link>Shared\TlsSupport.cs</Link></Compile>

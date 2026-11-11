@@ -42,6 +42,7 @@ namespace IneoRbe.Planning
         private readonly TextBlock _status = Ui.Text(string.Empty, 11, false, Ui.Muted);
         private readonly CheckBox _engine = new CheckBox { Content = "Moteur d'annonces actif", Margin = new Thickness(12, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         private bool _loading;
+        private readonly NormsView _norms = new NormsView();
         private Dictionary<string, object> _profiles = new Dictionary<string, object>();
 
         private readonly TextBox _name = new TextBox();
@@ -49,6 +50,7 @@ namespace IneoRbe.Planning
         private readonly TextBox _latitude = new TextBox();
         private readonly TextBox _longitude = new TextBox();
         private readonly TextBox _distance = new TextBox();
+        private readonly TextBox _speech = new TextBox { MaxLength = 500 };
         private readonly TextBlock _sound = Ui.Text(string.Empty, 12);
         private readonly CheckBox _enabled = new CheckBox { Content = "Annonce activée", Margin = new Thickness(0, 8, 0, 0) };
 
@@ -98,6 +100,7 @@ namespace IneoRbe.Planning
             _tabs.Items.Add(new TabItem { Header = "Équipements embarqués : annonces sonores", Content = announcementsTab });
             _tabs.Items.Add(new TabItem { Header = "Profil d'écrans", Content = screensTab });
             _tabs.Items.Add(new TabItem { Header = "Lignes", Content = BuildLines() });
+            _tabs.Items.Add(new TabItem { Header = "Normes SAEIV", Content = _norms });
             Children.Add(_tabs);
 
             _trigger.Items.Add("Pré-annonce");
@@ -142,6 +145,7 @@ namespace IneoRbe.Planning
             _parc = parc;
             _config = SaeivStore.Load(parc);
             _engine.IsChecked = _config.EngineEnabled;
+            _norms.SetVehicle(_config);
             foreach (var tab in _vehicleTabs) tab.IsEnabled = true;
             object profile;
             if (parc == PilotParc)
@@ -191,6 +195,7 @@ namespace IneoRbe.Planning
             soundRow.Children.Add(Ui.Button("Choisir un son…", (s, e) => ChooseSound()));
             soundRow.Children.Add(_sound);
             _announcementForm.Children.Add(Field("Fichier son (wav, mp3, wma)", soundRow));
+            _announcementForm.Children.Add(Field("Texte lu par la voix embarquée (si aucun fichier son)", _speech));
             _announcementForm.Children.Add(_enabled);
             Grid.SetColumn(_announcementForm, 1);
             grid.Children.Add(_announcementForm);
@@ -201,6 +206,7 @@ namespace IneoRbe.Planning
             _latitude.TextChanged += (s, e) => ApplyAnnouncement();
             _longitude.TextChanged += (s, e) => ApplyAnnouncement();
             _distance.TextChanged += (s, e) => ApplyAnnouncement();
+            _speech.TextChanged += (s, e) => ApplyAnnouncement();
             _enabled.Click += (s, e) => ApplyAnnouncement();
             return grid;
         }
@@ -385,6 +391,7 @@ namespace IneoRbe.Planning
             _distance.Text = item == null ? string.Empty : item.DistanceMeters.ToString(CultureInfo.InvariantCulture);
             _sound.Text = item == null || string.IsNullOrEmpty(item.SoundName) ? "  (aucun son)" : "  " + item.SoundName;
             _enabled.IsChecked = item != null && item.Enabled;
+            _speech.Text = item == null ? string.Empty : item.Text ?? string.Empty;
             UpdateTriggerFields();
             _loading = false;
         }
@@ -414,6 +421,7 @@ namespace IneoRbe.Planning
             item.Longitude = ParseDouble(_longitude.Text);
             item.DistanceMeters = (int)ParseDouble(_distance.Text);
             item.Enabled = _enabled.IsChecked == true;
+            item.Text = _speech.Text;
             var index = _announcementList.SelectedIndex;
             _loading = true;
             _announcementList.Items[index] = item.DisplayText;
@@ -576,6 +584,7 @@ namespace IneoRbe.Planning
             try
             {
                 SaeivStore.Save(_config, _parc);
+                _norms.Commit();
                 _status.Text = "Profil SAEIV du véhicule " + _parc + " enregistré.";
                 return true;
             }
@@ -621,7 +630,7 @@ namespace IneoRbe.Planning
                 announcements.Add(new Dictionary<string, object>
                 {
                     { "id", item.Id }, { "name", item.Name }, { "trigger", item.Trigger }, { "latitude", item.Latitude }, { "longitude", item.Longitude },
-                    { "distanceMeters", item.DistanceMeters }, { "soundFile", item.SoundFile }, { "soundName", item.SoundName }, { "enabled", item.Enabled },
+                    { "distanceMeters", item.DistanceMeters }, { "soundFile", item.SoundFile }, { "soundName", item.SoundName }, { "text", item.Text }, { "enabled", item.Enabled },
                 });
                 if (!string.IsNullOrEmpty(item.SoundFile)) files.Add(item.SoundFile);
             }
@@ -637,7 +646,9 @@ namespace IneoRbe.Planning
                 if (!string.IsNullOrEmpty(item.OfflineImage)) files.Add(item.OfflineImage);
                 if (!string.IsNullOrEmpty(item.OnlineImage)) files.Add(item.OnlineImage);
             }
-            body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens } };
+            body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens }, { "norms", NormsView.ToJson(_norms.Effective(_config)) } };
+            var effective = _norms.Effective(_config);
+            if (!string.IsNullOrEmpty(effective.Screens.BaseImage)) files.Add(effective.Screens.BaseImage);
             var names = files.Distinct().Select(name => (object)name).ToList();
             var summary = announcements.Count + " annonce(s), " + screens.Count + " écran(s)";
 
