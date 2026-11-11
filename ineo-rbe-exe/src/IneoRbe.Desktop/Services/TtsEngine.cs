@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 
@@ -105,6 +106,31 @@ namespace IneoRbe.Desktop.Services
 
         public static void Cancel() { _cancel = true; }
 
+        // Voix SAPI5 installées (même visibilité 32/64 bits que le processus appelant). Liste vide si le moteur est absent.
+        public static List<string> InstalledVoices()
+        {
+            var result = new List<string>();
+            try
+            {
+                var type = Type.GetTypeFromProgID("SAPI.SpVoice");
+                if (type == null) return result;
+                var voice = Activator.CreateInstance(type);
+                try
+                {
+                    var voices = Call(voice, "GetVoices");
+                    var count = (int)Get(voices, "Count");
+                    for (var index = 0; index < count; index++)
+                    {
+                        var description = Call(Call(voices, "Item", index), "GetDescription") as string;
+                        if (!string.IsNullOrEmpty(description)) result.Add(description);
+                    }
+                }
+                finally { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(voice); } catch (Exception) { } }
+            }
+            catch (Exception) { }
+            return result;
+        }
+
         // Lit le texte puis appelle done(null) ou done(message d'erreur), depuis le thread de lecture.
         public static void Speak(string text, TtsNorm norm, Action<string> done)
         {
@@ -144,12 +170,14 @@ namespace IneoRbe.Desktop.Services
                     {
                         var voices = Call(voice, "GetVoices");
                         var count = (int)Get(voices, "Count");
-                        for (var index = 0; index < count; index++)
+                        var found = false;
+                        for (var index = 0; index < count && !found; index++)
                         {
                             var item = Call(voices, "Item", index);
                             var description = Call(item, "GetDescription") as string;
-                            if (description != null && description.IndexOf(norm.Voice, StringComparison.OrdinalIgnoreCase) >= 0) { Set(voice, "Voice", item); break; }
+                            if (description != null && description.IndexOf(norm.Voice, StringComparison.OrdinalIgnoreCase) >= 0) { Set(voice, "Voice", item); found = true; }
                         }
+                        if (!found) throw new InvalidOperationException("Voix « " + norm.Voice + " » introuvable sur ce PC.");
                     }
                     Call(voice, "Speak", text, 1);
                     while (!(bool)Call(voice, "WaitUntilDone", 100)) { if (_cancel) { Call(voice, "Speak", string.Empty, 3); break; } }

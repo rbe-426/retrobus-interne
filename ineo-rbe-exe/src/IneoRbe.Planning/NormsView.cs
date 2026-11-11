@@ -35,7 +35,8 @@ namespace IneoRbe.Planning
 
         private readonly CheckBox _ttsEnabled = new CheckBox { Content = "Voix embarquée active" };
         private readonly ComboBox _engine = new ComboBox { ItemsSource = new[] { "SAPI4", "SAPI5", "INFOVOX" } };
-        private readonly TextBox _voice = new TextBox();
+        private readonly ComboBox _voice = new ComboBox { IsEditable = true };
+        private readonly TextBlock _voiceInfo = Ui.Text(string.Empty, 11, false, Ui.Muted);
         private readonly TextBox _rate = new TextBox();
         private readonly TextBox _volume = new TextBox();
         private readonly TextBox _preMeters = new TextBox();
@@ -90,10 +91,11 @@ namespace IneoRbe.Planning
             left.Children.Add(_ttsEnabled);
             var engineRow = new UniformGrid { Columns = 2 };
             engineRow.Children.Add(Field("Moteur vocal", _engine));
-            engineRow.Children.Add(Field("Nom de la voix (SAPI5 / Infovox)", _voice));
             engineRow.Children.Add(Field("Vitesse (% – 50 à 150)", _rate));
             engineRow.Children.Add(Field("Volume (% – 0 à 100)", _volume));
             left.Children.Add(engineRow);
+            left.Children.Add(Field("Voix (liste des voix installées sur ce PC ; vide = voix par défaut)", _voice));
+            left.Children.Add(Ui.Toolbar(Ui.Button("Actualiser les voix", (s, e) => RefreshVoices()), _voiceInfo));
             left.Children.Add(Field("Pré-annonce : distance avant l'arrêt (m)", _preMeters));
             left.Children.Add(Ui.Text("Variables : {ligne} {destination} {arret} {correspondances}", 11, false, Ui.Muted));
             left.Children.Add(Field("Annonce de ligne", _textLine));
@@ -155,11 +157,14 @@ namespace IneoRbe.Planning
 
             _override.Click += (s, e) => ToggleOverride();
             _slides.SelectionChanged += (s, e) => LoadSlide();
-            foreach (var box in new[] { _voice, _rate, _volume, _preMeters, _textLine, _textNext, _textCorr, _textTerminus, _baseColor, _textColor, _bandColor, _gap, _slideSeconds, _slideText })
+            foreach (var box in new[] { _rate, _volume, _preMeters, _textLine, _textNext, _textCorr, _textTerminus, _baseColor, _textColor, _bandColor, _gap, _slideSeconds, _slideText })
                 box.TextChanged += (s, e) => Apply();
             foreach (var box in new[] { _ttsEnabled, _lineBand, _adaptive, _showLine, _showDestination, _showClock, _showNext })
                 box.Click += (s, e) => Apply();
             _engine.SelectionChanged += (s, e) => Apply();
+            _voice.SelectionChanged += (s, e) => { if (!_loading && _voice.SelectedItem != null) { _voice.Text = (string)_voice.SelectedItem; Apply(); } };
+            _voice.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => Apply()));
+            Loaded += (s, e) => { if (_voice.Items.Count == 0) RefreshVoices(); };
             _fixedPosition.SelectionChanged += (s, e) => Apply();
             _slideType.SelectionChanged += (s, e) => ApplySlide();
 
@@ -225,6 +230,20 @@ namespace IneoRbe.Planning
             _norms = overriding ? _vehicle.Norms : _global;
             _scope.Text = overriding ? "Vous modifiez la norme propre à ce véhicule." : "Vous modifiez la norme globale (tous les véhicules sans surcharge).";
             Load();
+        }
+
+        private void RefreshVoices()
+        {
+            var keep = _voice.Text;
+            var voices = TtsEngine.InstalledVoices();
+            _loading = true;
+            _voice.Items.Clear();
+            foreach (var name in voices) _voice.Items.Add(name);
+            _voice.Text = keep;
+            _loading = false;
+            _voiceInfo.Text = voices.Count == 0
+                ? "  Aucune voix SAPI5 détectée sur ce PC."
+                : "  " + voices.Count + " voix SAPI5 détectée(s)." + (voices.Any(v => v.IndexOf("claire", StringComparison.OrdinalIgnoreCase) >= 0) ? string.Empty : " « Claire » n'est pas installée ici.");
         }
 
         private static string Int(int value) { return value.ToString(CultureInfo.InvariantCulture); }
