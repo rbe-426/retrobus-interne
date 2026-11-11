@@ -8,3 +8,6 @@ C:\Dev\RETROBUS_ESSONNE\Interne\ineo-rbe-exe\src\IneoRbe.Planning\obj\Release\In
 C:\Dev\RETROBUS_ESSONNE\Interne\ineo-rbe-exe\src\IneoRbe.Planning\obj\Release\IneoRbe..5E564748.Up2Date
 C:\Dev\RETROBUS_ESSONNE\Interne\ineo-rbe-exe\src\IneoRbe.Planning\obj\Release\IneoRbe.Planning.exe
 C:\Dev\RETROBUS_ESSONNE\Interne\ineo-rbe-exe\src\IneoRbe.Planning\obj\Release\IneoRbe.Planning.pdb
+C:\Temp\chk\IneoRbe.Planning.exe.config
+C:\Temp\chk\IneoRbe.Planning.exe
+C:\Temp\chk\IneoRbe.Planning.pdb

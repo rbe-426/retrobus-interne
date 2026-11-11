@@ -15,6 +15,8 @@
     <LangVersion>7.3</LangVersion>
     <CodePage>65001</CodePage>
     <FileAlignment>512</FileAlignment>
+    <!-- Infovox est 32 bits : ses voix SAPI4/SAPI5 ne sont visibles que d'un processus 32 bits. -->
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\.refs\net40\mscorlib.dll')">
     <FrameworkPathOverride>$(MSBuildThisFileDirectory)..\..\.refs\net40</FrameworkPathOverride>

@@ -16,9 +16,91 @@ namespace IneoRbe.Desktop.Services
             return Type.GetTypeFromProgID(ProgIdOf(engine)) != null;
         }
 
+        // INFOVOX (Acapela Infovox Desktop) s'expose comme voix SAPI5 : même lecture, voix choisie par son nom.
+        private static bool IsSapi5(string engine)
+        {
+            return string.Equals(engine, "SAPI5", StringComparison.OrdinalIgnoreCase) || string.Equals(engine, "INFOVOX", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static string ProgIdOf(string engine)
         {
-            return string.Equals(engine, "SAPI5", StringComparison.OrdinalIgnoreCase) ? "SAPI.SpVoice" : "Speech.VoiceText";
+            return IsSapi5(engine) ? "SAPI.SpVoice" : "Speech.VoiceText";
+        }
+
+        // Voix SAPI5 installées sur ce PC (Infovox comprise).
+        public static string[] ListVoices()
+        {
+            var names = new System.Collections.Generic.List<string>();
+            var type = Type.GetTypeFromProgID("SAPI.SpVoice");
+            if (type == null) return names.ToArray();
+            object voice = null;
+            try
+            {
+                voice = Activator.CreateInstance(type);
+                var voices = Call(voice, "GetVoices");
+                var count = (int)Get(voices, "Count");
+                for (var index = 0; index < count; index++)
+                {
+                    var description = Call(Call(voices, "Item", index), "GetDescription") as string;
+                    if (!string.IsNullOrEmpty(description)) names.Add(description);
+                }
+            }
+            catch (Exception) { }
+            finally { if (voice != null) { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(voice); } catch (Exception) { } } }
+            return names.ToArray();
+        }
+
+        // Dossier d'Infovox Desktop 2.2 s'il est installé.
+        public static string InfovoxFolder()
+        {
+            foreach (var root in new[] { Environment.GetEnvironmentVariable("ProgramFiles(x86)"), Environment.GetEnvironmentVariable("ProgramFiles") })
+            {
+                if (string.IsNullOrEmpty(root)) continue;
+                var folder = System.IO.Path.Combine(root, @"Acapela Group\Infovox Desktop 2.2");
+                if (System.IO.Directory.Exists(folder)) return folder;
+            }
+            return null;
+        }
+
+        public static bool InfovoxInstalled() { return InfovoxFolder() != null; }
+
+        // Dossier « voix » contenant les installateurs Infovox (à côté du logiciel, ou dans le dépôt en développement).
+        public static string InfovoxSetupFolder()
+        {
+            var dir = AppDomain.CurrentDomain.BaseDirectory;
+            for (var level = 0; level < 8 && !string.IsNullOrEmpty(dir); level++)
+            {
+                var candidate = System.IO.Path.Combine(dir, "voix");
+                if (System.IO.File.Exists(System.IO.Path.Combine(candidate, InfovoxEngineSetup))) return candidate;
+                dir = System.IO.Path.GetDirectoryName(dir);
+            }
+            return null;
+        }
+
+        public const string InfovoxEngineSetup = "Infovox Desktop v2.2 Engine.exe";
+        public const string InfovoxUpdateSetup = "Infovox Desktop v2.210 Service Pack 1.exe";
+
+        // Installe le moteur puis le Service Pack 1 (droits administrateur requis). Retourne null si tout s'est bien passé.
+        // L'installateur du moteur est lancé avec son assistant ; la clé de licence reste à saisir par l'utilisateur.
+        public static string InstallInfovox()
+        {
+            var folder = InfovoxSetupFolder();
+            if (folder == null) return "Installateurs Infovox introuvables (dossier « voix »).";
+            try
+            {
+                if (!InfovoxInstalled()) RunSetup(System.IO.Path.Combine(folder, InfovoxEngineSetup), string.Empty);
+                if (!InfovoxInstalled()) return "Installation du moteur Infovox non terminée.";
+                var update = System.IO.Path.Combine(folder, InfovoxUpdateSetup);
+                if (System.IO.File.Exists(update)) RunSetup(update, "/SILENT /NORESTART");
+                return null;
+            }
+            catch (Exception exception) { return exception.Message; }
+        }
+
+        private static void RunSetup(string path, string arguments)
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(path, arguments) { UseShellExecute = true, Verb = "runas" };
+            using (var process = System.Diagnostics.Process.Start(info)) { if (process != null) process.WaitForExit(); }
         }
 
         public static void Cancel() { _cancel = true; }
@@ -48,9 +130,9 @@ namespace IneoRbe.Desktop.Services
 
         private static void Run(string text, TtsNorm norm)
         {
-            var sapi5 = string.Equals(norm.Engine, "SAPI5", StringComparison.OrdinalIgnoreCase);
+            var sapi5 = IsSapi5(norm.Engine);
             var type = Type.GetTypeFromProgID(ProgIdOf(norm.Engine));
-            if (type == null) throw new InvalidOperationException("Moteur vocal " + (sapi5 ? "SAPI5" : "SAPI4") + " non installé sur ce PC.");
+            if (type == null) throw new InvalidOperationException("Moteur vocal " + (norm.Engine ?? "SAPI4") + " non installé sur ce PC.");
             var voice = Activator.CreateInstance(type);
             try
             {

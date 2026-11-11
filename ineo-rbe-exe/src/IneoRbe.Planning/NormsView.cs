@@ -34,7 +34,7 @@ namespace IneoRbe.Planning
         private readonly TextBlock _scope = Ui.Text(string.Empty, 11, false, Ui.Muted);
 
         private readonly CheckBox _ttsEnabled = new CheckBox { Content = "Voix embarquée active" };
-        private readonly ComboBox _engine = new ComboBox { ItemsSource = new[] { "SAPI4", "SAPI5" } };
+        private readonly ComboBox _engine = new ComboBox { ItemsSource = new[] { "SAPI4", "SAPI5", "INFOVOX" } };
         private readonly TextBox _voice = new TextBox();
         private readonly TextBox _rate = new TextBox();
         private readonly TextBox _volume = new TextBox();
@@ -90,7 +90,7 @@ namespace IneoRbe.Planning
             left.Children.Add(_ttsEnabled);
             var engineRow = new UniformGrid { Columns = 2 };
             engineRow.Children.Add(Field("Moteur vocal", _engine));
-            engineRow.Children.Add(Field("Nom de la voix (SAPI5, facultatif)", _voice));
+            engineRow.Children.Add(Field("Nom de la voix (SAPI5 / Infovox)", _voice));
             engineRow.Children.Add(Field("Vitesse (% – 50 à 150)", _rate));
             engineRow.Children.Add(Field("Volume (% – 0 à 100)", _volume));
             left.Children.Add(engineRow);
@@ -100,8 +100,8 @@ namespace IneoRbe.Planning
             left.Children.Add(Field("Prochain arrêt", _textNext));
             left.Children.Add(Field("Correspondances", _textCorr));
             left.Children.Add(Field("Terminus", _textTerminus));
-            left.Children.Add(Ui.Toolbar(Ui.Button("Tester la voix", (s, e) => TestVoice()), _ttsStatus));
-            left.Children.Add(Ui.Text("SAPI4 utilise la voix choisie dans le panneau de configuration « Parole » de l'UC.", 11, false, Ui.Muted));
+            left.Children.Add(Ui.Toolbar(            Ui.Button("Tester la voix", (s, e) => TestVoice()), Ui.Button("Voix installées…", (s, e) => ShowVoices()), Ui.Button("Installer Infovox…", (s, e) => InstallInfovox()), _ttsStatus));
+                        left.Children.Add(Ui.Text("SAPI4 utilise la voix choisie dans le panneau « Parole » de l'UC. INFOVOX (Acapela) est installé sur les UC par leur installateur : saisissez le nom de la voix (voir « Voix installées »).", 11, false, Ui.Muted));
 
             var right = new StackPanel();
             right.Children.Add(Ui.Text("Écrans TFT", 13, true));
@@ -241,7 +241,7 @@ namespace IneoRbe.Planning
             var tts = _norms.Tts;
             var screens = _norms.Screens;
             _ttsEnabled.IsChecked = tts.Enabled;
-            _engine.SelectedItem = tts.Engine == "SAPI5" ? "SAPI5" : "SAPI4";
+            _engine.SelectedItem = tts.Engine == "SAPI5" || tts.Engine == "INFOVOX" ? tts.Engine : "SAPI4";
             _voice.Text = tts.Voice ?? string.Empty;
             _rate.Text = Int(tts.Rate);
             _volume.Text = Int(tts.Volume);
@@ -272,7 +272,8 @@ namespace IneoRbe.Planning
             var tts = _norms.Tts;
             var screens = _norms.Screens;
             tts.Enabled = _ttsEnabled.IsChecked == true;
-            tts.Engine = _engine.SelectedItem as string == "SAPI5" ? "SAPI5" : "SAPI4";
+            var engine = _engine.SelectedItem as string;
+            tts.Engine = engine == "SAPI5" || engine == "INFOVOX" ? engine : "SAPI4";
             tts.Voice = _voice.Text.Trim();
             tts.Rate = Math.Max(50, Math.Min(150, ParseInt(_rate.Text, 100)));
             tts.Volume = Math.Max(0, Math.Min(100, ParseInt(_volume.Text, 100)));
@@ -426,6 +427,21 @@ namespace IneoRbe.Planning
                 case SlideType.Clock: _previewSlide.Text = "14:32"; break;
                 default: _previewSlide.Text = slide.Text; break;
             }
+        }
+
+        private void ShowVoices()
+        {
+            var voices = TtsEngine.ListVoices();
+            if (voices.Length == 0) { Ui.Error("Aucune voix SAPI5 installée sur ce PC." + (TtsEngine.InfovoxInstalled() ? string.Empty : " Infovox n'est pas installé : utilisez « Installer Infovox… ».")); return; }
+            Ui.Error("Voix SAPI5 / Infovox disponibles (copiez le nom dans « Nom de la voix ») :" + Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, voices));
+        }
+
+        private void InstallInfovox()
+        {
+            if (TtsEngine.InfovoxInstalled() && !Ui.Confirm("Infovox est déjà installé sur ce PC. Réinstaller la mise à jour (Service Pack 1) ?")) return;
+            _ttsStatus.Text = "  Installation d'Infovox en cours…";
+            var error = TtsEngine.InstallInfovox();
+            _ttsStatus.Text = error == null ? "  Infovox installé. Saisissez la licence si demandé, puis testez la voix." : "  Erreur : " + error;
         }
 
         private void TestVoice()

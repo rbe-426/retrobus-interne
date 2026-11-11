@@ -31,6 +31,9 @@ Name: "{commonappdata}\IneoRbePlanning"; Permissions: users-modify
 Source: "..\src\IneoRbe.Planning\bin\{#Configuration}\IneoRbe.Planning.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\IneoRbe.Planning\bin\{#Configuration}\IneoRbe.Planning.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\src\IneoRbe.Planning\bin\{#Configuration}\BouncyCastle.Crypto.dll"; DestDir: "{app}"; Flags: ignoreversion
+; Installateurs Infovox : utilisés par le bouton « Installer Infovox… » de l'onglet Normes SAEIV (test de la voix).
+Source: "..\voix\Infovox Desktop v2.2 Engine.exe"; DestDir: "{app}\voix"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\voix\Infovox Desktop v2.210 Service Pack 1.exe"; DestDir: "{app}\voix"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"

@@ -36,6 +36,12 @@ Name: "{commonappdata}\IneoRbe"; Permissions: users-modify
 Source: "..\src\IneoRbe.Desktop\bin\{#Configuration}\IneoRbe.Desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\IneoRbe.Desktop\bin\{#Configuration}\IneoRbe.Desktop.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\src\IneoRbe.Desktop\bin\{#Configuration}\BouncyCastle.Crypto.dll"; DestDir: "{app}"; Flags: ignoreversion
+; Installateurs Infovox (voix embarquées) : uniquement le moteur et son Service Pack ; la licence est saisie à l'installation.
+Source: "..\voix\Infovox Desktop v2.2 Engine.exe"; DestDir: "{app}\voix"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\voix\Infovox Desktop v2.210 Service Pack 1.exe"; DestDir: "{app}\voix"; Flags: ignoreversion skipifsourcedoesntexist
+
+[Tasks]
+Name: "infovox"; Description: "Installer les voix embarquées Infovox (annonces vocales de l'UC)"; Check: InfovoxMissing
 
 [Registry]
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "IneoRbeDesktop"; ValueData: """{app}\{#AppExeName}"""; Flags: uninsdeletevalue
@@ -48,6 +54,9 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 ; Ouvre le port de maintenance (TCP 47800) : Vista et plus = règle avancée ; XP = ouverture de port du pare-feu Windows.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Inéo RétroBus Maintenance"" dir=in action=allow protocol=TCP localport=47800 profile=any"; Flags: runhidden; MinVersion: 0,6.0
 Filename: "{sys}\netsh.exe"; Parameters: "firewall add portopening protocol=TCP port=47800 name=""Inéo RétroBus Maintenance"" mode=ENABLE scope=ALL"; Flags: runhidden; OnlyBelowVersion: 0,6.0
+; Infovox : moteur (assistant), puis Service Pack 1 en silencieux. Sans effet si la tâche n'est pas cochée (ou en mise à jour silencieuse).
+Filename: "{app}\voix\Infovox Desktop v2.2 Engine.exe"; Description: "Installation d'Infovox"; StatusMsg: "Installation du moteur vocal Infovox…"; Flags: waituntilterminated skipifdoesntexist; Tasks: infovox; Check: InfovoxMissing
+Filename: "{app}\voix\Infovox Desktop v2.210 Service Pack 1.exe"; Parameters: "/SILENT /NORESTART"; StatusMsg: "Mise à jour d'Infovox (Service Pack 1)…"; Flags: waituntilterminated skipifdoesntexist; Tasks: infovox
 ; Sans « skipifsilent » : la mise à jour (installation silencieuse) relance aussi le logiciel. « runasoriginaluser » évite
 ; de le lancer avec les droits administrateur de l'installateur.
 Filename: "{app}\{#AppExeName}"; Description: "Lancer {#AppName}"; Flags: nowait postinstall runasoriginaluser
@@ -57,6 +66,10 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\netsh.exe"; Parameters: "firewall delete portopening protocol=TCP port=47800"; Flags: runhidden; OnlyBelowVersion: 0,6.0
 
 [Code]
+function InfovoxMissing(): Boolean;
+begin
+  Result := not (DirExists(ExpandConstant('{pf32}\Acapela Group\Infovox Desktop 2.2')) or DirExists(ExpandConstant('{pf}\Acapela Group\Infovox Desktop 2.2')));
+end;
 // .NET Framework 4.0 (ou plus récent) est indispensable ; il n'est pas préinstallé sur Windows XP.
 function DotNet4Installed(): Boolean;
 var
