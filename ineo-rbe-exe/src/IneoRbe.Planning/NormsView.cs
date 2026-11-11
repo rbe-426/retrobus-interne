@@ -102,7 +102,7 @@ namespace IneoRbe.Planning
             left.Children.Add(Field("Prochain arrêt", _textNext));
             left.Children.Add(Field("Correspondances", _textCorr));
             left.Children.Add(Field("Terminus", _textTerminus));
-            left.Children.Add(Ui.Toolbar(            Ui.Button("Tester la voix", (s, e) => TestVoice()), Ui.Button("Voix installées…", (s, e) => ShowVoices()), Ui.Button("Installer Infovox…", (s, e) => InstallInfovox()), _ttsStatus));
+            left.Children.Add(Ui.Toolbar(            Ui.Button("Tester la voix", (s, e) => TestVoice()), Ui.Button("Arrêter", (s, e) => { TtsEngine.Cancel(); _ttsStatus.Text = "  Lecture arrêtée."; }), Ui.Button("Voix installées…", (s, e) => ShowVoices()), _ttsStatus));
                         left.Children.Add(Ui.Text("SAPI4 utilise la voix choisie dans le panneau « Parole » de l'UC. INFOVOX (Acapela) est installé sur les UC par leur installateur : saisissez le nom de la voix (voir « Voix installées »).", 11, false, Ui.Muted));
 
             var right = new StackPanel();
@@ -451,16 +451,8 @@ namespace IneoRbe.Planning
         private void ShowVoices()
         {
             var voices = TtsEngine.ListVoices();
-            if (voices.Length == 0) { Ui.Error("Aucune voix SAPI5 installée sur ce PC." + (TtsEngine.InfovoxInstalled() ? string.Empty : " Infovox n'est pas installé : utilisez « Installer Infovox… ».")); return; }
+            if (voices.Length == 0) { Ui.Error("Aucune voix SAPI5 installée sur ce PC."); return; }
             Ui.Error("Voix SAPI5 / Infovox disponibles (copiez le nom dans « Nom de la voix ») :" + Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, voices));
-        }
-
-        private void InstallInfovox()
-        {
-            if (TtsEngine.InfovoxInstalled() && !Ui.Confirm("Infovox est déjà installé sur ce PC. Réinstaller la mise à jour (Service Pack 1) ?")) return;
-            _ttsStatus.Text = "  Installation d'Infovox en cours…";
-            var error = TtsEngine.InstallInfovox();
-            _ttsStatus.Text = error == null ? "  Infovox installé. Saisissez la licence si demandé, puis testez la voix." : "  Erreur : " + error;
         }
 
         private void TestVoice()

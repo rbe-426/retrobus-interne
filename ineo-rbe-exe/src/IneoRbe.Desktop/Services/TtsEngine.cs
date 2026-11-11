@@ -65,46 +65,13 @@ namespace IneoRbe.Desktop.Services
 
         public static bool InfovoxInstalled() { return InfovoxFolder() != null; }
 
-        // Dossier « voix » contenant les installateurs Infovox (à côté du logiciel, ou dans le dépôt en développement).
-        public static string InfovoxSetupFolder()
-        {
-            var dir = AppDomain.CurrentDomain.BaseDirectory;
-            for (var level = 0; level < 8 && !string.IsNullOrEmpty(dir); level++)
-            {
-                var candidate = System.IO.Path.Combine(dir, "voix");
-                if (System.IO.File.Exists(System.IO.Path.Combine(candidate, InfovoxEngineSetup))) return candidate;
-                dir = System.IO.Path.GetDirectoryName(dir);
-            }
-            return null;
-        }
-
-        public const string InfovoxEngineSetup = "Infovox Desktop v2.2 Engine.exe";
-        public const string InfovoxUpdateSetup = "Infovox Desktop v2.210 Service Pack 1.exe";
-
-        // Installe le moteur puis le Service Pack 1 (droits administrateur requis). Retourne null si tout s'est bien passé.
-        // L'installateur du moteur est lancé avec son assistant ; la clé de licence reste à saisir par l'utilisateur.
-        public static string InstallInfovox()
-        {
-            var folder = InfovoxSetupFolder();
-            if (folder == null) return "Installateurs Infovox introuvables (dossier « voix »).";
-            try
-            {
-                if (!InfovoxInstalled()) RunSetup(System.IO.Path.Combine(folder, InfovoxEngineSetup), string.Empty);
-                if (!InfovoxInstalled()) return "Installation du moteur Infovox non terminée.";
-                var update = System.IO.Path.Combine(folder, InfovoxUpdateSetup);
-                if (System.IO.File.Exists(update)) RunSetup(update, "/SILENT /NORESTART");
-                return null;
-            }
-            catch (Exception exception) { return exception.Message; }
-        }
-
-        private static void RunSetup(string path, string arguments)
-        {
-            var info = new System.Diagnostics.ProcessStartInfo(path, arguments) { UseShellExecute = true, Verb = "runas" };
-            using (var process = System.Diagnostics.Process.Start(info)) { if (process != null) process.WaitForExit(); }
-        }
-
         public static void Cancel() { _cancel = true; }
+
+        // Garde-fou : un moteur qui ne signale jamais la fin ne doit pas lire sans fin.
+        private static double MaxDurationMs(string text)
+        {
+            return 5000 + 150.0 * (text == null ? 0 : text.Length);
+        }
 
         // Voix SAPI5 installées (même visibilité 32/64 bits que le processus appelant). Liste vide si le moteur est absent.
         public static List<string> InstalledVoices()
@@ -179,18 +146,23 @@ namespace IneoRbe.Desktop.Services
                         }
                         if (!found) throw new InvalidOperationException("Voix « " + norm.Voice + " » introuvable sur ce PC.");
                     }
+                    var limit = DateTime.UtcNow.AddMilliseconds(MaxDurationMs(text));
                     Call(voice, "Speak", text, 1);
-                    while (!(bool)Call(voice, "WaitUntilDone", 100)) { if (_cancel) { Call(voice, "Speak", string.Empty, 3); break; } }
+                    while (!(bool)Call(voice, "WaitUntilDone", 100))
+                    {
+                        if (_cancel || DateTime.UtcNow > limit) { Call(voice, "Speak", string.Empty, 3); break; }
+                    }
                 }
                 else
                 {
                     Call(voice, "Register", string.Empty, "IneoRbe");
                     Set(voice, "Enabled", 1);
                     try { Set(voice, "Speed", Math.Max(1, (int)(150 * norm.Rate / 100.0))); } catch (Exception) { }
+                    var limit = DateTime.UtcNow.AddMilliseconds(MaxDurationMs(text));
                     Call(voice, "Speak", text, 0);
                     while ((bool)Get(voice, "IsSpeaking"))
                     {
-                        if (_cancel) { Call(voice, "StopSpeaking"); break; }
+                        if (_cancel || DateTime.UtcNow > limit) { Call(voice, "StopSpeaking"); break; }
                         Thread.Sleep(80);
                     }
                 }
