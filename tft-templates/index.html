@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Rétrobus – Écran TFT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="tft.css">
+</head>
+<body>
+  <!-- Scène de 1024x576 px, mise à l'échelle automatiquement par tft.js -->
+  <div id="stage">
+
+    <!-- 1. Écran de veille -->
+    <section class="slide slide-idle" id="slide-1">
+      <header class="bar-idle">
+        <span class="idle-date" data-bind="date"></span>
+        <span class="idle-clock" data-bind="clock"></span>
+      </header>
+      <div class="idle-rule"></div>
+      <div class="field idle-field">
+        <!-- Logo TICE dessiné en SVG (remplaçable par une <img>) -->
+        <svg class="logo" viewBox="0 0 400 330" aria-label="Tice">
+          <rect x="150" y="0" width="58" height="58" rx="18" fill="#009a67" transform="rotate(8 179 29)"/>
+          <path d="M20 95 L215 80 L312 78 L300 108 L200 125 L150 330 L100 335 L120 128 L22 135 Z" fill="#bf2b38"/>
+          <text x="165" y="255" font-family="Georgia, serif" font-style="italic" font-weight="bold" font-size="150" fill="#009a67">ice</text>
+          <rect x="45" y="268" width="355" height="8" fill="#009a67"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 2. Schéma de ligne : prochains arrêts -->
+    <section class="slide slide-stops" id="slide-2">
+      <header class="bar">
+        <div class="line-badge" data-bind="line"></div>
+        <div class="dest-box">
+          <div class="dest-city" data-bind="destCity"></div>
+          <div class="dest-stop" data-bind="destStop"></div>
+        </div>
+        <div class="clock-box" data-bind="clock"></div>
+      </header>
+      <div class="field">
+        <div class="panel">
+          <div class="panel-title">Prochains Arrêts</div>
+          <div class="stops" id="stops-list"></div>
+        </div>
+        <div class="rail-tail" id="rail-tail"><span class="arrow"></span></div>
+      </div>
+    </section>
+
+    <!-- 3. Arrivées prévues -->
+    <section class="slide slide-arrivals" id="slide-3">
+      <header class="bar">
+        <div class="line-badge" data-bind="line"></div>
+        <div class="dest-box">
+          <div class="dest-city" data-bind="destCity"></div>
+          <div class="dest-stop" data-bind="destStop"></div>
+        </div>
+        <div class="clock-box" data-bind="clock"></div>
+      </header>
+      <div class="field">
+        <div class="panel panel-arrivals">
+          <div class="panel-title">Arrivées prévues</div>
+          <div id="arrivals-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Fin de parcours / terminus -->
+    <section class="slide slide-stops slide-terminus" id="slide-4">
+      <header class="bar">
+        <div class="line-badge" data-bind="line"></div>
+        <div class="dest-box">
+          <div class="dest-city" data-bind="destCity"></div>
+          <div class="dest-stop" data-bind="destStop"></div>
+        </div>
+        <div class="clock-box" data-bind="clock"></div>
+      </header>
+      <div class="field">
+        <div class="panel">
+          <div class="panel-title">Prochains Arrêts</div>
+          <div class="stops" id="terminus-list"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+  <script src="tft.js"></script>
+</body>
+</html>

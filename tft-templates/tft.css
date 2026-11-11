@@ -1,0 +1,104 @@
+/* ===== Variables : la couleur de ligne est pilotée par tft.js (setLine) ===== */
+:root {
+  --line-color: #dc0032;      /* pastille "LIGNE" + rail + flèche */
+  --line-text: #000000;       /* texte sur la pastille (adaptatif) */
+  --blue: #0b4f80;            /* ville de destination (serif) */
+  --clock-blue: #0b5f86;      /* date / heure sur fond noir */
+  --ink: #111;
+  --rule: #555;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #0f1014; overflow: hidden; font-family: "Fira Sans", "Segoe UI", Arial, sans-serif; }
+
+/* Scène fixe 1024x576, centrée et mise à l'échelle par JS */
+#stage {
+  position: absolute; left: 50%; top: 50%;
+  width: 1024px; height: 576px;
+  transform-origin: center center;
+  background: #000;
+  padding: 10px;
+}
+
+/* ===== Slides : masquées par défaut, la slide active est en flex ===== */
+.slide { display: none; flex-direction: column; width: 100%; height: 100%; }
+.slide.active { display: flex; }
+
+/* ===== Fond rose/saumon commun ===== */
+.field {
+  position: relative; flex: 1; margin-top: 8px; border: 4px solid #000;
+  background:
+    radial-gradient(ellipse at 50% 55%, #d93a3f 0%, #e85a5a 35%, #f47070 65%, #fb8585 100%);
+}
+
+/* ===== En-tête de ligne (slides 2, 3, 4) ===== */
+.bar { display: flex; height: 92px; background: #000; border-bottom: 10px solid #fff; }
+.line-badge {
+  width: 138px; display: flex; align-items: center; justify-content: center;
+  background: var(--line-color); color: var(--line-text);
+  font-size: 34px; text-transform: uppercase; letter-spacing: 1px;
+}
+.dest-box {
+  flex: 1; background: #fff; padding: 6px 16px 0; border-top-right-radius: 24px;
+  display: flex; flex-direction: column; justify-content: center; margin-bottom: -10px; padding-bottom: 10px;
+}
+.dest-city { font-family: "Times New Roman", Georgia, serif; font-weight: bold; font-size: 34px; color: var(--blue); text-transform: uppercase; line-height: 1.05; }
+.dest-stop { font-size: 28px; color: var(--ink); text-transform: uppercase; line-height: 1.1; }
+.clock-box { width: 170px; display: flex; align-items: center; justify-content: center; background: #000; color: var(--clock-blue); font-size: 36px; }
+
+/* ===== Panneaux blancs à bordures nettes ===== */
+.panel { position: absolute; left: 0; top: 20px; width: 82%; background: #fff; }
+.panel-title { font-weight: bold; font-size: 20px; padding: 3px 6px; color: #000; }
+.panel-arrivals { width: 79%; top: 26px; }
+
+/* ===== Slide 3 : arrivées ===== */
+.arrival {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px 0 6px; height: 56px; border-top: 3px solid var(--rule); font-size: 28px;
+}
+.arrival .city { font-weight: 300; }
+.arrival .stop, .arrival .time { font-weight: bold; }
+
+/* ===== Slides 2 et 4 : arrêts + rail ===== */
+.stops { display: block; }
+.stop-row {
+  position: relative; display: flex; align-items: center; height: 46px;
+  border-top: 3px solid var(--rule); padding-left: 8px; font-size: 28px;
+}
+.stop-row.next { height: 68px; }
+.stop-row .city { font-weight: 300; margin-right: 8px; }
+.stop-row .name { font-weight: 400; }
+.stop-row .rail { position: absolute; right: 0; top: 0; bottom: 0; width: 70px; }
+/* Segment de rail passant par le centre de chaque ligne */
+.rail::before {
+  content: ""; position: absolute; left: 50%; width: 7px; margin-left: -3.5px;
+  top: -3px; bottom: 0; background: var(--line-color);
+}
+.stop-row.first .rail::before { top: 50%; }
+.stop-row.last .rail::before { bottom: 50%; }
+.stop-row.end-arrow .rail::before { bottom: 12%; }
+.node {
+  position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  border: 3px solid #000; border-radius: 50%; background: #fff;
+}
+.stop-row.next .node { background: radial-gradient(circle, #ff6a3d 0%, #ffd0bd 100%); }
+
+/* Flèche sous le panneau : le rail continue vers les arrêts suivants */
+.rail-tail { position: absolute; top: 0; bottom: 0; right: calc(18% - 70px); width: 70px; pointer-events: none; }
+.slide-terminus .rail-tail { display: none; }
+.arrow { position: absolute; left: 50%; margin-left: -3.5px; width: 7px; background: var(--line-color); bottom: 18px; height: 55px; }
+.arrow::after {
+  content: ""; position: absolute; left: 50%; bottom: -14px; margin-left: -18px;
+  border-left: 18px solid transparent; border-right: 18px solid transparent; border-top: 22px solid var(--line-color);
+}
+/* Flèche de fin de parcours (slide 4) : pointe vers le terminus */
+.stop-row.end-arrow .rail::after {
+  content: ""; position: absolute; left: 50%; bottom: 6%; margin-left: -12px;
+  border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid var(--line-color);
+}
+
+/* ===== Slide 1 : veille ===== */
+.bar-idle { display: flex; justify-content: space-between; align-items: center; height: 92px; padding: 0 16px 0 80px; background: #000; color: var(--clock-blue); font-size: 40px; }
+.idle-rule { height: 10px; background: #fff; }
+.idle-field { display: flex; align-items: center; justify-content: center; }
+.logo { width: 330px; height: auto; }
