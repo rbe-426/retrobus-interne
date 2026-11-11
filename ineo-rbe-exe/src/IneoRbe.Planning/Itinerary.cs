@@ -79,12 +79,67 @@ namespace IneoRbe.Planning
         }
     }
 
+    // Liste des arrêts proches d'arrêts d'autres lignes : cocher ceux à fusionner.
+    public sealed class MergeDialog : Window
+    {
+        private readonly List<KeyValuePair<CheckBox, MergeSuggestion>> _items = new List<KeyValuePair<CheckBox, MergeSuggestion>>();
+
+        public List<MergeSuggestion> Selected { get { return _items.Where(i => i.Key.IsChecked == true).Select(i => i.Value).ToList(); } }
+
+        public MergeDialog(Window owner, List<MergeSuggestion> suggestions)
+        {
+            Owner = owner;
+            Title = "Correspondances : fusionner des arrêts";
+            Width = 620; Height = 460;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            var root = new DockPanel { Margin = new Thickness(12) };
+            var note = Ui.Text("Ces arrêts sont proches d'arrêts d'autres lignes. Fusionner = même nom et même position pour toutes les lignes, le tracé est corrigé pour passer par l'arrêt, et les lignes se dessinent côte à côte.", 11, false, Ui.Muted);
+            note.TextWrapping = TextWrapping.Wrap;
+            DockPanel.SetDock(note, Dock.Top);
+            root.Children.Add(note);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+            buttons.Children.Add(Ui.Button("Fusionner la sélection", (s, e) => { DialogResult = true; }, true));
+            buttons.Children.Add(Ui.Button("Annuler", (s, e) => { DialogResult = false; }));
+            DockPanel.SetDock(buttons, Dock.Bottom);
+            root.Children.Add(buttons);
+            var list = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+            foreach (var suggestion in suggestions)
+            {
+                var check = new CheckBox
+                {
+                    IsChecked = true,
+                    Margin = new Thickness(0, 0, 0, 8),
+                    Content = new TextBlock
+                    {
+                        TextWrapping = TextWrapping.Wrap,
+                        Text = "« " + suggestion.Stop.Label + " » → « " + suggestion.Target.Label + " » (" + Math.Round(suggestion.Meters) + " m) avec " + string.Join(", ", suggestion.Lines.ToArray()),
+                    },
+                };
+                _items.Add(new KeyValuePair<CheckBox, MergeSuggestion>(check, suggestion));
+                list.Children.Add(check);
+            }
+            root.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = list });
+            Content = root;
+        }
+    }
+
     public sealed class OtherLine
     {
         public string Name;
         public Brush Color;
         public List<Point> Stops = new List<Point>();
+        public List<StopRow> Rows = new List<StopRow>();
         public List<Point> Path = new List<Point>();
+    }
+
+    // Arrêt proche d'arrêts d'autres lignes : peut être fusionné en un arrêt commun (correspondance).
+    public sealed class MergeSuggestion
+    {
+        public StopRow Stop;
+        public StopRow Target;
+        public double Meters;
+        public List<string> Lines = new List<string>();
+        public bool Identical;
     }
 
     // Éditeur d'itinéraire : tableau VILLE | ARRÊT | LATITUDE | LONGITUDE et carte OpenStreetMap (clic = arrêt ou point du tracé).
@@ -110,7 +165,7 @@ namespace IneoRbe.Planning
         public ItineraryDialog(Window owner, string title, string colorHex, List<StopRow> stops, List<Point> path, List<OtherLine> others = null)
         {
             _others = others;
-            Owner = owner;
+            _map.SideBySide = true;
             Title = title;
             Width = 1120; Height = 700;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -128,6 +183,7 @@ namespace IneoRbe.Planning
             var left = new DockPanel();
             var tools = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
             tools.Children.Add(Ui.Button("Chercher un lieu…", (s, e) => SearchPlace()));
+            if (_others != null && _others.Count > 0) tools.Children.Add(Ui.Button("Correspondances…", (s, e) => ReviewMerges()));
             tools.Children.Add(Ui.Button("Supprimer l'arrêt", (s, e) => RemoveSelected()));
             tools.Children.Add(Ui.Button("▲", (s, e) => Move(-1)));
             tools.Children.Add(Ui.Button("▼", (s, e) => Move(1)));
@@ -224,7 +280,9 @@ namespace IneoRbe.Planning
             var number = 1;
             foreach (var stop in _stops)
             {
-                _map.Markers.Add(new MapMarker { Lat = stop.Lat, Lng = stop.Lng, Label = number + ". " + stop.Label, Color = _color });
+                var shared = _others == null ? new List<string>() : _others.Where(o => o.Rows.Any(r => SamePlace(r, stop))).Select(o => o.Name).Distinct().ToList();
+                var label = number + ". " + stop.Label + (shared.Count > 0 ? "  ⇄ " + string.Join(", ", shared.ToArray()) : string.Empty);
+                _map.Markers.Add(new MapMarker { Lat = stop.Lat, Lng = stop.Lng, Label = label, Color = _color, Size = shared.Count > 0 ? 20 : 14 });
                 number++;
             }
             var points = _path.Count >= 2 ? _path : _stops.Select(s => new Point(s.Lat, s.Lng)).ToList();
@@ -261,10 +319,104 @@ namespace IneoRbe.Planning
             }
             else
             {
-                _stops.Add(new StopRow { City = string.Empty, Label = "Arrêt " + (_stops.Count + 1), Lat = target.X, Lng = target.Y });
+                var stop = new StopRow { City = string.Empty, Label = "Arrêt " + (_stops.Count + 1), Lat = target.X, Lng = target.Y };
+                _stops.Add(stop);
                 _grid.SelectedIndex = _stops.Count - 1;
                 _grid.ScrollIntoView(_grid.SelectedItem);
+                OfferMerge(stop);
             }
+            Refresh();
+        }
+
+        private const double MergeRadiusMeters = 80;
+
+        private static double Meters(double lat1, double lng1, double lat2, double lng2)
+        {
+            var dy = (lat2 - lat1) * 111320.0;
+            var dx = (lng2 - lng1) * 111320.0 * Math.Cos((lat1 + lat2) / 2 * Math.PI / 180);
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static bool SamePlace(StopRow a, StopRow b)
+        {
+            return string.Equals((a.Label ?? string.Empty).Trim(), (b.Label ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
+                && string.Equals((a.City ?? string.Empty).Trim(), (b.City ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
+                && Meters(a.Lat, a.Lng, b.Lat, b.Lng) < 1;
+        }
+
+        // Arrêt le plus proche d'une autre ligne (dans le rayon) et liste des lignes qui le desservent.
+        private MergeSuggestion SuggestFor(StopRow stop)
+        {
+            if (_others == null) return null;
+            StopRow nearest = null;
+            var best = double.MaxValue;
+            foreach (var other in _others)
+            {
+                foreach (var row in other.Rows)
+                {
+                    var distance = Meters(stop.Lat, stop.Lng, row.Lat, row.Lng);
+                    if (distance <= MergeRadiusMeters && distance < best) { best = distance; nearest = row; }
+                }
+            }
+            if (nearest == null) return null;
+            var suggestion = new MergeSuggestion { Stop = stop, Target = nearest, Meters = best, Identical = SamePlace(stop, nearest) };
+            foreach (var other in _others)
+            {
+                if (suggestion.Lines.Contains(other.Name)) continue;
+                if (other.Rows.Any(row => Meters(nearest.Lat, nearest.Lng, row.Lat, row.Lng) <= MergeRadiusMeters)) suggestion.Lines.Add(other.Name);
+            }
+            return suggestion;
+        }
+
+        private void OfferMerge(StopRow stop)
+        {
+            var suggestion = SuggestFor(stop);
+            if (suggestion == null || suggestion.Identical) return;
+            var text = "L'arrêt est à " + Math.Round(suggestion.Meters) + " m de « " + suggestion.Target.Label + " » (" + string.Join(", ", suggestion.Lines.ToArray()) + ").\nFusionner en un arrêt commun (même nom, même position) ?";
+            if (Ui.Confirm(text)) Merge(suggestion);
+        }
+
+        // Le tracé est corrigé pour passer exactement par l'arrêt commun.
+        private void Merge(MergeSuggestion suggestion)
+        {
+            var stop = suggestion.Stop;
+            var index = _stops.IndexOf(stop);
+            stop.City = suggestion.Target.City;
+            stop.Label = suggestion.Target.Label;
+            stop.Lat = suggestion.Target.Lat;
+            stop.Lng = suggestion.Target.Lng;
+            if (index >= 0) { _stops[index] = new StopRow { City = stop.City, Label = stop.Label, Lat = stop.Lat, Lng = stop.Lng }; }
+            InsertIntoPath(new Point(suggestion.Target.Lat, suggestion.Target.Lng));
+        }
+
+        private void InsertIntoPath(Point point)
+        {
+            if (_path.Count < 2) return;
+            var bestIndex = -1;
+            var bestDistance = double.MaxValue;
+            for (var i = 0; i + 1 < _path.Count; i++)
+            {
+                var a = _path[i]; var b = _path[i + 1];
+                var dx = b.X - a.X; var dy = b.Y - a.Y;
+                var length2 = dx * dx + dy * dy;
+                var t = length2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((point.X - a.X) * dx + (point.Y - a.Y) * dy) / length2));
+                var distance = Meters(point.X, point.Y, a.X + t * dx, a.Y + t * dy);
+                if (distance < bestDistance) { bestDistance = distance; bestIndex = i; }
+            }
+            if (bestIndex < 0 || bestDistance > MergeRadiusMeters * 2) return;
+            if (_path.Any(p => Meters(p.X, p.Y, point.X, point.Y) < 0.5)) return;
+            _path.Insert(bestIndex + 1, point);
+            _segments.Clear();
+        }
+
+        private void ReviewMerges()
+        {
+            _grid.CommitEdit(DataGridEditingUnit.Row, true);
+            var suggestions = _stops.Select(SuggestFor).Where(s => s != null && !s.Identical).ToList();
+            if (suggestions.Count == 0) { MessageBox.Show(this, "Aucun arrêt de cet itinéraire n'est proche d'un arrêt d'une autre ligne (" + MergeRadiusMeters + " m) sans être déjà commun.", "Correspondances"); return; }
+            var dialog = new MergeDialog(this, suggestions);
+            if (dialog.ShowDialog() != true) return;
+            foreach (var suggestion in dialog.Selected) Merge(suggestion);
             Refresh();
         }
 
@@ -278,8 +430,10 @@ namespace IneoRbe.Planning
             var dialog = new GeocodeDialog(this);
             if (dialog.ShowDialog() != true) return;
             var parts = dialog.Label.Split(',');
-            _stops.Add(new StopRow { City = string.Empty, Label = parts[0].Trim(), Lat = Math.Round(dialog.Lat, 6), Lng = Math.Round(dialog.Lng, 6) });
+            var placed = new StopRow { City = string.Empty, Label = parts[0].Trim(), Lat = Math.Round(dialog.Lat, 6), Lng = Math.Round(dialog.Lng, 6) };
+            _stops.Add(placed);
             _map.SetView(dialog.Lat, dialog.Lng, 15);
+            OfferMerge(placed);
             Refresh();
         }
 

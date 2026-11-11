@@ -204,7 +204,8 @@ namespace IneoRbe.Planning
                 {
                     if (sameLine && key == prefix) continue;
                     var item = new OtherLine { Name = Json.Str(other, "name"), Color = Ui.Brush(string.IsNullOrEmpty(Json.Str(other, "color")) ? "#9F063A" : Json.Str(other, "color")) };
-                    item.Stops = LineData.ReadStops(other, key + "Stops").Select(s => new Point(s.Lat, s.Lng)).ToList();
+                    item.Rows = LineData.ReadStops(other, key + "Stops");
+                    item.Stops = item.Rows.Select(s => new Point(s.Lat, s.Lng)).ToList();
                     item.Path = LineData.ReadPath(other, key + "Path");
                     if (item.Stops.Count > 0 || item.Path.Count > 0) others.Add(item);
                 }
