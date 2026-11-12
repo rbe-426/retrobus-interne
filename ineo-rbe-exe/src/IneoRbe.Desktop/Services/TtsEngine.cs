@@ -66,6 +66,15 @@ namespace IneoRbe.Desktop.Services
 
         public static bool InfovoxInstalled() { return InfovoxFolder() != null; }
 
+        // Chemin de SpeechPad.exe (livré avec Infovox Desktop) ; null s'il est absent. Simple détection, rien n'est lancé.
+        public static string SpeechPadPath()
+        {
+            var folder = InfovoxFolder();
+            if (folder == null) return null;
+            var path = System.IO.Path.Combine(folder, "SpeechPad.exe");
+            return System.IO.File.Exists(path) ? path : null;
+        }
+
         public static void Cancel() { Interlocked.Increment(ref _generation); }
 
         // Garde-fou : un moteur qui ne signale jamais la fin ne doit pas lire sans fin.

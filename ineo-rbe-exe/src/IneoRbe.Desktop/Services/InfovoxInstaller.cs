@@ -32,10 +32,10 @@ namespace IneoRbe.Desktop.Services
         public static bool IsInstalled()
         {
             var folder = InstallFolder;
-            return File.Exists(Path.Combine(folder, "AcaTts.dll")) && File.Exists(Path.Combine(folder, VoiceFolder, "Claire22k.vco"));
+            return File.Exists(Path.Combine(folder, "AcaTts.dll")) && Directory.Exists(Path.Combine(folder, VoiceFolder));
         }
 
-        // Emplacements où chercher le package : à côté du logiciel, puis dans le dossier de données partagé des UC.
+        // Emplacements où chercher le package : argument, puis à côté du logiciel, puis dans le dossier de données partagé des UC.
         public static string FindPackage(string explicitPath)
         {
             var candidates = new List<string>();
@@ -85,9 +85,6 @@ namespace IneoRbe.Desktop.Services
                     if (error != null) return error;
                 }
                 if (!IsInstalled()) return "Des fichiers d'Infovox sont manquants après le dézippage.";
-
-                // Le package pèse plus de 90 Mo : inutile de le garder une fois installé.
-                try { File.Delete(packagePath); } catch (Exception) { }
                 return null;
             }
             catch (Exception exception) { return exception.Message; }
@@ -143,7 +140,7 @@ namespace IneoRbe.Desktop.Services
             return null;
         }
 
-        // --- Lecteur ZIP minimal (méthodes « stockée » et « deflate », sans ZIP64 : le package fait moins de 4 Go). ---
+        // --- Lecteur ZIP minimal (méthodes « stockée » et « deflate », sans ZIP64). ---
 
         private sealed class ZipEntryInfo
         {
@@ -161,8 +158,7 @@ namespace IneoRbe.Desktop.Services
             {
                 foreach (var entry in ReadDirectory(stream))
                 {
-                    var relative = entry.Name.Replace('/', '\\');
-                    var full = Path.GetFullPath(Path.Combine(root, relative));
+                    var full = Path.GetFullPath(Path.Combine(root, entry.Name.Replace('/', '\\')));
                     if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Chemin interdit dans le package : " + entry.Name);
                     if (entry.Name.EndsWith("/")) { Directory.CreateDirectory(full); continue; }
                     Directory.CreateDirectory(Path.GetDirectoryName(full));

@@ -88,6 +88,8 @@
     <Compile Include="Services\SaeivStore.cs" />
     <Compile Include="Services\AppIcon.cs" />
     <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\splash-logo.png" />
+    <Compile Include="SplashWindow.cs" />
     <Compile Include="Services\TlsSupport.cs" />
     <Compile Include="Services\UcIdentityClient.cs" />
     <Compile Include="Services\UpdateClient.cs" />

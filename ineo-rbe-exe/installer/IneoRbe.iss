@@ -48,6 +48,9 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 ; Ouvre le port de maintenance (TCP 47800) : Vista et plus = règle avancée ; XP = ouverture de port du pare-feu Windows.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Inéo RétroBus Maintenance"" dir=in action=allow protocol=TCP localport=47800 profile=any"; Flags: runhidden; MinVersion: 0,6.0
 Filename: "{sys}\netsh.exe"; Parameters: "firewall add portopening protocol=TCP port=47800 name=""Inéo RétroBus Maintenance"" mode=ENABLE scope=ALL"; Flags: runhidden; OnlyBelowVersion: 0,6.0
+; Voix embarquées : si Infovox est absent et que « Infovox Desktop 2.2.zip » est disponible (dossier voix du logiciel ou
+; {commonappdata}\IneoRbe\voix), l'UC le dézippe et l'installe. Journal : {commonappdata}\IneoRbe\voix-setup.log.
+Filename: "{app}\{#AppExeName}"; Parameters: "/install-voices"; StatusMsg: "Installation des voix embarquées (Infovox)..."; Flags: waituntilterminated runhidden; Check: InfovoxMissing
 ; Sans « skipifsilent » : la mise à jour (installation silencieuse) relance aussi le logiciel. « runasoriginaluser » évite
 ; de le lancer avec les droits administrateur de l'installateur.
 Filename: "{app}\{#AppExeName}"; Description: "Lancer {#AppName}"; Flags: nowait postinstall runasoriginaluser
@@ -57,6 +60,15 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\netsh.exe"; Parameters: "firewall delete portopening protocol=TCP port=47800"; Flags: runhidden; OnlyBelowVersion: 0,6.0
 
 [Code]
+// Infovox (voix embarquées) est installé dans le dossier Program Files 32 bits.
+function InfovoxMissing(): Boolean;
+var
+  Base: String;
+begin
+  if IsWin64 then Base := ExpandConstant('{pf32}') else Base := ExpandConstant('{pf}');
+  Result := not FileExists(Base + '\Acapela Group\Infovox Desktop 2.2\AcaTts.dll');
+end;
+
 // .NET Framework 4.0 (ou plus récent) est indispensable ; il n'est pas préinstallé sur Windows XP.
 function DotNet4Installed(): Boolean;
 var

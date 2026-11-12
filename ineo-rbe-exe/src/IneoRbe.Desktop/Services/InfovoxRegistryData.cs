@@ -1,7 +1,7 @@
 ﻿namespace IneoRbe.Desktop.Services
 {
-    // ClÃ©s de registre (vue 32 bits) d'Infovox Desktop 2.2, relevÃ©es sur un PC oÃ¹ il est installÃ©. %PF% = dossier Â« Program Files Â» 32 bits.
-    // K|clÃ©  S|nom|texte  D|nom|nombre : les valeurs suivent la derniÃ¨re clÃ©. GÃ©nÃ©rÃ© Ã  partir de l'export du registre.
+    // Clés de registre (vue 32 bits) d'Infovox Desktop 2.2, relevées sur un PC où il est installé. %PF% = dossier « Program Files » 32 bits.
+    // K|clé  S|nom|texte  D|nom|nombre : les valeurs suivent la dernière clé. Généré à partir de l'export du registre.
     internal static class InfovoxRegistryData
     {
         public static readonly string[] Entries =

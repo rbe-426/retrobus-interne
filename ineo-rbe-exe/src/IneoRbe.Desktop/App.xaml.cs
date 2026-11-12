@@ -18,14 +18,15 @@ namespace IneoRbe.Desktop
                 return;
             }
 
-            // Mode « installation des voix » : lancé avec les droits administrateur par l'installateur, puis quitte.
-            if (e.Args.Length > 0 && string.Equals(e.Args[0], "/install-voices", StringComparison.OrdinalIgnoreCase))
+            var splash = new SplashWindow();
+            splash.Completed += (s, a) =>
             {
-                Shutdown(Services.InfovoxInstaller.RunCommand(e.Args));
-                return;
-            }
-
-            new MainWindow().Show();
+                var main = new MainWindow();
+                MainWindow = main;
+                main.Show();
+                splash.Close();
+            };
+            splash.Show();
         }
     }
 }
