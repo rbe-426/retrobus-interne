@@ -18,7 +18,15 @@ namespace IneoRbe.Desktop.Services
 
         // Entrée de liste « Claire TICE / SAPI4 » : moteur SAPI4, voix par défaut du système (SAPI4 ne permet pas de choisir par nom).
         public const string ClaireTice = "Claire TICE / SAPI4";
-        public const string Sapi4Voice = "Claire (French) SAPI4";
+        public const string Sapi4Voice = "Claire (French) SAPI4 22kHz";
+        private static Guid _sapi4Mode = Guid.Empty;
+
+        // Mode SAPI4 « Claire (French) SAPI4 22kHz » d'Infovox Desktop (mémorisé une fois trouvé).
+        private static Guid Sapi4Claire()
+        {
+            if (_sapi4Mode == Guid.Empty) _sapi4Mode = Sapi4.FindMode("Claire", "SAPI4");
+            return _sapi4Mode;
+        }
 
         private static bool IsSapi5(string engine)
         {
@@ -87,6 +95,8 @@ namespace IneoRbe.Desktop.Services
         // Voix Infovox (ELAN TTS) française installée sur ce poste : Claire d'abord, sinon une autre voix française ; null si aucune.
         public static string FindInfovoxVoice()
         {
+            // La voix SAPI4 de SpeechPad est la référence ; la version SAPI5 n'est qu'un repli.
+            if (Sapi4Claire() != Guid.Empty) return Sapi4Voice;
             var voices = InstalledVoices();
             string any = null, claire = null, installed = null;
             foreach (var description in voices)
@@ -106,7 +116,7 @@ namespace IneoRbe.Desktop.Services
                 }
                 if (any == null) any = description;
             }
-            return installed ?? claire ?? any ?? (System.IO.File.Exists(System.IO.Path.Combine(InfovoxFolder() ?? string.Empty, "AcaTtsSapi4.dll")) ? Sapi4Voice : null);
+            return installed ?? claire ?? any;
         }
 
         // Voix SAPI5 installées (même visibilité 32/64 bits que le processus appelant). Liste vide si le moteur est absent.
@@ -217,8 +227,22 @@ namespace IneoRbe.Desktop.Services
             // Les annonces utilisent toujours le moteur Infovox installé sur l'UC (voix française Claire en priorité) ;
             // le Gestionnaire ne choisit plus de voix. Sans Infovox, on retombe sur le réglage reçu.
             var infovox = FindInfovoxVoice();
-            if (infovox == Sapi4Voice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
-            else if (infovox != null) norm = new TtsNorm { Engine = "SAPI5", Voice = infovox, Rate = norm.Rate, Volume = norm.Volume };
+            if (infovox == Sapi4Voice)
+            {
+                Exception failure = null;
+                var worker = new Thread(() =>
+                {
+                    try { Sapi4.Speak(Sapi4Claire(), text, (int)MaxDurationMs(text), () => generation != _generation); }
+                    catch (Exception exception) { failure = exception; }
+                });
+                worker.SetApartmentState(ApartmentState.MTA);
+                worker.IsBackground = true;
+                worker.Start();
+                worker.Join();
+                if (failure != null) throw failure;
+                return;
+            }
+            if (infovox != null) norm = new TtsNorm { Engine = "SAPI5", Voice = infovox, Rate = norm.Rate, Volume = norm.Volume };
             else if (norm.Voice == ClaireTice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
             var sapi5 = IsSapi5(norm.Engine);
             var type = Type.GetTypeFromProgID(ProgIdOf(norm.Engine));

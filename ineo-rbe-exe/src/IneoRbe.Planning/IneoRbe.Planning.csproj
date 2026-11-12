@@ -84,6 +84,7 @@
     <Compile Include="..\IneoRbe.Desktop\Services\SaeivStore.cs"><Link>Shared\SaeivStore.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\SaeivConfig.cs"><Link>Shared\SaeivConfig.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\TtsEngine.cs"><Link>Shared\TtsEngine.cs</Link></Compile>
+    <Compile Include="..\IneoRbe.Desktop\Services\Sapi4.cs"><Link>Shared\Sapi4.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\ApiEndpoints.cs"><Link>Shared\ApiEndpoints.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\HttpTransport.cs"><Link>Shared\HttpTransport.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\TlsSupport.cs"><Link>Shared\TlsSupport.cs</Link></Compile>
