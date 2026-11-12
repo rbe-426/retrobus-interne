@@ -9,8 +9,7 @@ namespace IneoRbe.Desktop.Services
     // Chaque lecture s'exécute sur un thread STA dédié ; aucun type COM n'est référencé à la compilation.
     public static class TtsEngine
     {
-        private static readonly object Sync = new object();
-        private static volatile bool _cancel;
+        private static int _generation;
 
         public static bool IsAvailable(string engine)
         {
@@ -68,7 +67,7 @@ namespace IneoRbe.Desktop.Services
 
         public static bool InfovoxInstalled() { return InfovoxFolder() != null; }
 
-        public static void Cancel() { _cancel = true; }
+        public static void Cancel() { Interlocked.Increment(ref _generation); }
 
         // Garde-fou : un moteur qui ne signale jamais la fin ne doit pas lire sans fin.
         private static double MaxDurationMs(string text)
@@ -104,27 +103,38 @@ namespace IneoRbe.Desktop.Services
         // Lit le texte puis appelle done(null) ou done(message d'erreur), depuis le thread de lecture.
         public static void Speak(string text, TtsNorm norm, Action<string> done)
         {
+            var generation = _generation;
+            var finished = 0;
+            Action<string> finish = error =>
+            {
+                if (Interlocked.Exchange(ref finished, 1) == 0 && done != null) done(error);
+            };
             var thread = new Thread(() =>
             {
                 string error = null;
-                lock (Sync)
-                {
-                    _cancel = false;
-                    try { Run(text, norm ?? new TtsNorm()); }
-                    catch (Exception exception) { error = (exception.InnerException ?? exception).Message; }
-                }
-                if (done != null) done(error);
+                try { Run(text, norm ?? new TtsNorm(), generation); }
+                catch (Exception exception) { error = (exception.InnerException ?? exception).Message; }
+                finish(error);
             });
             thread.SetApartmentState(ApartmentState.STA);
             thread.IsBackground = true;
             thread.Start();
+
+            // Un moteur qui se bloque dans un appel COM ne rend jamais la main : on libère l'interface.
+            var watchdog = new Thread(() =>
+            {
+                if (!thread.Join((int)MaxDurationMs(text) + 4000))
+                    finish("Le moteur vocal ne répond pas (SAPI4 : vérifiez la voix du panneau « Parole » de Windows).");
+            });
+            watchdog.IsBackground = true;
+            watchdog.Start();
         }
 
         private static object Get(object target, string name) { return target.GetType().InvokeMember(name, BindingFlags.GetProperty, null, target, null); }
         private static void Set(object target, string name, object value) { target.GetType().InvokeMember(name, BindingFlags.SetProperty, null, target, new[] { value }); }
         private static object Call(object target, string name, params object[] args) { return target.GetType().InvokeMember(name, BindingFlags.InvokeMethod, null, target, args); }
 
-        private static void Run(string text, TtsNorm norm)
+        private static void Run(string text, TtsNorm norm, int generation)
         {
             if (norm.Voice == ClaireTice) norm.Engine = "SAPI4";
             var sapi5 = IsSapi5(norm.Engine);
@@ -154,7 +164,7 @@ namespace IneoRbe.Desktop.Services
                     Call(voice, "Speak", text, 1);
                     while (!(bool)Call(voice, "WaitUntilDone", 100))
                     {
-                        if (_cancel || DateTime.UtcNow > limit) { Call(voice, "Speak", string.Empty, 3); break; }
+                        if (generation != _generation || DateTime.UtcNow > limit) { Call(voice, "Speak", string.Empty, 3); break; }
                     }
                 }
                 else
@@ -166,7 +176,7 @@ namespace IneoRbe.Desktop.Services
                     Call(voice, "Speak", text, 0);
                     while ((bool)Get(voice, "IsSpeaking"))
                     {
-                        if (_cancel || DateTime.UtcNow > limit) { Call(voice, "StopSpeaking"); break; }
+                        if (generation != _generation || DateTime.UtcNow > limit) { Call(voice, "StopSpeaking"); break; }
                         Thread.Sleep(80);
                     }
                 }
