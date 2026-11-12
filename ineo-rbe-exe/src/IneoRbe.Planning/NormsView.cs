@@ -166,7 +166,7 @@ namespace IneoRbe.Planning
             {
                 if (_loading || _voice.SelectedItem == null) return;
                 _voice.Text = (string)_voice.SelectedItem;
-                if (_voice.Text == TtsEngine.ClaireTice) _engine.SelectedItem = "SAPI4";
+                if (_voice.Text == TtsEngine.ClaireTice) _engine.SelectedItem = "SAPI5";
                 Apply();
             };
             _voice.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => Apply()));
