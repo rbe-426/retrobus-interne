@@ -145,12 +145,13 @@ namespace IneoRbe.Desktop
 
         private Result CheckVoiceEngine()
         {
+            var infovox = TtsEngine.FindInfovoxVoice();
+            if (infovox != null) return Result.Pass("Infovox : " + infovox);
             var norm = _config != null && _config.Norms != null ? _config.Norms.Tts : null;
             if (norm != null && !norm.Enabled) return Result.Pass("désactivé dans la norme");
             var engine = norm == null ? "SAPI4" : norm.Engine;
-            if (!TtsEngine.IsAvailable(engine)) return Result.Warn(engine + " non installé : annonces vocales muettes");
-            var voices = TtsEngine.InstalledVoices().Count;
-            return Result.Pass(engine + " disponible" + (voices > 0 ? " (" + voices + " voix SAPI5)" : string.Empty));
+            if (!TtsEngine.IsAvailable(engine)) return Result.Warn("Infovox non détecté : annonces vocales muettes");
+            return Result.Warn("Infovox non détecté, repli sur " + engine);
         }
 
         private static Result CheckSpeechPad()

@@ -29,6 +29,11 @@ namespace IneoRbe.Desktop.Services
             return BaseUrl + "/content?serial=" + Uri.EscapeDataString(serial);
         }
 
+        public static string VoiceTestUrl(string serial)
+        {
+            return BaseUrl + "/voice-test?serial=" + Uri.EscapeDataString(serial);
+        }
+
         public static string ContentFileUrl(string storedName)
         {
             return BaseUrl + "/content-file/" + Uri.EscapeDataString(storedName);

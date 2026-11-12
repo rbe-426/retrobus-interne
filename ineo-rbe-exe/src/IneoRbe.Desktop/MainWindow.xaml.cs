@@ -82,11 +82,35 @@ namespace IneoRbe.Desktop
             Loaded += (s, e) =>
             {
                 _syncTimer.Start();
+                var voiceTestTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+                voiceTestTimer.Tick += (t, a) => PollVoiceTest();
+                voiceTestTimer.Start();
+                Closed += (c, d) => voiceTestTimer.Stop();
                 var startupTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
                 startupTimer.Tick += (t, a) => { startupTimer.Stop(); _engine.PlayStartupAnnouncements(); };
                 startupTimer.Start();
                 StartSync(true, startupNotice);
             };
+        }
+
+        private volatile bool _voiceTestBusy;
+
+        // Test de voix demandé à distance depuis le Gestionnaire : le serveur remet le texte une seule fois.
+        private void PollVoiceTest()
+        {
+            var serial = _serial;
+            if (serial == null || _voiceTestBusy) return;
+            _voiceTestBusy = true;
+            Task.Factory.StartNew(() =>
+            {
+                try
+                {
+                    var text = _identityClient.PollVoiceTest(serial);
+                    if (text != null) Dispatcher.BeginInvoke(new Action(() => _engine.SpeakTest(text)));
+                }
+                catch (Exception) { }
+                finally { _voiceTestBusy = false; }
+            });
         }
 
         private void OnNetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
@@ -209,6 +233,8 @@ namespace IneoRbe.Desktop
 
             try
             {
+                var infovoxVoice = TtsEngine.FindInfovoxVoice();
+                _identityClient.VoiceEngine = infovoxVoice != null ? "Infovox : " + infovoxVoice : "Infovox non détecté";
                 List<PilotCommandResult> sent;
                 lock (_resultsLock) sent = _pendingResults.ToList();
 

@@ -95,11 +95,33 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "online")] public bool Online { get; set; }
         [DataMember(Name = "screensRevision")] public string ScreensRevision { get; set; }
         [DataMember(Name = "contentRevision")] public string ContentRevision { get; set; }
+        [DataMember(Name = "voiceEngine")] public string VoiceEngine { get; set; }
         [DataMember(Name = "commandResults")] public List<PilotCommandResult> CommandResults { get; set; }
+    }
+
+    [DataContract]
+    public sealed class VoiceTestReply
+    {
+        [DataMember(Name = "text")] public string Text { get; set; }
     }
 
     public sealed class UcIdentityClient
     {
+        // Moteur vocal détecté sur ce poste, remonté au serveur pour affichage dans le Gestionnaire.
+        public string VoiceEngine { get; set; }
+
+        // Interroge le serveur : retourne le texte d'un test de voix demandé par le Gestionnaire, ou null. Appel bloquant.
+        public string PollVoiceTest(string serial)
+        {
+            var response = HttpTransport.Send("GET", ApiEndpoints.VoiceTestUrl(serial), null, null, 8000);
+            if (!response.IsSuccess) return null;
+            using (var stream = new MemoryStream(response.Body))
+            {
+                var reply = (VoiceTestReply)new DataContractJsonSerializer(typeof(VoiceTestReply)).ReadObject(stream);
+                return reply == null || string.IsNullOrEmpty(reply.Text) ? null : reply.Text;
+            }
+        }
+
         // Appel bloquant : à exécuter hors du thread d'interface.
         public UcIdentity Sync(string serial, string appVersion, string screensRevision, string contentRevision, IList<PilotCommandResult> results)
         {
@@ -113,6 +135,7 @@ namespace IneoRbe.Desktop.Services
                 Online = true,
                 ScreensRevision = screensRevision,
                 ContentRevision = contentRevision,
+                VoiceEngine = VoiceEngine,
                 CommandResults = results == null ? new List<PilotCommandResult>() : results.ToList(),
             };
             byte[] json;

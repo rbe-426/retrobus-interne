@@ -18,6 +18,7 @@ namespace IneoRbe.Desktop.Services
 
         // Entrée de liste « Claire TICE / SAPI4 » : moteur SAPI4, voix par défaut du système (SAPI4 ne permet pas de choisir par nom).
         public const string ClaireTice = "Claire TICE / SAPI4";
+        public const string Sapi4Voice = "Claire (French) SAPI4";
 
         private static bool IsSapi5(string engine)
         {
@@ -81,6 +82,31 @@ namespace IneoRbe.Desktop.Services
         private static double MaxDurationMs(string text)
         {
             return 5000 + 150.0 * (text == null ? 0 : text.Length);
+        }
+
+        // Voix Infovox (ELAN TTS) française installée sur ce poste : Claire d'abord, sinon une autre voix française ; null si aucune.
+        public static string FindInfovoxVoice()
+        {
+            var voices = InstalledVoices();
+            string any = null, claire = null, installed = null;
+            foreach (var description in voices)
+            {
+                // Infovox Desktop 2.2 (dossier Acapela Group) enregistre « Claire (French) SAPI5 ».
+                if (description.IndexOf("Claire", StringComparison.OrdinalIgnoreCase) >= 0 && description.IndexOf("French", StringComparison.OrdinalIgnoreCase) >= 0
+                    && description.IndexOf("ELAN", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    installed = description;
+                    continue;
+                }
+                if (description.IndexOf("ELAN TTS French", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (description.IndexOf("Claire", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (claire == null || description.IndexOf("22Khz", StringComparison.OrdinalIgnoreCase) >= 0) claire = description;
+                    continue;
+                }
+                if (any == null) any = description;
+            }
+            return installed ?? claire ?? any ?? (System.IO.File.Exists(System.IO.Path.Combine(InfovoxFolder() ?? string.Empty, "AcaTtsSapi4.dll")) ? Sapi4Voice : null);
         }
 
         // Voix SAPI5 installées (même visibilité 32/64 bits que le processus appelant). Liste vide si le moteur est absent.
@@ -188,7 +214,12 @@ namespace IneoRbe.Desktop.Services
 
         private static void Run(string text, TtsNorm norm, int generation)
         {
-            if (norm.Voice == ClaireTice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
+            // Les annonces utilisent toujours le moteur Infovox installé sur l'UC (voix française Claire en priorité) ;
+            // le Gestionnaire ne choisit plus de voix. Sans Infovox, on retombe sur le réglage reçu.
+            var infovox = FindInfovoxVoice();
+            if (infovox == Sapi4Voice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
+            else if (infovox != null) norm = new TtsNorm { Engine = "SAPI5", Voice = infovox, Rate = norm.Rate, Volume = norm.Volume };
+            else if (norm.Voice == ClaireTice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
             var sapi5 = IsSapi5(norm.Engine);
             var type = Type.GetTypeFromProgID(ProgIdOf(norm.Engine));
             if (type == null) throw new InvalidOperationException("Moteur vocal " + (norm.Engine ?? "SAPI4") + " non installé sur ce PC.");

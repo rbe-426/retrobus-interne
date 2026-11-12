@@ -90,20 +90,18 @@ namespace IneoRbe.Planning
             left.Children.Add(Ui.Text("Voix embarquée (annonces)", 13, true));
             left.Children.Add(_ttsEnabled);
             var engineRow = new UniformGrid { Columns = 2 };
-            engineRow.Children.Add(Field("Moteur vocal", _engine));
             engineRow.Children.Add(Field("Vitesse (% – 50 à 150)", _rate));
             engineRow.Children.Add(Field("Volume (% – 0 à 100)", _volume));
             left.Children.Add(engineRow);
-            left.Children.Add(Field("Voix (liste des voix installées sur ce PC ; vide = voix par défaut)", _voice));
-            left.Children.Add(Ui.Toolbar(Ui.Button("Actualiser les voix", (s, e) => RefreshVoices()), _voiceInfo));
+            left.Children.Add(Ui.Text("Voix : moteur Infovox installé sur chaque UC (Claire par défaut), détecté automatiquement par l'UC. Aucune voix à choisir ici.", 11, false, Ui.Muted));
+            left.Children.Add(Field("UC pour le test (voix détectée sur l'UC)", _ucBox));
+            left.Children.Add(Ui.Toolbar(Ui.Button("Tester la voix sur l'UC", (s, e) => TestVoiceOnUc()), Ui.Button("Actualiser les UC", (s, e) => LoadUcs()), _ttsStatus));
             left.Children.Add(Field("Pré-annonce : distance avant l'arrêt (m)", _preMeters));
             left.Children.Add(Ui.Text("Variables : {ligne} {destination} {arret} {correspondances}", 11, false, Ui.Muted));
             left.Children.Add(Field("Annonce de ligne", _textLine));
             left.Children.Add(Field("Prochain arrêt", _textNext));
             left.Children.Add(Field("Correspondances", _textCorr));
             left.Children.Add(Field("Terminus", _textTerminus));
-            left.Children.Add(Ui.Toolbar(            Ui.Button("Tester la voix", (s, e) => TestVoice()), Ui.Button("Arrêter", (s, e) => { TtsEngine.Cancel(); _ttsStatus.Text = "  Lecture arrêtée."; }), Ui.Button("Voix installées…", (s, e) => ShowVoices()), _ttsStatus));
-                        left.Children.Add(Ui.Text("SAPI4 utilise la voix choisie dans le panneau « Parole » de l'UC. INFOVOX (Acapela) est installé sur les UC par leur installateur : saisissez le nom de la voix (voir « Voix installées »).", 11, false, Ui.Muted));
 
             var right = new StackPanel();
             right.Children.Add(Ui.Text("Écrans TFT", 13, true));
@@ -161,16 +159,7 @@ namespace IneoRbe.Planning
                 box.TextChanged += (s, e) => Apply();
             foreach (var box in new[] { _ttsEnabled, _lineBand, _adaptive, _showLine, _showDestination, _showClock, _showNext })
                 box.Click += (s, e) => Apply();
-            _engine.SelectionChanged += (s, e) => Apply();
-            _voice.SelectionChanged += (s, e) =>
-            {
-                if (_loading || _voice.SelectedItem == null) return;
-                _voice.Text = (string)_voice.SelectedItem;
-                if (_voice.Text == TtsEngine.ClaireTice) _engine.SelectedItem = "SAPI4";
-                Apply();
-            };
-            _voice.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => Apply()));
-            Loaded += (s, e) => { if (_voice.Items.Count == 0) RefreshVoices(); };
+            Loaded += (s, e) => { if (_ucBox.Items.Count == 0) LoadUcs(); };
             _fixedPosition.SelectionChanged += (s, e) => Apply();
             _slideType.SelectionChanged += (s, e) => ApplySlide();
 
@@ -238,6 +227,52 @@ namespace IneoRbe.Planning
             Load();
         }
 
+        private readonly ComboBox _ucBox = new ComboBox { DisplayMemberPath = "Label", SelectedValuePath = "Serial" };
+
+        private sealed class UcChoice
+        {
+            public string Serial { get; set; }
+            public string Label { get; set; }
+        }
+
+        private void LoadUcs()
+        {
+            Ui.Run(Dispatcher, () => Data.List("/ineo/uc-devices", "devices"), devices =>
+            {
+                var keep = _ucBox.SelectedValue as string;
+                var items = new List<UcChoice>();
+                foreach (var device in devices)
+                {
+                    var serial = Json.Str(device, "serial") ?? string.Empty;
+                    var voice = Json.Str(device, "voiceEngine");
+                    var parc = Json.Str(device, "vehicleParc");
+                    items.Add(new UcChoice
+                    {
+                        Serial = serial,
+                        Label = (!string.IsNullOrEmpty(parc) ? parc + " – " : string.Empty) + Json.Str(device, "hostname") + " (" + serial + ") – " + (!string.IsNullOrEmpty(voice) ? voice : "voix non remontée (UC à mettre à jour)"),
+                    });
+                }
+                _ucBox.ItemsSource = items;
+                if (keep != null) _ucBox.SelectedValue = keep;
+                else if (items.Count > 0) _ucBox.SelectedIndex = 0;
+                _ttsStatus.Text = items.Count == 0 ? "  Aucun UC connu du serveur." : string.Empty;
+            }, error => _ttsStatus.Text = "  Erreur : " + error);
+        }
+
+        // Le test est exécuté par l'UC lui-même (moteur Infovox du poste), via le serveur : délai d'environ 10 secondes.
+        private void TestVoiceOnUc()
+        {
+            var serial = _ucBox.SelectedValue as string;
+            if (string.IsNullOrEmpty(serial)) { _ttsStatus.Text = "  Choisissez un UC."; return; }
+            var tts = _norms.Tts;
+            var sentence = TtsEngine.Fill(tts.Texts.Line, SampleLine, SampleDestination, SampleStop, SampleCorrespondences) + " "
+                + TtsEngine.Fill(tts.Texts.NextStop, SampleLine, SampleDestination, SampleStop, SampleCorrespondences);
+            _ttsStatus.Text = "  Envoi à l'UC…";
+            Ui.Run(Dispatcher, () => Api.Post("/ineo/uc-devices/" + Data.Encode(serial) + "/voice-test", new Dictionary<string, object> { { "text", sentence } }),
+                r => _ttsStatus.Text = "  Ordre envoyé : l'UC parle dans environ 10 secondes (elle doit être allumée et connectée).",
+                error => _ttsStatus.Text = "  Erreur : " + error);
+        }
+
         private void RefreshVoices()
         {
             var keep = _voice.Text;
@@ -267,8 +302,6 @@ namespace IneoRbe.Planning
             var tts = _norms.Tts;
             var screens = _norms.Screens;
             _ttsEnabled.IsChecked = tts.Enabled;
-            _engine.SelectedItem = tts.Engine == "SAPI5" || tts.Engine == "INFOVOX" ? tts.Engine : "SAPI4";
-            _voice.Text = tts.Voice ?? string.Empty;
             _rate.Text = Int(tts.Rate);
             _volume.Text = Int(tts.Volume);
             _preMeters.Text = Int(tts.PreAnnounceMeters);
@@ -298,9 +331,9 @@ namespace IneoRbe.Planning
             var tts = _norms.Tts;
             var screens = _norms.Screens;
             tts.Enabled = _ttsEnabled.IsChecked == true;
-            var engine = _engine.SelectedItem as string;
-            tts.Engine = engine == "SAPI5" || engine == "INFOVOX" ? engine : "SAPI4";
-            tts.Voice = _voice.Text.Trim();
+            // Le moteur et la voix sont déterminés par chaque UC (Infovox installé sur le poste).
+            tts.Engine = "INFOVOX";
+            tts.Voice = string.Empty;
             tts.Rate = Math.Max(50, Math.Min(150, ParseInt(_rate.Text, 100)));
             tts.Volume = Math.Max(0, Math.Min(100, ParseInt(_volume.Text, 100)));
             tts.PreAnnounceMeters = Math.Max(0, Math.Min(2000, ParseInt(_preMeters.Text, 150)));

@@ -90,7 +90,7 @@ namespace IneoRbe.Desktop.Services
 
         private static Process StartInstaller(string installerPath)
         {
-            var arguments = "/SILENT /SUPPRESSMSGBOXES /NOCANCEL /NORESTART /CLOSEAPPLICATIONS /LOG=\"" + LogPath + "\"";
+            var arguments = "/SILENT /SUPPRESSMSGBOXES /NOCANCEL /NORESTART /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /LOG=\"" + LogPath + "\"";
             for (var attempt = 1; ; attempt++)
             {
                 try
