@@ -18,6 +18,9 @@ namespace IneoRbe.Desktop.Services
         }
 
         // INFOVOX (Acapela Infovox Desktop) s'expose comme voix SAPI5 : même lecture, voix choisie par son nom.
+        // Entrée de liste « Claire TICE / SAPI4 » : voix Infovox lue par le moteur SAPI4 (voix du panneau Parole).
+        public const string ClaireTice = "Claire TICE / SAPI4";
+
         private static bool IsSapi5(string engine)
         {
             return string.Equals(engine, "SAPI5", StringComparison.OrdinalIgnoreCase) || string.Equals(engine, "INFOVOX", StringComparison.OrdinalIgnoreCase);
@@ -123,6 +126,7 @@ namespace IneoRbe.Desktop.Services
 
         private static void Run(string text, TtsNorm norm)
         {
+            if (norm.Voice == ClaireTice) norm.Engine = "SAPI4";
             var sapi5 = IsSapi5(norm.Engine);
             var type = Type.GetTypeFromProgID(ProgIdOf(norm.Engine));
             if (type == null) throw new InvalidOperationException("Moteur vocal " + (norm.Engine ?? "SAPI4") + " non installé sur ce PC.");

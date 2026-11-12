@@ -162,7 +162,13 @@ namespace IneoRbe.Planning
             foreach (var box in new[] { _ttsEnabled, _lineBand, _adaptive, _showLine, _showDestination, _showClock, _showNext })
                 box.Click += (s, e) => Apply();
             _engine.SelectionChanged += (s, e) => Apply();
-            _voice.SelectionChanged += (s, e) => { if (!_loading && _voice.SelectedItem != null) { _voice.Text = (string)_voice.SelectedItem; Apply(); } };
+            _voice.SelectionChanged += (s, e) =>
+            {
+                if (_loading || _voice.SelectedItem == null) return;
+                _voice.Text = (string)_voice.SelectedItem;
+                if (_voice.Text == TtsEngine.ClaireTice) _engine.SelectedItem = "SAPI4";
+                Apply();
+            };
             _voice.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => Apply()));
             Loaded += (s, e) => { if (_voice.Items.Count == 0) RefreshVoices(); };
             _fixedPosition.SelectionChanged += (s, e) => Apply();
@@ -238,6 +244,7 @@ namespace IneoRbe.Planning
             var voices = TtsEngine.InstalledVoices();
             _loading = true;
             _voice.Items.Clear();
+            if (TtsEngine.InfovoxInstalled()) _voice.Items.Add(TtsEngine.ClaireTice);
             foreach (var name in voices) _voice.Items.Add(name);
             _voice.Text = keep;
             _loading = false;
