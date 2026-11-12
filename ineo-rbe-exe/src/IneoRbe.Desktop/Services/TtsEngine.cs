@@ -232,7 +232,7 @@ namespace IneoRbe.Desktop.Services
                 Exception failure = null;
                 var worker = new Thread(() =>
                 {
-                    try { Sapi4.Speak(Sapi4Claire(), text, (int)MaxDurationMs(text), () => generation != _generation); }
+                    try { Sapi4.Speak(Sapi4Claire(), text, norm.Rate, norm.Volume, (int)MaxDurationMs(text), () => generation != _generation); }
                     catch (Exception exception) { failure = exception; }
                 });
                 worker.SetApartmentState(ApartmentState.MTA);

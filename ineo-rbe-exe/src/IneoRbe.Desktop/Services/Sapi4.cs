@@ -49,6 +49,19 @@ namespace IneoRbe.Desktop.Services
             [PreserveSig] int Visual(ulong timeStamp, ushort ipaPhoneme, ushort enginePhoneme, uint hints, IntPtr mouth);
         }
 
+        [ComImport, Guid("1287A280-4A47-101B-931A-00AA0047BA4F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface ITTSAttributesW
+        {
+            [PreserveSig] int PitchGet(out ushort pitch);
+            [PreserveSig] int PitchSet(ushort pitch);
+            [PreserveSig] int RealTimeGet(out uint realTime);
+            [PreserveSig] int RealTimeSet(uint realTime);
+            [PreserveSig] int SpeedGet(out uint speed);
+            [PreserveSig] int SpeedSet(uint speed);
+            [PreserveSig] int VolumeGet(out uint volume);
+            [PreserveSig] int VolumeSet(uint volume);
+        }
+
         [ClassInterface(ClassInterfaceType.None)]
         private sealed class Sink : ITTSNotifySinkW
         {
@@ -96,8 +109,27 @@ namespace IneoRbe.Desktop.Services
             return found;
         }
 
+        // Vitesse : pourcentage de la vitesse par défaut de la voix (100 = normale). Volume : 0 à 100 % du maximum.
+        private static void ApplyAttributes(object central, int ratePercent, int volumePercent)
+        {
+            var attributes = central as ITTSAttributesW;
+            if (attributes == null) return;
+            try
+            {
+                uint speed;
+                if (attributes.SpeedGet(out speed) == 0 && speed > 0)
+                {
+                    var wanted = (uint)Math.Max(1.0, speed * Math.Max(50, Math.Min(150, ratePercent)) / 100.0);
+                    attributes.SpeedSet(wanted);
+                }
+                var level = (uint)(0xFFFF * Math.Max(0, Math.Min(100, volumePercent)) / 100.0);
+                attributes.VolumeSet((level << 16) | level);
+            }
+            catch (Exception) { }
+        }
+
         // Lit le texte avec le mode donné ; bloque jusqu'à la fin de la lecture (ou maxMs). Appelé depuis un thread MTA.
-        public static void Speak(Guid mode, string text, int maxMs, Func<bool> cancelled)
+        public static void Speak(Guid mode, string text, int ratePercent, int volumePercent, int maxMs, Func<bool> cancelled)
         {
             var type = Type.GetTypeFromCLSID(EnumeratorClsid);
             var enumerator = (ITTSEnumW)Activator.CreateInstance(type);
@@ -114,6 +146,7 @@ namespace IneoRbe.Desktop.Services
                 var hr = enumerator.Select(mode, out central, audioPointer);
                 if (hr != 0 || central == null) throw new InvalidOperationException("Voix SAPI4 indisponible (code 0x" + hr.ToString("X8") + ").");
                 tts = (ITTSCentralW)central;
+                ApplyAttributes(central, ratePercent, volumePercent);
 
                 var sink = new Sink();
                 sinkPointer = Marshal.GetComInterfaceForObject(sink, typeof(ITTSNotifySinkW));
