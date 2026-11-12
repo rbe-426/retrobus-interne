@@ -16,7 +16,7 @@ namespace IneoRbe.Desktop.Services
             return Type.GetTypeFromProgID(ProgIdOf(engine)) != null;
         }
 
-        // Entrée de liste « Claire TICE / SAPI4 » : en réalité la voix SAPI5 Claire 22 kHz d'Infovox (32 bits, absente du panneau Parole 64 bits).
+        // Entrée de liste « Claire TICE / SAPI4 » : moteur SAPI4, voix par défaut du système (SAPI4 ne permet pas de choisir par nom).
         public const string ClaireTice = "Claire TICE / SAPI4";
 
         private static bool IsSapi5(string engine)
@@ -135,7 +135,7 @@ namespace IneoRbe.Desktop.Services
 
         private static void Run(string text, TtsNorm norm, int generation)
         {
-            if (norm.Voice == ClaireTice) norm = new TtsNorm { Engine = "SAPI5", Voice = "Claire 22", Rate = norm.Rate, Volume = norm.Volume };
+            if (norm.Voice == ClaireTice) norm = new TtsNorm { Engine = "SAPI4", Voice = string.Empty, Rate = norm.Rate, Volume = norm.Volume };
             var sapi5 = IsSapi5(norm.Engine);
             var type = Type.GetTypeFromProgID(ProgIdOf(norm.Engine));
             if (type == null) throw new InvalidOperationException("Moteur vocal " + (norm.Engine ?? "SAPI4") + " non installé sur ce PC.");
