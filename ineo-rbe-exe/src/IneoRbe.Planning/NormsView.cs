@@ -474,7 +474,7 @@ namespace IneoRbe.Planning
                 + TtsEngine.Fill(tts.Texts.NextStop, SampleLine, SampleDestination, SampleStop, SampleCorrespondences);
             _ttsStatus.Text = "  Lecture en cours…";
             TtsEngine.Cancel();
-            TtsEngine.Speak(sentence, tts, error => Dispatcher.BeginInvoke(new Action(() => _ttsStatus.Text = error == null ? "  Lecture terminée." : "  Erreur : " + error)));
+            TtsEngine.SpeakIsolated(sentence, tts, error => Dispatcher.BeginInvoke(new Action(() => _ttsStatus.Text = error == null ? "  Lecture terminée." : "  Erreur : " + error)));
         }
 
         // Représentation JSON d'une norme, jointe à la révision publiée.

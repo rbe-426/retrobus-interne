@@ -25,6 +25,7 @@ namespace IneoRbe.Planning
         [STAThread]
         public static int Main(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "/tts", StringComparison.OrdinalIgnoreCase)) return TtsEngine.RunChild(args);
             var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             AppIcon.Install();
             app.Startup += (s, e) => app.Begin(args);

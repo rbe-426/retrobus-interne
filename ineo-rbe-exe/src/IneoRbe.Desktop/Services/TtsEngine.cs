@@ -129,6 +129,50 @@ namespace IneoRbe.Desktop.Services
             watchdog.Start();
         }
 
+        // Lecture dans un processus séparé : un moteur natif qui plante (violation d'accès) ne peut pas être rattrapé en .NET 4
+        // et fermerait le logiciel. Args : /tts moteur vitesse volume voix(base64) texte(base64).
+        public static void SpeakIsolated(string text, TtsNorm norm, Action<string> done)
+        {
+            norm = norm ?? new TtsNorm();
+            var thread = new Thread(() =>
+            {
+                string error = null;
+                try
+                {
+                    Func<string, string> b64 = s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s ?? string.Empty));
+                    var arguments = string.Format(System.Globalization.CultureInfo.InvariantCulture, "/tts {0} {1} {2} {3} {4}",
+                        norm.Engine, norm.Rate, norm.Volume, b64(norm.Voice), b64(text));
+                    var info = new System.Diagnostics.ProcessStartInfo(System.Reflection.Assembly.GetEntryAssembly().Location, arguments)
+                        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+                    using (var process = System.Diagnostics.Process.Start(info))
+                    {
+                        var output = process.StandardOutput.ReadToEnd();
+                        if (!process.WaitForExit(60000)) { try { process.Kill(); } catch (Exception) { } error = "Le moteur vocal ne répond pas."; }
+                        else if (process.ExitCode != 0)
+                            error = string.IsNullOrEmpty(output.Trim()) ? "Le moteur vocal a planté (violation de mémoire). Vérifiez l'installation et la licence d'Infovox, ou choisissez une autre voix." : output.Trim();
+                    }
+                }
+                catch (Exception exception) { error = exception.Message; }
+                if (done != null) done(error);
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        // Point d'entrée du processus de lecture ; retourne le code de sortie.
+        public static int RunChild(string[] args)
+        {
+            try
+            {
+                Func<string, string> unb64 = s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s));
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                var norm = new TtsNorm { Engine = args[1], Rate = int.Parse(args[2], inv), Volume = int.Parse(args[3], inv), Voice = unb64(args[4]) };
+                Run(unb64(args[5]), norm, _generation);
+                return 0;
+            }
+            catch (Exception exception) { Console.Out.WriteLine((exception.InnerException ?? exception).Message); return 1; }
+        }
+
         private static object Get(object target, string name) { return target.GetType().InvokeMember(name, BindingFlags.GetProperty, null, target, null); }
         private static void Set(object target, string name, object value) { target.GetType().InvokeMember(name, BindingFlags.SetProperty, null, target, new[] { value }); }
         private static object Call(object target, string name, params object[] args) { return target.GetType().InvokeMember(name, BindingFlags.InvokeMethod, null, target, args); }
