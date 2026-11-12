@@ -18,6 +18,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
         [DataMember(Name = "lines")] public List<LineConfig> Lines { get; set; }
         [DataMember(Name = "norms")] public SaeivNorms Norms { get; set; }
+        [DataMember(Name = "exceptional")] public List<ExceptionalMessage> Exceptional { get; set; }
     }
 
     // Applique sur cet UC la révision de contenu publiée : tant que ce n'est pas fait, l'UC ne déclare pas la révision comme appliquée.
@@ -85,6 +86,7 @@ namespace IneoRbe.Desktop.Services
             config.Announcements = announcements;
             config.Screens = screens;
             if (package.Lines != null) config.Lines = package.Lines;
+            if (package.Exceptional != null) config.Exceptional = package.Exceptional;
             if (package.Norms != null)
             {
                 Download(SaeivStore.ScreensFolder, package.Norms.Screens.BaseImage);

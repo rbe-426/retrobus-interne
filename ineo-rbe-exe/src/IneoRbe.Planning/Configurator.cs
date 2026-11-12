@@ -101,6 +101,7 @@ namespace IneoRbe.Planning
             _tabs.Items.Add(new TabItem { Header = "Profil d'écrans", Content = screensTab });
             _tabs.Items.Add(new TabItem { Header = "Lignes", Content = BuildLines() });
             _tabs.Items.Add(new TabItem { Header = "Normes SAEIV", Content = _norms });
+            _tabs.Items.Add(new TabItem { Header = "Messages exceptionnels", Content = new ExceptionalView() });
             Children.Add(_tabs);
 
             _trigger.Items.Add("Pré-annonce");
@@ -646,7 +647,7 @@ namespace IneoRbe.Planning
                 if (!string.IsNullOrEmpty(item.OfflineImage)) files.Add(item.OfflineImage);
                 if (!string.IsNullOrEmpty(item.OnlineImage)) files.Add(item.OnlineImage);
             }
-            body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens }, { "norms", NormsView.ToJson(_norms.Effective(_config)) } };
+            body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens }, { "norms", NormsView.ToJson(_norms.Effective(_config)) }, { "exceptional", ExceptionalView.ToJson() } };
             var effective = _norms.Effective(_config);
             if (!string.IsNullOrEmpty(effective.Screens.BaseImage)) files.Add(effective.Screens.BaseImage);
             var names = files.Distinct().Select(name => (object)name).ToList();

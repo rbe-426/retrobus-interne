@@ -217,6 +217,106 @@ namespace IneoRbe.Desktop.Services
         }
     }
 
+    // Message exceptionnel (déviation, perturbation…) : relu toutes les N minutes pendant sa période.
+    // Portée : ALL (partout), LINES (lignes choisies) ou STOPS (lignes qui desservent les arrêts choisis).
+    [DataContract]
+    public sealed class ExceptionalMessage
+    {
+        public const string ScopeAll = "ALL";
+        public const string ScopeLines = "LINES";
+        public const string ScopeStops = "STOPS";
+
+        public ExceptionalMessage() { SetDefaults(); }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            Id = System.Guid.NewGuid().ToString("N");
+            Title = string.Empty;
+            Text = string.Empty;
+            Enabled = true;
+            Scope = ScopeAll;
+            LineIds = new List<string>();
+            Stops = new List<string>();
+            IntervalMinutes = 10;
+            StartsAt = string.Empty;
+            EndsAt = string.Empty;
+        }
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (LineIds == null) LineIds = new List<string>();
+            if (Stops == null) Stops = new List<string>();
+        }
+
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "title")] public string Title { get; set; }
+        [DataMember(Name = "text")] public string Text { get; set; }
+        [DataMember(Name = "enabled")] public bool Enabled { get; set; }
+        [DataMember(Name = "scope")] public string Scope { get; set; }
+        [DataMember(Name = "lineIds")] public List<string> LineIds { get; set; }
+        [DataMember(Name = "stops")] public List<string> Stops { get; set; }
+        [DataMember(Name = "intervalMinutes")] public int IntervalMinutes { get; set; }
+        // Format « yyyy-MM-dd HH:mm », heure locale ; vide = sans limite.
+        [DataMember(Name = "startsAt")] public string StartsAt { get; set; }
+        [DataMember(Name = "endsAt")] public string EndsAt { get; set; }
+
+        public string DisplayText
+        {
+            get
+            {
+                var scope = Scope == ScopeLines ? "lignes" : Scope == ScopeStops ? "arrêts" : "partout";
+                return (Enabled ? string.Empty : "(désactivé) ") + (string.IsNullOrEmpty(Title) ? "Message sans titre" : Title) + " [" + scope + ", toutes les " + IntervalMinutes + " min]";
+            }
+        }
+
+        public static bool TryParseTime(string text, out System.DateTime value)
+        {
+            return System.DateTime.TryParseExact((text ?? string.Empty).Trim(), "yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out value);
+        }
+
+        public bool IsActiveAt(System.DateTime now)
+        {
+            System.DateTime start, end;
+            if (TryParseTime(StartsAt, out start) && now < start) return false;
+            if (TryParseTime(EndsAt, out end) && now > end) return false;
+            return true;
+        }
+
+        // Une ligne inconnue (null) ne reçoit que les messages « partout ».
+        public bool Concerns(LineConfig line)
+        {
+            if (Scope == ScopeAll) return true;
+            if (line == null) return false;
+            if (Scope == ScopeLines) return LineIds.Contains(line.Id);
+            foreach (var stop in AllStops(line))
+            {
+                foreach (var wanted in Stops)
+                {
+                    if (string.Equals(stop.Label, wanted, System.StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+            return false;
+        }
+
+        public static IEnumerable<LineStop> AllStops(LineConfig line)
+        {
+            if (line.OutboundStops != null) foreach (var stop in line.OutboundStops) yield return stop;
+            if (line.ReturnStops != null) foreach (var stop in line.ReturnStops) yield return stop;
+        }
+
+        // {ligne}, {arrets} : arrêts choisis, séparés par des virgules.
+        public string SpokenText(LineConfig line)
+        {
+            return (Text ?? string.Empty)
+                .Replace("{ligne}", line == null ? string.Empty : line.Name ?? string.Empty)
+                .Replace("{arrets}", string.Join(", ", Stops.ToArray()));
+        }
+    }
+
     [DataContract]
     public sealed class ScreenConfig
     {
@@ -261,6 +361,7 @@ namespace IneoRbe.Desktop.Services
         private void SetDefaults()
         {
             Announcements = new List<Announcement>();
+            Exceptional = new List<ExceptionalMessage>();
             Screens = new List<ScreenConfig>();
             EngineEnabled = true;
             GpsSource = "AUTO";
@@ -276,6 +377,7 @@ namespace IneoRbe.Desktop.Services
             if (Announcements == null) Announcements = new List<Announcement>();
             if (Screens == null) Screens = new List<ScreenConfig>();
             if (Lines == null) Lines = new List<LineConfig>();
+            if (Exceptional == null) Exceptional = new List<ExceptionalMessage>();
             if (Norms == null) Norms = new SaeivNorms();
         }
 
@@ -292,5 +394,6 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "announcements")] public List<Announcement> Announcements { get; set; }
         [DataMember(Name = "screens")] public List<ScreenConfig> Screens { get; set; }
         [DataMember(Name = "lines")] public List<LineConfig> Lines { get; set; }
+        [DataMember(Name = "exceptional")] public List<ExceptionalMessage> Exceptional { get; set; }
     }
 }

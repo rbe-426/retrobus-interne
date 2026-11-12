@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Json;
 
@@ -56,6 +57,34 @@ namespace IneoRbe.Desktop.Services
         }
 
         public static void Save(SaeivConfig config) { Save(config, null); }
+
+        // Messages exceptionnels, communs à tous les véhicules (outil Planification).
+        private static string ExceptionalPath { get { return Path.Combine(RootDirectory, "saeiv-exceptional.json"); } }
+
+        public static List<ExceptionalMessage> LoadExceptional()
+        {
+            try
+            {
+                if (!File.Exists(ExceptionalPath)) return new List<ExceptionalMessage>();
+                using (var stream = File.OpenRead(ExceptionalPath))
+                {
+                    return (List<ExceptionalMessage>)new DataContractJsonSerializer(typeof(List<ExceptionalMessage>)).ReadObject(stream) ?? new List<ExceptionalMessage>();
+                }
+            }
+            catch (Exception) { return new List<ExceptionalMessage>(); }
+        }
+
+        public static void SaveExceptional(List<ExceptionalMessage> messages)
+        {
+            Directory.CreateDirectory(RootDirectory);
+            var temporary = ExceptionalPath + ".tmp";
+            using (var stream = File.Create(temporary))
+            {
+                new DataContractJsonSerializer(typeof(List<ExceptionalMessage>)).WriteObject(stream, messages);
+            }
+            if (File.Exists(ExceptionalPath)) File.Delete(ExceptionalPath);
+            File.Move(temporary, ExceptionalPath);
+        }
 
         // Norme SAEIV commune à tous les véhicules (outil Planification) ; chaque véhicule peut la surcharger.
         private static string NormsPath { get { return Path.Combine(RootDirectory, "saeiv-norms.json"); } }

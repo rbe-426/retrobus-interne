@@ -75,6 +75,7 @@
     <Compile Include="Views2.cs" />
     <Compile Include="Configurator.cs" />
     <Compile Include="NormsView.cs" />
+    <Compile Include="ExceptionalView.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="..\IneoRbe.Desktop\Services\UpdateClient.cs"><Link>Shared\UpdateClient.cs</Link></Compile>
     <Compile Include="..\IneoRbe.Desktop\Services\UpdateInstaller.cs"><Link>Shared\UpdateInstaller.cs</Link></Compile>

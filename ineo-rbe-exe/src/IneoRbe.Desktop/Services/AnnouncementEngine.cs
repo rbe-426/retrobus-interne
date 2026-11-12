@@ -17,6 +17,40 @@ namespace IneoRbe.Desktop.Services
         private GpsSource _source;
         private bool _playing;
         private bool _startupPlayed;
+        private readonly System.Windows.Threading.DispatcherTimer _exceptionalTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        private readonly Dictionary<string, DateTime> _exceptionalLastPlayed = new Dictionary<string, DateTime>();
+        private string _activeLine;
+
+        // Ligne en service (id ou nom), transmise par la console du véhicule ; null = inconnue.
+        // Sans ligne connue, seuls les messages exceptionnels « partout » sont lus.
+        public void SetActiveLine(string line)
+        {
+            _activeLine = string.IsNullOrEmpty(line) ? null : line;
+        }
+
+        private LineConfig ActiveLineConfig()
+        {
+            if (_activeLine == null || _config.Lines == null) return null;
+            return _config.Lines.FirstOrDefault(l => string.Equals(l.Id, _activeLine, StringComparison.OrdinalIgnoreCase))
+                ?? _config.Lines.FirstOrDefault(l => string.Equals(l.Name, _activeLine, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Lit chaque message exceptionnel actif et concerné, puis le relit toutes les N minutes.
+        private void PlayDueExceptional()
+        {
+            if (_config.Exceptional == null || _config.Exceptional.Count == 0) return;
+            var now = DateTime.Now;
+            var line = ActiveLineConfig();
+            foreach (var message in _config.Exceptional.ToList())
+            {
+                if (!message.Enabled || string.IsNullOrEmpty(message.Text) || !message.IsActiveAt(now) || !message.Concerns(line)) continue;
+                DateTime last;
+                if (_exceptionalLastPlayed.TryGetValue(message.Id, out last) && now - last < TimeSpan.FromMinutes(Math.Max(1, message.IntervalMinutes))) continue;
+                _exceptionalLastPlayed[message.Id] = now;
+                _queue.Enqueue(TtsPrefix + message.SpokenText(line));
+            }
+            PlayNext();
+        }
 
         public AnnouncementEngine(SaeivConfig config)
         {
@@ -47,7 +81,11 @@ namespace IneoRbe.Desktop.Services
             _source.StatusChanged += OnSourceStatusChanged;
             SetStatus("Diffusion automatique active : en attente de position GPS.");
             _source.Start();
+            _exceptionalTimer.Tick += OnExceptionalTick;
+            _exceptionalTimer.Start();
         }
+
+        private void OnExceptionalTick(object sender, EventArgs e) { PlayDueExceptional(); }
 
         // Annonces « à l'allumage » : jouées une seule fois par lancement du logiciel, même sans diffusion GPS.
         // Tant qu'aucune n'a pu être jouée (configuration pas encore reçue), un nouvel appel reste possible.
@@ -87,6 +125,9 @@ namespace IneoRbe.Desktop.Services
             var source = _source;
             if (source == null) return;
             _source = null;
+            _exceptionalTimer.Stop();
+            _exceptionalTimer.Tick -= OnExceptionalTick;
+            _exceptionalLastPlayed.Clear();
             source.PositionChanged -= OnPositionChanged;
             source.StatusChanged -= OnSourceStatusChanged;
             source.Dispose();
