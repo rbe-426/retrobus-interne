@@ -45,6 +45,7 @@ object DriverApi {
     private var token: String? = null
     private var host: String? = null
     private var manualHost: String? = null
+    private var addressRefresh: (() -> List<String>)? = null
     private var expectedSerial: String = ""
     private var serverAddresses: List<String> = emptyList()
     private var appContext: Context? = null
@@ -64,9 +65,11 @@ object DriverApi {
     }
 
     // Numéro de série de l'UC du véhicule et adresses que l'UC a déclarées au serveur (reçus à l'activation).
-    fun configure(serial: String, addresses: List<String>) {
+    // `refresh` redemande ces adresses au serveur, car l'IP de l'UC peut changer.
+    fun configure(serial: String, addresses: List<String>, refresh: (() -> List<String>)? = null) {
         expectedSerial = serial
         serverAddresses = addresses
+        addressRefresh = refresh
     }
 
     fun logout() {
@@ -74,12 +77,6 @@ object DriverApi {
         token = null
         agentName = ""
         if (current != null) runCatching { call("/console/logout", JSONObject().put("token", current)) }
-    }
-
-    // Adresse IP de l'UC saisie à la main, dernier recours de la recherche.
-    fun setManualHost(value: String) {
-        manualHost = value.trim().ifBlank { null }
-        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(MANUAL_KEY, manualHost)?.apply()
     }
 
     fun login(number: String, code: String) {
@@ -154,16 +151,26 @@ object DriverApi {
         return send(found, path, body)
     }
 
-    // Retrouve l'UC : 1) balayage du réseau local, retenu seulement si le numéro de série correspond ; 2) adresses déclarées au serveur par l'UC ; 3) adresse IP saisie à la main.
+    // Retrouve l'UC : 1) balayage du réseau local, retenu seulement si le numéro de série correspond ; 2) adresse IP de l'UC remontée au serveur.
     fun connect(): String? {
-        val candidates = listOfNotNull(host)
-        val found = candidates.firstOrNull { matches(it) }
+        val found = listOfNotNull(host).firstOrNull { matches(it) }
             ?: discover()
-            ?: serverAddresses.firstOrNull { matches(it) }
-            ?: manualHost?.takeIf { matches(it) }
+            ?: fromServer()
         host = found
         if (found != null) appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(HOST_KEY, found)?.apply()
         return found
+    }
+
+    private var lastRefresh = 0L
+
+    private fun fromServer(): String? {
+        // Le serveur limite les activations : une demande toutes les 20 s au plus.
+        val now = System.currentTimeMillis()
+        if (now - lastRefresh > 20_000) {
+            lastRefresh = now
+            runCatching { addressRefresh?.invoke() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { serverAddresses = it }
+        }
+        return serverAddresses.firstOrNull { matches(it) }
     }
 
     private fun matches(ip: String): Boolean {

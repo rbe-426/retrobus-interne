@@ -182,7 +182,10 @@ class MainActivity : Activity() {
     private fun showHome(activation: Activation) {
         root.setPadding(0, 0, 0, 0)
         driver?.stop()
-        DriverApi.configure(activation.ucSerial, activation.ucAddresses)
+        DriverApi.configure(activation.ucSerial, activation.ucAddresses) {
+            val imei = DeviceIdentity.readImei(this) ?: ""
+            (ConsoleApi.activate(imei, DeviceIdentity.deviceId(this), DeviceIdentity.model(), BuildConfig.VERSION_NAME) as? ActivationResult.Granted)?.activation?.ucAddresses ?: emptyList()
+        }
         driver = DriverScreen(this, root, activation.vehicleParc).also { it.show() }
     }
 

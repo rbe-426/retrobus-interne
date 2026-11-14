@@ -82,13 +82,6 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         gravity = Gravity.CENTER
         addView(label("Perte de Connexion avec InéoRBE", 28f, true).apply { gravity = Gravity.CENTER })
         addView(label("Nouvelle recherche en cours…", 14f, color = Color.parseColor("#94A3B8")).apply { gravity = Gravity.CENTER })
-        val ip = field("Adresse IP de l'UC (ex. 192.168.1.20)")
-        ip.inputType = InputType.TYPE_CLASS_TEXT
-        addView(ip)
-        addView(button("Utiliser cette adresse") {
-            DriverApi.setManualHost(ip.text.toString())
-            connectThen(onConnected)
-        })
         this@DriverScreen.handler.postDelayed({
             thread {
                 val found = runCatching { DriverApi.connect() }.getOrNull()
