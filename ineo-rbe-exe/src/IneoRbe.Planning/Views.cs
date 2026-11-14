@@ -33,7 +33,7 @@ namespace IneoRbe.Planning
                 Note = "Un service = un numéro libre (celui que le conducteur saisit dans la console) et une suite de courses : aller, retour, aller-retour ou haut-le-pied. Utilisez « Courses du service… » pour les définir.",
                 Fields =
                 {
-                    new FieldDef("serviceReference", "Numéro de service") { Hint = "libre, ex. 12-03" },
+                    new FieldDef("serviceReference", "Numéro de service") { Hint = "chiffres uniquement, ex. 1203" },
                     new FieldDef("serviceName", "Nom du service") { Hint = "facultatif" },
                     vehicle, driver,
                     new FieldDef("scheduledDeparture", "Départ prévu", FieldKind.DateTime) { Hint = EditorView.DateFormat },
@@ -89,6 +89,7 @@ namespace IneoRbe.Planning
                 if (existing != null && Json.Str(existing, "status") != "PLANNED" && Json.Str(existing, "status") != "ACTIVE") throw new InvalidOperationException("Ce service est terminé ou annulé :                 il ne peut plus être modifié.");
                                 var service = ((string)v["serviceReference"] ?? string.Empty).Trim().ToUpperInvariant();
                 if (service.Length == 0) throw new InvalidOperationException("Numéro de service requis.");
+                if (!System.Text.RegularExpressions.Regex.IsMatch(service, @"^\d{1,8}$")) throw new InvalidOperationException("Le numéro de service doit être numérique (8 chiffres maximum).");
                 var courses = CoursesToJson(ParseCourses((string)v["coursesJson"]));
                 if (courses.Count == 0) throw new InvalidOperationException("Ajoutez au moins une course (bouton « Courses du service… »).");
                 return Data.RetryFimo(allow =>

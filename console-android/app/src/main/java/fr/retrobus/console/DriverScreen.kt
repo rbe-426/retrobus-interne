@@ -207,12 +207,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     }
 
     private fun serviceForm(current: Service, error: String? = null): Unit = page {
-        addView(title("Prise de service"))
-        addView(label("Agent : ${DriverApi.agentName}"))
-        addView(label("${current.name} — ${courseTitle(current)}", 20f, true))
-        addView(label(listOfNotNull(current.line?.let { "Ligne $it" }, current.origin, current.destination).joinToString(" → ")))
-        addView(label("Départ ${current.departure ?: "--:--"} · ${current.stops.size} arrêt(s)", 15f))
-        val code = field("Numéro de service")
+        addView(title("Numéro de service"))
+        val code = field("Numéro de service", 8)
         addView(code)
         if (error != null) addView(label(error, 15f, color = Color.parseColor("#FCA5A5")))
         addView(button("Prendre le service", true) {
