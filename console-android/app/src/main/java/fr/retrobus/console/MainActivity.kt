@@ -88,8 +88,9 @@ class MainActivity : Activity() {
 
     private fun showMessage(title: String, message: String, onRetry: (() -> Unit)?, onChangeImei: Boolean) {
         root.removeAllViews()
-        root.addView(label(title, 28f, true))
-        root.addView(label(message))
+        root.gravity = Gravity.CENTER
+        root.addView(label(title, 28f, true).apply { gravity = Gravity.CENTER })
+        root.addView(label(message).apply { gravity = Gravity.CENTER })
         if (onRetry != null) root.addView(Button(this).apply { text = "Réessayer"; setOnClickListener { onRetry() } })
         if (onChangeImei) root.addView(Button(this).apply { text = "Saisir l'IMEI"; setOnClickListener { askImei() } })
     }
@@ -159,6 +160,7 @@ class MainActivity : Activity() {
     private fun showHome(activation: Activation) {
         root.setPadding(0, 0, 0, 0)
         driver?.stop()
+        DriverApi.configure(activation.ucSerial, activation.ucAddresses)
         driver = DriverScreen(this, root, activation.vehicleParc).also { it.show() }
     }
 

@@ -60,7 +60,41 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     }
 
     fun show() {
-        if (DriverApi.isLoggedIn) loadService() else loginForm()
+        connectThen { if (DriverApi.isLoggedIn) loadService() else loginForm() }
+    }
+
+    private fun splash(text: String): Unit = page {
+        gravity = Gravity.CENTER
+        addView(label("Console RétroBus", 32f, true).apply { gravity = Gravity.CENTER })
+        addView(label(text, 16f, color = Color.parseColor("#94A3B8")).apply { gravity = Gravity.CENTER })
+    }
+
+    // La connexion n'est proposée qu'une fois l'UC joint ; sinon l'écran de perte de liaison relance la recherche toutes les 5 s.
+    private fun connectThen(onConnected: () -> Unit) {
+        splash("Démarrage… recherche de l'UC du véhicule")
+        thread {
+            val found = runCatching { DriverApi.connect() }.getOrNull()
+            activity.runOnUiThread { if (found != null) onConnected() else connectionLost(onConnected) }
+        }
+    }
+
+    private fun connectionLost(onConnected: () -> Unit): Unit = page {
+        gravity = Gravity.CENTER
+        addView(label("Perte de Connexion avec InéoRBE", 28f, true).apply { gravity = Gravity.CENTER })
+        addView(label("Nouvelle recherche en cours…", 14f, color = Color.parseColor("#94A3B8")).apply { gravity = Gravity.CENTER })
+        val ip = field("Adresse IP de l'UC (ex. 192.168.1.20)")
+        ip.inputType = InputType.TYPE_CLASS_TEXT
+        addView(ip)
+        addView(button("Utiliser cette adresse") {
+            DriverApi.setManualHost(ip.text.toString())
+            connectThen(onConnected)
+        })
+        handler.postDelayed({
+            thread {
+                val found = runCatching { DriverApi.connect() }.getOrNull()
+                activity.runOnUiThread { if (found != null) onConnected() else connectionLost(onConnected) }
+            }
+        }, 5000)
     }
 
     fun onPermissionResult() {
@@ -108,6 +142,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         stopLoops()
         root.removeAllViews()
         root.addView(ScrollView(activity).apply {
+            isFillViewport = true
             addView(LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(UiScale.px(24), UiScale.px(16), UiScale.px(24), UiScale.px(16))
@@ -136,7 +171,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             message("Connexion à l'UC…")
             thread {
                 val result = runCatching { DriverApi.login(typedNumber, typedCode) }
-                activity.runOnUiThread { result.onSuccess { loadService() }.onFailure { loginForm(it.message) } }
+                activity.runOnUiThread { result.onSuccess { loadService() }.onFailure { if (it.message?.startsWith("Perte de Connexion") == true) connectionLost { loginForm() } else loginForm(it.message) } }
             }
         })
     }
@@ -157,6 +192,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
                     }
                 }.onFailure { failure ->
                     if (failure.message?.startsWith("Session expirée") == true) { DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
+                    else if (failure.message?.startsWith("Perte de Connexion") == true) connectionLost { loadService() }
                     else retry(failure.message ?: "Erreur inconnue.")
                 }
             }

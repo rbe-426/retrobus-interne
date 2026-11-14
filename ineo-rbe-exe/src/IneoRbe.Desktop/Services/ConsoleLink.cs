@@ -79,6 +79,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "token")] public string Token { get; set; }
         [DataMember(Name = "driverIdentifier")] public string DriverIdentifier { get; set; }
         [DataMember(Name = "vehicle")] public string Vehicle { get; set; }
+        [DataMember(Name = "serial")] public string Serial { get; set; }
         [DataMember(Name = "service")] public ConsoleService Service { get; set; }
     }
 
@@ -324,7 +325,7 @@ namespace IneoRbe.Desktop.Services
         {
             switch (path)
             {
-                case "/console/ping": return new ConsoleReply { Ok = true, Vehicle = _vehicle() };
+                case "/console/ping": return new ConsoleReply { Ok = true, Vehicle = _vehicle(), Serial = _serial() };
                 case "/console/login": return Login(request);
                 case "/console/logout": lock (_lock) _sessions.Remove(request.Token ?? string.Empty); return new ConsoleReply { Ok = true };
             }

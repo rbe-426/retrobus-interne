@@ -98,6 +98,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "screensRevision")] public string ScreensRevision { get; set; }
         [DataMember(Name = "contentRevision")] public string ContentRevision { get; set; }
         [DataMember(Name = "voiceEngine")] public string VoiceEngine { get; set; }
+        [DataMember(Name = "addresses")] public List<string> Addresses { get; set; }
         [DataMember(Name = "commandResults")] public List<PilotCommandResult> CommandResults { get; set; }
     }
 
@@ -124,6 +125,27 @@ namespace IneoRbe.Desktop.Services
             }
         }
 
+        // Adresses IPv4 privées de l'UC, pour que la console puisse le retrouver même sans balayage réseau.
+        private static List<string> LocalAddresses()
+        {
+            var result = new List<string>();
+            try
+            {
+                foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    foreach (var unicast in nic.GetIPProperties().UnicastAddresses)
+                    {
+                        if (unicast.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                        var text = unicast.Address.ToString();
+                        if (!text.StartsWith("169.254.") && !result.Contains(text)) result.Add(text);
+                    }
+                }
+            }
+            catch (Exception) { }
+            return result;
+        }
+
         // Appel bloquant : à exécuter hors du thread d'interface.
         public UcIdentity Sync(string serial, string appVersion, string screensRevision, string contentRevision, IList<PilotCommandResult> results)
         {
@@ -138,6 +160,7 @@ namespace IneoRbe.Desktop.Services
                 ScreensRevision = screensRevision,
                 ContentRevision = contentRevision,
                 VoiceEngine = VoiceEngine,
+                Addresses = LocalAddresses(),
                 CommandResults = results == null ? new List<PilotCommandResult>() : results.ToList(),
             };
             byte[] json;

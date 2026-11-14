@@ -1,3 +1,12 @@
+PRISMA
+cd "C:\Dev\RETROBUS_ESSONNE\interne\api"
+npx prisma generate
+
+cd "C:\Dev\RETROBUS_ESSONNE\interne\api"
+npx prisma migrate deploy
+
+PUSH COMMIT
+
 cd "C:\Dev\RETROBUS_ESSONNE\interne\api"
 npm run dev
 

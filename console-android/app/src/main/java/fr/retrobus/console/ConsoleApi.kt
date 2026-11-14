@@ -9,6 +9,7 @@ data class Activation(
     val vehicleType: String?,
     val vehicleLabel: String?,
     val ucSerial: String,
+    val ucAddresses: List<String> = emptyList(),
     val contentRevision: String?,
 )
 
@@ -49,6 +50,7 @@ object ConsoleApi {
                             vehicleType = vehicle.optString("type").ifBlank { null },
                             vehicleLabel = vehicle.optString("label").ifBlank { null },
                             ucSerial = json.getString("ucSerial"),
+                            ucAddresses = json.optJSONArray("ucAddresses")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
                             contentRevision = json.optString("contentRevision").ifBlank { null },
                         )
                     )

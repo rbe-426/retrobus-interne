@@ -40,9 +40,13 @@ object DriverApi {
     private const val PORT = 47801
     private const val PREFS = "uc_link"
     private const val HOST_KEY = "host"
+    private const val MANUAL_KEY = "manual_host"
 
     private var token: String? = null
     private var host: String? = null
+    private var manualHost: String? = null
+    private var expectedSerial: String = ""
+    private var serverAddresses: List<String> = emptyList()
     private var appContext: Context? = null
 
     var agentName: String = ""
@@ -54,7 +58,15 @@ object DriverApi {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        host = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.getString(HOST_KEY, null)
+        val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        host = prefs?.getString(HOST_KEY, null)
+        manualHost = prefs?.getString(MANUAL_KEY, null)
+    }
+
+    // Numéro de série de l'UC du véhicule et adresses que l'UC a déclarées au serveur (reçus à l'activation).
+    fun configure(serial: String, addresses: List<String>) {
+        expectedSerial = serial
+        serverAddresses = addresses
     }
 
     fun logout() {
@@ -64,10 +76,10 @@ object DriverApi {
         if (current != null) runCatching { call("/console/logout", JSONObject().put("token", current)) }
     }
 
-    // Adresse saisie à la main quand la recherche automatique ne trouve pas l'UC.
+    // Adresse IP de l'UC saisie à la main, dernier recours de la recherche.
     fun setManualHost(value: String) {
-        host = value.trim().ifBlank { null }
-        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(HOST_KEY, host)?.apply()
+        manualHost = value.trim().ifBlank { null }
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(MANUAL_KEY, manualHost)?.apply()
     }
 
     fun login(number: String, code: String) {
@@ -138,12 +150,34 @@ object DriverApi {
         if (known != null) {
             try { return send(known, path, body) } catch (error: ApiException) { if (error.code != 0) throw error }
         }
-        val found = discover() ?: throw ApiException("UC du véhicule introuvable sur le réseau. Vérifiez le Wi-Fi.")
-        setManualHost(found)
+        val found = connect() ?: throw ApiException("Perte de Connexion avec InéoRBE")
         return send(found, path, body)
     }
 
-    // Recherche l'UC : balayage du sous-réseau de chaque interface locale (Wi-Fi client ou point d'accès du téléphone).
+    // Retrouve l'UC : 1) balayage du réseau local, retenu seulement si le numéro de série correspond ; 2) adresses déclarées au serveur par l'UC ; 3) adresse IP saisie à la main.
+    fun connect(): String? {
+        val candidates = listOfNotNull(host)
+        val found = candidates.firstOrNull { matches(it) }
+            ?: discover()
+            ?: serverAddresses.firstOrNull { matches(it) }
+            ?: manualHost?.takeIf { matches(it) }
+        host = found
+        if (found != null) appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(HOST_KEY, found)?.apply()
+        return found
+    }
+
+    private fun matches(ip: String): Boolean {
+        val serial = pingSerial(ip) ?: return false
+        return expectedSerial.isBlank() || serial.equals(expectedSerial, ignoreCase = true)
+    }
+
+    private fun pingSerial(ip: String): String? = try {
+        Socket().use { it.connect(InetSocketAddress(ip, PORT), 600) }
+        send(ip, "/console/ping", JSONObject()).optString("serial")
+    } catch (_: Exception) {
+        null
+    }
+
     private fun discover(): String? {
         val candidates = NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }
@@ -157,17 +191,10 @@ object DriverApi {
         if (candidates.isEmpty()) return null
         val pool = Executors.newFixedThreadPool(64)
         return try {
-            pool.invokeAll(candidates.map { ip -> Callable { if (answers(ip)) ip else null } }).mapNotNull { runCatching { it.get() }.getOrNull() }.firstOrNull()
+            pool.invokeAll(candidates.map { ip -> Callable { if (matches(ip)) ip else null } }).mapNotNull { runCatching { it.get() }.getOrNull() }.firstOrNull()
         } finally {
             pool.shutdownNow()
         }
-    }
-
-    private fun answers(ip: String): Boolean = try {
-        Socket().use { it.connect(InetSocketAddress(ip, PORT), 400) }
-        runCatching { send(ip, "/console/ping", JSONObject()) }.isSuccess
-    } catch (_: Exception) {
-        false
     }
 
     private fun send(address: String, path: String, body: JSONObject): JSONObject {
