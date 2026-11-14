@@ -44,6 +44,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "driverIdentifier")] public string DriverIdentifier { get; set; }
         [DataMember(Name = "driverName")] public string DriverName { get; set; }
         [DataMember(Name = "courseIndex")] public int CourseIndex { get; set; }
+        [DataMember(Name = "stopIndex")] public int StopIndex { get; set; }
         [DataMember(Name = "scheduledDeparture")] public string ScheduledDeparture { get; set; }
         [DataMember(Name = "routes")] public List<ConsoleCourse> Routes { get; set; }
     }
@@ -434,6 +435,7 @@ namespace IneoRbe.Desktop.Services
                 var total = service.Routes == null ? 0 : service.Routes.Count;
                 if (service.CourseIndex + 1 >= total) return Fail("Dernière course du service : terminez le service.");
                 service.CourseIndex++;
+                service.StopIndex = 0;
                 Queue(new ConsoleServiceEvent { MissionId = service.Id, Event = "next", CourseIndex = service.CourseIndex });
                 return new ConsoleReply { Ok = true, Service = service };
             }

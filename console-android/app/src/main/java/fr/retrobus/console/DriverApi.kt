@@ -106,8 +106,9 @@ object DriverApi {
         val routes = service.optJSONArray("routes") ?: JSONArray()
         val index = service.optInt("courseIndex").coerceIn(0, maxOf(routes.length() - 1, 0))
         val route = routes.optJSONObject(index)
+        val stopStart = service.optInt("stopIndex").coerceAtLeast(0)
         val stops = route?.optJSONArray("stops")?.let { array ->
-            (0 until array.length()).mapNotNull { position ->
+            (stopStart.coerceAtMost(maxOf(array.length() - 1, 0)) until array.length()).mapNotNull { position ->
                 val item = array.optJSONObject(position) ?: return@mapNotNull null
                 Stop(item.optString("label"), null, item.optDouble("lat"), item.optDouble("lng"))
             }

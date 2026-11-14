@@ -539,4 +539,73 @@ namespace IneoRbe.Planning
             DialogResult = true;
         }
     }
+
+    // Recalage d'un service : course courante, arrêt de départ et conducteur.
+    public sealed class RealignDialog : Window
+    {
+        private readonly object _mission;
+        private readonly List<object> _lines;
+        private readonly ComboBox _course = new ComboBox { Margin = new Thickness(0, 0, 0, 10) };
+        private readonly ComboBox _stop = new ComboBox { Margin = new Thickness(0, 0, 0, 10), DisplayMemberPath = "Value", SelectedValuePath = "Key" };
+        private readonly ComboBox _driver = new ComboBox { Margin = new Thickness(0, 0, 0, 10), IsEditable = false };
+        private readonly List<int> _indexes = new List<int>();
+
+        public int CourseIndex { get { return _course.SelectedIndex < 0 ? 0 : _indexes[_course.SelectedIndex]; } }
+        public int StopIndex { get { return _stop.SelectedValue is int ? (int)_stop.SelectedValue : 0; } }
+        public string Driver { get { return _driver.SelectedItem as string; } }
+
+        public RealignDialog(Window owner, object mission, List<object> lines, List<string> drivers)
+        {
+            Owner = owner;
+            _mission = mission;
+            _lines = lines;
+            Title = "Recaler le service " + Json.Str(mission, "serviceReference");
+            Width = 460; SizeToContent = SizeToContent.Height;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            var active = Json.Str(mission, "status") == "ACTIVE";
+            var current = (int)(Json.Num(mission, "courseIndex") ?? 0);
+            var courses = Json.List(mission, "courses");
+            for (var i = 0; i < courses.Count; i++)
+            {
+                if (active && i < current) continue;
+                var direction = Json.Str(courses[i], "direction");
+                _indexes.Add(i);
+                _course.Items.Add((i + 1) + ". " + (direction == "HLP" ? "Haut-le-pied" : Json.Str(courses[i], "lineName") + (direction == "ALLER" ? " (aller)" : " (retour)")));
+            }
+            _course.SelectedIndex = Math.Max(0, _indexes.IndexOf(current));
+            _course.SelectionChanged += (s, e) => FillStops(0);
+            foreach (var d in drivers) _driver.Items.Add(d);
+            _driver.SelectedItem = Json.Str(mission, "driverIdentifier");
+
+            var root = new StackPanel { Margin = new Thickness(14) };
+            root.Children.Add(new TextBlock { Text = "Les courses déjà effectuées ne sont plus modifiables. Le conducteur reprend à l'arrêt choisi, les arrêts précédents sont ignorés.", TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted, Margin = new Thickness(0, 0, 0, 10) });
+            root.Children.Add(new TextBlock { Text = "Course courante" }); root.Children.Add(_course);
+            root.Children.Add(new TextBlock { Text = "Démarrer à l'arrêt" }); root.Children.Add(_stop);
+            root.Children.Add(new TextBlock { Text = "Conducteur" }); root.Children.Add(_driver);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            buttons.Children.Add(Ui.Button("Recaler", (s, e) => { if (_course.SelectedIndex < 0) { Ui.Error("Aucune course disponible."); return; } DialogResult = true; }, true));
+            buttons.Children.Add(Ui.Button("Annuler", (s, e) => { DialogResult = false; }));
+            root.Children.Add(buttons);
+            Content = root;
+            FillStops(current == CourseIndex ? (int)(Json.Num(mission, "stopIndex") ?? 0) : 0);
+        }
+
+        private void FillStops(int selected)
+        {
+            _stop.ItemsSource = null;
+            if (_course.SelectedIndex < 0) return;
+            var course = Json.List(_mission, "courses")[CourseIndex];
+            var direction = Json.Str(course, "direction");
+            var items = new List<KeyValuePair<int, string>>();
+            var line = _lines.FirstOrDefault(l => Json.Str(l, "id") == Json.Str(course, "lineId"));
+            if (line != null && direction != "HLP")
+            {
+                var stops = LineData.ReadStops(line, direction == "ALLER" ? "outboundStops" : "returnStops");
+                for (var i = 0; i < stops.Count; i++) items.Add(new KeyValuePair<int, string>(i, (i + 1) + ". " + (string.IsNullOrEmpty(stops[i].City) ? string.Empty : stops[i].City + " - ") + stops[i].Label));
+            }
+            if (items.Count == 0) items.Add(new KeyValuePair<int, string>(0, "Terminus de départ"));
+            _stop.ItemsSource = items;
+            _stop.SelectedValue = selected < items.Count ? selected : 0;
+        }
+    }
 }

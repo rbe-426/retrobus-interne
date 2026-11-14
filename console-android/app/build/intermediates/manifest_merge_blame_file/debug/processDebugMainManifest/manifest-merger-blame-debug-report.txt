@@ -1,8 +1,8 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 3    package="fr.retrobus.console"
-4    android:versionCode="2611007"
-5    android:versionName="26.11.007" >
+4    android:versionCode="2611008"
+5    android:versionName="26.11.008" >
 6
 7    <uses-sdk
 8        android:minSdkVersion="29"
