@@ -9,10 +9,9 @@ import android.graphics.Typeface
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Handler
 import android.os.Looper
+import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
@@ -26,7 +25,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.concurrent.thread
 
-// Pupitre conducteur : identification agent, prise de service, écran de course et messages flash.
+// Pupitre conducteur : connexion par matricule + code, prise de service et écran de course. Tout passe par l'UC du véhicule.
 class DriverScreen(private val activity: Activity, private val root: LinearLayout, private val vehicleParc: String) {
     private val carbon = Color.parseColor("#0F172A")
     private val panel = Color.parseColor("#1E293B")
@@ -37,9 +36,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private var service: Service? = null
     private var lastLocation: Location? = null
     private var courseOn = false
-    private var showingFlash: Flash? = null
     private var clockView: TextView? = null
-    private var flashBox: LinearLayout? = null
     private var infoView: TextView? = null
     private var lastPositionSent = 0L
 
@@ -51,8 +48,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         lastPositionSent = now
         val speed = if (location.hasSpeed()) location.speed * 3.6 else null
         val accuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else null
-        val imei = DeviceIdentity.readImei(activity)
-        thread { runCatching { DriverApi.sendPosition(mission.missionId, location.latitude, location.longitude, speed, accuracy, imei) } }
+        thread { runCatching { DriverApi.sendPosition(mission.missionId, location.latitude, location.longitude, speed, accuracy) } }
     }
 
     private val tick = object : Runnable {
@@ -60,18 +56,6 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             if (!courseOn) return
             clockView?.text = clockFormat.format(Date())
             handler.postDelayed(this, 1000)
-        }
-    }
-
-    private val flashPoll = object : Runnable {
-        override fun run() {
-            if (!courseOn) return
-            val location = lastLocation
-            thread {
-                val flashes = runCatching { DriverApi.flashes(location?.latitude, location?.longitude) }.getOrDefault(emptyList())
-                activity.runOnUiThread { if (courseOn) flashes.firstOrNull()?.let { showFlash(it) } }
-            }
-            handler.postDelayed(this, 20_000)
         }
     }
 
@@ -93,30 +77,43 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
     private fun label(text: String, size: Float = 18f, bold: Boolean = false, color: Int = Color.WHITE) = TextView(activity).apply {
         this.text = text
-        textSize = size
+        textSize = UiScale.sp(size)
         setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
-        setPadding(0, 10, 0, 10)
+        setPadding(0, UiScale.px(5), 0, UiScale.px(5))
     }
 
     private fun button(text: String, primary: Boolean = false, action: () -> Unit) = Button(activity).apply {
         this.text = text
+        textSize = UiScale.sp(16f)
         if (primary) { setBackgroundColor(accent); setTextColor(Color.WHITE) }
         setOnClickListener { action() }
     }
 
-    private fun field(hint: String, password: Boolean = false) = EditText(activity).apply {
+    private fun field(hint: String, digits: Int? = null, secret: Boolean = false) = EditText(activity).apply {
         this.hint = hint
+        textSize = UiScale.sp(22f)
         setTextColor(Color.WHITE)
         setHintTextColor(Color.GRAY)
-        inputType = if (password) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_CLASS_TEXT
+        inputType = when {
+            digits != null && secret -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            digits != null -> InputType.TYPE_CLASS_NUMBER
+            else -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+        }
+        if (digits != null) filters = arrayOf(InputFilter.LengthFilter(digits))
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
-    private fun page(content: LinearLayout.() -> Unit): Unit {
+    private fun page(content: LinearLayout.() -> Unit) {
         stopLoops()
         root.removeAllViews()
-        root.addView(ScrollView(activity).apply { addView(LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; content() }) })
+        root.addView(ScrollView(activity).apply {
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(UiScale.px(24), UiScale.px(16), UiScale.px(24), UiScale.px(16))
+                content()
+            })
+        })
     }
 
     private fun stopLoops() {
@@ -125,20 +122,20 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     }
 
     private fun loginForm(error: String? = null): Unit = page {
-        addView(title("Identification agent"))
-        addView(label("Véhicule ${vehicleParc}. Saisissez votre matricule (ou e-mail) et votre mot de passe URBEX."))
-        val id = field("Matricule ou e-mail")
-        val password = field("Mot de passe", true)
-        addView(id)
-        addView(password)
+        addView(title("Identification conducteur"))
+        addView(label("Véhicule $vehicleParc. Saisissez votre matricule (5 chiffres) et votre code."))
+        val number = field("Matricule (5 chiffres)", 5)
+        val code = field("Code", 8, true)
+        addView(number)
+        addView(code)
         if (error != null) addView(label(error, 15f, color = Color.parseColor("#FCA5A5")))
-        addView(button("S'identifier", true) {
-            val identifier = id.text.toString().trim()
-            val secret = password.text.toString()
-            if (identifier.isEmpty() || secret.isEmpty()) return@button loginForm("Renseignez les deux champs.")
-            message("Identification…")
+        addView(button("Se connecter", true) {
+            val typedNumber = number.text.toString().trim()
+            val typedCode = code.text.toString().trim()
+            if (typedNumber.length != 5 || typedCode.isEmpty()) return@button loginForm("Saisissez un matricule à 5 chiffres et votre code.")
+            message("Connexion à l'UC…")
             thread {
-                val result = runCatching { DriverApi.login(identifier, secret) }
+                val result = runCatching { DriverApi.login(typedNumber, typedCode) }
                 activity.runOnUiThread { result.onSuccess { loadService() }.onFailure { loginForm(it.message) } }
             }
         })
@@ -159,7 +156,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
                         else -> serviceForm(found)
                     }
                 }.onFailure { failure ->
-                    if (failure is ApiException && failure.code == 401) { DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
+                    if (failure.message?.startsWith("Session expirée") == true) { DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
                     else retry(failure.message ?: "Erreur inconnue.")
                 }
             }
@@ -175,7 +172,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
     private fun noService(): Unit = page {
         addView(title("Bonjour ${DriverApi.agentName}"))
-        addView(label("Aucun service ne vous est affecté. Contactez la régulation ou créez une mission dans l'URBEX (Inéo)."))
+        addView(label("Aucun service ne vous est affecté sur ce véhicule. Contactez la régulation."))
         addView(button("Actualiser", true) { loadService() })
         addView(button("Changer d'agent") { DriverApi.logout(); loginForm() })
     }
@@ -185,13 +182,13 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         addView(label("Agent : ${DriverApi.agentName}"))
         addView(label("${current.name} — ${courseTitle(current)}", 20f, true))
         addView(label(listOfNotNull(current.line?.let { "Ligne $it" }, current.origin, current.destination).joinToString(" → ")))
-        addView(label("Départ ${current.departure ?: "--:--"} · Arrivée ${current.arrival ?: "--:--"} · ${current.stops.size} arrêt(s)", 15f))
-        val code = field("Code service (ex. ${current.serviceReference})")
+        addView(label("Départ ${current.departure ?: "--:--"} · ${current.stops.size} arrêt(s)", 15f))
+        val code = field("Numéro de service")
         addView(code)
         if (error != null) addView(label(error, 15f, color = Color.parseColor("#FCA5A5")))
         addView(button("Prendre le service", true) {
             val typed = code.text.toString().trim()
-            if (typed.isEmpty()) return@button serviceForm(current, "Saisissez le code service.")
+            if (typed.isEmpty()) return@button serviceForm(current, "Saisissez le numéro de service.")
             message("Prise de service…")
             thread {
                 val result = runCatching { DriverApi.startService(current, typed) }
@@ -208,37 +205,27 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         val top = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(accent)
-            setPadding(24, 12, 24, 12)
+            setPadding(UiScale.px(16), UiScale.px(8), UiScale.px(16), UiScale.px(8))
             gravity = Gravity.CENTER_VERTICAL
         }
         top.addView(label("${current.line?.let { "Ligne $it · " } ?: ""}${current.name} · ${courseTitle(current)}", 18f, true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         top.addView(label(DriverApi.agentName, 14f))
-        clockView = label(clockFormat.format(Date()), 26f, true).apply { setPadding(24, 0, 0, 0) }
+        clockView = label(clockFormat.format(Date()), 26f, true).apply { setPadding(UiScale.px(16), 0, 0, 0) }
         top.addView(clockView)
         root.addView(top)
 
-        flashBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#B45309")) }
-        root.addView(flashBox)
-
-        val next = nextStopIndex(current)
-        val list = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 12, 24, 12) }
+        val list = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(UiScale.px(16), UiScale.px(8), UiScale.px(16), UiScale.px(8)) }
         if (current.stops.isEmpty()) list.addView(label("Aucun arrêt défini pour cette course.", 16f))
-        current.stops.forEachIndexed { index, stop ->
-            val isNext = index == next
-            list.addView(label("${if (isNext) "▶ " else "   "}${stop.time ?: "--:--"}  ${stop.label}", if (isNext) 22f else 17f, isNext, if (index < next) Color.GRAY else Color.WHITE))
-        }
+        current.stops.forEach { stop -> list.addView(label(stop.label, 18f)) }
         root.addView(ScrollView(activity).apply {
             setBackgroundColor(panel)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
             addView(list)
         })
 
-        infoView = label("Position GPS : en attente…", 14f, color = Color.LTGRAY).apply { setPadding(24, 4, 24, 4) }
+        infoView = label("Position GPS : en attente…", 14f, color = Color.LTGRAY).apply { setPadding(UiScale.px(16), UiScale.px(2), UiScale.px(16), UiScale.px(2)) }
         root.addView(infoView)
-        val bar = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; setPadding(24, 8, 24, 8); setBackgroundColor(carbon) }
-        if (current.stopByStop) {
-            bar.addView(button("Marquer l'arrêt", true) { markStop(current) }.apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-        }
+        val bar = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; setPadding(UiScale.px(16), UiScale.px(6), UiScale.px(16), UiScale.px(6)); setBackgroundColor(carbon) }
         if (current.courseCount > 0 && current.courseNumber < current.courseCount) {
             bar.addView(button("Course suivante", true) { goNextCourse(current) }.apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
         }
@@ -247,11 +234,10 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
         startLocation()
         handler.post(tick)
-        handler.post(flashPoll)
     }
 
     private fun courseTitle(current: Service): String {
-        if (current.courseCount == 0) return "course ${current.courseReference}"
+        if (current.courseCount == 0) return "service"
         val sens = when (current.direction) { "ALLER" -> "aller"; "RETOUR" -> "retour"; "HLP" -> "HLP"; else -> "" }
         return "course ${current.courseNumber}/${current.courseCount} $sens".trim()
     }
@@ -262,13 +248,6 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             val result = runCatching { DriverApi.nextCourse(current.missionId) }
             activity.runOnUiThread { result.onSuccess { loadService() }.onFailure { infoView?.text = it.message ?: "Changement impossible." } }
         }
-    }
-
-    // Prochain arrêt : premier arrêt dont l'horaire n'est pas encore passé.
-    private fun nextStopIndex(current: Service): Int {
-        val now = clockFormat.format(Date())
-        val index = current.stops.indexOfFirst { (it.time ?: "99:99") >= now }
-        return if (index < 0) maxOf(current.stops.size - 1, 0) else index
     }
 
     private fun startLocation() {
@@ -285,14 +264,6 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         }.onFailure { infoView?.text = "GPS indisponible." }
     }
 
-    private fun markStop(current: Service) {
-        infoView?.text = "Marquage de l'arrêt…"
-        thread {
-            val result = runCatching { DriverApi.markStop(current.missionId) }
-            activity.runOnUiThread { infoView?.text = result.fold({ "Arrêt marqué." }, { it.message ?: "Marquage impossible." }) }
-        }
-    }
-
     private fun confirmEnd(current: Service): Unit = page {
         addView(title("Terminer le service ?"))
         addView(label("${current.name} — ${courseTitle(current)}"))
@@ -306,23 +277,5 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             }
         })
         addView(button("Revenir à la course") { course(current) })
-    }
-
-    private fun showFlash(flash: Flash) {
-        if (showingFlash?.id == flash.id) return
-        showingFlash = flash
-        val box = flashBox ?: return
-        box.removeAllViews()
-        box.setPadding(24, 12, 24, 12)
-        box.addView(label("MESSAGE FLASH", 14f, true))
-        box.addView(label(flash.message, 22f, true))
-        box.addView(button("Visa") {
-            val missionId = service?.missionId
-            thread { runCatching { DriverApi.acknowledgeFlash(flash.id, missionId) } }
-            box.removeAllViews()
-            box.setPadding(0, 0, 0, 0)
-            showingFlash = null
-        })
-        runCatching { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100).startTone(ToneGenerator.TONE_PROP_BEEP2, 600) }
     }
 }

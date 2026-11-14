@@ -4,12 +4,13 @@ Application Android native (Kotlin, `minSdk 29`, cible Android 15 : Galaxy A17 5
 
 ## État
 
-Socle uniquement : activation par IMEI puis écran d'accueil (véhicule, UC associé, révision de contenu). Aucun outil Android n'a servi à compiler ce projet pour le moment (pas de JDK/SDK sur le poste de développement).
+Pupitre conducteur : activation par IMEI, connexion par matricule (5 chiffres) + code, prise de service, écran de course. Disposition verrouillée (barres d'état et de navigation masquées) et textes proportionnels à l'écran du téléphone (`UiScale`).
+
+**La console ne parle qu'à l'UC du véhicule** (HTTP, port TCP 47801, trouvé par balayage du sous-réseau local) : connexion, service courant, démarrage, course suivante, fin, position. L'UC reçoit services et conducteurs du serveur et lui remonte les événements. Matricule et code se gèrent dans le Gestionnaire (Conducteurs). Les messages flash et le marquage d'arrêt (Stop by Stop) ne sont plus disponibles dans la console.
 
 ## Compiler
 
-1. Installer Android Studio (JDK 17 et SDK 35 inclus), ouvrir ce dossier.
-2. Laisser Gradle synchroniser, puis `Build > Build APK(s)`.
+`gradlew assembleDebug` avec le JDK d'Android Studio (`JAVA_HOME=...\Android Studio\jbr`) et le SDK 35.
 
 ## Règle d'activation
 

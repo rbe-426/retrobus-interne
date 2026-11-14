@@ -80,6 +80,8 @@ namespace IneoRbe.Desktop.Services
                 Download(SaeivStore.ScreensFolder, screen.OnlineImage);
                 MediaCache.Adopt(screen.OfflineImage);
                 MediaCache.Adopt(screen.OnlineImage);
+                foreach (var slide in screen.Slides)
+                    if (!string.IsNullOrEmpty(slide.BaseImage)) Download(SaeivStore.ScreensFolder, slide.BaseImage);
             }
 
             // Réglages propres à l'UC (GPS, liaison de maintenance) conservés : seuls les annonces et les écrans viennent de la révision.

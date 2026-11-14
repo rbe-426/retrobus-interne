@@ -82,6 +82,8 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "profile")] public UcProfileInfo Profile { get; set; }
         [DataMember(Name = "screenProfile")] public ScreenProfileInfo ScreenProfile { get; set; }
         [DataMember(Name = "contentRevision")] public string ContentRevision { get; set; }
+        [DataMember(Name = "services")] public List<ConsoleService> Services { get; set; }
+        [DataMember(Name = "drivers")] public List<ConsoleDriver> Drivers { get; set; }
         [DataMember(Name = "commands")] public List<PilotCommand> Commands { get; set; }
         [DataMember(Name = "checkedAt")] public string CheckedAt { get; set; }
     }

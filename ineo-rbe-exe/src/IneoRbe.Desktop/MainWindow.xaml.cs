@@ -36,6 +36,8 @@ namespace IneoRbe.Desktop
         private volatile string _contentNote;
         private readonly object _syncLock = new object();
         private MaintenanceLink _maintenanceLink;
+        private ConsoleLink _consoleLink;
+        private volatile string _vehicleName = string.Empty;
         private volatile string _updateLevel = MaintenanceProtocol.Unknown;
         private volatile string _updateDetail = "Vérification pas encore effectuée.";
         private volatile string _updateVersion;
@@ -62,6 +64,8 @@ namespace IneoRbe.Desktop
             GpsPage.Initialize(_config, _engine);
             _maintenanceLink = new MaintenanceLink(HandleMaintenanceCommand, _config.MaintenancePort);
             _maintenanceLink.Start();
+            _consoleLink = new ConsoleLink(() => _serial, () => _vehicleName);
+            _consoleLink.Start();
 
             RefreshNetworkStatus();
             RefreshLiveInfo();
@@ -76,6 +80,7 @@ namespace IneoRbe.Desktop
                 _syncTimer.Stop();
                 NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
                 _maintenanceLink.Dispose();
+                _consoleLink.Dispose();
                 _engine.Dispose();
             };
             var startupNotice = UpdateInstaller.ConsumePendingResult(version);
@@ -217,6 +222,11 @@ namespace IneoRbe.Desktop
             {
                 _cacheShown = true;
                 var cached = UcIdentityStore.Load(_serial);
+                if (cached != null)
+                {
+                    if (cached.Vehicle != null) _vehicleName = cached.Vehicle.Immat ?? cached.Vehicle.Parc ?? string.Empty;
+                    _consoleLink.Update(cached);
+                }
                 Ui(() =>
                 {
                     if (cached != null)
@@ -249,6 +259,8 @@ namespace IneoRbe.Desktop
                 if (screenProfile != null && screenProfile == identity.ScreenProfile) MediaCache.Ensure(mediaIds);
                 MediaCache.Prune(mediaIds);
                 UcIdentityStore.Save(identity);
+                if (identity.Vehicle != null) _vehicleName = identity.Vehicle.Immat ?? identity.Vehicle.Parc ?? string.Empty;
+                _consoleLink.Update(identity);
 
                 Ui(() =>
                 {

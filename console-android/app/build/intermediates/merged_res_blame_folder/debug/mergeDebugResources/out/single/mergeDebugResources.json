@@ -1,6 +1,10 @@
 [
     {
-        "merged": "fr.retrobus.console.app-debug-4:/xml_file_paths.xml.flat",
-        "source": "fr.retrobus.console.app-main-6:/xml/file_paths.xml"
+        "merged": "C:\\Users\\belai\\.gradle\\daemon\\8.9\\fr.retrobus.console.app-debug-4:\\xml_file_paths.xml.flat",
+        "source": "C:\\Users\\belai\\.gradle\\daemon\\8.9\\fr.retrobus.console.app-main-6:\\xml\\file_paths.xml"
+    },
+    {
+        "merged": "fr.retrobus.console.app-debug-4:/xml_network_security_config.xml.flat",
+        "source": "fr.retrobus.console.app-main-6:/xml/network_security_config.xml"
     }
 ]

@@ -232,10 +232,14 @@ namespace IneoRbe.Planning
                     new FieldDef("hasDriverCard", "Carte conducteur", FieldKind.Check),
                     new FieldDef("hasValidFimo", "FIMO / FCO valide", FieldKind.Check),
                     new FieldDef("hasTachographCard", "Carte chronotachygraphe", FieldKind.Check),
+                    new FieldDef("driverNumber", "Matricule console", FieldKind.Text) { Hint = "5 chiffres" },
+                    new FieldDef("driverCode", "Code de connexion console", FieldKind.Text) { Hint = "4 à 8 chiffres ; laissez vide pour conserver le code actuel" },
                 },
                 Columns =
                 {
                     new ColDef("Identifiant", 120, "driverIdentifier"),
+                    new ColDef("Matricule", 70, "driverNumber"),
+                    new ColDef("Code", 45, i => Data.YesNo(i, "hasConsoleCode")),
                     new ColDef("Permis D", 60, i => Data.YesNo(i, "hasCategoryDLicense")),
                     new ColDef("Carte", 55, i => Data.YesNo(i, "hasDriverCard")),
                     new ColDef("FIMO", 55, i => Data.YesNo(i, "hasValidFimo")),
@@ -249,11 +253,18 @@ namespace IneoRbe.Planning
             {
                 var identifier = existing != null ? Json.Str(existing, "driverIdentifier") : ((string)v["driverIdentifier"]).ToLowerInvariant();
                 if (identifier.Length == 0) throw new InvalidOperationException("Identifiant requis.");
-                return Api.Put("/ineo/driver-profiles/" + Data.Encode(identifier), new Dictionary<string, object>
+                var number = ((string)v["driverNumber"] ?? string.Empty).Trim();
+                var code = ((string)v["driverCode"] ?? string.Empty).Trim();
+                if (number.Length > 0 && (number.Length != 5 || !number.All(char.IsDigit))) throw new InvalidOperationException("Le matricule doit comporter exactement 5 chiffres.");
+                if (code.Length > 0 && (code.Length < 4 || code.Length > 8 || !code.All(char.IsDigit))) throw new InvalidOperationException("Le code doit comporter de 4 à 8 chiffres.");
+                var body = new Dictionary<string, object>
                 {
                     { "hasCategoryDLicense", v["hasCategoryDLicense"] }, { "hasDriverCard", v["hasDriverCard"] },
                     { "hasValidFimo", v["hasValidFimo"] }, { "hasTachographCard", v["hasTachographCard"] },
-                });
+                    { "driverNumber", number },
+                };
+                if (code.Length > 0) body["driverCode"] = code;
+                return Api.Put("/ineo/driver-profiles/" + Data.Encode(identifier), body);
             };
             view.Loaded += (s, e) => { if (view.Items.Count == 0) view.Start(); };
             return view;

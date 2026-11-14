@@ -280,6 +280,104 @@ const TemplateManagement = () => {
     createDisclosure.onOpen();
   };
 
+  const renderFormBody = () => (
+    <VStack spacing={4}>
+      <Input
+        placeholder="Nom du template"
+        value={formData.name}
+        onChange={e => setFormData({ ...formData, name: e.target.value })}
+      />
+
+      <Textarea
+        placeholder="Description (optionnel)"
+        value={formData.description}
+        onChange={e => setFormData({ ...formData, description: e.target.value })}
+      />
+
+      <Box w="full">
+        <Text fontSize="sm" fontWeight="600" mb={2}>
+          Contenu HTML *
+        </Text>
+        <Textarea
+          placeholder='Exemple: <h1>{{TITRE}}</h1><p>Montant: {{MONTANT}} €</p>'
+          value={formData.htmlContent}
+          onChange={e => setFormData({ ...formData, htmlContent: e.target.value })}
+          minH="150px"
+          fontFamily="mono"
+          fontSize="xs"
+        />
+      </Box>
+
+      <Box w="full">
+        <Text fontSize="sm" fontWeight="600" mb={2}>
+          Logo Petit (optionnel)
+        </Text>
+        <Input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                setFormData({ ...formData, logoSmall: event.target.result });
+              };
+              reader.readAsDataURL(file);
+            }
+          }}
+        />
+        {formData.logoSmall && (
+          <Box mt={2}>
+            <img src={formData.logoSmall} alt="Logo petit" style={{ maxHeight: '50px' }} />
+          </Box>
+        )}
+      </Box>
+
+      <Box w="full">
+        <Text fontSize="sm" fontWeight="600" mb={2}>
+          Logo Grand (optionnel)
+        </Text>
+        <Input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                setFormData({ ...formData, logoBig: event.target.result });
+              };
+              reader.readAsDataURL(file);
+            }
+          }}
+        />
+        {formData.logoBig && (
+          <Box mt={2}>
+            <img src={formData.logoBig} alt="Logo grand" style={{ maxHeight: '100px' }} />
+          </Box>
+        )}
+      </Box>
+
+      <HStack>
+        <Checkbox
+          isChecked={formData.isDefault}
+          onChange={e => setFormData({ ...formData, isDefault: e.target.checked })}
+        >
+          Définir comme template par défaut
+        </Checkbox>
+      </HStack>
+
+      <Box p={3} bg="blue.50" borderRadius="md" w="full">
+        <Text fontSize="xs" fontWeight="600" mb={2}>
+          Variables disponibles:
+        </Text>
+        <Text fontSize="xs" fontFamily="mono">
+          {'{{NUM_DEVIS}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{DESTINATAIRE_NOM}}, {{DESTINATAIRE_ADRESSE}}, {{NOTES}}, {{LOGO_BIG}}, {{LOGO_SMALL}}'}
+        </Text>
+      </Box>
+    </VStack>
+  );
+
   return (
     <Box p={6}>
       <VStack spacing={6} align="stretch">
@@ -369,103 +467,7 @@ const TemplateManagement = () => {
         <ModalContent maxH="90vh" overflowY="auto">
           <ModalHeader>Créer un nouveau template de devis</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <Input
-                placeholder="Nom du template"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-              />
-
-              <Textarea
-                placeholder="Description (optionnel)"
-                value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-              />
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Contenu HTML *
-                </Text>
-                <Textarea
-                  placeholder='Exemple: <h1>{{TITRE}}</h1><p>Montant: {{MONTANT}} €</p>'
-                  value={formData.htmlContent}
-                  onChange={e => setFormData({ ...formData, htmlContent: e.target.value })}
-                  minH="150px"
-                  fontFamily="mono"
-                  fontSize="xs"
-                />
-              </Box>
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Logo Petit (optionnel)
-                </Text>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setFormData({ ...formData, logoSmall: event.target.result });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {formData.logoSmall && (
-                  <Box mt={2}>
-                    <img src={formData.logoSmall} alt="Logo petit" style={{ maxHeight: '50px' }} />
-                  </Box>
-                )}
-              </Box>
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Logo Grand (optionnel)
-                </Text>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setFormData({ ...formData, logoBig: event.target.result });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {formData.logoBig && (
-                  <Box mt={2}>
-                    <img src={formData.logoBig} alt="Logo grand" style={{ maxHeight: '100px' }} />
-                  </Box>
-                )}
-              </Box>
-
-              <HStack>
-                <Checkbox
-                  isChecked={formData.isDefault}
-                  onChange={e => setFormData({ ...formData, isDefault: e.target.checked })}
-                >
-                  Définir comme template par défaut
-                </Checkbox>
-              </HStack>
-
-              <Box p={3} bg="blue.50" borderRadius="md" w="full">
-                <Text fontSize="xs" fontWeight="600" mb={2}>
-                  Variables disponibles:
-                </Text>
-                <Text fontSize="xs" fontFamily="mono">
-                  {'{{NUM_DEVIS}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{DESTINATAIRE_NOM}}, {{DESTINATAIRE_ADRESSE}}, {{NOTES}}, {{LOGO_BIG}}, {{LOGO_SMALL}}'}
-                </Text>
-              </Box>
-            </VStack>
-          </ModalBody>
+          <ModalBody>{renderFormBody()}</ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={createDisclosure.onClose}>
               Annuler
@@ -483,103 +485,7 @@ const TemplateManagement = () => {
         <ModalContent maxH="90vh" overflowY="auto">
           <ModalHeader>Modifier le template</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <Input
-                placeholder="Nom du template"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-              />
-
-              <Textarea
-                placeholder="Description (optionnel)"
-                value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-              />
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Contenu HTML *
-                </Text>
-                <Textarea
-                  placeholder='Exemple: <h1>{{TITRE}}</h1><p>Montant: {{MONTANT}} €</p>'
-                  value={formData.htmlContent}
-                  onChange={e => setFormData({ ...formData, htmlContent: e.target.value })}
-                  minH="150px"
-                  fontFamily="mono"
-                  fontSize="xs"
-                />
-              </Box>
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Logo Petit (optionnel)
-                </Text>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setFormData({ ...formData, logoSmall: event.target.result });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {formData.logoSmall && (
-                  <Box mt={2}>
-                    <img src={formData.logoSmall} alt="Logo petit" style={{ maxHeight: '50px' }} />
-                  </Box>
-                )}
-              </Box>
-
-              <Box w="full">
-                <Text fontSize="sm" fontWeight="600" mb={2}>
-                  Logo Grand (optionnel)
-                </Text>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setFormData({ ...formData, logoBig: event.target.result });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {formData.logoBig && (
-                  <Box mt={2}>
-                    <img src={formData.logoBig} alt="Logo grand" style={{ maxHeight: '100px' }} />
-                  </Box>
-                )}
-              </Box>
-
-              <HStack>
-                <Checkbox
-                  isChecked={formData.isDefault}
-                  onChange={e => setFormData({ ...formData, isDefault: e.target.checked })}
-                >
-                  Définir comme template par défaut
-                </Checkbox>
-              </HStack>
-
-              <Box p={3} bg="blue.50" borderRadius="md" w="full">
-                <Text fontSize="xs" fontWeight="600" mb={2}>
-                  Variables disponibles:
-                </Text>
-                <Text fontSize="xs" fontFamily="mono">
-                  {'{{NUM_DEVIS}}, {{TITRE}}, {{MONTANT}}, {{DATE}}, {{DESCRIPTION}}, {{DESTINATAIRE_NOM}}, {{DESTINATAIRE_ADRESSE}}, {{NOTES}}, {{LOGO_BIG}}, {{LOGO_SMALL}}'}
-                </Text>
-              </Box>
-            </VStack>
-          </ModalBody>
+          <ModalBody>{renderFormBody()}</ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={editDisclosure.onClose}>
               Annuler

@@ -66,6 +66,7 @@ namespace IneoRbe.Planning
         private readonly TextBlock _count = Ui.Text(string.Empty, 11, true);
         private readonly Canvas _plan = new Canvas { Background = Ui.Panel, Height = 160, Width = 400, HorizontalAlignment = HorizontalAlignment.Left };
         private StackPanel _screenForm;
+        private readonly TextBlock _slidesInfo = Ui.Text(string.Empty, 11, false, Ui.Muted);
         private StackPanel _announcementForm;
 
         public ConfiguratorView()
@@ -341,6 +342,12 @@ namespace IneoRbe.Planning
             onlineRow.Children.Add(_online);
             _screenForm.Children.Add(Field("Affichage en ligne", onlineRow));
             _screenForm.Children.Add(Ui.Button("Simuler l'affichage…", (s, e) => Simulate(), true));
+            _screenForm.Children.Add(Ui.Text("Profil TFT : le diaporama complet (diapositives, gabarits et dispositions) s'édite dans l'onglet « Normes SAEIV ». Importez-le ici pour cet écran ; il est ensuite publié avec la révision.", 11, false, Ui.Muted));
+            ((TextBlock)_screenForm.Children[_screenForm.Children.Count - 1]).TextWrapping = TextWrapping.Wrap;
+            _screenForm.Children.Add(Ui.Toolbar(
+                Ui.Button("Importer le diaporama des normes", (s, e) => ImportSlides(false), true),
+                Ui.Button("Importer pour tous les écrans", (s, e) => ImportSlides(true))));
+            _screenForm.Children.Add(_slidesInfo);
             _screenForm.Children.Add(Ui.Text("Plan du véhicule", 11, true, Ui.Muted));
             _screenForm.Children.Add(_plan);
             Grid.SetColumn(_screenForm, 1);
@@ -478,8 +485,26 @@ namespace IneoRbe.Planning
             _heightPx.Text = item == null ? string.Empty : item.HeightPx.ToString(CultureInfo.InvariantCulture);
             _offline.Text = item == null || string.IsNullOrEmpty(item.OfflineName) ? "  (aucune image)" : "  " + item.OfflineName;
             _online.Text = item == null || string.IsNullOrEmpty(item.OnlineName) ? "  (aucune image)" : "  " + item.OnlineName;
+            _slidesInfo.Text = SlidesSummary(item);
             _loading = false;
             DrawPlan();
+        }
+
+        private static string SlidesSummary(ScreenConfig item)
+        {
+            if (item == null || item.Slides == null || item.Slides.Count == 0) return "Aucun diaporama importé pour cet écran.";
+            return item.Slides.Count + " diapositive(s) importée(s) : " + string.Join(", ", item.Slides.Select(s => string.IsNullOrEmpty(s.Name) ? s.Type : s.Name).ToArray());
+        }
+
+        private void ImportSlides(bool all)
+        {
+            var source = _norms.Effective(_config).Screens.Slides;
+            if (source == null || source.Count == 0) { Ui.Error("Aucune diapositive dans les normes SAEIV : créez-les d'abord dans l'onglet « Normes SAEIV »."); return; }
+            var targets = all ? _config.Screens.ToList() : (CurrentScreen == null ? new List<ScreenConfig>() : new List<ScreenConfig> { CurrentScreen });
+            if (targets.Count == 0) return;
+            if (!Ui.Confirm("Remplacer le diaporama de " + (all ? "tous les écrans (" + targets.Count + ")" : "cet écran") + " par celui des normes SAEIV ?")) return;
+            foreach (var target in targets) target.Slides = NormsView.CloneSlides(source);
+            _slidesInfo.Text = SlidesSummary(CurrentScreen);
         }
 
         private void ApplyPlace()
@@ -642,10 +667,12 @@ namespace IneoRbe.Planning
                 {
                     { "id", item.Id }, { "name", item.Name }, { "place", item.Place }, { "x", item.X }, { "y", item.Y }, { "widthPct", item.WidthPct },
                     { "widthPx", item.WidthPx }, { "heightPx", item.HeightPx }, { "offlineImage", item.OfflineImage }, { "offlineName", item.OfflineName },
-                    { "onlineImage", item.OnlineImage }, { "onlineName", item.OnlineName },
+                    { "onlineImage", item.OnlineImage }, { "onlineName", item.OnlineName }, { "slides", NormsView.SlidesToJson(item.Slides) },
                 });
                 if (!string.IsNullOrEmpty(item.OfflineImage)) files.Add(item.OfflineImage);
                 if (!string.IsNullOrEmpty(item.OnlineImage)) files.Add(item.OnlineImage);
+                foreach (var slide in item.Slides)
+                    if (!string.IsNullOrEmpty(slide.BaseImage)) files.Add(slide.BaseImage);
             }
             body["config"] = new Dictionary<string, object> { { "announcements", announcements }, { "screens", screens }, { "norms", NormsView.ToJson(_norms.Effective(_config)) }, { "exceptional", ExceptionalView.ToJson() } };
             var effective = _norms.Effective(_config);

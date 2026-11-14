@@ -26,12 +26,14 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        UiScale.init(this)
+        DriverApi.init(this)
+        Kiosk.keepHidden(this)
         stopOtherApps()
         root =  LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(carbon)
-            setPadding(48, 48, 48, 48)
+            setPadding(UiScale.px(24), UiScale.px(24), UiScale.px(24), UiScale.px(24))
             gravity = Gravity.CENTER_HORIZONTAL
         }
         setContentView(root)
@@ -78,10 +80,10 @@ class MainActivity : Activity() {
 
     private fun label(text: String, size: Float = 18f, bold: Boolean = false) = TextView(this).apply {
         this.text = text
-        textSize = size
+        textSize = UiScale.sp(size)
         setTextColor(Color.WHITE)
         if (bold) setTypeface(typeface, Typeface.BOLD)
-        setPadding(0, 12, 0, 12)
+        setPadding(0, UiScale.px(6), 0, UiScale.px(6))
     }
 
     private fun showMessage(title: String, message: String, onRetry: (() -> Unit)?, onChangeImei: Boolean) {
@@ -146,6 +148,12 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         stopOtherApps()
+        Kiosk.apply(this)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) Kiosk.apply(this)
     }
 
     private fun showHome(activation: Activation) {

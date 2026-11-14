@@ -94,21 +94,156 @@ namespace IneoRbe.Desktop.Services
 
     public static class SlideType
     {
+        public const string Cover = "COVER";
         public const string NextStop = "NEXT_STOP";
+        public const string NextStops = "NEXT_STOPS";
+        public const string MainStops = "MAIN_STOPS";
         public const string Correspondences = "CORRESPONDENCES";
         public const string Destination = "DESTINATION";
         public const string Clock = "CLOCK";
         public const string Message = "MESSAGE";
     }
 
+    // Une diapositive = une action d'affichage (page de garde, prochains arrêts, délai d'arrivée…) avec son propre gabarit et sa propre disposition.
     [DataContract]
     public sealed class SlideNorm
     {
-        public SlideNorm() { Type = SlideType.NextStop; Seconds = 6; Text = string.Empty; }
+        public SlideNorm() { Type = SlideType.NextStop; Seconds = 6; Text = string.Empty; Name = string.Empty; BaseColor = string.Empty; Elements = ScreenNorm.DefaultElements(Type); }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context) { Name = string.Empty; BaseColor = string.Empty; Text = string.Empty; Seconds = 6; Type = SlideType.NextStop; }
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (Name == null) Name = string.Empty;
+            if (Text == null) Text = string.Empty;
+            if (BaseColor == null) BaseColor = string.Empty;
+            if (Elements == null) Elements = ScreenNorm.DefaultElements(Type);
+        }
 
         [DataMember(Name = "type")] public string Type { get; set; }
+        [DataMember(Name = "name")] public string Name { get; set; }
         [DataMember(Name = "seconds")] public int Seconds { get; set; }
         [DataMember(Name = "text")] public string Text { get; set; }
+        // Gabarit (image de fond) propre à la diapositive ; vide : gabarit par défaut de la norme.
+        [DataMember(Name = "baseImage")] public string BaseImage { get; set; }
+        [DataMember(Name = "baseName")] public string BaseName { get; set; }
+        // Couleur de fond propre à la diapositive ; vide : couleur de la norme.
+        [DataMember(Name = "baseColor")] public string BaseColor { get; set; }
+        // Vrai dès que la disposition a été enregistrée depuis l'éditeur (elle n'est alors plus remplacée en changeant de type).
+        [DataMember(Name = "customized")] public bool Customized { get; set; }
+        [DataMember(Name = "elements")] public List<ScreenElement> Elements { get; set; }
+    }
+
+    // Éléments positionnables d'un écran TFT, dans un repère virtuel (Width x Height de la norme, 800 x 480 par défaut).
+    // Les couleurs valent « LINE » pour reprendre la couleur de la ligne en cours.
+    public static class ElementKind
+    {
+        public const string Band = "BAND";
+        public const string Line = "LINE";
+        public const string Destination = "DESTINATION";
+        // Ville du terminus (l'arrêt de destination est DESTINATION).
+        public const string DestinationCity = "DESTINATION_CITY";
+        public const string Clock = "CLOCK";
+        public const string Date = "DATE";
+        public const string NextStop = "NEXT_STOP";
+        public const string Stops = "STOPS";
+        public const string Delay = "DELAY";
+        public const string Slide = "SLIDE";
+        public const string Text = "TEXT";
+        public const string ShapeLine = "SHAPE_LINE";
+        public const string ShapeArrow = "SHAPE_ARROW";
+        public const string ShapeRect = "SHAPE_RECT";
+
+        public const string ShapeEllipse = "SHAPE_ELLIPSE";
+
+        public static bool IsShape(string kind) { return kind == ShapeLine || kind == ShapeArrow || kind == ShapeRect || kind == ShapeEllipse; }
+        // Rectangle et ellipse : remplissage, contour et dégradé.
+        public static bool IsArea(string kind) { return kind == ShapeRect || kind == ShapeEllipse; }
+        // Liste d'arrêts : maximum d'arrêts affichés, et maximum quand le terminus est proche.
+        public const int MaxStops = 4;
+        public const int MaxStopsNearTerminus = 3;
+    }
+
+    [DataContract]
+    public sealed class ScreenElement
+    {
+        public ScreenElement()
+        {
+            Id = System.Guid.NewGuid().ToString("N");
+            Kind = ElementKind.Text;
+            Label = string.Empty;
+            Text = string.Empty;
+            X = 20; Y = 20; W = 200; H = 48;
+            FontFamily = "Segoe UI";
+            FontSize = 24;
+            Align = "LEFT";
+            Color = string.Empty;
+            Background = string.Empty;
+            Format = string.Empty;
+            Thickness = 6;
+            Rows = 4;
+            ArrowStyle = "POINTED";
+            FillMode = "SOLID";
+            Color2 = string.Empty;
+            StrokeColor = string.Empty;
+            StrokeWidth = 4;
+            ManualStops = string.Empty;
+        }
+
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "kind")] public string Kind { get; set; }
+        // Libellé affiché avant la valeur (ex. « Prochain arrêt : »).
+        [DataMember(Name = "label")] public string Label { get; set; }
+        // Texte fixe (élément de type TEXT).
+        [DataMember(Name = "text")] public string Text { get; set; }
+        [DataMember(Name = "x")] public int X { get; set; }
+        [DataMember(Name = "y")] public int Y { get; set; }
+        [DataMember(Name = "w")] public int W { get; set; }
+        [DataMember(Name = "h")] public int H { get; set; }
+        [DataMember(Name = "fontFamily")] public string FontFamily { get; set; }
+        [DataMember(Name = "fontSize")] public int FontSize { get; set; }
+        [DataMember(Name = "bold")] public bool Bold { get; set; }
+        [DataMember(Name = "italic")] public bool Italic { get; set; }
+        [DataMember(Name = "underline")] public bool Underline { get; set; }
+        // LEFT, CENTER ou RIGHT.
+        [DataMember(Name = "align")] public string Align { get; set; }
+        // Vide : couleur automatique (norme, noir ou blanc selon le fond).
+        [DataMember(Name = "color")] public string Color { get; set; }
+        // Vide : transparent. Pour un bandeau, vide : couleur de la ligne ou du bandeau par défaut.
+        [DataMember(Name = "background")] public string Background { get; set; }
+        // Date et heure : format .NET (vide = jj/MM/aaaa ou HH:mm).
+        [DataMember(Name = "format")] public string Format { get; set; }
+        // Formes : épaisseur du trait, pointe de flèche (POINTED = pleine, CUT = coupée) et rotation en degrés.
+        [DataMember(Name = "thickness")] public int Thickness { get; set; }
+        [DataMember(Name = "arrowStyle")] public string ArrowStyle { get; set; }
+        [DataMember(Name = "rotation")] public int Rotation { get; set; }
+        // Liste d'arrêts : nombre de lignes, délai d'arrivée affiché, arrêts principaux seulement.
+        [DataMember(Name = "rows")] public int Rows { get; set; }
+        [DataMember(Name = "showDelay")] public bool ShowDelay { get; set; }
+        [DataMember(Name = "mainOnly")] public bool MainOnly { get; set; }
+        // Liste d'arrêts : saisie manuelle (une ligne « VILLE - Arrêt » par arrêt) qui remplace les données en cas de dépassement.
+        [DataMember(Name = "manualStops")] public string ManualStops { get; set; }
+        // Rectangle et ellipse : SOLID (plein), NONE (vide, contour seul) ou GRADIENT (dégradé Color -> Color2 selon GradientAngle).
+        [DataMember(Name = "fillMode")] public string FillMode { get; set; }
+        [DataMember(Name = "color2")] public string Color2 { get; set; }
+        [DataMember(Name = "gradientAngle")] public int GradientAngle { get; set; }
+        // Contour (vide = aucun) et son épaisseur.
+        [DataMember(Name = "strokeColor")] public string StrokeColor { get; set; }
+        [DataMember(Name = "strokeWidth")] public int StrokeWidth { get; set; }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            Thickness = 6; Rows = 4; ArrowStyle = "POINTED"; Format = string.Empty;
+            FillMode = "SOLID"; Color2 = string.Empty; StrokeColor = string.Empty; StrokeWidth = 4; ManualStops = string.Empty;
+        }
+
+        public ScreenElement Copy()
+        {
+            return (ScreenElement)MemberwiseClone();
+        }
     }
 
     [DataContract]
@@ -120,7 +255,40 @@ namespace IneoRbe.Desktop.Services
         private void OnDeserializing(StreamingContext context) { SetDefaults(); }
 
         [OnDeserialized]
-        private void OnDeserialized(StreamingContext context) { if (Slides == null) Slides = new List<SlideNorm>(); }
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (Slides == null) Slides = new List<SlideNorm>();
+            if (Width < 100) Width = 800;
+            if (Height < 100) Height = 480;
+        }
+
+        // Disposition standard selon l'action de la diapositive (repère 800 x 480).
+        public static List<ScreenElement> DefaultElements(string type)
+        {
+            var list = new List<ScreenElement>();
+            if (type == SlideType.Cover)
+            {
+                list.Add(new ScreenElement { Kind = ElementKind.Band, X = 0, Y = 0, W = 800, H = 72 });
+                list.Add(new ScreenElement { Kind = ElementKind.Date, X = 12, Y = 8, W = 400, H = 56, FontSize = 26 });
+                list.Add(new ScreenElement { Kind = ElementKind.Clock, X = 636, Y = 8, W = 152, H = 56, FontSize = 28, Align = "RIGHT" });
+                list.Add(new ScreenElement { Kind = ElementKind.ShapeRect, X = 40, Y = 120, W = 220, H = 220, Color = "LINE" });
+                list.Add(new ScreenElement { Kind = ElementKind.Line, X = 40, Y = 120, W = 220, H = 220, FontSize = 120, Bold = true, Align = "CENTER", Color = "#FFFFFF" });
+                list.Add(new ScreenElement { Kind = ElementKind.ShapeArrow, X = 290, Y = 130, W = 120, H = 40, Thickness = 10, Color = "LINE" });
+                list.Add(new ScreenElement { Kind = ElementKind.Destination, X = 290, Y = 180, W = 490, H = 160, FontSize = 54, Bold = true });
+                return list;
+            }
+            list.Add(new ScreenElement { Kind = ElementKind.Band, X = 0, Y = 0, W = 800, H = 72 });
+            list.Add(new ScreenElement { Kind = ElementKind.Line, X = 12, Y = 8, W = 96, H = 56, FontSize = 36, Bold = true, Align = "CENTER" });
+            list.Add(new ScreenElement { Kind = ElementKind.Destination, X = 120, Y = 8, W = 500, H = 56, FontSize = 28 });
+            list.Add(new ScreenElement { Kind = ElementKind.Clock, X = 636, Y = 8, W = 152, H = 56, FontSize = 28, Align = "RIGHT" });
+            if (type == SlideType.NextStops)
+                list.Add(new ScreenElement { Kind = ElementKind.Stops, X = 40, Y = 100, W = 720, H = 340, FontSize = 34, Rows = 4 });
+            else if (type == SlideType.MainStops)
+                list.Add(new ScreenElement { Kind = ElementKind.Stops, X = 40, Y = 100, W = 720, H = 340, FontSize = 34, Rows = 4, ShowDelay = true, MainOnly = true });
+            else
+                list.Add(new ScreenElement { Kind = ElementKind.Slide, X = 24, Y = 100, W = 752, H = 340, FontSize = 40, Align = "CENTER" });
+            return list;
+        }
 
         private void SetDefaults()
         {
@@ -135,12 +303,18 @@ namespace IneoRbe.Desktop.Services
             ShowClock = true;
             ShowNextStop = false;
             FixedPosition = "TOP";
+            Width = 800;
+            Height = 480;
             Slides = new List<SlideNorm>
             {
+                new SlideNorm { Type = SlideType.Cover, Seconds = 5, Elements = DefaultElements(SlideType.Cover) },
                 new SlideNorm { Type = SlideType.NextStop, Seconds = 6 },
-                new SlideNorm { Type = SlideType.Correspondences, Seconds = 4 },
+                new SlideNorm { Type = SlideType.Correspondences, Seconds = 4, Elements = DefaultElements(SlideType.Correspondences) },
             };
         }
+
+        [DataMember(Name = "width")] public int Width { get; set; }
+        [DataMember(Name = "height")] public int Height { get; set; }
 
         [DataMember(Name = "baseColor")] public string BaseColor { get; set; }
         [DataMember(Name = "textColor")] public string TextColor { get; set; }
@@ -331,7 +505,14 @@ namespace IneoRbe.Desktop.Services
             Name = string.Empty;
             Place = "CUSTOM";
             X = 40; Y = 60; WidthPct = 16; WidthPx = 1280; HeightPx = 720;
+            Slides = new List<SlideNorm>();
         }
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context) { if (Slides == null) Slides = new List<SlideNorm>(); }
+
+        // Diapositives de cet écran, chacune liée à une action d'affichage.
+        [DataMember(Name = "slides")] public List<SlideNorm> Slides { get; set; }
 
         [DataMember(Name = "id")] public string Id { get; set; }
         [DataMember(Name = "name")] public string Name { get; set; }
