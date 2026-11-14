@@ -89,7 +89,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             DriverApi.setManualHost(ip.text.toString())
             connectThen(onConnected)
         })
-        handler.postDelayed({
+        this@DriverScreen.handler.postDelayed({
             thread {
                 val found = runCatching { DriverApi.connect() }.getOrNull()
                 activity.runOnUiThread { if (found != null) onConnected() else connectionLost(onConnected) }

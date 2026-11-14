@@ -168,7 +168,8 @@ object DriverApi {
 
     private fun matches(ip: String): Boolean {
         val serial = pingSerial(ip) ?: return false
-        return expectedSerial.isBlank() || serial.equals(expectedSerial, ignoreCase = true)
+        // Un UC plus ancien ne renvoie pas son numéro de série : il est accepté faute de mieux.
+        return expectedSerial.isBlank() || serial.isBlank() || serial.equals(expectedSerial, ignoreCase = true)
     }
 
     private fun pingSerial(ip: String): String? = try {

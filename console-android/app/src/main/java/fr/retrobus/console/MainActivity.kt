@@ -27,6 +27,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         UiScale.init(this)
+        installCrashRecorder()
         DriverApi.init(this)
         Kiosk.keepHidden(this)
         stopOtherApps()
@@ -37,6 +38,27 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
         setContentView(root)
+        showMessage("Console RétroBus", "Recherche de mise à jour…", null, false)
+        val crash = java.io.File(filesDir, "crash.txt")
+        if (crash.exists()) {
+            val text = runCatching { crash.readText().take(1200) }.getOrDefault("")
+            crash.delete()
+            showMessage("Dernier arrêt inattendu", text, { recoverAndStart() }, false)
+            return
+        }
+        recoverAndStart()
+    }
+
+    // Garde la trace du dernier plantage pour l'afficher au démarrage suivant.
+    private fun installCrashRecorder() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching { java.io.File(filesDir, "crash.txt").writeText(android.util.Log.getStackTraceString(error)) }
+            previous?.uncaughtException(thread, error)
+        }
+    }
+
+    private fun recoverAndStart() {
         showMessage("Console RétroBus", "Recherche de mise à jour…", null, false)
         thread {
             val update = UpdateManager.check(BuildConfig.VERSION_NAME)
