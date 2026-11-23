@@ -22,8 +22,9 @@ export const TEMPLATE_PLACEHOLDERS = [
 
 export const DEFAULT_TEMPLATE_ID = '__default__';
 
-// Optionnel : colle ici une chaîne "data:image/png;base64,..." pour figer le logo par défaut même sans upload
+// Chemin vers /public/icons/logo_devis.png (ou chaîne data:image/...;base64,...)
 export const DEFAULT_RBE_LOGO = '/icons/logo_devis.png';
+
 export const DEFAULT_TEMPLATE = {
   id: DEFAULT_TEMPLATE_ID,
   name: 'Modèle standard Rétrobus',
@@ -40,7 +41,7 @@ export const DEFAULT_TEMPLATE = {
 <div class="rbe">
   <table style="border-bottom:1px solid #f1f5f9;">
     <tr>
-      <td style="padding-bottom:20px;vertical-align:middle;text-align:left;width:250px;">
+      <td style="padding-bottom:20px;vertical-align:middle;text-align:left;width:490px;">
         {{LOGO_IMG}}
       </td>
       <td style="padding-bottom:20px;text-align:right;vertical-align:middle;">
@@ -198,7 +199,19 @@ const logoSrc = (logo) => {
     return cleaned.replace(/\s+/g, '');
   }
 
+  if (cleaned.startsWith('data:')) {
+    const base64Part = cleaned.split(',').pop()?.replace(/\s+/g, '') || '';
+    return base64Part ? `data:image/png;base64,${base64Part}` : '';
+  }
+
   if (/^(https?:\/\/|\/|\.\/|\.\.\/)/.test(cleaned)) {
+    if (cleaned.startsWith('/') && typeof window !== 'undefined' && window.location?.origin) {
+      try {
+        return new URL(cleaned, window.location.origin).href;
+      } catch {
+        return cleaned;
+      }
+    }
     return cleaned;
   }
 
@@ -273,7 +286,7 @@ export const renderTemplate = (template = {}, doc = {}) => {
   const resolvedLogo = logoSrc(template?.logoBig || template?.logoSmall || DEFAULT_RBE_LOGO);
 
   const logoImgHtml = resolvedLogo
-    ? `<img src="${escapeHtml(resolvedLogo)}" alt="Logo Association Rétro Bus Essonne" style="display:block;max-width:220px;max-height:76px;width:auto;height:auto;object-fit:contain;" />`
+    ? `<img src="${escapeHtml(resolvedLogo)}" alt="Logo Association Rétro Bus Essonne" style="display:block;max-width:480px;max-height:105px;width:auto;height:auto;object-fit:contain;" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='block';" /><div style="display:none;font-size:18px;font-weight:800;color:#0f172a;">RétroBus Essonne</div>`
     : `<div style="font-size:18px;font-weight:800;color:#0f172a;">RétroBus Essonne</div><div style="color:#64748b;font-size:11px;">« Parce que collectionner devient un sixième sens ! »</div>`;
 
   const data = {
