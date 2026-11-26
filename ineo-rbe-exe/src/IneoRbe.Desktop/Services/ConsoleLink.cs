@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -83,6 +83,18 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "serial")] public string Serial { get; set; }
         [DataMember(Name = "service")] public ConsoleService Service { get; set; }
         [DataMember(Name = "online")] public bool Online { get; set; }
+        [DataMember(Name = "simulation")] public ConsoleSim Simulation { get; set; }
+    }
+
+    // Position fictive envoyée par le Gestionnaire (mode simulation).
+    [DataContract]
+    public sealed class ConsoleSim
+    {
+        [DataMember(Name = "active")] public bool Active { get; set; }
+        [DataMember(Name = "missionId")] public string MissionId { get; set; }
+        [DataMember(Name = "latitude")] public double Latitude { get; set; }
+        [DataMember(Name = "longitude")] public double Longitude { get; set; }
+        [DataMember(Name = "speedKmh")] public double SpeedKmh { get; set; }
     }
 
     [DataContract]
@@ -122,6 +134,8 @@ namespace IneoRbe.Desktop.Services
         private volatile bool _online = true;
 
         public event Action<double, double> PositionReceived;
+        private ConsoleSim _sim;
+        private DateTime _simAt = DateTime.MinValue;
 
         // Renseigné par la synchronisation avec le serveur : la console affiche la perte de connexion quand l'UC n'a plus Internet.
         public void SetOnline(bool online) { _online = online; }
@@ -136,6 +150,7 @@ namespace IneoRbe.Desktop.Services
         {
             Background(AcceptLoop, "console-http");
             Background(OutboxLoop, "console-outbox");
+            Background(SimulationLoop, "console-simulation");
         }
 
         public void Dispose()
@@ -411,7 +426,7 @@ namespace IneoRbe.Desktop.Services
 
         private ConsoleReply Current(string driver)
         {
-            lock (_lock) return new ConsoleReply { Ok = true, DriverIdentifier = driver, Vehicle = _vehicle(), Service = FindService(driver) };
+            lock (_lock) return new ConsoleReply { Ok = true, DriverIdentifier = driver, Vehicle = _vehicle(), Service = FindService(driver), Simulation = CurrentSimulation() };
         }
 
         private void Queue(ConsoleServiceEvent item)
@@ -505,6 +520,35 @@ namespace IneoRbe.Desktop.Services
             var response = HttpTransport.Send("POST", ApiEndpoints.ServiceEventUrl, "application/json", json, 15000);
             // Un refus définitif (409 = état déjà à jour, 403/404 = service retiré) ne doit pas bloquer la file.
             if (!response.IsSuccess && response.StatusCode >= 500) throw new InvalidOperationException("Serveur indisponible.");
+        }
+
+        // Simulation : position fictive du Gestionnaire, relue toutes les 2 s. Elle alimente les annonces et est relayée à la console.
+        private ConsoleSim CurrentSimulation()
+        {
+            return _sim != null && DateTime.UtcNow - _simAt < TimeSpan.FromSeconds(8) ? _sim : null;
+        }
+
+        private void SimulationLoop()
+        {
+            while (!_stopped)
+            {
+                Thread.Sleep(2000);
+                try
+                {
+                    var serial = _serial();
+                    if (string.IsNullOrEmpty(serial)) continue;
+                    var response = HttpTransport.Send("GET", ApiEndpoints.SimulationUrl(serial), null, null, 5000);
+                    if (!response.IsSuccess) continue;
+                    ConsoleSim sim;
+                    using (var stream = new MemoryStream(response.Body ?? new byte[0]))
+                        sim = (ConsoleSim)new DataContractJsonSerializer(typeof(ConsoleSim)).ReadObject(stream);
+                    if (sim == null || !sim.Active) { lock (_lock) _sim = null; continue; }
+                    lock (_lock) { _sim = sim; _simAt = DateTime.UtcNow; }
+                    var received = PositionReceived;
+                    if (received != null) received(sim.Latitude, sim.Longitude);
+                }
+                catch (Exception) { }
+            }
         }
 
         private void OutboxLoop()

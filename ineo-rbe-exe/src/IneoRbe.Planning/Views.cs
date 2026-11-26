@@ -71,6 +71,12 @@ namespace IneoRbe.Planning
                 var dialog = new CoursesDialog(Window.GetWindow(view), options, ParseCourses(view.GetValue("coursesJson")));
                 if (dialog.ShowDialog() == true) view.SetValue("coursesJson", Json.Write(CoursesToJson(dialog.Courses)));
             });
+            view.AddButton("Simulation…", item =>
+            {
+                if (item == null) { Ui.Error("Sélectionnez d'abord un service."); return; }
+                if (Json.Str(item, "status") != "ACTIVE") { Ui.Error("Le service doit être en cours : démarrez-le depuis la console, puis lancez la simulation."); return; }
+                new SimulationDialog(Window.GetWindow(view), item, lines).Show();
+            });
             view.AddButton("Recaler / démarrer à un arrêt…", item =>
             {
                 if (item == null) { Ui.Error("Sélectionnez d'abord un service."); return; }

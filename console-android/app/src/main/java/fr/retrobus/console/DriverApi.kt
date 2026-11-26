@@ -90,8 +90,12 @@ object DriverApi {
         vehicleName = response.optString("vehicle")
     }
 
+    @Volatile var simulation: Triple<Double, Double, Double>? = null
+
     fun currentService(): Service? {
         val response = call("/console/current", JSONObject().put("token", token))
+        // Mode simulation : l'UC relaie la position fictive du Gestionnaire.
+        simulation = response.optJSONObject("simulation")?.takeIf { it.optBoolean("active") }?.let { Triple(it.optDouble("latitude"), it.optDouble("longitude"), it.optDouble("speedKmh", 20.0)) }
         return parse(response.optJSONObject("service"))
     }
 

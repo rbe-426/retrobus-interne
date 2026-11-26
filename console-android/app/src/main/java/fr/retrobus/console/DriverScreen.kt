@@ -30,7 +30,7 @@ import kotlin.concurrent.thread
 
 // Pupitre conducteur : connexion par matricule + code, prise de service et écran de course. Tout passe par l'UC du véhicule.
 class DriverScreen(private val activity: Activity, private val root: LinearLayout, private val vehicleParc: String) {
-    private companion object { const val OFF_ROUTE_METERS = 120.0 }
+    private companion object { const val OFF_ROUTE_METERS = 120.0; const val ARRIVAL_METERS = 40f; const val SIM_PROVIDER = "simulation" }
     private val handler = Handler(Looper.getMainLooper())
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
 
@@ -43,13 +43,18 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private var infoView: TextView? = null
     private var lastPositionSent = 0L
 
+    private var simulatedUntil = 0L
+
     private val listener = LocationListener { location ->
+        // Pendant une simulation, seule la position fictive compte.
+        if (location.provider != SIM_PROVIDER && System.currentTimeMillis() < simulatedUntil) return@LocationListener
         lastLocation = location
         if (location.hasSpeed() && location.speed * 3.6 > 8) moved = true
         // Le tracé de la ligne fait foi ; à défaut, les arrêts restants.
         val route = service?.let { if (it.path.size >= 2) it.path else it.stops }.orEmpty()
         val off = moved && route.size >= 2 && distanceToRoute(location, route) > OFF_ROUTE_METERS
         courseView?.let { it.departing = !moved; it.offRoute = off; it.invalidate() }
+        service?.takeIf { it.active && moved }?.let { checkArrival(location, it) }
         val now = System.currentTimeMillis()
         val mission = service?.takeIf { it.active } ?: return@LocationListener
         if (now - lastPositionSent < 10_000) return@LocationListener
@@ -57,6 +62,24 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         val speed = if (location.hasSpeed()) location.speed * 3.6 else null
         val accuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else null
         thread { runCatching { DriverApi.sendPosition(mission.missionId, location.latitude, location.longitude, speed, accuracy) } }
+    }
+
+    private var arrivalKey = ""
+
+    // Dernier arrêt de la course passé : course suivante, ou fin du service après la dernière course, sans action du conducteur.
+    private fun checkArrival(location: Location, current: Service) {
+        val last = current.stops.lastOrNull() ?: return
+        val key = current.missionId + "/" + current.courseIndex
+        if (key == arrivalKey) return
+        val result = FloatArray(1)
+        Location.distanceBetween(location.latitude, location.longitude, last.lat, last.lng, result)
+        if (result[0] > ARRIVAL_METERS) return
+        arrivalKey = key
+        val finished = current.courseCount <= 0 || current.courseNumber >= current.courseCount
+        thread {
+            val outcome = runCatching { if (finished) DriverApi.complete(current.missionId) else DriverApi.nextCourse(current.missionId) }
+            activity.runOnUiThread { if (outcome.isSuccess) { if (finished) stop(); loadService() } else arrivalKey = "" }
+        }
     }
 
     private val tick = object : Runnable {
@@ -276,6 +299,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
                 val result = runCatching { DriverApi.currentService() }
                 activity.runOnUiThread {
                     val found = result.getOrNull()
+                    DriverApi.simulation?.let { applySimulation(it) }
                     val failure = result.exceptionOrNull()
                     when {
                         failure != null && failure.message?.startsWith("Session expirée") == true -> { DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
@@ -357,9 +381,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         val screen = FrameLayout(activity)
         screen.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         infoView = Look.text(activity, "", 26f, Color.LTGRAY, false)
-        screen.addView(infoView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; leftMargin = UiScale.ri(380f) })
+        screen.addView(infoView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; leftMargin = UiScale.ri(380f); rightMargin = UiScale.ri(500f); topMargin = UiScale.ri(110f) })
         val bar = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        if (current.courseCount > 0 && current.courseNumber < current.courseCount) bar.addView(button("Course suivante", true) { goNextCourse(current) })
         bar.addView(button("Terminer le service") { confirmEnd(current) })
         screen.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; leftMargin = UiScale.ri(380f); bottomMargin = UiScale.ri(10f) })
         root.removeAllViews()
@@ -376,6 +399,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
                 val result = runCatching { DriverApi.currentService() }
                 activity.runOnUiThread {
                     val found = result.getOrNull()
+                    DriverApi.simulation?.let { applySimulation(it) }
                     val failure = result.exceptionOrNull()
                     when {
                         failure != null && failure.message?.startsWith("Session expirée") == true -> { stop(); DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
@@ -386,7 +410,14 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
                     }
                 }
             }
-        }, 5000)
+        }, 2000)
+    }
+
+    private fun applySimulation(sim: Triple<Double, Double, Double>) {
+        simulatedUntil = System.currentTimeMillis() + 8_000
+        val fake = Location(SIM_PROVIDER).apply { latitude = sim.first; longitude = sim.second; speed = (maxOf(sim.third, 10.0) / 3.6).toFloat(); accuracy = 5f; time = System.currentTimeMillis() }
+        listener.onLocationChanged(fake)
+        infoView?.text = "Simulation en cours"
     }
 
     private fun goNextCourse(current: Service) {

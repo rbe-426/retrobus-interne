@@ -71,6 +71,7 @@
     <Compile Include="EditorView.cs" />
     <Compile Include="MapControl.cs" />
     <Compile Include="Itinerary.cs" />
+    <Compile Include="Simulation.cs" />
     <Compile Include="Views.cs" />
     <Compile Include="Views2.cs" />
     <Compile Include="Configurator.cs" />

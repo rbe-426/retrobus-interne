@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace IneoRbe.Desktop.Services
@@ -18,6 +18,7 @@ namespace IneoRbe.Desktop.Services
         public static string SyncUrl { get { return BaseUrl + "/sync"; } }
         public static string PositionUrl { get { return BaseUrl + "/position"; } }
         public static string ServiceEventUrl { get { return BaseUrl + "/service-event"; } }
+        public static string SimulationUrl(string serial) { return BaseUrl + "/simulation?serial=" + Uri.EscapeDataString(serial); }
         public static string ContentRevisionUrl { get { return BaseUrl + "/content-revision"; } }
         public static string MaintenanceCheckUrl { get { return BaseUrl + "/maintenance/check"; } }
 

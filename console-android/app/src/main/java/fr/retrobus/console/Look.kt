@@ -107,8 +107,8 @@ class CourseView(context: Context) : View(context) {
         paint.style = Paint.Style.FILL
         paint.color = lineColor
         canvas.drawRoundRect(RectF(0f, 0f, 360f, 108f), 0f, 0f, paint)
-        text(canvas, lineNumber, 180f, 78f - 22f, fit(lineNumber, 100f, 340f), white, Paint.Align.CENTER)
-        text(canvas, destination.uppercase().take(24), 180f, 98f, 28f, white, Paint.Align.CENTER, 340f)
+        text(canvas, lineNumber, 180f, 72f, fit(lineNumber, 70f, 330f), white, Paint.Align.CENTER)
+        text(canvas, destination.uppercase().take(24), 180f, 100f, 24f, white, Paint.Align.CENTER, 340f)
 
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 112f, 360f, 278f), 0f, 14f, paint)
@@ -177,7 +177,7 @@ class CourseView(context: Context) : View(context) {
             paint.style = Paint.Style.FILL
             paint.color = Color.parseColor("#128A62")
             canvas.drawRect(1331f, 95f, 1445f, 768f, paint)
-            "DEPART".forEachIndexed { index, letter -> text(canvas, letter.toString(), 1388f, 215f + index * 96f, 76f, white, Paint.Align.CENTER) }
+            "DEPART".forEachIndexed { index, letter -> text(canvas, letter.toString(), 1388f, 178f + index * 90f, 66f, white, Paint.Align.CENTER) }
         }
     }
 

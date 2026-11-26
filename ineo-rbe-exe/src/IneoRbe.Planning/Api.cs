@@ -147,6 +147,8 @@ namespace IneoRbe.Planning
         public static void Refresh() { Invalidate(); }
 
         public static object Post(string path, object body) { return Mutate("POST", path, body); }
+        // Appel sans invalider le cache des listes (positions de simulation envoyées chaque seconde).
+        public static object Send(string method, string path, object body) { return Call(method, path, body); }
         public static object Put(string path, object body) { return Mutate("PUT", path, body); }
         public static object Patch(string path, object body) { return Mutate("PATCH", path, body); }
         public static object Delete(string path) { return Mutate("DELETE", path, null); }
