@@ -1,6 +1,10 @@
 R_DEF: Internal format may change without notice
 local
 color carbon
+drawable logo_header
+drawable logo_splash
+drawable slogan
+drawable slogan_splash
 string app_name
 style Theme.Console
 xml file_paths

@@ -33,6 +33,7 @@ data class Service(
     val courseNumber: Int = 0,
     val courseCount: Int = 0,
     val direction: String? = null,
+    val color: String? = null,
 )
 
 // La console ne parle qu'à l'UC du véhicule (HTTP sur le réseau local). Les appels sont bloquants : hors du thread principal.
@@ -119,7 +120,7 @@ object DriverApi {
         val stops = route?.optJSONArray("stops")?.let { array ->
             (stopStart.coerceAtMost(maxOf(array.length() - 1, 0)) until array.length()).mapNotNull { position ->
                 val item = array.optJSONObject(position) ?: return@mapNotNull null
-                Stop(item.optString("label"), null, item.optDouble("lat"), item.optDouble("lng"))
+                Stop(item.optString("label"), item.optString("scheduledTime").ifBlank { null }, item.optDouble("lat"), item.optDouble("lng"))
             }
         } ?: emptyList()
         return Service(
@@ -136,6 +137,7 @@ object DriverApi {
             courseNumber = if (routes.length() > 0) index + 1 else 0,
             courseCount = routes.length(),
             direction = route?.optString("direction")?.ifBlank { null },
+            color = route?.optString("color")?.ifBlank { null },
         )
     }
 
