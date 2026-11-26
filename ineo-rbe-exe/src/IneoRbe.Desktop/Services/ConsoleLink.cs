@@ -487,7 +487,7 @@ namespace IneoRbe.Desktop.Services
             };
             // La console est la source GPS de l'UC : la position alimente aussi les annonces sonores.
             var received = PositionReceived;
-            if (received != null && request.Latitude.HasValue && request.Longitude.HasValue) received(request.Latitude.Value, request.Longitude.Value);
+            if (received != null && (request.Latitude != 0 || request.Longitude != 0)) received(request.Latitude, request.Longitude);
             // Les positions ne sont pas mises en file : une position perdue n'a plus d'intérêt.
             ThreadPool.QueueUserWorkItem(delegate { try { Post(item); } catch (Exception) { } });
             return new ConsoleReply { Ok = true };
