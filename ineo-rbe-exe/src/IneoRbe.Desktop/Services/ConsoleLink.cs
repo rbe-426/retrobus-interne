@@ -33,6 +33,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "scheduledDeparture")] public string ScheduledDeparture { get; set; }
         [DataMember(Name = "stops")] public List<ConsoleStop> Stops { get; set; }
         [DataMember(Name = "path")] public List<double[]> Path { get; set; }
+        [DataMember(Name = "shortened")] public bool Shortened { get; set; }
     }
 
     [DataContract]

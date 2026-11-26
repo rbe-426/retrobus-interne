@@ -36,6 +36,7 @@ data class Service(
     val color: String? = null,
     val stopIndex: Int = 0,
     val courseIndex: Int = 0,
+    val shortened: Boolean = false,
     val path: List<Stop> = emptyList(),
 )
 
@@ -151,6 +152,7 @@ object DriverApi {
             color = route?.optString("color")?.ifBlank { null },
             stopIndex = stopStart,
             courseIndex = index,
+            shortened = route?.optBoolean("shortened") == true,
             path = route?.optJSONArray("path")?.let { array -> (0 until array.length()).mapNotNull { i -> array.optJSONArray(i)?.let { p -> Stop("", null, p.optDouble(0), p.optDouble(1)) } } } ?: emptyList(),
         )
     }

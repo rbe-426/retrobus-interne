@@ -77,6 +77,7 @@ class CourseView(context: Context) : View(context) {
     private val white = Color.WHITE
     private val box = Color.BLACK
     private val track = Color.parseColor("#D10F4A")
+    private val modified = Color.parseColor("#FACC15")
 
     private val font: Typeface = resources.getFont(R.font.montserrat_bold)
 
@@ -113,9 +114,9 @@ class CourseView(context: Context) : View(context) {
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 112f, 360f, 278f), 0f, 14f, paint)
         text(canvas, origin.uppercase().take(18), 8f, 156f, 32f, white, Paint.Align.LEFT, 344f)
-        text(canvas, departure, 8f, 216f, 58f, white, Paint.Align.LEFT, 170f)
-        if (arrival.isNotBlank()) text(canvas, arrival, 196f, 216f, 58f, white, Paint.Align.LEFT, 160f)
-        text(canvas, terminus.uppercase().take(18), 346f, 258f, 30f, white, Paint.Align.RIGHT, 336f)
+        text(canvas, departure, 8f, 216f, 58f, if (recaled) modified else white, Paint.Align.LEFT, 170f)
+        if (arrival.isNotBlank()) text(canvas, arrival, 196f, 216f, 58f, if (recaled) modified else white, Paint.Align.LEFT, 160f)
+        text(canvas, terminus.uppercase().take(18), 346f, 258f, 30f, if (recaled) modified else white, Paint.Align.RIGHT, 336f)
 
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 602f, 360f, 768f), 0f, 0f, paint)
@@ -126,15 +127,11 @@ class CourseView(context: Context) : View(context) {
 
     private fun drawTimeline(canvas: Canvas) {
         val x = 580f
-        paint.color = track
+        // Itinéraire modifié (recalé, écourté) depuis le Gestionnaire : tracé, heures et terminus en jaune.
+        paint.color = if (recaled) modified else track
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 14f
         canvas.drawLine(x, 0f, x, 768f, paint)
-        // Recalage depuis le Gestionnaire : le tronçon entre l'arrêt recalé et le suivant passe en jaune.
-        if (recaled && stops.size >= 2) {
-            paint.color = Color.parseColor("#FACC15")
-            canvas.drawLine(x, 377f, x, 604f, paint)
-        }
         val slots = floatArrayOf(150f, 377f, 604f)
         val shown = stops.take(slots.size).reversed()
         val first = slots.size - shown.size
@@ -145,7 +142,7 @@ class CourseView(context: Context) : View(context) {
             canvas.drawCircle(x, y, 23f, paint)
             paint.color = white
             canvas.drawCircle(x, y, 17f, paint)
-            if (stop.second.isNotBlank()) text(canvas, stop.second, 540f, y + 16f, 40f, white, Paint.Align.RIGHT, 190f)
+            if (stop.second.isNotBlank()) text(canvas, stop.second, 540f, y + 16f, 40f, if (recaled) modified else white, Paint.Align.RIGHT, 190f)
             text(canvas, stop.first.take(28), 618f, y + 16f, 40f, white, Paint.Align.LEFT, 1030f)
         }
         if (stops.isNotEmpty()) {

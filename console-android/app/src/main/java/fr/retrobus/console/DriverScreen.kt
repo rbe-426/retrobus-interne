@@ -363,7 +363,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         val key = "${current.missionId}/${current.courseIndex}"
         if (key != courseKey) { courseKey = key; moved = false }
         val view = CourseView(activity).apply {
-            recaled = current.stopIndex > 0
+            recaled = current.stopIndex > 0 || current.shortened
             lineNumber = current.line ?: current.name
             destination = current.stops.lastOrNull()?.let { cityOf(it.label) } ?: (current.destination ?: "")
             current.color?.let { runCatching { lineColor = Color.parseColor(it) } }
