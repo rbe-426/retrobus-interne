@@ -221,6 +221,7 @@ function AmendmentsPanel({ onChanged }) {
   const [rejecting, setRejecting] = useState(null);
   const [kind, setKind] = useState('LEGAL');
   const [note, setNote] = useState('');
+  const [publishNow, setPublishNow] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -261,6 +262,9 @@ function AmendmentsPanel({ onChanged }) {
   return (
     <Stack spacing={6}>
       {!amendments.length && <Text color="gray.500">Aucun amendement déposé.</Text>}
+      {amendments.some((a) => ['ADOPTED', 'REJECTED', 'NOT_ADOPTED'].includes(a.status) && !a.published) && (
+        <Button alignSelf="flex-start" size="sm" colorScheme="green" onClick={() => run(() => agAPI.publishAllAmendments(), 'Brouillons publiés')}>Tout publier (effet de séance)</Button>
+      )}
       {Object.entries(grouped).map(([docTitle, items]) => (
         <Box key={docTitle}>
           <Heading size="sm" mb={3}>{docTitle}</Heading>
@@ -271,7 +275,12 @@ function AmendmentsPanel({ onChanged }) {
                 <Box key={amendment.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
                   <HStack justify="space-between" wrap="wrap" mb={1}>
                     <Text fontWeight="bold">{amendment.articleLabel}</Text>
-                    <Badge colorScheme={color}>{label}</Badge>
+                    <HStack>
+                      <Badge colorScheme={color}>{label}</Badge>
+                      {['ADOPTED', 'REJECTED', 'NOT_ADOPTED'].includes(amendment.status) && (
+                        <Badge colorScheme={amendment.published ? 'green' : 'orange'}>{amendment.published ? 'Publié' : 'Brouillon'}</Badge>
+                      )}
+                    </HStack>
                   </HStack>
                   <Text fontSize="sm" color="gray.600" mb={2}>
                     {amendment.authorName && <strong>{amendment.authorName}</strong>} · {new Date(amendment.createdAt).toLocaleString('fr-FR')} · {AMENDMENT_REASON_LABELS[amendment.reason] || amendment.reason}
@@ -284,17 +293,24 @@ function AmendmentsPanel({ onChanged }) {
                     </Text>
                   )}
                   {amendment.vote && <Text mt={1} fontSize="sm">Vote : {amendment.vote.pour} pour · {amendment.vote.contre} contre</Text>}
+                  {['ADOPTED', 'REJECTED', 'NOT_ADOPTED'].includes(amendment.status) && (
+                    <Button mt={2} size="xs" colorScheme={amendment.published ? 'gray' : 'green'} onClick={() => run(() => agAPI.publishAmendment(amendment.id, !amendment.published), amendment.published ? 'Décision dépubliée' : 'Décision publiée')}>
+                      {amendment.published ? 'Dépublier' : 'Publier'}
+                    </Button>
+                  )}
                   {amendment.status === 'SUBMITTED' && (
                     rejecting === amendment.id ? (
                       <Stack mt={3} spacing={2}>
                         <Select size="sm" value={kind} onChange={(event) => setKind(event.target.value)}>
                           <option value="LEGAL">Motif légal</option>
                           <option value="STATUTAIRE">Motif statutaire</option>
+                          <option value="ILLISIBLE">Amendement illisible / incompréhensible</option>
                           <option value="AUTRE">Autre motif</option>
                         </Select>
                         <Input size="sm" placeholder="Précision (optionnel)" value={note} onChange={(event) => setNote(event.target.value)} />
+                        <Checkbox size="sm" isChecked={publishNow} onChange={(event) => setPublishNow(event.target.checked)}>Publier immédiatement (sinon brouillon)</Checkbox>
                         <HStack>
-                          <Button size="sm" colorScheme="red" onClick={() => run(() => agAPI.rejectAmendment(amendment.id, { kind, note }), 'Amendement rejeté')}>Confirmer le rejet</Button>
+                          <Button size="sm" colorScheme="red" onClick={() => run(() => agAPI.rejectAmendment(amendment.id, { kind, note, publish: publishNow }), 'Amendement rejeté')}>Confirmer le rejet</Button>
                           <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>Annuler</Button>
                         </HStack>
                       </Stack>
