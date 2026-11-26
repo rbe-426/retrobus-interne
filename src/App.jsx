@@ -18,6 +18,7 @@ import ExternalRetromailRedirect from "./components/ExternalRetromailRedirect";
 import { RESOURCES } from "./lib/permissions";
 import useAgStatus from "./hooks/useAgStatus";
 import AgGate, { AgJoinPage } from "./pages/AgGate";
+const AgPublic = lazy(() => import("./pages/AgPublic"));
 const AgMember = lazy(() => import("./pages/AgMember"));
 const AgPresident = lazy(() => import("./pages/AgPresident"));
 
@@ -181,6 +182,7 @@ export default function App() {
               <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
+        <Route path="/amendements" element={<AgPublic />} />
         
         {/* Route de changement de mot de passe obligatoire */}
         <Route path="/force-password-change" element={<ProtectedRoute><ForcePasswordChange /></ProtectedRoute>} />

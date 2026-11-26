@@ -19,6 +19,7 @@ export const REJECTION_KIND_LABELS = {
 };
 
 export const agAPI = {
+  publicDocuments: () => apiClient.get('/ag/public/documents'),
   status: () => apiClient.get('/ag/status'),
   join: (code) => apiClient.post('/ag/join', { code }),
   getSession: () => apiClient.get('/ag/session'),
