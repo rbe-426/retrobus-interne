@@ -1,7 +1,4 @@
-import {
-  FiDollarSign, FiCalendar, FiUsers, FiPackage, FiMail, FiGlobe,
-  FiLifeBuoy, FiTool, FiTruck, FiShoppingBag, FiVideo, FiFileText, FiCpu, FiThumbsUp
-} from 'react-icons/fi';
+import { FiFileText, FiTool, FiTruck, FiDollarSign, FiCalendar, FiUsers, FiPackage, FiShoppingBag, FiMail, FiGlobe, FiLifeBuoy, FiThumbsUp, FiCpu, FiVideo, FiCheckSquare } from 'react-icons/fi';
 import { FaPaintBrush } from 'react-icons/fa';
 
 export const MYRBE_CARDS = [
@@ -10,8 +7,8 @@ export const MYRBE_CARDS = [
   { id: 'retrobus', title: 'RétroBus', description: 'Suivi complet du parc, entretiens et pointages', to: '/accueil/myrbe/retrobus', icon: FiTool, color: 'teal', resource: 'VEHICLES', cardAccess: true, badge: { label: 'Workspace', color: 'teal' } },
   { id: 'ineo', title: 'Inéo RétroBus', description: 'Prise de service, affectation et suivi de mission', to: '/accueil/myrbe/ineo-retrobus', icon: FiTruck, color: 'rbe', resource: null, cardAccess: true, badge: { label: 'Conducteur', color: 'rbe' } },
   { id: 'finance', title: 'Gestion Financière', description: 'Recettes, dépenses et opérations programmées', to: '/accueil/myrbe/gestion-financiere', icon: FiDollarSign, color: 'rbe', resource: 'FINANCE', cardAccess: true },
-  { id: 'ag', title: 'Assemblée générale', description: 'Documents, amendements et résultats', to: '/accueil/myrbe/ag', icon: FiFileText, color: 'orange', resource: null, cardAccess: true },
-  { id: 'ag-president', title: 'AG — Espace président', description: 'Mode AG, amendements, scrutins et résultats', to: '/accueil/myrbe/ag/president', icon: FiThumbsUp, color: 'orange', resource: null, requiredRole: ['PRESIDENT'], cardAccess: true, badge: { label: 'Président', color: 'orange' } },
+  { id: 'ag-president', title: 'Pilotage AG', description: 'Gestion de session, documents, amendements et scrutins', to: '/accueil/myrbe/ag/president', icon: FiCheckSquare, color: 'purple', resource: null, requiredRole: ['ADMIN', 'PRESIDENT'], cardAccess: true, badge: { label: 'Président', color: 'purple' } },
+  { id: 'amendments', title: 'Amendements', description: 'Consultation et dépôt d\'amendements', to: '/accueil/myrbe/amendements', icon: FiFileText, color: 'orange', resource: null, cardAccess: true },
   { id: 'events', title: 'Gestion des Événements', description: 'Création, planification et suivi', to: '/accueil/myrbe/gestion-evenements', icon: FiCalendar, color: 'green', resource: 'EVENTS', cardAccess: true },
   { id: 'members', title: 'Gestion RH', description: 'Adhérents, stagiaires, cotisations et documents', to: '/accueil/myrbe/gestion-rh', icon: FiUsers, color: 'blue', resource: 'MEMBERS', cardAccess: true },
   { id: 'stock', title: 'Gestion des Stocks', description: "Inventaire et matériel de l'association", to: '/accueil/myrbe/gestion-stocks', icon: FiPackage, color: 'yellow', resource: 'STOCK', cardAccess: true },

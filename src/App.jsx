@@ -17,10 +17,6 @@ import RequireCreator from "./components/RequireCreator";
 import ExternalRetromailRedirect from "./components/ExternalRetromailRedirect";
 import { RESOURCES } from "./lib/permissions";
 import useAgStatus from "./hooks/useAgStatus";
-import AgGate, { AgJoinPage } from "./pages/AgGate";
-const AgPublic = lazy(() => import("./pages/AgPublic"));
-const AgMember = lazy(() => import("./pages/AgMember"));
-const AgPresident = lazy(() => import("./pages/AgPresident"));
 
 const lazyWithRetry = (factory, cacheKey) =>
   lazy(async () => {
@@ -126,6 +122,9 @@ const IneoFreeTracking = lazy(() => import("./pages/IneoFreeTracking"));
 const LeMusee = lazy(() => import("./pages/LeMusee"));
 const PublicNewsManagement = lazy(() => import("./pages/PublicNewsManagement"));
 const Bot920Management = lazy(() => import("./pages/Bot920Management"));
+const AgGate = lazy(() => import("./pages/AgGate"));
+const AgPresident = lazy(() => import("./pages/AgPresident"));
+const AgPublic = lazy(() => import("./pages/AgPublic"));
 
 export default function App() {
   const { isAuthenticated, user, matricule } = useUser();
@@ -167,9 +166,6 @@ export default function App() {
   }, [isAuthenticated, location.pathname]);
 
   const { status: agStatus, refresh: refreshAgStatus } = useAgStatus(isAuthenticated);
-  if (isAuthenticated && agStatus?.modeActive && !agStatus.isPresident) {
-    return <AgGate status={agStatus} refresh={refreshAgStatus} />;
-  }
 
   return (
     <ErrorBoundary>
@@ -205,9 +201,13 @@ export default function App() {
   <Route path="/myrbe/ineo-retrobus/tracage-libre" element={<Navigate to="/accueil/myrbe/ineo-retrobus/tracage-libre" replace />} />
   <Route path="/accueil/myrbe/ineo-retrobus/operations" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
   <Route path="/dashboard/ineo-retrobus" element={<Navigate to="/accueil/myrbe/ineo-retrobus/operations" replace />} />
-  <Route path="/accueil/myrbe/ag" element={<ProtectedRoute><AgMember /></ProtectedRoute>} />
-  <Route path="/accueil/myrbe/ag/president" element={<RoleProtectedRoute allowedRoles={['PRESIDENT']}><AgPresident /></RoleProtectedRoute>} />
-  <Route path="/ag/rejoindre" element={<ProtectedRoute><AgJoinPage /></ProtectedRoute>} />
+  
+  {/* Assemblée Générale */}
+  <Route path="/accueil/myrbe/ag/president" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><AgPresident /></RoleProtectedRoute>} />
+  <Route path="/ag" element={<AgGate />} />
+  <Route path="/ag/rejoindre" element={<AgGate />} />
+  
+  <Route path="/accueil/myrbe/amendements" element={<ProtectedRoute><AgPublic /></ProtectedRoute>} />
   <Route path="/accueil/myrbe/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<Navigate to="/accueil/myrbe/trilogy-rbe" replace />} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />

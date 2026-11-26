@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icon } from '@chakra-ui/react';
 
-// Icône provisoire : remplacer le contenu du <path> par le SVG maison (viewBox 24x24, currentColor).
+// Icône de repli (utilisée quand l'image maison n'est pas présente).
 const AmendmentIcon = (props) => (
   <Icon viewBox="0 0 24 24" {...props}>
     <path
