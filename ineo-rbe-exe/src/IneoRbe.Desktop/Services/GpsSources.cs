@@ -58,6 +58,7 @@ namespace IneoRbe.Desktop.Services
     public sealed class WindowsGpsSource : GpsSource
     {
         private GeoCoordinateWatcher _watcher;
+        private Timer _poll;
 
         public override void Start()
         {
@@ -67,22 +68,42 @@ namespace IneoRbe.Desktop.Services
                 RaiseStatus("La localisation Windows n'existe pas sur ce système : choisissez « Port série » comme source GPS.");
                 return;
             }
-            _watcher = new GeoCoordinateWatcher(GeoPositionAccuracy.High) { MovementThreshold = 3 };
+            _watcher = new GeoCoordinateWatcher(GeoPositionAccuracy.High) { MovementThreshold = 1 };
             _watcher.PositionChanged += OnPositionChanged;
             _watcher.StatusChanged += OnStatusChanged;
             RaiseStatus(_watcher.TryStart(false, TimeSpan.FromSeconds(5))
                 ? "Diffusion automatique active : en attente de position GPS."
                 : "Aucun capteur GPS Windows disponible : en attente de position.");
+            // Le service de localisation ne notifie qu'en cas de déplacement : on relit la position toutes les 2 s
+            // pour que les annonces et la remontée vers le Gestionnaire n'attendent jamais un événement.
+            _poll = new Timer(PollPosition, null, 2000, 2000);
         }
 
         public override void Stop()
         {
+            if (_poll != null) { _poll.Dispose(); _poll = null; }
             if (_watcher == null) return;
             _watcher.PositionChanged -= OnPositionChanged;
             _watcher.StatusChanged -= OnStatusChanged;
             _watcher.Stop();
             _watcher.Dispose();
             _watcher = null;
+        }
+
+        private void PollPosition(object state)
+        {
+            try
+            {
+                var watcher = _watcher;
+                if (watcher == null) return;
+                var location = watcher.Position.Location;
+                if (location.IsUnknown) return;
+                RaisePosition(location.Latitude, location.Longitude);
+            }
+            catch (Exception)
+            {
+                // Le prochain passage (2 s) réessaie.
+            }
         }
 
         private void OnStatusChanged(object sender, GeoPositionStatusChangedEventArgs e)

@@ -25,6 +25,8 @@ namespace IneoRbe.Desktop
         // Plus affiché : sert uniquement à ouvrir les écrans et la mire de test commandés à distance par le véhicule pilote.
         private readonly SimulatorView SimulatorPage = new SimulatorView();
         private readonly DispatcherTimer _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        private readonly DispatcherTimer _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        private volatile bool _positionBusy;
         private readonly List<PilotCommandResult> _pendingResults = new List<PilotCommandResult>();
         private readonly object _resultsLock = new object();
         private readonly object _updateLock = new object();
@@ -75,9 +77,11 @@ namespace IneoRbe.Desktop
             Closed += (s, e) => liveTimer.Stop();
             NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
             _syncTimer.Tick += (s, e) => StartSync(false);
+            _positionTimer.Tick += (s, e) => ReportPosition();
             Closed += (s, e) =>
             {
                 _syncTimer.Stop();
+                _positionTimer.Stop();
                 NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
                 _maintenanceLink.Dispose();
                 _consoleLink.Dispose();
@@ -87,6 +91,7 @@ namespace IneoRbe.Desktop
             Loaded += (s, e) =>
             {
                 _syncTimer.Start();
+                _positionTimer.Start();
                 var voiceTestTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
                 voiceTestTimer.Tick += (t, a) => PollVoiceTest();
                 voiceTestTimer.Start();
@@ -99,6 +104,23 @@ namespace IneoRbe.Desktop
         }
 
         private volatile bool _voiceTestBusy;
+
+        // Remonte la dernière position GPS (moins de 2 min) au Gestionnaire, sans bloquer l'interface.
+        private void ReportPosition()
+        {
+            var serial = _serial;
+            if (_positionBusy || serial == null) return;
+            double latitude, longitude;
+            TimeSpan age;
+            if (!_engine.TryGetLastPosition(out latitude, out longitude, out age) || age > TimeSpan.FromMinutes(2)) return;
+            _positionBusy = true;
+            Task.Factory.StartNew(() =>
+            {
+                try { _identityClient.ReportPosition(serial, latitude, longitude); }
+                catch (Exception) { }
+                finally { _positionBusy = false; }
+            });
+        }
 
         // Test de voix demandé à distance depuis le Gestionnaire : le serveur remet le texte une seule fois.
         private void PollVoiceTest()

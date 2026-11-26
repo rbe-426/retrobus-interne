@@ -108,8 +108,29 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "text")] public string Text { get; set; }
     }
 
+    [DataContract]
+    internal sealed class UcPositionRequest
+    {
+        [DataMember(Name = "serial")] public string Serial { get; set; }
+        [DataMember(Name = "latitude")] public double Latitude { get; set; }
+        [DataMember(Name = "longitude")] public double Longitude { get; set; }
+    }
+
     public sealed class UcIdentityClient
     {
+        // Remonte la dernière position GPS au Gestionnaire. Appel bloquant : à exécuter hors du thread d'interface.
+        public bool ReportPosition(string serial, double latitude, double longitude)
+        {
+            if (!NetworkInterface.GetIsNetworkAvailable()) return false;
+            byte[] json;
+            using (var buffer = new MemoryStream())
+            {
+                new DataContractJsonSerializer(typeof(UcPositionRequest)).WriteObject(buffer, new UcPositionRequest { Serial = serial, Latitude = latitude, Longitude = longitude });
+                json = buffer.ToArray();
+            }
+            return HttpTransport.Send("POST", ApiEndpoints.PositionUrl, "application/json", json, 15000).IsSuccess;
+        }
+
         // Moteur vocal détecté sur ce poste, remonté au serveur pour affichage dans le Gestionnaire.
         public string VoiceEngine { get; set; }
 
