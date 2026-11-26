@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -84,7 +84,8 @@ namespace IneoRbe.Planning
             _timer.Tick += (s, e) => Tick();
             Closed += (s, e) => { _timer.Stop(); Stop(); };
 
-            var start = _indexes.IndexOf(current);
+            var start = _indexes.FindIndex(i => i >= current);
+            if (start < 0) start = _indexes.Count - 1;
             _course.SelectedIndex = _course.Items.Count == 0 ? -1 : Math.Max(0, start);
             _timer.Start();
         }

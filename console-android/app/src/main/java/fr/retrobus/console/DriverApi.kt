@@ -37,6 +37,7 @@ data class Service(
     val stopIndex: Int = 0,
     val courseIndex: Int = 0,
     val shortened: Boolean = false,
+    val nextStart: Stop? = null,
     val path: List<Stop> = emptyList(),
 )
 
@@ -153,6 +154,7 @@ object DriverApi {
             stopIndex = stopStart,
             courseIndex = index,
             shortened = route?.optBoolean("shortened") == true,
+            nextStart = routes.optJSONObject(index + 1)?.optJSONArray("stops")?.optJSONObject(0)?.let { Stop(it.optString("label"), null, it.optDouble("lat"), it.optDouble("lng")) },
             path = route?.optJSONArray("path")?.let { array -> (0 until array.length()).mapNotNull { i -> array.optJSONArray(i)?.let { p -> Stop("", null, p.optDouble(0), p.optDouble(1)) } } } ?: emptyList(),
         )
     }

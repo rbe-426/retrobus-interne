@@ -70,7 +70,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             if (reached != progress) { progress = reached; courseView?.stops = courseStops.drop(progress) }
         }
         courseView?.let { it.departing = !moved; it.offRoute = off; it.invalidate() }
-        service?.takeIf { it.active && moved }?.let { checkArrival(location, it) }
+        // Un haut-le-pied n'a pas d'arrêt : il se termine à l'arrivée au premier arrêt de la course suivante.
+        service?.takeIf { it.active && (moved || it.stops.isEmpty()) }?.let { checkArrival(location, it) }
         val now = System.currentTimeMillis()
         val mission = service?.takeIf { it.active } ?: return@LocationListener
         if (now - lastPositionSent < 10_000) return@LocationListener
@@ -84,7 +85,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
     // Dernier arrêt de la course passé : course suivante, ou fin du service après la dernière course, sans action du conducteur.
     private fun checkArrival(location: Location, current: Service) {
-        val last = current.stops.lastOrNull() ?: return
+        val last = current.stops.lastOrNull() ?: current.nextStart ?: return
         val key = current.missionId + "/" + current.courseIndex
         if (key == arrivalKey) return
         val result = FloatArray(1)
@@ -380,8 +381,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         if (key != courseKey) { courseKey = key; moved = false; departureDelay = null }
         val view = CourseView(activity).apply {
             recaled = current.stopIndex > 0 || current.shortened
-            lineNumber = current.line ?: current.name
-            destination = current.stops.lastOrNull()?.let { cityOf(it.label) } ?: (current.destination ?: "")
+            lineNumber = if (current.direction == "HLP") "HLP" else current.line ?: current.name
+            destination = if (current.direction == "HLP") "HAUT-LE-PIED" else current.stops.lastOrNull()?.let { cityOf(it.label) } ?: (current.destination ?: "")
             current.color?.let { runCatching { lineColor = Color.parseColor(it) } }
             origin = current.stops.firstOrNull()?.let { cityOf(it.label) } ?: ""
             departure = current.departure ?: ""
