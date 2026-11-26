@@ -116,7 +116,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private fun connectThen(onConnected: () -> Unit) {
         splash("Recherche de l'UC du véhicule…")
         thread {
-            val found = runCatching { DriverApi.connect() }.getOrNull()
+            val found = runCatching { DriverApi.link() }.getOrNull()
             activity.runOnUiThread { if (found != null) onConnected() else connectionLost(onConnected) }
         }
     }
@@ -125,7 +125,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         addView(Look.text(activity, "Perte de connexion avec InéoRBE", 64f))
         this@DriverScreen.handler.postDelayed({
             thread {
-                val found = runCatching { DriverApi.connect() }.getOrNull()
+                val found = runCatching { DriverApi.link() }.getOrNull()
                 activity.runOnUiThread { if (found != null) onConnected() else connectionLost(onConnected) }
             }
         }, 5000)
@@ -361,15 +361,17 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
 
     private fun startLocation() {
         if (activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            activity.requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 42)
+            activity.requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 42)
             infoView?.text = "Autorisez la localisation pour transmettre la position du véhicule."
             return
         }
         val manager = activity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         runCatching {
-            manager.removeUpdates(listener)
+        manager.removeUpdates(listener)
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5_000L, 0f, listener, Looper.getMainLooper())
         }.onFailure { infoView?.text = "GPS indisponible." }
+        // Sans fix satellite (arrêt, intérieur), la localisation réseau prend le relais.
+        runCatching { manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5_000L, 0f, listener, Looper.getMainLooper()) }
     }
 
     private fun confirmEnd(current: Service): Unit = page {
@@ -378,7 +380,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         addView(button("Oui, terminer", true) {
             message("Fin de service…")
             thread {
-                val result = runCatching { DriverApi.complete(current.missionId) }
+                val result = runCatching { if (current.courseCount <= 0 || current.courseNumber >= current.courseCount) DriverApi.complete(current.missionId) else DriverApi.abort(current.missionId) }
                 activity.runOnUiThread {
                     result.onSuccess { stop(); loadService() }.onFailure { course(current); infoView?.text = it.message }
                 }

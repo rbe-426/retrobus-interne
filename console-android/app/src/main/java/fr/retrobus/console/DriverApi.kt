@@ -104,11 +104,15 @@ object DriverApi {
         val body = JSONObject().put("token", token).put("missionId", missionId).put("latitude", latitude).put("longitude", longitude)
         if (speedKmh != null) body.put("speedKmh", speedKmh)
         if (accuracy != null) body.put("accuracy", accuracy)
-        call("/console/position", body)
+        call("/console/position", body, strict = false)
     }
 
     fun complete(missionId: String) {
         call("/console/complete", JSONObject().put("token", token).put("missionId", missionId))
+    }
+
+    fun abort(missionId: String) {
+        call("/console/abort", JSONObject().put("token", token).put("missionId", missionId))
     }
 
     private fun parse(service: JSONObject?): Service? {
@@ -144,13 +148,36 @@ object DriverApi {
     private fun clockOf(iso: String): String? =
         runCatching { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Europe/Paris")).format(Instant.parse(iso)) }.getOrNull()
 
-    private fun call(path: String, body: JSONObject): JSONObject {
+    // strict = false : liaison locale avec l'UC seulement (les positions doivent lui parvenir même sans Internet).
+    private fun call(path: String, body: JSONObject, strict: Boolean = true): JSONObject {
+        if (strict && !deviceOnline()) throw ApiException("Perte de Connexion avec InéoRBE")
         val known = host
         if (known != null) {
-            try { return send(known, path, body) } catch (error: ApiException) { if (error.code != 0) throw error }
+            try { return if (strict) checked(send(known, path, body)) else send(known, path, body) } catch (error: ApiException) { if (error.code != 0) throw error }
         }
         val found = connect() ?: throw ApiException("Perte de Connexion avec InéoRBE")
-        return send(found, path, body)
+        return if (strict) checked(send(found, path, body)) else send(found, path, body)
+    }
+
+    // L'UC signale lui-même qu'il n'a plus Internet : même écran que si la console ne le joignait plus.
+    @Volatile private var ucOnline = true
+
+    private fun checked(reply: JSONObject): JSONObject {
+        if (!ucOnline) throw ApiException("Perte de Connexion avec InéoRBE")
+        return reply
+    }
+
+    private fun deviceOnline(): Boolean {
+        val manager = appContext?.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return true
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    // Liaison complète : Internet côté console, UC joignable et Internet côté UC.
+    fun link(): String? {
+        if (!deviceOnline()) return null
+        val found = connect() ?: return null
+        return if (ucOnline) found else null
     }
 
     // Retrouve l'UC : 1) balayage du réseau local, retenu seulement si le numéro de série correspond ; 2) adresse IP de l'UC remontée au serveur.
@@ -220,6 +247,7 @@ object DriverApi {
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val json = runCatching { JSONObject(text) }.getOrNull() ?: JSONObject()
+            if (json.has("online")) ucOnline = json.optBoolean("online", true)
             if (code !in 200..299 || !json.optBoolean("ok", false)) {
                 throw ApiException(json.optString("error").ifBlank { "L'UC a répondu $code." }, if (code in 200..299) 409 else code)
             }

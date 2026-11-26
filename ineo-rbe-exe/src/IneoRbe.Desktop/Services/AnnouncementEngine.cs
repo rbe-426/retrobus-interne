@@ -188,6 +188,12 @@ namespace IneoRbe.Desktop.Services
             }
         }
 
+        // Position fournie par la console du véhicule (source GPS de l'UC) : mémorisée, et évaluée si la diffusion automatique est active.
+        public void PushPosition(double latitude, double longitude)
+        {
+            OnPositionChanged(latitude, longitude);
+        }
+
         private void OnPositionChanged(double latitude, double longitude)
         {
             lock (_positionLock)

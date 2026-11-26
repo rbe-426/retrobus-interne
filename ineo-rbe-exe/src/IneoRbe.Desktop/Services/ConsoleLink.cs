@@ -81,6 +81,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "vehicle")] public string Vehicle { get; set; }
         [DataMember(Name = "serial")] public string Serial { get; set; }
         [DataMember(Name = "service")] public ConsoleService Service { get; set; }
+        [DataMember(Name = "online")] public bool Online { get; set; }
     }
 
     [DataContract]
@@ -117,6 +118,12 @@ namespace IneoRbe.Desktop.Services
         private DateTime _lockedUntil = DateTime.MinValue;
         private volatile TcpListener _listener;
         private volatile bool _stopped;
+        private volatile bool _online = true;
+
+        public event Action<double, double> PositionReceived;
+
+        // Renseigné par la synchronisation avec le serveur : la console affiche la perte de connexion quand l'UC n'a plus Internet.
+        public void SetOnline(bool online) { _online = online; }
 
         public ConsoleLink(Func<string> serial, Func<string> vehicle)
         {
@@ -226,6 +233,7 @@ namespace IneoRbe.Desktop.Services
                         try { reply = Handle(path, Parse(body)); }
                         catch (Exception exception) { status = 500; reply = Fail(exception.Message); }
                     }
+                    reply.Online = _online;
                     if (!reply.Ok && status == 200) status = 409;
 
                     byte[] json;
@@ -340,6 +348,7 @@ namespace IneoRbe.Desktop.Services
                 case "/console/start": return Start(driver, request);
                 case "/console/next": return Next(driver, request);
                 case "/console/complete": return Complete(driver, request);
+                case "/console/abort": return Abort(driver, request);
                 case "/console/position": return Position(driver, request);
                 default: return Fail("Commande inconnue.");
             }
@@ -454,6 +463,18 @@ namespace IneoRbe.Desktop.Services
             }
         }
 
+        private ConsoleReply Abort(string driver, ConsoleRequest request)
+        {
+            lock (_lock)
+            {
+                var service = FindMine(driver, request.MissionId);
+                if (service == null || service.Status != "ACTIVE") return Fail("Ce service n'est pas en cours.");
+                service.Status = "CANCELLED";
+                Queue(new ConsoleServiceEvent { MissionId = service.Id, Event = "abort" });
+                return new ConsoleReply { Ok = true };
+            }
+        }
+
         private ConsoleReply Position(string driver, ConsoleRequest request)
         {
             ConsoleService service;
@@ -464,6 +485,9 @@ namespace IneoRbe.Desktop.Services
                 Serial = _serial(), MissionId = service.Id, Event = "position",
                 Latitude = request.Latitude, Longitude = request.Longitude, SpeedKmh = request.SpeedKmh, Accuracy = request.Accuracy,
             };
+            // La console est la source GPS de l'UC : la position alimente aussi les annonces sonores.
+            var received = PositionReceived;
+            if (received != null && request.Latitude.HasValue && request.Longitude.HasValue) received(request.Latitude.Value, request.Longitude.Value);
             // Les positions ne sont pas mises en file : une position perdue n'a plus d'intérêt.
             ThreadPool.QueueUserWorkItem(delegate { try { Post(item); } catch (Exception) { } });
             return new ConsoleReply { Ok = true };

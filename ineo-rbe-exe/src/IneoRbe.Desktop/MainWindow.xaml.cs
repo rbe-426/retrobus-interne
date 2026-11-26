@@ -67,6 +67,7 @@ namespace IneoRbe.Desktop
             _maintenanceLink = new MaintenanceLink(HandleMaintenanceCommand, _config.MaintenancePort);
             _maintenanceLink.Start();
             _consoleLink = new ConsoleLink(() => _serial, () => _vehicleName);
+            _consoleLink.PositionReceived += (latitude, longitude) => _engine.PushPosition(latitude, longitude);
             _consoleLink.Start();
 
             RefreshNetworkStatus();
@@ -271,6 +272,7 @@ namespace IneoRbe.Desktop
                 lock (_resultsLock) sent = _pendingResults.ToList();
 
                 var identity = _identityClient.Sync(_serial, _releaseVersion, _screensRevision, _contentRevision, sent);
+                _consoleLink.SetOnline(true);
                 lock (_resultsLock) foreach (var result in sent) _pendingResults.Remove(result);
 
                 var contentApplied = ApplyPublishedContent(identity);
@@ -301,6 +303,7 @@ namespace IneoRbe.Desktop
             }
             catch (InternetUnavailableException)
             {
+                _consoleLink.SetOnline(false);
                 Ui(() =>
                 {
                     if (_profileShown) return;

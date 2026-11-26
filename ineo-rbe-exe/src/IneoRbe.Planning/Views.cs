@@ -12,7 +12,7 @@ namespace IneoRbe.Planning
     {
         private static readonly Dictionary<string, string> StatusLabels = new Dictionary<string, string>
         {
-            { "PLANNED", "Planifié" }, { "ACTIVE", "En cours" }, { "COMPLETED", "Terminé" }, { "CANCELLED", "Annulé" },
+            { "PLANNED", "Planifié" }, { "ACTIVE", "En cours" }, { "COMPLETED", "Terminé" },             { "CANCELLED", "Avorté" },
         };
 
         private static string Label(Dictionary<string, string> map, string key)
