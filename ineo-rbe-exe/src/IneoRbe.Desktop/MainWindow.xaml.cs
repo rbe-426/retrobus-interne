@@ -67,7 +67,7 @@ namespace IneoRbe.Desktop
             _maintenanceLink = new MaintenanceLink(HandleMaintenanceCommand, _config.MaintenancePort);
             _maintenanceLink.Start();
             _consoleLink = new ConsoleLink(() => _serial, () => _vehicleName);
-            _consoleLink.PositionReceived += (latitude, longitude) => _engine.PushPosition(latitude, longitude);
+            _consoleLink.PositionReceived += (latitude, longitude) => { _engine.PushPosition(latitude, longitude); _engine.PushServicePosition(latitude, longitude, _consoleLink.CurrentRoute()); };
             _consoleLink.Start();
 
             RefreshNetworkStatus();

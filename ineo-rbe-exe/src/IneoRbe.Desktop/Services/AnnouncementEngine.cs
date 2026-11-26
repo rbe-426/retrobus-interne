@@ -194,6 +194,55 @@ namespace IneoRbe.Desktop.Services
             OnPositionChanged(latitude, longitude);
         }
 
+        private const double ArriveMeters = 80;
+        private string _routeKey;
+        private int _routeNext;
+        private bool _routeIntro;
+
+        private static string PlaceOf(ConsoleStop stop)
+        {
+            var label = stop.Label ?? string.Empty;
+            var cut = label.IndexOf(" – ", StringComparison.Ordinal);
+            return cut >= 0 ? label.Substring(cut + 3).Trim() : label;
+        }
+
+        // Annonces du service en cours : ligne et prochain arrêt à la prise de service, puis à chaque arrêt desservi, terminus à la fin.
+        // Indépendant de la diffusion GPS : la position vient de la console (ou de la simulation du Gestionnaire).
+        public void PushServicePosition(double latitude, double longitude, ActiveRoute route)
+        {
+            Dispatch(() =>
+            {
+                if (route == null) { _routeKey = null; return; }
+                var norm = _config.Norms != null ? _config.Norms.Tts : null;
+                var texts = norm != null && norm.Texts != null ? norm.Texts : new TtsTexts();
+                if (route.Key != _routeKey) { _routeKey = route.Key; _routeNext = route.StartIndex; _routeIntro = false; }
+                var stops = route.Stops;
+                if (_routeNext >= stops.Count) return;
+                if (!_routeIntro)
+                {
+                    _routeIntro = true;
+                    Speak(TtsEngine.Fill(texts.Line, route.Line, route.Destination, string.Empty, string.Empty));
+                    if (DistanceMeters(latitude, longitude, stops[_routeNext].Lat, stops[_routeNext].Lng) > ArriveMeters)
+                        Speak(TtsEngine.Fill(texts.NextStop, route.Line, route.Destination, PlaceOf(stops[_routeNext]), string.Empty));
+                }
+                var reached = -1;
+                for (var i = _routeNext; i < stops.Count; i++)
+                    if (DistanceMeters(latitude, longitude, stops[i].Lat, stops[i].Lng) <= ArriveMeters) reached = i;
+                if (reached < 0) return;
+                _routeNext = reached + 1;
+                if (_routeNext >= stops.Count) Speak(TtsEngine.Fill(texts.Terminus, route.Line, route.Destination, PlaceOf(stops[reached]), string.Empty));
+                else Speak(TtsEngine.Fill(texts.NextStop, route.Line, route.Destination, PlaceOf(stops[_routeNext]), string.Empty));
+            });
+        }
+
+        private void Speak(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            SetStatus("Annonce : " + text);
+            _queue.Enqueue(TtsPrefix + text);
+            PlayNext();
+        }
+
         private void OnPositionChanged(double latitude, double longitude)
         {
             lock (_positionLock)

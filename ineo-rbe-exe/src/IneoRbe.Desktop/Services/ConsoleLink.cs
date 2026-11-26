@@ -51,6 +51,16 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "routes")] public List<ConsoleCourse> Routes { get; set; }
     }
 
+    // Course en cours du véhicule, pour les annonces « Prochain arrêt » de l'UC.
+    public sealed class ActiveRoute
+    {
+        public string Key { get; set; }
+        public string Line { get; set; }
+        public string Destination { get; set; }
+        public int StartIndex { get; set; }
+        public List<ConsoleStop> Stops { get; set; }
+    }
+
     [DataContract]
     public sealed class ConsoleDriver
     {
@@ -411,6 +421,28 @@ namespace IneoRbe.Desktop.Services
                 var diff = hex.Length ^ parts[1].Length;
                 for (var i = 0; i < hex.Length && i < parts[1].Length; i++) diff |= hex[i] ^ parts[1][i];
                 return diff == 0;
+            }
+        }
+
+        public ActiveRoute CurrentRoute()
+        {
+            lock (_lock)
+            {
+                var service = _services.FirstOrDefault(s => s.Status == "ACTIVE");
+                if (service == null || service.Routes == null || service.Routes.Count == 0) return null;
+                var index = Math.Max(0, Math.Min(service.CourseIndex, service.Routes.Count - 1));
+                var route = service.Routes[index];
+                if (route.Stops == null || route.Stops.Count == 0) return null;
+                var last = route.Stops[route.Stops.Count - 1];
+                var label = last.Label ?? string.Empty;
+                return new ActiveRoute
+                {
+                    Key = service.Id + "/" + index + "/" + route.Stops.Count,
+                    Line = route.LineName,
+                    Destination = string.IsNullOrEmpty(last.City) ? label : last.City,
+                    StartIndex = Math.Max(0, Math.Min(service.StopIndex, route.Stops.Count - 1)),
+                    Stops = route.Stops,
+                };
             }
         }
 

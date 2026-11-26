@@ -30,7 +30,7 @@ import kotlin.concurrent.thread
 
 // Pupitre conducteur : connexion par matricule + code, prise de service et écran de course. Tout passe par l'UC du véhicule.
 class DriverScreen(private val activity: Activity, private val root: LinearLayout, private val vehicleParc: String) {
-    private companion object { const val OFF_ROUTE_METERS = 120.0; const val ARRIVAL_METERS = 40f; const val SIM_PROVIDER = "simulation" }
+    private companion object { const val OFF_ROUTE_METERS = 120.0; const val ARRIVAL_METERS = 90f; const val SIM_PROVIDER = "simulation"; const val PASS_METERS = 80f }
     private val handler = Handler(Looper.getMainLooper())
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
 
@@ -44,15 +44,31 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private var lastPositionSent = 0L
 
     private var simulatedUntil = 0L
+    // Retard constaté au départ de la course : il reste affiché pendant le trajet.
+    private var departureDelay: Int? = null
+    private var progress = 0
+    private var courseStops: List<Pair<String, String>> = emptyList()
+
+    private fun distanceTo(location: Location, stop: Stop): Float {
+        val out = FloatArray(1)
+        Location.distanceBetween(location.latitude, location.longitude, stop.lat, stop.lng, out)
+        return out[0]
+    }
 
     private val listener = LocationListener { location ->
         // Pendant une simulation, seule la position fictive compte.
         if (location.provider != SIM_PROVIDER && System.currentTimeMillis() < simulatedUntil) return@LocationListener
         lastLocation = location
-        if (location.hasSpeed() && location.speed * 3.6 > 8) moved = true
+        if (!moved && location.hasSpeed() && location.speed * 3.6 > 8) { moved = true; departureDelay = delayFor(service) }
         // Le tracé de la ligne fait foi ; à défaut, les arrêts restants.
         val route = service?.let { if (it.path.size >= 2) it.path else it.stops }.orEmpty()
         val off = moved && route.size >= 2 && distanceToRoute(location, route) > OFF_ROUTE_METERS
+        // Les arrêts desservis (à moins de 60 m) quittent la liste : l'arrêt courant reste en bas.
+        service?.let { s ->
+            var reached = progress
+            for (i in progress + 1 until s.stops.size) if (distanceTo(location, s.stops[i]) <= PASS_METERS) reached = i
+            if (reached != progress) { progress = reached; courseView?.stops = courseStops.drop(progress) }
+        }
         courseView?.let { it.departing = !moved; it.offRoute = off; it.invalidate() }
         service?.takeIf { it.active && moved }?.let { checkArrival(location, it) }
         val now = System.currentTimeMillis()
@@ -86,7 +102,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         override fun run() {
             val now = clockFormat.format(Date())
             clockView?.text = now
-            courseView?.let { val d = if (moved) null else delayFor(service); it.clock = now; it.delayMinutes = d; it.invalidate(); playLateJingle(d) }
+            courseView?.let { val d = if (moved) departureDelay else delayFor(service); it.clock = now; it.delayMinutes = d; it.invalidate(); playLateJingle(d) }
             handler.postDelayed(this, 1000)
         }
     }
@@ -361,7 +377,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         stopLoops()
         courseOn = true
         val key = "${current.missionId}/${current.courseIndex}"
-        if (key != courseKey) { courseKey = key; moved = false }
+        if (key != courseKey) { courseKey = key; moved = false; departureDelay = null }
         val view = CourseView(activity).apply {
             recaled = current.stopIndex > 0 || current.shortened
             lineNumber = current.line ?: current.name
@@ -377,6 +393,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             clock = clockFormat.format(Date())
             delayMinutes = delayFor(current)
         }
+        courseStops = view.stops
+        progress = 0
         courseView = view
         val screen = FrameLayout(activity)
         screen.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
