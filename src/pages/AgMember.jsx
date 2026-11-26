@@ -5,6 +5,15 @@ import {
   TabPanels, Tabs, Text, Textarea, useDisclosure, useToast
 } from '@chakra-ui/react';
 import { agAPI, AMENDMENT_REASON_LABELS, REJECTION_KIND_LABELS } from '../api/ag.js';
+import { FiCheckCircle, FiEdit3, FiFileText } from 'react-icons/fi';
+import AgLayout from '../components/AgLayout.jsx';
+import AgDocumentView from '../components/AgDocumentView.jsx';
+
+const MEMBER_SECTIONS = [{ label: 'Assemblée générale', items: [
+  { id: 'documents', label: 'Documents', description: 'Textes à amender', icon: FiFileText },
+  { id: 'mine', label: 'Mes amendements', description: 'Suivi de vos dépôts', icon: FiEdit3 },
+  { id: 'published', label: 'Amendements clos', description: 'Résultats publiés', icon: FiCheckCircle },
+] }];
 
 export function AmendmentResult({ amendment }) {
   const adopted = amendment.status === 'ADOPTED';
@@ -95,6 +104,7 @@ export default function AgMember() {
   const [mine, setMine] = useState([]);
   const [published, setPublished] = useState([]);
   const [target, setTarget] = useState(null);
+  const [section, setSection] = useState('documents');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -117,64 +127,39 @@ export default function AgMember() {
   };
 
   return (
-    <Container maxW="4xl" py={6}>
-      <Heading size="lg" mb={4}>Assemblée générale — Documents et amendements</Heading>
+    <AgLayout subtitle="Documents et amendements" groups={MEMBER_SECTIONS} active={section} onSelect={setSection}>
       {error && <Alert status="error" mb={4}><AlertIcon />{error}</Alert>}
-      <Tabs variant="enclosed" isLazy>
-        <TabList>
-          <Tab>Documents</Tab>
-          <Tab>Mes amendements</Tab>
-          <Tab>Amendements clos</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel px={0}>
-            <Stack spacing={6}>
-              {!documents.length && <Text color="gray.500">Aucun document disponible.</Text>}
-              {documents.map((document) => (
-                <Box key={document.id}>
-                  <Heading size="md" mb={3}>{document.title}</Heading>
-                  <Stack spacing={3}>
-                    {document.articles.map((article) => (
-                      <Box key={article.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
-                        <HStack justify="space-between" align="start">
-                          <Text fontWeight="bold">{article.label}</Text>
-                          <Button size="sm" colorScheme="blue" variant="outline" flexShrink={0} onClick={() => openAmendment(document, article)}>
-                            Soumettre un amendement
-                          </Button>
-                        </HStack>
-                        {article.body && <Text mt={2} whiteSpace="pre-wrap" fontSize="sm">{article.body}</Text>}
-                      </Box>
-                    ))}
-                  </Stack>
+      <Box maxW="4xl">
+        {section === 'documents' && (
+          <Stack spacing={8}>
+            {!documents.length && <Text color="gray.500">Aucun document disponible.</Text>}
+            {documents.map((document) => <AgDocumentView key={document.id} document={document} onAmend={openAmendment} />)}
+          </Stack>
+        )}
+        {section === 'mine' && (
+          <Stack spacing={3}>
+            {!mine.length && <Text color="gray.500">Vous n'avez déposé aucun amendement.</Text>}
+            {mine.map((amendment) => (
+              amendment.status === 'IN_REVIEW' ? (
+                <Box key={amendment.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
+                  <HStack justify="space-between">
+                    <Text fontWeight="bold">{amendment.documentTitle} — {amendment.articleLabel}</Text>
+                    <Badge colorScheme="orange">En instruction</Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="gray.600">{AMENDMENT_REASON_LABELS[amendment.reason] || amendment.reason}</Text>
                 </Box>
-              ))}
-            </Stack>
-          </TabPanel>
-          <TabPanel px={0}>
-            <Stack spacing={3}>
-              {!mine.length && <Text color="gray.500">Vous n'avez déposé aucun amendement.</Text>}
-              {mine.map((amendment) => (
-                amendment.status === 'IN_REVIEW' ? (
-                  <Box key={amendment.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
-                    <HStack justify="space-between">
-                      <Text fontWeight="bold">{amendment.documentTitle} — {amendment.articleLabel}</Text>
-                      <Badge colorScheme="orange">En instruction</Badge>
-                    </HStack>
-                    <Text fontSize="sm" color="gray.600">{AMENDMENT_REASON_LABELS[amendment.reason] || amendment.reason}</Text>
-                  </Box>
-                ) : <AmendmentResult key={amendment.id} amendment={amendment} />
-              ))}
-            </Stack>
-          </TabPanel>
-          <TabPanel px={0}>
-            <Stack spacing={3}>
-              {!published.length && <Text color="gray.500">Aucun amendement clos pour le moment.</Text>}
-              {published.map((amendment) => <AmendmentResult key={amendment.id} amendment={amendment} />)}
-            </Stack>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+              ) : <AmendmentResult key={amendment.id} amendment={amendment} />
+            ))}
+          </Stack>
+        )}
+        {section === 'published' && (
+          <Stack spacing={3}>
+            {!published.length && <Text color="gray.500">Aucun amendement clos pour le moment.</Text>}
+            {published.map((amendment) => <AmendmentResult key={amendment.id} amendment={amendment} />)}
+          </Stack>
+        )}
+      </Box>
       {modal.isOpen && target && <AmendmentModal target={target} onClose={modal.onClose} onSent={load} />}
-    </Container>
+    </AgLayout>
   );
 }

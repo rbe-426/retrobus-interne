@@ -5,6 +5,17 @@ import {
   Select, Stack, Switch, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Textarea, useToast, Wrap
 } from '@chakra-ui/react';
 import { agAPI, AMENDMENT_REASON_LABELS, REJECTION_KIND_LABELS } from '../api/ag.js';
+import AgLayout from '../components/AgLayout.jsx';
+import AgDocumentView from '../components/AgDocumentView.jsx';
+import { AG_DOCUMENT_ACCEPT, detectTitle, extractDocumentText, splitArticles } from '../utils/agDocumentText.js';
+import { FiClock, FiEdit3, FiFileText, FiThumbsUp } from 'react-icons/fi';
+
+const SECTIONS = [{ label: 'Assemblée générale', items: [
+  { id: 'session', label: 'Session', description: 'Mode AG, QR code, exclusions', icon: FiClock },
+  { id: 'documents', label: 'Documents', description: 'Textes à amender', icon: FiFileText },
+  { id: 'amendments', label: 'Amendements', description: 'Instruction et rejets', icon: FiEdit3 },
+  { id: 'polls', label: 'Scrutins', description: 'Votes et résultats', icon: FiThumbsUp },
+] }];
 
 const STATUS_LABELS = {
   SUBMITTED: ['Déposé', 'blue'],
@@ -113,7 +124,17 @@ function DocumentsPanel() {
   const [documents, setDocuments] = useState([]);
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [articles, setArticles] = useState([]);
 
+  const detect = (source) => setArticles(splitArticles(source));
+  const updateArticle = (index, patch) => setArticles((list) => list.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  const removeArticle = (index) => setArticles((list) => list.filter((_, i) => i !== index));
+  const mergeWithPrevious = (index) => setArticles((list) => list.flatMap((item, i) => {
+    if (i === index) return [];
+    if (i === index - 1) return [{ ...item, body: [item.body, list[index].label, list[index].body].filter(Boolean).join('\n') }];
+    return [item];
+  }));
+  const addArticle = () => setArticles((list) => [...list, { label: `Article ${list.length + 1}`, body: '' }]);
   const load = useCallback(async () => {
     try {
       const data = await agAPI.listDocuments();
@@ -126,16 +147,27 @@ function DocumentsPanel() {
   const readFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setText(await file.text());
-    if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''));
+    try {
+      const extracted = await extractDocumentText(file);
+      const detected = detectTitle(extracted, file.name);
+      const [firstLine, ...rest] = extracted.split('\n');
+      const body = firstLine.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim() === detected ? rest.join('\n').trim() : extracted;
+      setText(body);
+      detect(body);
+      setTitle(detected);
+    } catch (error) {
+      toast({ status: 'error', title: 'Lecture du fichier impossible', description: error.message });
+    }
+    event.target.value = '';
   };
 
   const importDocument = async () => {
     try {
-      const result = await agAPI.importDocument({ title, text });
+      const result = await agAPI.importDocument({ title, articles });
       toast({ status: 'success', title: `Document importé (${result.document.articles.length} articles)` });
       setTitle('');
       setText('');
+      setArticles([]);
       load();
     } catch (error) {
       toast({ status: 'error', title: 'Import impossible', description: error.message });
@@ -147,25 +179,37 @@ function DocumentsPanel() {
       <Box borderWidth="1px" borderRadius="lg" p={4} bg="white">
         <Stack spacing={3}>
           <Heading size="sm">Importer un document</Heading>
-          <Text fontSize="sm" color="gray.600">Le texte est découpé automatiquement à chaque ligne « Article N … ».</Text>
-          <Input placeholder="Titre (ex. Statuts)" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <Input type="file" accept=".txt,.md,text/plain" p={1} onChange={readFile} />
-          <Textarea rows={8} placeholder="Ou collez le texte ici" value={text} onChange={(event) => setText(event.target.value)} />
-          <Button colorScheme="blue" alignSelf="flex-start" isDisabled={!title.trim() || !text.trim()} onClick={importDocument}>Importer</Button>
+          <Text fontSize="sm" color="gray.600">Formats acceptés : Word (.docx), PDF, ODT, RTF, HTML, TXT, Markdown… Le titre et les articles (lignes « Article N … ») sont détectés automatiquement.</Text>
+          <Input type="file" accept={AG_DOCUMENT_ACCEPT} p={1} onChange={readFile} />
+          <Input placeholder="Titre détecté (ex. Règlement intérieur)" value={title} onChange={(event) => setTitle(event.target.value)} />
+          {articles.length > 0 && <Text fontSize="sm" color="green.700">{articles.length} zone(s) de texte détectée(s) — une par article, chacune aura son bouton d'amendement.</Text>}
+          <Textarea rows={5} placeholder="Ou collez le texte ici" value={text} onChange={(event) => setText(event.target.value)} />
+          <Button size="sm" variant="outline" alignSelf="flex-start" isDisabled={!text.trim()} onClick={() => detect(text)}>Détecter les articles</Button>
+          {articles.map((article, index) => (
+            <Box key={index} borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
+              <HStack mb={2}>
+                <Input bg="white" fontWeight="bold" value={article.label} onChange={(event) => updateArticle(index, { label: event.target.value })} />
+                {index > 0 && <Button size="sm" variant="outline" flexShrink={0} onClick={() => mergeWithPrevious(index)}>Fusionner avec le précédent</Button>}
+                <Button size="sm" colorScheme="red" variant="ghost" flexShrink={0} onClick={() => removeArticle(index)}>Retirer</Button>
+              </HStack>
+              <Textarea bg="white" rows={4} value={article.body} onChange={(event) => updateArticle(index, { body: event.target.value })} />
+            </Box>
+          ))}
+          {articles.length > 0 && <Button size="sm" variant="outline" alignSelf="flex-start" onClick={addArticle}>Ajouter un article</Button>}
+          <Button colorScheme="blue" alignSelf="flex-start" isDisabled={!title.trim() || !articles.length} onClick={importDocument}>Importer</Button>
         </Stack>
       </Box>
       {documents.map((document) => (
-        <HStack key={document.id} borderWidth="1px" borderRadius="md" p={3} bg="white" justify="space-between">
-          <Box>
-            <Text fontWeight="bold">{document.title}</Text>
-            <Text fontSize="sm" color="gray.600">{document.articles.length} article(s)</Text>
-          </Box>
-          <Button size="sm" colorScheme="red" variant="ghost" onClick={async () => {
-            if (!window.confirm('Supprimer ce document et ses amendements ?')) return;
-            await agAPI.deleteDocument(document.id);
-            load();
-          }}>Supprimer</Button>
-        </HStack>
+        <Box key={document.id}>
+          <HStack justify="flex-end" mb={2}>
+            <Button size="sm" colorScheme="red" variant="ghost" onClick={async () => {
+              if (!window.confirm('Supprimer ce document et ses amendements ?')) return;
+              await agAPI.deleteDocument(document.id);
+              load();
+            }}>Supprimer « {document.title} »</Button>
+          </HStack>
+          <AgDocumentView document={document} actionProps={{ isDisabled: true }} />
+        </Box>
       ))}
     </Stack>
   );
@@ -204,52 +248,69 @@ function AmendmentsPanel({ onChanged }) {
     }
   };
 
+  // Grouper par document, puis trier par date descendante et auteur
+  const grouped = {};
+  amendments.forEach((a) => {
+    if (!grouped[a.documentTitle]) grouped[a.documentTitle] = [];
+    grouped[a.documentTitle].push(a);
+  });
+  Object.values(grouped).forEach((list) => {
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt) || (a.authorName || '').localeCompare(b.authorName || ''));
+  });
+
   return (
-    <Stack spacing={3}>
+    <Stack spacing={6}>
       {!amendments.length && <Text color="gray.500">Aucun amendement déposé.</Text>}
-      {amendments.map((amendment) => {
-        const [label, color] = STATUS_LABELS[amendment.status] || [amendment.status, 'gray'];
-        return (
-          <Box key={amendment.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
-            <HStack justify="space-between" wrap="wrap">
-              <Text fontWeight="bold">{amendment.documentTitle} — {amendment.articleLabel}</Text>
-              <Badge colorScheme={color}>{label}</Badge>
-            </HStack>
-            <Text fontSize="sm" color="gray.600">
-              {AMENDMENT_REASON_LABELS[amendment.reason] || amendment.reason} · {amendment.authorName} · {new Date(amendment.createdAt).toLocaleString('fr-FR')}
-            </Text>
-            <Text mt={2} whiteSpace="pre-wrap">{amendment.proposedText}</Text>
-            {amendment.justification && <Text mt={1} fontSize="sm" fontStyle="italic">{amendment.justification}</Text>}
-            {amendment.rejectionKind && (
-              <Text mt={1} fontSize="sm" color="red.700">
-                {REJECTION_KIND_LABELS[amendment.rejectionKind]}{amendment.rejectionNote ? ` : ${amendment.rejectionNote}` : ''}
-              </Text>
-            )}
-            {amendment.vote && <Text mt={1} fontSize="sm">Vote : {amendment.vote.pour} pour · {amendment.vote.contre} contre</Text>}
-            {amendment.status === 'SUBMITTED' && (
-              rejecting === amendment.id ? (
-                <Stack mt={3} spacing={2}>
-                  <Select size="sm" value={kind} onChange={(event) => setKind(event.target.value)}>
-                    <option value="LEGAL">Motif légal</option>
-                    <option value="STATUTAIRE">Motif statutaire</option>
-                    <option value="AUTRE">Autre motif</option>
-                  </Select>
-                  <Input size="sm" placeholder="Précision (optionnel)" value={note} onChange={(event) => setNote(event.target.value)} />
-                  <HStack>
-                    <Button size="sm" colorScheme="red" onClick={() => run(() => agAPI.rejectAmendment(amendment.id, { kind, note }), 'Amendement rejeté')}>Confirmer le rejet</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>Annuler</Button>
+      {Object.entries(grouped).map(([docTitle, items]) => (
+        <Box key={docTitle}>
+          <Heading size="sm" mb={3}>{docTitle}</Heading>
+          <Stack spacing={3}>
+            {items.map((amendment) => {
+              const [label, color] = STATUS_LABELS[amendment.status] || [amendment.status, 'gray'];
+              return (
+                <Box key={amendment.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
+                  <HStack justify="space-between" wrap="wrap" mb={1}>
+                    <Text fontWeight="bold">{amendment.articleLabel}</Text>
+                    <Badge colorScheme={color}>{label}</Badge>
                   </HStack>
-                </Stack>
-              ) : (
-                <HStack mt={3}>
-                  <Button size="sm" colorScheme="purple" onClick={() => run(() => agAPI.amendmentToVote(amendment.id), 'Scrutin créé (onglet Scrutins)')}>Passer en vote</Button>
-                  <Button size="sm" colorScheme="red" variant="outline" onClick={() => setRejecting(amendment.id)}>Rejeter</Button>
-                </HStack>
-              )
-            )}
-          </Box>
-        );
-      })}
+                  <Text fontSize="sm" color="gray.600" mb={2}>
+                    {amendment.authorName && <strong>{amendment.authorName}</strong>} · {new Date(amendment.createdAt).toLocaleString('fr-FR')} · {AMENDMENT_REASON_LABELS[amendment.reason] || amendment.reason}
+                  </Text>
+                  <Text mt={2} whiteSpace="pre-wrap" fontSize="sm">{amendment.proposedText}</Text>
+                  {amendment.justification && <Text mt={1} fontSize="sm" fontStyle="italic" color="gray.700">{amendment.justification}</Text>}
+                  {amendment.rejectionKind && (
+                    <Text mt={1} fontSize="sm" color="red.700">
+                      {REJECTION_KIND_LABELS[amendment.rejectionKind]}{amendment.rejectionNote ? ` : ${amendment.rejectionNote}` : ''}
+                    </Text>
+                  )}
+                  {amendment.vote && <Text mt={1} fontSize="sm">Vote : {amendment.vote.pour} pour · {amendment.vote.contre} contre</Text>}
+                  {amendment.status === 'SUBMITTED' && (
+                    rejecting === amendment.id ? (
+                      <Stack mt={3} spacing={2}>
+                        <Select size="sm" value={kind} onChange={(event) => setKind(event.target.value)}>
+                          <option value="LEGAL">Motif légal</option>
+                          <option value="STATUTAIRE">Motif statutaire</option>
+                          <option value="AUTRE">Autre motif</option>
+                        </Select>
+                        <Input size="sm" placeholder="Précision (optionnel)" value={note} onChange={(event) => setNote(event.target.value)} />
+                        <HStack>
+                          <Button size="sm" colorScheme="red" onClick={() => run(() => agAPI.rejectAmendment(amendment.id, { kind, note }), 'Amendement rejeté')}>Confirmer le rejet</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setRejecting(null)}>Annuler</Button>
+                        </HStack>
+                      </Stack>
+                    ) : (
+                      <HStack mt={3}>
+                        <Button size="sm" colorScheme="purple" onClick={() => run(() => agAPI.amendmentToVote(amendment.id), 'Scrutin créé (onglet Scrutins)')}>Passer en vote</Button>
+                        <Button size="sm" colorScheme="red" variant="outline" onClick={() => setRejecting(amendment.id)}>Rejeter</Button>
+                      </HStack>
+                    )
+                  )}
+                </Box>
+              );
+            })}
+          </Stack>
+        </Box>
+      ))}
     </Stack>
   );
 }
@@ -351,6 +412,7 @@ export default function AgPresident() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [section, setSection] = useState('session');
 
   const reload = useCallback(async () => {
     try {
@@ -368,26 +430,17 @@ export default function AgPresident() {
   }, [reload]);
 
   return (
-    <Container maxW="4xl" py={6}>
-      <Heading size="lg" mb={4}>Espace président de séance — AG</Heading>
+    <AgLayout subtitle="Espace président de séance" groups={SECTIONS} active={section} onSelect={setSection} badge={data?.session?.modeActive ? 'Mode AG actif' : undefined}>
       {error && <Alert status="error" mb={4}><AlertIcon />{error}</Alert>}
       {data && !data.session && <CreateSession reload={reload} />}
       {data?.session && (
-        <Tabs variant="enclosed" isLazy>
-          <TabList>
-            <Tab>Session</Tab>
-            <Tab>Documents</Tab>
-            <Tab>Amendements</Tab>
-            <Tab>Scrutins</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel px={0}><SessionPanel data={data} reload={reload} /></TabPanel>
-            <TabPanel px={0}><DocumentsPanel /></TabPanel>
-            <TabPanel px={0}><AmendmentsPanel onChanged={() => setRefreshKey((key) => key + 1)} /></TabPanel>
-            <TabPanel px={0}><PollsPanel refreshKey={refreshKey} /></TabPanel>
-          </TabPanels>
-        </Tabs>
+        <Box maxW="4xl">
+          {section === 'session' && <SessionPanel data={data} reload={reload} />}
+          {section === 'documents' && <DocumentsPanel />}
+          {section === 'amendments' && <AmendmentsPanel onChanged={() => setRefreshKey((key) => key + 1)} />}
+          {section === 'polls' && <PollsPanel refreshKey={refreshKey} />}
+        </Box>
       )}
-    </Container>
+    </AgLayout>
   );
 }

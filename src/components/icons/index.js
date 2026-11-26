@@ -7,6 +7,7 @@
  */
 
 export { default as TriangleErrorIcon } from './TriangleErrorIcon';
+export { default as AmendmentIcon } from './AmendmentIcon';
 
 // Ajouter vos icônes personnalisées ici :
 // export { default as BusIcon } from './BusIcon';

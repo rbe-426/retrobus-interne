@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, AlertIcon, Box, Button, Container, Heading, HStack, Spinner, Stack, Text } from '@chakra-ui/react';
+import { Alert, AlertIcon, Box, Button, Card, CardBody, Divider, Grid, Heading, Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, SimpleGrid, Spinner, Stack, Text, useDisclosure } from '@chakra-ui/react';
 import { agAPI } from '../api/ag.js';
 import { useUser } from '../context/UserContext';
+import AgLayout from '../components/AgLayout.jsx';
+import AgDocumentView from '../components/AgDocumentView.jsx';
+
+const SECTIONS = [{ label: 'Assemblée générale', items: [
+  { id: 'documents', label: 'Amendements', description: 'Textes à amender', icon: null },
+] }];
 
 export default function AgPublic() {
   const { isAuthenticated } = useUser();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const modal = useDisclosure();
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     agAPI.publicDocuments()
@@ -15,40 +23,73 @@ export default function AgPublic() {
       .catch((err) => setError(err.message || 'Chargement impossible'));
   }, []);
 
-  const amendTo = isAuthenticated ? '/accueil/myrbe/ag' : '/login';
+  const session = data?.session;
+  const badge = session?.title
+    ? `${session.title}${session.meetingDate ? ` — ${new Date(session.meetingDate).toLocaleDateString('fr-FR')}` : ''}`
+    : undefined;
+
+  const openDocument = (document) => {
+    setSelected(document);
+    modal.onOpen();
+  };
 
   return (
-    <Container maxW="4xl" py={8}>
-      <Heading size="lg" mb={1}>Amendements</Heading>
-      {data?.session?.title && (
-        <Text color="gray.600" mb={4}>
-          {data.session.title}{data.session.meetingDate ? ` — ${new Date(data.session.meetingDate).toLocaleDateString('fr-FR')}` : ''}
-        </Text>
-      )}
-      <Text mb={6}>Textes soumis à amendement. Connectez-vous à votre compte URBEX pour déposer un amendement sur un article.</Text>
-      {error && <Alert status="error" mb={4}><AlertIcon />{error}</Alert>}
-      {!data && !error && <Spinner />}
-      {data && !data.documents.length && <Text color="gray.500">Aucun texte à amender pour le moment.</Text>}
+    <AgLayout subtitle="Amendements publics" groups={SECTIONS} active="documents" onSelect={() => {}} badge={badge}>
       <Stack spacing={8}>
-        {data?.documents.map((document) => (
-          <Box key={document.id}>
-            <Heading size="md" mb={3}>{document.title}</Heading>
-            <Stack spacing={3}>
-              {document.articles.map((article) => (
-                <Box key={article.id} borderWidth="1px" borderRadius="md" p={3} bg="white">
-                  <HStack justify="space-between" align="start">
-                    <Text fontWeight="bold">{article.label}</Text>
-                    <Button as={RouterLink} to={amendTo} size="sm" variant="outline" colorScheme="blue" flexShrink={0}>
-                      {isAuthenticated ? 'Soumettre un amendement' : 'Se connecter pour amender'}
-                    </Button>
-                  </HStack>
-                  {article.body && <Text mt={2} whiteSpace="pre-wrap" fontSize="sm">{article.body}</Text>}
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-        ))}
+        <Box textAlign="center">
+          <Heading size="lg" mb={2}>Documents soumis aux amendements</Heading>
+          <Text color="gray.600">Sélectionnez un document pour consulter ses articles et déposer vos amendements.</Text>
+        </Box>
+
+        {error && <Alert status="error"><AlertIcon />{error}</Alert>}
+        {!data && !error && <Spinner />}
+        {data && !data.documents.length && <Text color="gray.500" textAlign="center">Aucun texte à amender pour le moment.</Text>}
+
+        {data?.documents.length > 0 && (
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {data.documents.map((document) => (
+              <Card key={document.id} bg="white" cursor="pointer" _hover={{ shadow: 'lg' }} onClick={() => openDocument(document)}>
+                <CardBody>
+                  <Heading size="md" mb={2}>{document.title}</Heading>
+                  <Text fontSize="sm" color="gray.600" mb={3}>{document.articles.length} article(s)</Text>
+                  <Button size="sm" colorScheme="rbe" w="full">Consulter et amender</Button>
+                </CardBody>
+              </Card>
+            ))}
+          </SimpleGrid>
+        )}
       </Stack>
-    </Container>
+
+      <Modal isOpen={modal.isOpen} onClose={modal.onClose} size="2xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{selected?.title}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {selected && (
+              <Stack spacing={4}>
+                {selected.articles.map((article) => (
+                  <Box key={article.id} borderWidth="1px" borderRadius="md" p={3} bg="gray.50">
+                    <Text fontWeight="bold" textTransform="uppercase" mb={2}># {article.label}</Text>
+                    {article.body && <Text fontSize="sm" whiteSpace="pre-wrap" color="gray.700" mb={3}>{article.body}</Text>}
+                    {isAuthenticated && (
+                      <Button size="sm" colorScheme="blue" as={RouterLink} to="/accueil/myrbe/ag">
+                        Soumettre un amendement
+                      </Button>
+                    )}
+                    {!isAuthenticated && (
+                      <Button size="sm" as={RouterLink} to="/login">
+                        Se connecter pour amender
+                      </Button>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </AgLayout>
   );
 }
+
