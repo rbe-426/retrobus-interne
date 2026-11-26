@@ -24,8 +24,13 @@ object UiScale {
         density = metrics.density
         val smallestDp = min(metrics.widthPixels, metrics.heightPixels) / metrics.density
         factor = (smallestDp / 360f).coerceIn(0.85f, 1.6f)
+        unit = min(metrics.widthPixels, metrics.heightPixels) / 768f
     }
 
+    // Unité de référence : 1 = 1/768 de la hauteur de l'écran (grille des maquettes InéoRBE 1665 x 768).
+    private var unit = 1f
+    fun r(value: Float) = value * unit
+    fun ri(value: Float) = max(1, (value * unit).toInt())
     fun sp(size: Float) = size * factor
     fun px(value: Int) = max(1, (value * density * factor).toInt())
 }

@@ -25,7 +25,7 @@ object Look {
 
     fun text(activity: Activity, value: String, size: Float, color: Int = Color.WHITE, bold: Boolean = true) = TextView(activity).apply {
         text = value
-        textSize = UiScale.sp(size)
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, UiScale.r(size))
         setTextColor(color)
         gravity = Gravity.CENTER
         if (bold) setTypeface(typeface, Typeface.BOLD)
@@ -41,15 +41,15 @@ object Look {
     // Écran de pause : logo en haut à gauche, heure en haut à droite, slogan en bas à droite, contenu au centre.
     fun frame(activity: Activity, clock: TextView, content: LinearLayout): FrameLayout = FrameLayout(activity).apply {
         setBackgroundColor(bg)
-        addView(content, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { setMargins(UiScale.px(24), UiScale.px(90), UiScale.px(24), UiScale.px(90)) })
-        addView(image(activity, R.drawable.logo_header, UiScale.px(70)).apply { (layoutParams as FrameLayout.LayoutParams).gravity = Gravity.TOP or Gravity.START; (layoutParams as FrameLayout.LayoutParams).setMargins(UiScale.px(12), UiScale.px(10), 0, 0) })
+        addView(content, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { setMargins(UiScale.ri(30f), UiScale.ri(120f), UiScale.ri(30f), UiScale.ri(120f)) })
+        addView(image(activity, R.drawable.logo_header, UiScale.ri(104f)).apply { (layoutParams as FrameLayout.LayoutParams).gravity = Gravity.TOP or Gravity.START; (layoutParams as FrameLayout.LayoutParams).setMargins(UiScale.ri(20f), UiScale.ri(14f), 0, 0) })
         addView(clockBox(activity, clock))
-        addView(image(activity, R.drawable.slogan, UiScale.px(52)).apply { (layoutParams as FrameLayout.LayoutParams).gravity = Gravity.BOTTOM or Gravity.END; (layoutParams as FrameLayout.LayoutParams).setMargins(0, 0, UiScale.px(12), UiScale.px(10)) })
+        addView(image(activity, R.drawable.slogan, UiScale.ri(74f)).apply { (layoutParams as FrameLayout.LayoutParams).gravity = Gravity.BOTTOM or Gravity.END; (layoutParams as FrameLayout.LayoutParams).setMargins(0, 0, UiScale.ri(20f), UiScale.ri(14f)) })
     }
 
     private fun clockBox(activity: Activity, clock: TextView): TextView = clock.apply {
         setBackgroundColor(Color.BLACK)
-        setPadding(UiScale.px(24), UiScale.px(4), UiScale.px(24), UiScale.px(8))
+        setPadding(UiScale.ri(30f), 0, UiScale.ri(30f), UiScale.ri(8f))
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.TOP or Gravity.END }
     }
 }
@@ -67,6 +67,7 @@ class CourseView(context: Context) : View(context) {
     var delayMinutes: Int? = null
     var departing = false
     var online = true
+    var offRoute = false
     var serviceText = ""
     var vehicleText = ""
     var clock = ""
@@ -114,7 +115,7 @@ class CourseView(context: Context) : View(context) {
 
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 602f, 360f, 768f), 0f, 0f, paint)
-        text(canvas, if (online) "EN LIGNE AVEC L'UC" else "UC HORS LIGNE", 180f, 640f, 29f, if (online) Look.green else Look.red, Paint.Align.CENTER)
+        text(canvas, if (offRoute) "HORS ITINERAIRE" else if (online) "EN LIGNE AVEC L'UC" else "UC HORS LIGNE", 180f, 640f, 29f, if (online && !offRoute) Look.green else Look.red, Paint.Align.CENTER)
         text(canvas, "SERVICE N° : $serviceText", 6f, 684f, 29f)
         text(canvas, "VEHICULE : $vehicleText", 6f, 724f, 29f)
     }
@@ -139,8 +140,9 @@ class CourseView(context: Context) : View(context) {
             text(canvas, stop.first.take(28), 618f, y + 16f, 40f)
         }
         if (stops.isNotEmpty()) {
-            val y = slots[slots.size - 1] + if (departing) 0f else 60f
-            val arrow = Path().apply { moveTo(x, y - 52f); lineTo(x + 38f, y + 22f); lineTo(x, y + 4f); lineTo(x - 38f, y + 22f); close() }
+            val y = if (offRoute) (slots[1] + slots[2]) / 2f + 20f else slots[slots.size - 1] + if (departing) 0f else 60f
+            val ax = if (offRoute) x + 115f else x
+            val arrow = Path().apply { moveTo(ax, y - 52f); lineTo(ax + 38f, y + 22f); lineTo(ax, y + 4f); lineTo(ax - 38f, y + 22f); close() }
             paint.color = Color.parseColor("#C4C4C4")
             paint.style = Paint.Style.FILL
             canvas.drawPath(arrow, paint)
