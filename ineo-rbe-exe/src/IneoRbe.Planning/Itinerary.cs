@@ -547,11 +547,15 @@ namespace IneoRbe.Planning
         private readonly List<object> _lines;
         private readonly ComboBox _course = new ComboBox { Margin = new Thickness(0, 0, 0, 10) };
         private readonly ComboBox _stop = new ComboBox { Margin = new Thickness(0, 0, 0, 10), DisplayMemberPath = "Value", SelectedValuePath = "Key" };
+        private readonly ComboBox _end = new ComboBox { Margin = new Thickness(0, 0, 0, 10), DisplayMemberPath = "Value", SelectedValuePath = "Key" };
+        private readonly CheckBox _keep = new CheckBox { Content = "Ne pas changer de course courante (modifier seulement la fin de la course choisie)", Margin = new Thickness(0, 0, 0, 10) };
         private readonly ComboBox _driver = new ComboBox { Margin = new Thickness(0, 0, 0, 10), IsEditable = false };
         private readonly List<int> _indexes = new List<int>();
 
         public int CourseIndex { get { return _course.SelectedIndex < 0 ? 0 : _indexes[_course.SelectedIndex]; } }
         public int StopIndex { get { return _stop.SelectedValue is int ? (int)_stop.SelectedValue : 0; } }
+        public bool KeepCourse { get { return _keep.IsChecked == true; } }
+        public int EndStopIndex { get { return _end.SelectedValue is int ? (int)_end.SelectedValue : -1; } }
         public string Driver { get { return _driver.SelectedItem as string; } }
 
         public RealignDialog(Window owner, object mission, List<object> lines, List<string> drivers)
@@ -581,6 +585,8 @@ namespace IneoRbe.Planning
             root.Children.Add(new TextBlock { Text = "Les courses déjà effectuées ne sont plus modifiables. Le conducteur reprend à l'arrêt choisi, les arrêts précédents sont ignorés.", TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted, Margin = new Thickness(0, 0, 0, 10) });
             root.Children.Add(new TextBlock { Text = "Course courante" }); root.Children.Add(_course);
             root.Children.Add(new TextBlock { Text = "Démarrer à l'arrêt" }); root.Children.Add(_stop);
+            root.Children.Add(new TextBlock { Text = "Terminer à l'arrêt (écourter la course)" }); root.Children.Add(_end);
+            root.Children.Add(_keep);
             root.Children.Add(new TextBlock { Text = "Conducteur" }); root.Children.Add(_driver);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             buttons.Children.Add(Ui.Button("Recaler", (s, e) => { if (_course.SelectedIndex < 0) { Ui.Error("Aucune course disponible."); return; } DialogResult = true; }, true));
@@ -606,6 +612,11 @@ namespace IneoRbe.Planning
             if (items.Count == 0) items.Add(new KeyValuePair<int, string>(0, "Terminus de départ"));
             _stop.ItemsSource = items;
             _stop.SelectedValue = selected < items.Count ? selected : 0;
+            var ends = new List<KeyValuePair<int, string>> { new KeyValuePair<int, string>(-1, "Terminus normal") };
+            if (line != null && direction != "HLP") ends.AddRange(items);
+            _end.ItemsSource = ends;
+            var currentEnd = Json.Num(course, "endStopIndex");
+            _end.SelectedValue = currentEnd.HasValue && currentEnd.Value < items.Count ? (int)currentEnd.Value : -1;
         }
     }
 }

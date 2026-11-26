@@ -5,6 +5,9 @@ drawable logo_header
 drawable logo_splash
 drawable slogan
 drawable slogan_splash
+font montserrat
+font montserrat_bold
+font montserrat_regular
 string app_name
 style Theme.Console
 xml file_paths

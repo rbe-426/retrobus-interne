@@ -68,6 +68,7 @@ class CourseView(context: Context) : View(context) {
     var departing = false
     var online = true
     var offRoute = false
+    var recaled = false
     var serviceText = ""
     var vehicleText = ""
     var clock = ""
@@ -77,12 +78,15 @@ class CourseView(context: Context) : View(context) {
     private val box = Color.BLACK
     private val track = Color.parseColor("#D10F4A")
 
-    private fun text(canvas: Canvas, value: String, x: Float, y: Float, size: Float, color: Int = white, align: Paint.Align = Paint.Align.LEFT) {
+    private val font: Typeface = resources.getFont(R.font.montserrat_bold)
+
+    private fun text(canvas: Canvas, value: String, x: Float, y: Float, size: Float, color: Int = white, align: Paint.Align = Paint.Align.LEFT, maxWidth: Float = 0f) {
         paint.style = Paint.Style.FILL
         paint.color = color
-        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.typeface = font
         paint.textSize = size
         paint.textAlign = align
+        if (maxWidth > 0f) { val measured = paint.measureText(value); if (measured > maxWidth) paint.textSize = size * maxWidth / measured }
         canvas.drawText(value, x, y, paint)
     }
 
@@ -104,20 +108,20 @@ class CourseView(context: Context) : View(context) {
         paint.color = lineColor
         canvas.drawRoundRect(RectF(0f, 0f, 360f, 108f), 0f, 0f, paint)
         text(canvas, lineNumber, 180f, 78f - 22f, fit(lineNumber, 100f, 340f), white, Paint.Align.CENTER)
-        text(canvas, destination.uppercase().take(24), 180f, 98f, 28f, white, Paint.Align.CENTER)
+        text(canvas, destination.uppercase().take(24), 180f, 98f, 28f, white, Paint.Align.CENTER, 340f)
 
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 112f, 360f, 278f), 0f, 14f, paint)
-        text(canvas, origin.uppercase().take(18), 8f, 156f, 32f)
-        text(canvas, departure, 8f, 216f, 58f)
-        if (arrival.isNotBlank()) text(canvas, arrival, 196f, 216f, 58f)
-        text(canvas, terminus.uppercase().take(18), 346f, 258f, 30f, white, Paint.Align.RIGHT)
+        text(canvas, origin.uppercase().take(18), 8f, 156f, 32f, white, Paint.Align.LEFT, 344f)
+        text(canvas, departure, 8f, 216f, 58f, white, Paint.Align.LEFT, 170f)
+        if (arrival.isNotBlank()) text(canvas, arrival, 196f, 216f, 58f, white, Paint.Align.LEFT, 160f)
+        text(canvas, terminus.uppercase().take(18), 346f, 258f, 30f, white, Paint.Align.RIGHT, 336f)
 
         paint.color = box
         canvas.drawRoundRect(RectF(0f, 602f, 360f, 768f), 0f, 0f, paint)
-        text(canvas, if (offRoute) "HORS ITINERAIRE" else if (online) "EN LIGNE AVEC L'UC" else "UC HORS LIGNE", 180f, 640f, 29f, if (online && !offRoute) Look.green else Look.red, Paint.Align.CENTER)
-        text(canvas, "SERVICE N° : $serviceText", 6f, 684f, 29f)
-        text(canvas, "VEHICULE : $vehicleText", 6f, 724f, 29f)
+        text(canvas, if (offRoute) "HORS ITINERAIRE" else if (online) "EN LIGNE AVEC L'UC" else "UC HORS LIGNE", 180f, 640f, 29f, if (online && !offRoute) Look.green else Look.red, Paint.Align.CENTER, 348f)
+        text(canvas, "SERVICE N° : $serviceText", 6f, 684f, 29f, white, Paint.Align.LEFT, 348f)
+        text(canvas, "VEHICULE : $vehicleText", 6f, 724f, 29f, white, Paint.Align.LEFT, 348f)
     }
 
     private fun drawTimeline(canvas: Canvas) {
@@ -126,6 +130,11 @@ class CourseView(context: Context) : View(context) {
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 14f
         canvas.drawLine(x, 0f, x, 768f, paint)
+        // Recalage depuis le Gestionnaire : le tronçon entre l'arrêt recalé et le suivant passe en jaune.
+        if (recaled && stops.size >= 2) {
+            paint.color = Color.parseColor("#FACC15")
+            canvas.drawLine(x, 377f, x, 604f, paint)
+        }
         val slots = floatArrayOf(150f, 377f, 604f)
         val shown = stops.take(slots.size).reversed()
         val first = slots.size - shown.size
@@ -136,8 +145,8 @@ class CourseView(context: Context) : View(context) {
             canvas.drawCircle(x, y, 23f, paint)
             paint.color = white
             canvas.drawCircle(x, y, 17f, paint)
-            if (stop.second.isNotBlank()) text(canvas, stop.second, 540f, y + 16f, 40f, white, Paint.Align.RIGHT)
-            text(canvas, stop.first.take(28), 618f, y + 16f, 40f)
+            if (stop.second.isNotBlank()) text(canvas, stop.second, 540f, y + 16f, 40f, white, Paint.Align.RIGHT, 190f)
+            text(canvas, stop.first.take(28), 618f, y + 16f, 40f, white, Paint.Align.LEFT, 1030f)
         }
         if (stops.isNotEmpty()) {
             val y = if (offRoute) (slots[1] + slots[2]) / 2f + 20f else slots[slots.size - 1] + if (departing) 0f else 60f
@@ -151,15 +160,14 @@ class CourseView(context: Context) : View(context) {
 
     private fun drawRight(canvas: Canvas) {
         val delay = delayMinutes
-        val delayColor = when { delay == null || delay <= 5 -> Look.green; delay <= 10 -> Color.parseColor("#F59E0B"); else -> Look.red }
+        // Rien sous 1 minute. Retard : rouge. Avance : vert à 1 minute, rouge dès 2.
+        val delayColor = if (delay == null || delay == 0) box else if (delay < 0 && delay > -2) Look.green else Look.red
         paint.style = Paint.Style.FILL
         paint.color = delayColor
         canvas.drawRoundRect(RectF(1207f, 0f, 1445f, 95f), 0f, 14f, paint)
-        if (delay != null && delay > 0) {
-            text(canvas, "Retard", 1320f, 40f, 48f, white, Paint.Align.CENTER)
-            text(canvas, "%02d min".format(delay), 1320f, 88f, 56f, white, Paint.Align.CENTER)
-        } else {
-            text(canvas, "À l'heure", 1326f, 66f, 44f, white, Paint.Align.CENTER)
+        if (delay != null && delay != 0) {
+            text(canvas, if (delay > 0) "Retard" else "Avance", 1326f, 40f, 40f, white, Paint.Align.CENTER, 220f)
+            text(canvas, "%02d min".format(Math.abs(delay)), 1326f, 88f, 50f, white, Paint.Align.CENTER, 220f)
         }
         paint.color = box
         canvas.drawRoundRect(RectF(1440f, 0f, 1665f, 95f), 0f, 14f, paint)
@@ -174,7 +182,7 @@ class CourseView(context: Context) : View(context) {
     }
 
     private fun fit(value: String, max: Float, width: Float): Float {
-        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.typeface = font
         paint.textSize = max
         val measured = paint.measureText(value)
         return if (measured > width) max * width / measured else max

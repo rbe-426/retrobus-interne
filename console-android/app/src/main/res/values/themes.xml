@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Console" parent="android:Theme.Material.NoActionBar">
+        <item name="android:fontFamily">@font/montserrat</item>
         <item name="android:windowBackground">@color/carbon</item>
         <item name="android:statusBarColor">@color/carbon</item>
         <item name="android:navigationBarColor">@color/carbon</item>

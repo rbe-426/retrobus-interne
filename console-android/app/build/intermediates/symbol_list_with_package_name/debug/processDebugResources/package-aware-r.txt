@@ -69,6 +69,9 @@ drawable notification_tile_bg
 drawable notify_panel_notification_icon_bg
 drawable slogan
 drawable slogan_splash
+font montserrat
+font montserrat_bold
+font montserrat_regular
 id accessibility_action_clickable_span
 id accessibility_custom_action_0
 id accessibility_custom_action_1

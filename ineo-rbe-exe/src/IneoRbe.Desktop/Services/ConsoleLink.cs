@@ -32,6 +32,7 @@ namespace IneoRbe.Desktop.Services
         [DataMember(Name = "color")] public string Color { get; set; }
         [DataMember(Name = "scheduledDeparture")] public string ScheduledDeparture { get; set; }
         [DataMember(Name = "stops")] public List<ConsoleStop> Stops { get; set; }
+        [DataMember(Name = "path")] public List<double[]> Path { get; set; }
     }
 
     [DataContract]

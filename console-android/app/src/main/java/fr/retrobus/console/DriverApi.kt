@@ -34,6 +34,9 @@ data class Service(
     val courseCount: Int = 0,
     val direction: String? = null,
     val color: String? = null,
+    val stopIndex: Int = 0,
+    val courseIndex: Int = 0,
+    val path: List<Stop> = emptyList(),
 )
 
 // La console ne parle qu'à l'UC du véhicule (HTTP sur le réseau local). Les appels sont bloquants : hors du thread principal.
@@ -136,12 +139,15 @@ object DriverApi {
             routeName = route?.optString("routeName")?.ifBlank { null },
             origin = stops.firstOrNull()?.label,
             destination = stops.lastOrNull()?.label,
-            departure = clockOf(service.optString("scheduledDeparture")) ?: route?.optString("scheduledDeparture")?.ifBlank { null },
+            departure = route?.optString("scheduledDeparture")?.ifBlank { null } ?: clockOf(service.optString("scheduledDeparture")),
             stops = stops,
             courseNumber = if (routes.length() > 0) index + 1 else 0,
             courseCount = routes.length(),
             direction = route?.optString("direction")?.ifBlank { null },
             color = route?.optString("color")?.ifBlank { null },
+            stopIndex = stopStart,
+            courseIndex = index,
+            path = route?.optJSONArray("path")?.let { array -> (0 until array.length()).mapNotNull { i -> array.optJSONArray(i)?.let { p -> Stop("", null, p.optDouble(0), p.optDouble(1)) } } } ?: emptyList(),
         )
     }
 
@@ -183,11 +189,18 @@ object DriverApi {
     // Retrouve l'UC : 1) balayage du réseau local, retenu seulement si le numéro de série correspond ; 2) adresse IP de l'UC remontée au serveur.
     fun connect(): String? {
         val found = listOfNotNull(host).firstOrNull { matches(it) }
+            ?: emulatorHost()
             ?: discover()
             ?: fromServer()
         host = found
         if (found != null) appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(HOST_KEY, found)?.apply()
         return found
+    }
+
+    // Émulateur Android : le PC hôte (où tourne l'UC de test) est vu en 10.0.2.2, quel que soit son numéro de série.
+    private fun emulatorHost(): String? {
+        val emulator = android.os.Build.HARDWARE.let { it == "ranchu" || it == "goldfish" } || android.os.Build.FINGERPRINT.startsWith("generic")
+        return if (emulator && pingSerial("10.0.2.2") != null) "10.0.2.2" else null
     }
 
     private var lastRefresh = 0L

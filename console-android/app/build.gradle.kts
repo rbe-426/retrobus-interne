@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -11,8 +11,8 @@ android {
         applicationId = "fr.retrobus.console"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2611019
-        versionName = "26.11.019"
+        versionCode = 2611022
+        versionName = "26.11.022"
         buildConfigField("String", "API_BASE", "\"https://attractive-kindness-rbe-serveurs.up.railway.app\"")
     }
 

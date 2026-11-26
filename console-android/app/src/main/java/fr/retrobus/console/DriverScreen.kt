@@ -30,7 +30,7 @@ import kotlin.concurrent.thread
 
 // Pupitre conducteur : connexion par matricule + code, prise de service et écran de course. Tout passe par l'UC du véhicule.
 class DriverScreen(private val activity: Activity, private val root: LinearLayout, private val vehicleParc: String) {
-    private companion object { const val OFF_ROUTE_METERS = 300.0 }
+    private companion object { const val OFF_ROUTE_METERS = 120.0 }
     private val handler = Handler(Looper.getMainLooper())
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.FRANCE)
 
@@ -46,7 +46,8 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private val listener = LocationListener { location ->
         lastLocation = location
         if (location.hasSpeed() && location.speed * 3.6 > 8) moved = true
-        val route = service?.stops.orEmpty()
+        // Le tracé de la ligne fait foi ; à défaut, les arrêts restants.
+        val route = service?.let { if (it.path.size >= 2) it.path else it.stops }.orEmpty()
         val off = moved && route.size >= 2 && distanceToRoute(location, route) > OFF_ROUTE_METERS
         courseView?.let { it.departing = !moved; it.offRoute = off; it.invalidate() }
         val now = System.currentTimeMillis()
@@ -62,7 +63,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         override fun run() {
             val now = clockFormat.format(Date())
             clockView?.text = now
-            courseView?.let { it.clock = now; it.delayMinutes = if (moved) null else delayFor(service); it.invalidate() }
+            courseView?.let { val d = if (moved) null else delayFor(service); it.clock = now; it.delayMinutes = d; it.invalidate(); playLateJingle(d) }
             handler.postDelayed(this, 1000)
         }
     }
@@ -83,13 +84,25 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         return best
     }
 
-    // Retard : seulement avant le départ de la course, par rapport à l'heure théorique.
+    // Écart avec l'heure théorique avant le départ : positif = retard, négatif = avance (au-delà de 30 min, on n'affiche rien).
     private fun delayFor(current: Service?): Int? {
         val parts = current?.departure?.split(":")?.mapNotNull { it.trim().toIntOrNull() } ?: return null
         if (parts.size < 2) return null
         val now = Calendar.getInstance()
         val minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE) - (parts[0] * 60 + parts[1])
-        return minutes.coerceAtLeast(0)
+        return if (minutes < -30) null else minutes
+    }
+
+    private var lateJingleDone = false
+
+    // Jingle déposé dans app/src/main/res/raw/jingle_retard.(mp3|wav|ogg), joué une fois à l'apparition du retard.
+    private fun playLateJingle(delay: Int?) {
+        if (delay == null || delay <= 0) { lateJingleDone = false; return }
+        if (lateJingleDone) return
+        lateJingleDone = true
+        val id = activity.resources.getIdentifier("jingle_retard", "raw", activity.packageName)
+        if (id == 0) return
+        runCatching { android.media.MediaPlayer.create(activity, id)?.apply { setOnCompletionListener { release() }; start() } }
     }
 
     fun show() {
@@ -318,11 +331,15 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
     private fun cityOf(label: String) = label.substringBefore(" – ").trim()
     private fun placeOf(label: String) = label.substringAfter(" – ", label).trim()
 
+    private var courseKey = ""
+
     private fun course(current: Service) {
         stopLoops()
         courseOn = true
-        moved = false
+        val key = "${current.missionId}/${current.courseIndex}"
+        if (key != courseKey) { courseKey = key; moved = false }
         val view = CourseView(activity).apply {
+            recaled = current.stopIndex > 0
             lineNumber = current.line ?: current.name
             destination = current.stops.lastOrNull()?.let { cityOf(it.label) } ?: (current.destination ?: "")
             current.color?.let { runCatching { lineColor = Color.parseColor(it) } }
@@ -349,6 +366,27 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
         root.addView(screen, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         startLocation()
         handler.post(tick)
+        watchCourse(current)
+    }
+
+    // Pendant la course, la console relit le service auprès de l'UC : recalage, fin ou retrait par le Gestionnaire sont repris seuls.
+    private fun watchCourse(shown: Service) {
+        handler.postDelayed({
+            thread {
+                val result = runCatching { DriverApi.currentService() }
+                activity.runOnUiThread {
+                    val found = result.getOrNull()
+                    val failure = result.exceptionOrNull()
+                    when {
+                        failure != null && failure.message?.startsWith("Session expirée") == true -> { stop(); DriverApi.logout(); loginForm("Session expirée, identifiez-vous de nouveau.") }
+                        failure != null -> watchCourse(shown)
+                        found == null || !found.active || found.missionId != shown.missionId -> { service = found; stop(); loadService() }
+                        found.courseIndex != shown.courseIndex || found.stopIndex != shown.stopIndex || found.stops.size != shown.stops.size -> { service = found; course(found) }
+                        else -> watchCourse(shown)
+                    }
+                }
+            }
+        }, 5000)
     }
 
     private fun goNextCourse(current: Service) {
@@ -382,7 +420,7 @@ class DriverScreen(private val activity: Activity, private val root: LinearLayou
             thread {
                 val result = runCatching { if (current.courseCount <= 0 || current.courseNumber >= current.courseCount) DriverApi.complete(current.missionId) else DriverApi.abort(current.missionId) }
                 activity.runOnUiThread {
-                    result.onSuccess { stop(); loadService() }.onFailure { course(current); infoView?.text = it.message }
+                    result.onSuccess { stop(); loadService() }.onFailure { stop(); loadService() }
                 }
             }
         })

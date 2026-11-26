@@ -79,7 +79,10 @@ namespace IneoRbe.Planning
                 var drivers = Data.List("/ineo/driver-profiles", "profiles").Where(p => Json.Bool(p, "hasCategoryDLicense") && Json.Bool(p, "hasDriverCard")).Select(p => Json.Str(p, "driverIdentifier")).ToList();
                 var dialog = new RealignDialog(Window.GetWindow(view), item, lines, drivers);
                 if (dialog.ShowDialog() != true) return;
-                var body = new Dictionary<string, object> { { "courseIndex", dialog.CourseIndex }, { "stopIndex", dialog.StopIndex } };
+                var body = new Dictionary<string, object>();
+                if (!dialog.KeepCourse) { body["courseIndex"] = dialog.CourseIndex; body["stopIndex"] = dialog.StopIndex; }
+                body["endCourseIndex"] = dialog.CourseIndex;
+                body["endStopIndex"] = dialog.EndStopIndex;
                 if (!string.IsNullOrEmpty(dialog.Driver) && dialog.Driver != Json.Str(item, "driverIdentifier")) { body["driverIdentifier"] = dialog.Driver; body["driverName"] = dialog.Driver; }
                 var id = Json.Str(item, "id");
                 Ui.Run(view.Dispatcher, () => Api.Post("/ineo/missions/" + id + "/realign", body), r => view.Reload(), null);
