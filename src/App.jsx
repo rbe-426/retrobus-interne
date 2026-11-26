@@ -16,6 +16,10 @@ import PrestataireLimitedRoute from "./components/PrestataireLimitedRoute";
 import RequireCreator from "./components/RequireCreator";
 import ExternalRetromailRedirect from "./components/ExternalRetromailRedirect";
 import { RESOURCES } from "./lib/permissions";
+import useAgStatus from "./hooks/useAgStatus";
+import AgGate, { AgJoinPage } from "./pages/AgGate";
+const AgMember = lazy(() => import("./pages/AgMember"));
+const AgPresident = lazy(() => import("./pages/AgPresident"));
 
 const lazyWithRetry = (factory, cacheKey) =>
   lazy(async () => {
@@ -161,6 +165,11 @@ export default function App() {
     }
   }, [isAuthenticated, location.pathname]);
 
+  const { status: agStatus, refresh: refreshAgStatus } = useAgStatus(isAuthenticated);
+  if (isAuthenticated && agStatus?.modeActive && !agStatus.isPresident) {
+    return <AgGate status={agStatus} refresh={refreshAgStatus} />;
+  }
+
   return (
     <ErrorBoundary>
       <SidebarProvider>
@@ -194,6 +203,9 @@ export default function App() {
   <Route path="/myrbe/ineo-retrobus/tracage-libre" element={<Navigate to="/accueil/myrbe/ineo-retrobus/tracage-libre" replace />} />
   <Route path="/accueil/myrbe/ineo-retrobus/operations" element={<RoleProtectedRoute allowedRoles={['ADMIN', 'PRESIDENT']}><IneoOperations /></RoleProtectedRoute>} />
   <Route path="/dashboard/ineo-retrobus" element={<Navigate to="/accueil/myrbe/ineo-retrobus/operations" replace />} />
+  <Route path="/accueil/myrbe/ag" element={<ProtectedRoute><AgMember /></ProtectedRoute>} />
+  <Route path="/accueil/myrbe/ag/president" element={<RoleProtectedRoute allowedRoles={['PRESIDENT']}><AgPresident /></RoleProtectedRoute>} />
+  <Route path="/ag/rejoindre" element={<ProtectedRoute><AgJoinPage /></ProtectedRoute>} />
   <Route path="/accueil/myrbe/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<Navigate to="/accueil/myrbe/trilogy-rbe" replace />} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
