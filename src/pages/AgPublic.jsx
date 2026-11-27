@@ -10,8 +10,8 @@ import AmendmentButton from '../components/AmendmentButton.jsx';
 
 const SECTIONS = [
   { label: 'Amendements', items: [
-    { id: 'my-amendments', label: 'Mes amendements', description: 'Vos amendements en cours', icon: null },
     { id: 'documents', label: 'Documents', description: 'Documents soumis aux amendements', icon: null },
+    { id: 'my-amendments', label: 'Mes amendements', description: 'Vos amendements en cours', icon: null },
   ] }
 ];
 
