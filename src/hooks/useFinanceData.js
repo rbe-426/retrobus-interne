@@ -829,16 +829,16 @@ export const useFinanceData = (currentUser = null) => {
   const updateDocumentStatus = useCallback(
     async (documentId, newStatus) => {
       try {
-        const res = await fetch(`${API_BASE}/api/finance/documents/${documentId}/status`, {
+        const res = await fetchWithCSRF(`${API_BASE}/api/finance/documents/${encodeURIComponent(documentId)}/status`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus })
         });
 
-        if (!res.ok) throw new Error("Erreur mise à jour statut");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.details || `Erreur mise à jour statut (${res.status})`);
+        }
 
         const updatedDoc = await res.json();
         

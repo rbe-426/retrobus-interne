@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, VStack, HStack, Button, Flex, useToast, Text, Spinner,
   useDisclosure, SimpleGrid, Card, CardBody, CardHeader,
@@ -649,7 +649,7 @@ export default function AdhesionManagement() {
       sections={sections}
       defaultSectionId="adhesions"
       sidebarTitle="Adhésions"
-      sidebarSubtitle="Espace MyRBE"
+      sidebarSubtitle="Outils URBEX"
       sidebarTitleIcon={FiUsers}
       versionLabel="Gestion v2"
     />

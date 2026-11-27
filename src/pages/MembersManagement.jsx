@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box, VStack, HStack, Button, Flex, useToast, Text, Spinner,
   useDisclosure, SimpleGrid, Card, CardBody, CardHeader,
@@ -1773,7 +1773,7 @@ export default function MembersManagement() {
         sections={workspaceSections}
         defaultSectionId="dashboard"
         sidebarTitle="Gestion RH"
-        sidebarSubtitle="Espace MyRBE"
+        sidebarSubtitle="Outils URBEX"
         sidebarTitleIcon={FiUsers}
         versionLabel="RH v2.1"
         headerActions={headerActions}

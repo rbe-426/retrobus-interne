@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Box, Image, Menu, MenuButton, MenuItem, MenuList, Text,
   IconButton, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
@@ -14,8 +14,7 @@ import { useUser } from "../context/UserContext";
 import { flashAPI } from "../api/flash.js";
 import { useUnreadMailCount } from "../hooks/useUnreadMailCount";
 import NotificationCenter from './NotificationCenter';
-import logo from "../assets/retro_intranet_essonne.svg";
-import logoMobile from "../assets/URBEX.svg";
+import { BRAND_LOGO_SRC } from "../config/brand";
 import infoPng from "../assets/icons/flash-info.png";
 import notifPng from "../assets/icons/flash-notif.png";
 import posPng from "../assets/icons/flash-pos.png";
@@ -310,8 +309,8 @@ export default function Header() {
       >
         {/* Logo à gauche - fixe */}
         <Image
-          src={isMobile ? logoMobile : logo}
-          alt={isMobile ? "URBEX Mobile" : "RétroBus Essonne Intranet"}
+          src={BRAND_LOGO_SRC}
+          alt="URBEX - RétroBus Essonne"
           height={isMobile ? "25px" : "128px"}
           maxW={isMobile ? "60px" : undefined}
           ml={isMobile ? -2 : 0}
@@ -364,7 +363,7 @@ export default function Header() {
               transition="color 0.2s"
               onClick={() => navigate('/accueil/myrbe')}
             >
-              Espace MyRBE
+              Outils URBEX
             </Text>
             <Text 
               fontSize="lg" 

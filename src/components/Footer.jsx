@@ -15,7 +15,8 @@ import {
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import { FiMail, FiPhone, FiMapPin, FiExternalLink } from 'react-icons/fi';
-import logo from '../assets/rbe_footer.jpg';
+import logo from '../assets/rbe_footer.png'
+import logoLeft from '../assets/footer_left.png';
 import packageJson from '../../package.json';
 
 export default function Footer({ flush = false }) {
@@ -60,20 +61,36 @@ export default function Footer({ flush = false }) {
       userSelect="none"
       position="relative"
     >
-      {/* Logo positionné à gauche en dehors du container */}
+      {/* Logo gauche (public/footer_left.png) */}
       {!isMobile && (
-        <VStack 
+        <Image
+          src={logoLeft}
+          alt="RétroBus Essonne"
           position="absolute"
           left={8}
           top="50%"
           transform="translateY(-50%)"
-          align="start"
+          h="90px"
+          w="auto"
+          objectFit="contain"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      )}
+
+      {/* Logo droit */}
+      {!isMobile && (
+        <VStack 
+          position="absolute"
+          right={8}
+          top="50%"
+          transform="translateY(-50%)"
+          align="end"
           spacing={2}
         >
           <Image 
             src={logo} 
             alt="RétroBus Essonne" 
-            h="50px"
+            h={isMobile ? "80px" : "90px"}
             w="auto" 
             objectFit="contain"
           />
@@ -90,7 +107,7 @@ export default function Footer({ flush = false }) {
             <Image 
               src={logo} 
               alt="RétroBus Essonne" 
-              h="50px"
+              h={isMobile ? "80px" : "90px"}
               w="auto" 
               objectFit="contain"
             />
@@ -101,10 +118,10 @@ export default function Footer({ flush = false }) {
         )}
 
         {/* Layout moderne */}
-        <Box mb={isMobile ? 6 : 4} pl={{ base: 0, lg: '300px' }}>
-            <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={isMobile ? 6 : 6} mb={isMobile ? 4 : 0}>
+        <Box mb={isMobile ? 6 : 4} px={{ base: 0, lg: '300px' }}>
+            <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={isMobile ? 6 : 12} mb={isMobile ? 4 : 0}>
               {/* À propos */}
-              <VStack align="start" spacing={isMobile ? 3 : 2}>
+              <VStack align="start" spacing={isMobile ? 3 : 3}>
                 <Text fontSize={isMobile ? "sm" : "md"} fontWeight="bold" color="white">
                   À propos
                 </Text>
@@ -127,7 +144,7 @@ export default function Footer({ flush = false }) {
               </VStack>
 
               {/* Contact */}
-              <VStack align="start" spacing={isMobile ? 3 : 2}>
+              <VStack align="start" spacing={isMobile ? 3 : 3}>
                 <Text fontSize={isMobile ? "sm" : "md"} fontWeight="bold" color="white">
                   Contact
                 </Text>
@@ -150,7 +167,7 @@ export default function Footer({ flush = false }) {
               </VStack>
 
               {/* Ressources + Réseaux sociaux */}
-              <VStack align="start" spacing={isMobile ? 3 : 2}>
+              <VStack align="start" spacing={isMobile ? 3 : 3}>
                 <Text fontSize={isMobile ? "sm" : "md"} fontWeight="bold" color="white">
                   Liens rapides
                 </Text>
@@ -233,7 +250,7 @@ export default function Footer({ flush = false }) {
             <Text textAlign={isMobile ? "center" : "left"}>
               © {currentYear} RétroBus Essonne. Tous droits réservés.
             </Text>
-            <HStack justify={{ base: 'center', md: 'end' }} spacing={isMobile ? 3 : 4} wrap="wrap">
+            <HStack justify={{ base: 'center', md: 'end' }} spacing={isMobile ? 4 : 8} wrap="wrap">
               <Link as={RouterLink} to="/mentions-legales" _hover={{ color: hoverColor }} minH={isMobile ? "44px" : "auto"} display="flex" alignItems="center">
                 Mentions légales
               </Link>

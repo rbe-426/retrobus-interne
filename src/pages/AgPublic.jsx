@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FiArrowLeft } from 'react-icons/fi';
 import { Link as RouterLink } from 'react-router-dom';
 import { Alert, AlertIcon, Box, Button, Card, CardBody, Divider, Grid, Heading, SimpleGrid, Spinner, Stack, Text, Badge, Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, useDisclosure, FormControl, FormLabel, Textarea, Select, useToast } from '@chakra-ui/react';
 import { agAPI, AMENDMENT_REASON_LABELS } from '../api/ag.js';
@@ -55,6 +56,7 @@ export default function AgPublic() {
   }, [isAuthenticated]);
 
   const session = data?.session;
+  const selectedDocument = data?.documents?.find((d) => d.id === selected) || null;
   const badge = session?.title
     ? `${session.title}${session.meetingDate ? ` — ${new Date(session.meetingDate).toLocaleDateString('fr-FR')}` : ''}`
     : undefined;
@@ -161,77 +163,68 @@ export default function AgPublic() {
         {/* Documents */}
         {activeTab === 'documents' && (
           <>
+            {!selectedDocument && (
             <Box textAlign="center">
               <Heading size="lg" mb={2}>Documents soumis aux amendements</Heading>
               <Text color="gray.600">Sélectionnez un document pour consulter ses articles et déposer vos amendements.</Text>
             </Box>
+            )}
 
             {error && <Alert status="error"><AlertIcon />{error}</Alert>}
             {!data && !error && <Spinner />}
             {data && !data.documents.length && <Text color="gray.500" textAlign="center">Aucun texte à amender pour le moment.</Text>}
 
-            {data?.documents.length > 0 && (
-              <Stack spacing={6}>
+            {data?.documents.length > 0 && !selectedDocument && (
+              <Stack spacing={4}>
                 {data.documents.map((document) => (
-                  <Box key={document.id}>
-                    <Box 
-                      as="button" 
-                      onClick={() => setSelected(selected === document.id ? null : document.id)}
-                      w="full"
-                      textAlign="left"
-                      _hover={{ cursor: 'pointer' }}
-                    >
-                      <Card bg="white" cursor="pointer" _hover={{ shadow: 'lg' }} transition="all 0.2s">
-                        <CardBody>
-                          <Heading size="md" mb={2}>{document.title}</Heading>
-                          <Text fontSize="sm" color="gray.600">{document.articles.length} article(s)</Text>
-                        </CardBody>
-                      </Card>
-                    </Box>
+                  <Box
+                    key={document.id}
+                    as="button"
+                    onClick={() => { setSelected(document.id); window.scrollTo({ top: 0 }); }}
+                    w="full"
+                    textAlign="left"
+                  >
+                    <Card bg="white" cursor="pointer" _hover={{ shadow: 'lg' }} transition="all 0.2s">
+                      <CardBody>
+                        <Heading size="md" mb={2}>{document.title}</Heading>
+                        <Text fontSize="sm" color="gray.600">{document.articles.length} article(s)</Text>
+                      </CardBody>
+                    </Card>
+                  </Box>
+                ))}
+              </Stack>
+            )}
 
-                    {selected === document.id && (
-                      <Stack spacing={3} mt={4} pl={4} borderLeftWidth="2px" borderLeftColor="blue.500">
-                        {document.articles.map((article) => (
-                          <Box 
-                            key={article.id} 
-                            borderWidth="1px" 
-                            borderRadius="md" 
-                            p={4} 
-                            bg="gray.50"
-                            display="flex"
-                            justifyContent="space-between"
-                            alignItems="flex-start"
-                            gap={4}
-                          >
-                            <Box flex={1}>
-                              <Text fontWeight="bold" textTransform="uppercase" mb={2} fontSize="sm" color="blue.700">
-                                # {article.label}
-                              </Text>
-                              {article.body && (
-                                <Text fontSize="sm" whiteSpace="pre-wrap" color="gray.700">
-                                  {article.body}
-                                </Text>
-                              )}
-                            </Box>
-                            
-                            {isAuthenticated && (
-                              <AmendmentButton
-                                onClick={() => handleAmendmentClick(document.id, article.id, article, document)}
-                              />
-                            )}
-                            {!isAuthenticated && (
-                              <Button 
-                                size="sm" 
-                                as={RouterLink} 
-                                to="/login"
-                                flexShrink={0}
-                              >
-                                Se connecter
-                              </Button>
-                            )}
-                          </Box>
-                        ))}
-                      </Stack>
+            {selectedDocument && (
+              <Stack spacing={0}>
+                <Button
+                  alignSelf="flex-start"
+                  variant="ghost"
+                  leftIcon={<FiArrowLeft />}
+                  mb={4}
+                  onClick={() => setSelected(null)}
+                >
+                  Tous les documents
+                </Button>
+                <Heading size="lg" mb={6}>{selectedDocument.title}</Heading>
+                {selectedDocument.articles.map((article, index) => (
+                  <Box key={article.id} py={5} borderTopWidth="1px" borderColor="gray.200" {...(index === selectedDocument.articles.length - 1 ? { borderBottomWidth: '1px' } : {})}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" gap={4} mb={2}>
+                      <Heading size="md">{article.label}</Heading>
+                      {isAuthenticated ? (
+                        <AmendmentButton
+                          onClick={() => handleAmendmentClick(selectedDocument.id, article.id, article, selectedDocument)}
+                        />
+                      ) : (
+                        <Button size="sm" as={RouterLink} to="/login" flexShrink={0}>
+                          Se connecter
+                        </Button>
+                      )}
+                    </Box>
+                    {article.body && (
+                      <Text whiteSpace="pre-wrap" color="gray.700">
+                        {article.body}
+                      </Text>
                     )}
                   </Box>
                 ))}

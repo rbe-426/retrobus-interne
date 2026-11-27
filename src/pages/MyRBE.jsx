@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import {
   SimpleGrid,
   VStack,
@@ -27,7 +27,7 @@ import { canAccess, RESOURCES } from "../lib/permissions";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import PageLayout from '../components/Layout/PageLayout';
 import ModernCard from '../components/Layout/ModernCard';
-import { MYRBE_CARDS } from '../config/myrbeCards';
+import { MYRBE_CARDS, isAmendmentsOpen, AMENDMENTS_PRE_OPEN_ROLES } from '../config/myrbeCards';
 
 /* const cards = [
   {
@@ -219,6 +219,11 @@ export default function MyRBE() {
     const cardActions = userPermissions.find((permission) => permission.resource === card.permissionKey)?.actions || [];
     if (cardActions.includes('HIDE')) return false;
 
+    if (card.id === 'amendments' && !isAmendmentsOpen()
+      && !AMENDMENTS_PRE_OPEN_ROLES.some((role) => roles.includes(role))) {
+      return false;
+    }
+
     const resourceActions = card.resource
       ? userPermissions.find((permission) => permission.resource === card.resource)?.actions || []
       : [];
@@ -326,7 +331,7 @@ export default function MyRBE() {
 
   return (
     <PageLayout
-      title="Espace MyRBE"
+      title="Outils URBEX"
       subtitle="Les outils d'administration RétroBus Essonne"
       headerVariant="card"
       bgGradient="linear(to-r, rbe.600, rbe.800)"

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+﻿import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Box,
   Button,
@@ -29,7 +29,7 @@ const WorkspaceLayout = ({
   footer,
   sidebarFooter,
   sidebarTitleIcon,
-  sidebarTitle = "Espace MyRBE",
+  sidebarTitle = "Outils URBEX",
   sidebarSubtitle = "Outils d'administration",
   versionLabel = "MyRBE Workspace"
 }) => {

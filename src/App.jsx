@@ -10,6 +10,15 @@ import Footer from "./components/Footer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
+import { isAmendmentsOpen, AMENDMENTS_PRE_OPEN_ROLES } from "./config/myrbeCards";
+
+// Amendements : ouverts à tous dès le 1er décembre 2026, sinon ADMIN/PRÉSIDENT (ou localhost).
+function AmendmentsGate({ children, public: isPublicRoute = false }) {
+  if (isAmendmentsOpen()) {
+    return isPublicRoute ? children : <ProtectedRoute>{children}</ProtectedRoute>;
+  }
+  return <RoleProtectedRoute allowedRoles={AMENDMENTS_PRE_OPEN_ROLES}>{children}</RoleProtectedRoute>;
+}
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import MyRBEPermissionGate from "./components/MyRBEPermissionGate";
 import PrestataireLimitedRoute from "./components/PrestataireLimitedRoute";
@@ -153,6 +162,8 @@ export default function App() {
   const isIneoDriverWorkspace = location.pathname.startsWith('/accueil/myrbe/ineo-retrobus/service');
   const isIneoFreeTrackingWorkspace = location.pathname === '/accueil/myrbe/ineo-retrobus/tracage-libre';
   const isMuseumWorkspace = location.pathname.startsWith('/lemusee');
+  // Pages à barre latérale pleine hauteur (AgLayout) : le footer doit les toucher.
+  const isSidebarWorkspace = /^\/(amendements|ag)(\/|$)|^\/accueil\/myrbe\/(amendements|ag\/)/.test(location.pathname);
   const showHeader = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace && !isMuseumWorkspace;
   const showFooter = isAuthenticated && location.pathname !== '/login' && !isRetromailWorkspace && !isIneoOperationsWorkspace && !isIneoDriverWorkspace && !isIneoFreeTrackingWorkspace;
 
@@ -178,7 +189,7 @@ export default function App() {
               <Routes>
         {/* Route de connexion */}
         <Route path="/login" element={<Login />} />
-        <Route path="/amendements" element={<AgPublic />} />
+        <Route path="/amendements" element={<AmendmentsGate public><AgPublic /></AmendmentsGate>} />
         
         {/* Route de changement de mot de passe obligatoire */}
         <Route path="/force-password-change" element={<ProtectedRoute><ForcePasswordChange /></ProtectedRoute>} />
@@ -207,7 +218,7 @@ export default function App() {
   <Route path="/ag" element={<AgGate />} />
   <Route path="/ag/rejoindre" element={<AgGate />} />
   
-  <Route path="/accueil/myrbe/amendements" element={<ProtectedRoute><AgPublic /></ProtectedRoute>} />
+  <Route path="/accueil/myrbe/amendements" element={<AmendmentsGate><AgPublic /></AmendmentsGate>} />
   <Route path="/accueil/myrbe/trilogy-rbe" element={<ProtectedRoute><TrilogyRBE /></ProtectedRoute>} />
   <Route path="/dashboard/trilogy-rbe" element={<Navigate to="/accueil/myrbe/trilogy-rbe" replace />} />
   <Route path="/dashboard/trilogy-rbe/externe" element={<ProtectedRoute><TrilogyRBEExterne /></ProtectedRoute>} />
@@ -330,7 +341,7 @@ export default function App() {
               </MyRBEPermissionGate>
             </Suspense>
           </Box>
-          {showFooter && <Footer flush={isMuseumWorkspace} />}
+          {showFooter && <Footer flush={isMuseumWorkspace || isSidebarWorkspace} />}
         </Box>
       </SidebarProvider>
     </ErrorBoundary>

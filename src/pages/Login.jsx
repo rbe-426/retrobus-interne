@@ -1,7 +1,7 @@
-﻿import { useNavigate, useLocation } from 'react-router-dom';
-import { Box, Button, Input, VStack, Text, Image, Flex, InputGroup, InputRightElement, IconButton } from '@chakra-ui/react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Box, Button, Input, VStack, Text, Image, Flex, InputGroup, InputRightElement, IconButton, Link } from '@chakra-ui/react';
 import { useState } from 'react';
-import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 import { useUser } from '../context/UserContext';
 import { login, memberLogin } from '../api/auth';
 import { storeRefreshToken } from '../api/authService';
@@ -189,6 +189,9 @@ export default function Login() {
         >
           Se connecter
         </Button>
+        <Link href="https://association-rbe.fr" display="inline-flex" alignItems="center" gap={2} mt={2} fontSize="sm" color="gray.600" _hover={{ color: 'rbe.500', textDecoration: 'underline' }}>
+          <FiArrowLeft /> Retourner sur association-rbe.fr
+        </Link>
       </VStack>
 
     </Flex>

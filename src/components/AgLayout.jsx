@@ -47,13 +47,15 @@ export default function AgLayout({ title = 'Assemblée générale', subtitle = '
 
   return (
     <Flex minH="calc(100vh - 80px)" bg="gray.50" align="stretch">
-      <Box display={{ base: 'none', lg: 'block' }} w="280px" flexShrink={0} bg="gray.900" position="sticky" top={0} h="calc(100vh - 80px)">{navigation}</Box>
+      <Box display={{ base: 'none', lg: 'block' }} w="280px" flexShrink={0} bg="gray.900">
+        <Box position="sticky" top="80px" h="calc(100vh - 80px)">{navigation}</Box>
+      </Box>
       <Drawer isOpen={mobile.isOpen} placement="left" onClose={mobile.onClose} size="xs">
         <DrawerOverlay />
         <DrawerContent bg="gray.900"><DrawerBody p={0}>{navigation}</DrawerBody></DrawerContent>
       </Drawer>
       <Box flex={1} minW={0}>
-        <Flex minH="72px" px={{ base: 4, md: 6 }} bg="white" borderBottomWidth="1px" borderColor="gray.200" align="center" justify="space-between" gap={4}>
+        <Flex position="sticky" top="80px" zIndex={10} minH="72px" px={{ base: 4, md: 6 }} bg="white" borderBottomWidth="1px" borderColor="gray.200" align="center" justify="space-between" gap={4}>
           <HStack minW={0} spacing={3}>
             <IconButton display={{ base: 'inline-flex', lg: 'none' }} icon={<FiMenu />} aria-label="Ouvrir la navigation" variant="outline" color="rbe.600" borderColor="rbe.300" onClick={mobile.onOpen} />
             <Box minW={0}>

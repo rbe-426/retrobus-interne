@@ -9,7 +9,7 @@ import {
   Heading, Text, Button, Badge, Icon, SimpleGrid, useToast,
   Table, Thead, Tbody, Tr, Th, Td,
   Stat, StatLabel, StatNumber, StatHelpText,
-  Menu, MenuButton, MenuList, MenuItem, MenuDivider, MenuGroup,
+  Menu, MenuButton, MenuList, MenuItem, MenuDivider, MenuGroup, Portal,
   useColorModeValue
 } from "@chakra-ui/react";
 import { 
@@ -518,7 +518,8 @@ const FinanceInvoicing = () => {
                           >
                             Actions
                           </MenuButton>
-                          <MenuList>
+                          <Portal>
+                          <MenuList maxH="70vh" overflowY="auto" zIndex={2000}>
                             <MenuItem onClick={() => openWizard(doc, null, doc.type)}>
                               Modifier
                             </MenuItem>
@@ -557,6 +558,7 @@ const FinanceInvoicing = () => {
                               Supprimer
                             </MenuItem>
                           </MenuList>
+                          </Portal>
                         </Menu>
                       </Td>
                     </Tr>
