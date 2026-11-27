@@ -41,7 +41,7 @@ export const saveAddress = async ({ name, address, lat, lng }) => {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Enregistrement de l'adresse impossible");
+    throw new Error([err.error, err.details].filter(Boolean).join(' : ') || "Enregistrement de l'adresse impossible");
   }
   return refreshAddressBook();
 };
