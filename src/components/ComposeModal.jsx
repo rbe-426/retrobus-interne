@@ -18,6 +18,7 @@ import {
   FiAlignLeft, FiAlignCenter, FiAlignRight, FiAlignJustify, FiCpu, FiMinimize2, FiMinus
 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../lib/csrfClient.js';
+import { imageFileToDataUrl } from '../lib/imageTools.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -46,11 +47,9 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
   );
   const candidate = pendingRecipient.trim();
   const canAddCandidate = EMAIL_PATTERN.test(candidate) && !normalizedRecipients.has(candidate.toLocaleLowerCase('fr-FR'));
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const matchingContacts = useMemo(() => {
-    const query = normalizeContactSearch(candidate);
-    if (!query) return [];
-
-    const keywords = query.split(/\s+/).filter(Boolean);
+    const keywords = normalizeContactSearch(candidate).split(/\s+/).filter(Boolean);
 
     return contacts.filter((contact) => {
       if (normalizedRecipients.has(contact.email.toLocaleLowerCase('fr-FR'))) return false;
@@ -58,6 +57,9 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
       return keywords.every((keyword) => searchableContact.includes(keyword));
     }).slice(0, 6);
   }, [candidate, contacts, normalizedRecipients]);
+
+  useEffect(() => setHighlightedIndex(0), [candidate]);
+  const isInvalidPending = Boolean(candidate) && !isFocused && !EMAIL_PATTERN.test(candidate);
 
   const emitRecipients = useCallback((nextRecipients) => {
     onChange({ target: { value: nextRecipients.join(', ') } });
@@ -120,7 +122,7 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
         px={2}
         py={1}
         border="1px solid"
-        borderColor="gray.200"
+        borderColor={isInvalidPending ? 'red.400' : 'gray.200'}
         borderRadius="md"
         bg="white"
         _focusWithin={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)' }}
@@ -146,21 +148,30 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);
-            if (EMAIL_PATTERN.test(candidate)) {
-              addRecipient();
-            } else {
-              setPendingRecipient('');
-            }
+            if (EMAIL_PATTERN.test(candidate)) addRecipient();
           }}
           onKeyDown={(event) => {
-            if ((event.key === 'Enter' || event.key === 'Tab') && candidate) {
+            if (event.key === 'ArrowDown' && matchingContacts.length > 0) {
               event.preventDefault();
-              const exactContact = matchingContacts.find((contact) =>
-                contact.name.toLocaleLowerCase('fr-FR') === candidate.toLocaleLowerCase('fr-FR') ||
-                contact.email.toLocaleLowerCase('fr-FR') === candidate.toLocaleLowerCase('fr-FR')
-              );
-              if (exactContact) addContact(exactContact);
-              else addRecipient();
+              setHighlightedIndex((index) => (index + 1) % matchingContacts.length);
+            }
+            if (event.key === 'ArrowUp' && matchingContacts.length > 0) {
+              event.preventDefault();
+              setHighlightedIndex((index) => (index - 1 + matchingContacts.length) % matchingContacts.length);
+            }
+            if (event.key === 'Escape') setPendingRecipient('');
+            if ((event.key === 'Enter' || event.key === 'Tab' || event.key === ' ') && candidate) {
+              if (event.key === ' ' && !EMAIL_PATTERN.test(candidate)) return;
+              const suggestion = matchingContacts[highlightedIndex] || matchingContacts[0];
+              if (EMAIL_PATTERN.test(candidate)) {
+                event.preventDefault();
+                addRecipient();
+              } else if (suggestion) {
+                event.preventDefault();
+                addContact(suggestion);
+              } else if (event.key === 'Enter') {
+                event.preventDefault();
+              }
             }
             if (event.key === 'Backspace' && !pendingRecipient && recipients.length > 0) {
               removeRecipient(recipients[recipients.length - 1]);
@@ -190,7 +201,7 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
           borderColor="gray.200"
           borderRadius="md"
         >
-          {matchingContacts.map((contact) => (
+          {matchingContacts.map((contact, index) => (
             <Button
               key={contact.id}
               w="100%"
@@ -201,7 +212,9 @@ function RecipientField({ value, onChange, placeholder, ariaLabel, contacts = []
               py={2}
               borderRadius={0}
               variant="ghost"
+              bg={index === highlightedIndex ? 'blue.50' : undefined}
               onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setHighlightedIndex(index)}
               onClick={() => addContact(contact)}
             >
               <Text fontSize="sm" noOfLines={1}>{contact.name} - {contact.email}</Text>
@@ -261,6 +274,8 @@ const ComposeModal = memo(({
   const toast = useToast();
   const editorRef = useRef(null);
   const updateTimerRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const sendRef = useRef(null);
   
   // États locaux pour fonctionnalités avancées
   const [showCc, setShowCc] = useState(false);
@@ -295,18 +310,32 @@ const ComposeModal = memo(({
     if (composeBcc) setShowBcc(true);
   }, [composeBcc, composeCc]);
 
-  // Synchroniser l'éditeur avec le brouillon chargé ou modifié.
+  // Dernier HTML émis par l'éditeur : permet de distinguer une saisie locale
+  // d'un changement externe (brouillon, template, réponse) à recopier dans l'éditeur.
+  const lastEmittedBodyRef = useRef(composeBody || '');
+  const latestBodyRef = useRef(composeBody || '');
+  latestBodyRef.current = composeBody || '';
+
+  const setEditorNode = useCallback((node) => {
+    editorRef.current = node;
+    if (node) {
+      node.innerHTML = latestBodyRef.current;
+      lastEmittedBodyRef.current = latestBodyRef.current;
+      try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch { /* navigateur sans support */ }
+    }
+  }, []);
+
   useEffect(() => {
     if (!editorRef.current || !isOpen) return;
 
-    if (updateTimerRef.current) {
-      clearTimeout(updateTimerRef.current);
-      updateTimerRef.current = null;
-    }
-
     const nextBody = composeBody || '';
-    if (editorRef.current.innerHTML !== nextBody) {
+    if (nextBody !== lastEmittedBodyRef.current) {
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+        updateTimerRef.current = null;
+      }
       editorRef.current.innerHTML = nextBody;
+      lastEmittedBodyRef.current = nextBody;
     }
   }, [composeBody, isOpen]);
 
@@ -319,23 +348,29 @@ const ComposeModal = memo(({
     };
   }, []);
 
-  // Synchroniser chaque saisie afin que le brouillon survive aussi à une navigation immédiate.
-  const handleEditorInput = useCallback(() => {
-    if (editorRef.current) {
-      onComposeBodyChange({ target: { value: editorRef.current.innerHTML } });
-    }
-  }, [onComposeBodyChange]);
-
-  const handleClose = useCallback(() => {
+  const emitEditorBody = useCallback(() => {
     if (updateTimerRef.current) {
       clearTimeout(updateTimerRef.current);
       updateTimerRef.current = null;
     }
+    if (!editorRef.current) return latestBodyRef.current;
+    const html = editorRef.current.innerHTML;
+    if (html !== lastEmittedBodyRef.current) {
+      lastEmittedBodyRef.current = html;
+      onComposeBodyChange({ target: { value: html } });
+    }
+    return html;
+  }, [onComposeBodyChange]);
 
-    const html = editorRef.current?.innerHTML ?? composeBody;
-    onComposeBodyChange({ target: { value: html } });
-    onClose(html);
-  }, [composeBody, onClose, onComposeBodyChange]);
+  // La saisie reste fluide : l'état parent (lourd) n'est mis à jour qu'après une courte pause.
+  const handleEditorInput = useCallback(() => {
+    if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+    updateTimerRef.current = setTimeout(emitEditorBody, 300);
+  }, [emitEditorBody]);
+
+  const handleClose = useCallback(() => {
+    onClose(emitEditorBody());
+  }, [emitEditorBody, onClose]);
 
   // Calculer la taille totale des pièces jointes
   const totalAttachmentSize = composeAttachments.reduce((sum, att) => sum + (att.size || 0), 0);
@@ -424,13 +459,43 @@ const ComposeModal = memo(({
     execCommand('backColor', color);
   }, [execCommand]);
 
-  const insertImage = useCallback(() => {
-    const url = prompt('URL de l\'image :');
-    if (url) {
-      const img = `<img src="${url}" style="max-width: 100%; height: auto; border-radius: 8px;" alt="Image" />`;
-      execCommand('insertHTML', img);
+  const insertInlineImages = useCallback(async (files) => {
+    for (const file of files) {
+      try {
+        const dataUrl = await imageFileToDataUrl(file);
+        editorRef.current?.focus();
+        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%;height:auto;" alt="${file.name.replace(/["<>]/g, '')}">`);
+      } catch (error) {
+        toast({ title: 'Image non insérée', description: error.message, status: 'error', duration: 3000 });
+      }
     }
-  }, [execCommand]);
+    handleEditorInput();
+  }, [handleEditorInput, toast]);
+
+  const insertImage = useCallback(() => imageInputRef.current?.click(), []);
+
+  const handleImagePicked = useCallback((event) => {
+    const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith('image/'));
+    event.target.value = '';
+    if (files.length > 0) insertInlineImages(files);
+  }, [insertInlineImages]);
+
+  const handleEditorPaste = useCallback((event) => {
+    const images = Array.from(event.clipboardData?.files || []).filter((file) => file.type.startsWith('image/'));
+    if (images.length === 0) return;
+    event.preventDefault();
+    insertInlineImages(images);
+  }, [insertInlineImages]);
+
+  const handleEditorDrop = useCallback((event) => {
+    const files = Array.from(event.dataTransfer?.files || []);
+    if (files.length === 0) return;
+    event.preventDefault();
+    const images = files.filter((file) => file.type.startsWith('image/'));
+    const others = files.filter((file) => !file.type.startsWith('image/'));
+    if (images.length > 0) insertInlineImages(images);
+    if (others.length > 0) onFileUpload({ target: { files: others, value: '' } });
+  }, [insertInlineImages, onFileUpload]);
 
   // Appliquer la police par défaut au chargement et à chaque ouverture.
   useEffect(() => {
@@ -439,27 +504,13 @@ const ComposeModal = memo(({
     }
   }, [isOpen, mailFont]);
 
-  // Gérer la touche Entrée pour des sauts de ligne simples
+  // Ctrl/Cmd + Entrée envoie le message ; Entrée garde le comportement natif (un seul appui).
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      // Insérer un <br> pour créer un saut de ligne
-      const br = document.createElement('br');
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-      
-      range.deleteContents();
-      range.insertNode(br);
-      
-      // Positionner le curseur après le <br>
-      range.setStartAfter(br);
-      range.setEndAfter(br);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      
-      handleEditorInput(); // Mettre à jour le state
+      sendRef.current?.();
     }
-  }, [handleEditorInput]);
+  }, []);
 
   // Amélioration du texte avec l'IA
   const handleAiImprove = useCallback(async () => {
@@ -590,12 +641,12 @@ const ComposeModal = memo(({
 
     if (!editorRef.current) return;
 
-    const signatureHtml = /<\/?[a-z][\s\S]*>/i.test(signature)
-      ? `<br><br>${signature}`
-      : `<br><br>${signature.split('\n').join('<br>')}`;
+    const signatureHtml = `<div data-rbe-signature="1">${/<\/?[a-z][\s\S]*>/i.test(signature)
+      ? signature
+      : signature.split('\n').join('<br>')}</div>`;
 
-    // Insérer à la position du curseur
-    document.execCommand('insertHTML', false, signatureHtml);
+    editorRef.current.focus();
+    document.execCommand('insertHTML', false, `<br>${signatureHtml}`);
     handleEditorInput();
 
     toast({
@@ -606,6 +657,13 @@ const ComposeModal = memo(({
   }, [signature, handleEditorInput, toast]);
 
   const charCount = composeBody?.length || 0;
+  const signatureHtmlPreview = useMemo(() => {
+    const value = String(signature || '').trim();
+    if (!value) return '';
+    return /<\/?[a-z][\s\S]*>/i.test(value)
+      ? value
+      : value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>');
+  }, [signature]);
   
   // Détecter le type de contenu
   const isFullHtml = composeBody?.trim().startsWith('<!DOCTYPE') || 
@@ -620,14 +678,8 @@ const ComposeModal = memo(({
 
   // Handler pour le bouton d'envoi
   const handleSend = useCallback(() => {
-    if (updateTimerRef.current) {
-      clearTimeout(updateTimerRef.current);
-      updateTimerRef.current = null;
-    }
-
-    const currentBody = editorRef.current?.innerHTML ?? composeBody;
-    onComposeBodyChange({ target: { value: currentBody } });
-    const hasContent = composeSubject.trim() || hasMessageContent(currentBody) || composeAttachments.length > 0;
+    const currentBody = emitEditorBody();
+    const hasContent = composeSubject.trim() || hasMessageContent(currentBody) || /<img\s/i.test(currentBody) || composeAttachments.length > 0;
 
     if (!composeTo.trim() || !hasContent) {
       toast({
@@ -639,7 +691,8 @@ const ComposeModal = memo(({
       return;
     }
     onSendEmail(currentBody);
-  }, [composeAttachments.length, composeBody, composeSubject, composeTo, onComposeBodyChange, onSendEmail, toast]);
+  }, [composeAttachments.length, composeSubject, composeTo, emitEditorBody, onSendEmail, toast]);
+  sendRef.current = handleSend;
 
   return (
     <>
@@ -725,7 +778,7 @@ const ComposeModal = memo(({
                   icon={<FiMinus />}
                   size="sm"
                   variant="ghost"
-                  onClick={() => setIsMinimized(true)}
+                  onClick={() => { emitEditorBody(); setIsMinimized(true); }}
                   aria-label="Réduire le brouillon"
                 />
               </Tooltip>
@@ -776,7 +829,7 @@ const ComposeModal = memo(({
                 </Flex>
               </FormControl>
 
-              <Collapse in={showCc}>
+              {showCc && (
                 <FormControl>
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cc :</FormLabel>
@@ -799,9 +852,9 @@ const ComposeModal = memo(({
                     />
                   </Flex>
                 </FormControl>
-              </Collapse>
+              )}
 
-              <Collapse in={showBcc}>
+              {showBcc && (
                 <FormControl>
                   <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
                     <FormLabel mb={0} minW={{ base: 'auto', md: '80px' }}>Cci :</FormLabel>
@@ -824,7 +877,7 @@ const ComposeModal = memo(({
                     />
                   </Flex>
                 </FormControl>
-              </Collapse>
+              )}
 
               <FormControl>
                 <Flex gap={2} align={{ base: 'stretch', md: 'center' }} direction={{ base: 'column', md: 'row' }}>
@@ -1122,10 +1175,19 @@ const ComposeModal = memo(({
             {/* Zone d'édition WYSIWYG */}
             <FormControl flex={1}>
               <Box
-                ref={editorRef}
+                ref={setEditorNode}
                 contentEditable
+                suppressContentEditableWarning
                 onInput={handleEditorInput}
+                onBlur={emitEditorBody}
                 onKeyDown={handleKeyDown}
+                onPaste={handleEditorPaste}
+                onDrop={handleEditorDrop}
+                spellCheck
+                lang="fr"
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Corps du message"
                 placeholder="Composez votre message... Utilisez les boutons ci-dessus pour formater le texte."
                 minH={{ base: '38dvh', md: '300px' }}
                 p={{ base: 3, md: 4 }}
@@ -1168,12 +1230,26 @@ const ComposeModal = memo(({
                   },
                   '& a': { color: 'blue.500', textDecoration: 'underline' },
                   '& br': { display: 'block', content: '""', marginTop: '0' },
-                  '& div, & span': { textTransform: 'none !important' }
+                  '& div, & span': { textTransform: 'none !important' },
+                  '& img': { maxWidth: '100%', height: 'auto' }
                 }}
               />
+              <input ref={imageInputRef} type="file" accept="image/*" multiple hidden onChange={handleImagePicked} />
+              {signatureHtmlPreview && !/data-rbe-signature/.test(composeBody || '') && (
+                <Box mt={2} pt={2} borderTop="1px dashed" borderColor={borderColor}>
+                  <Text fontSize="xs" color="gray.500" mb={1}>Signature (ajoutée automatiquement à l'envoi)</Text>
+                  <Box
+                    fontFamily={mailFont}
+                    fontSize="sm"
+                    color="gray.700"
+                    sx={{ '& img': { maxWidth: '100%', maxHeight: '160px', height: 'auto' } }}
+                    dangerouslySetInnerHTML={{ __html: signatureHtmlPreview }}
+                  />
+                </Box>
+              )}
               <HStack justify="space-between" mt={2} wrap="wrap">
                 <Text fontSize="xs" color="gray.500">
-                  Police : {mailFont} • {signature && '✅ Signature'}
+                  Police : {mailFont} • Ctrl+Entrée pour envoyer
                 </Text>
               </HStack>
             </FormControl>

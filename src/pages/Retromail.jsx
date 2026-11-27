@@ -16,13 +16,15 @@ import {
 import { 
   FiMail, FiSend, FiTrash2, FiRefreshCw, FiSettings, 
   FiChevronLeft, FiPaperclip, FiEdit, FiInbox, FiArchive, 
-  FiFolder, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu, FiTag, FiUsers, FiLogOut
+  FiFolder, FiStar, FiCornerUpRight, FiCornerUpLeft, FiEye, FiEyeOff, FiDownload, FiShare2, FiX, FiFileText, FiMenu, FiTag, FiUsers, FiLogOut
 } from "react-icons/fi";
 import { useUser } from "../context/UserContext.jsx";
 import { fetchWithCSRF } from "../lib/csrfClient";
 import { membersAPI } from "../api/members.js";
 import { getAllTeamMembers } from "../services/teamService.js";
 import ComposeModal from "../components/ComposeModal.jsx";
+import { loadDrafts, saveDrafts } from "../lib/draftStore.js";
+import { imageFileToDataUrl } from "../lib/imageTools.js";
 import ImageCropper from "../components/ImageCropper.jsx";
 import TemplateEditor from "../components/TemplateEditor.jsx";
 import retromailLogo from '../assets/retromail_logo.png';
@@ -82,7 +84,11 @@ const toSignatureHtml = (value) => {
     : escapeHtml(signature).replace(/\r?\n/g, '<br>');
 };
 
+// Carnet d'adresses RétroMail : uniquement des adresses valides.
+// Ajouter ici les nouvelles boîtes @association-rbe.fr à mesure qu'elles sont créées.
 const PERMANENT_MAIL_CONTACTS = [
+  { id: 'rbe-gaelle', name: 'Gaelle', email: 'g.champenois@association-rbe.fr' },
+  { id: 'rbe-waiyl', name: 'Waiyl', email: 'w.belaidi@association-rbe.fr' },
   { id: 'gmail-rbe', name: 'GMAIL RBE', email: 'association.rbe@gmail.com' },
   { id: 'benjamin-van-steenwinckel', name: 'Benjamin VAN STEENWINCKEL', email: 'b.vansteen@cars-nedroma.com' }
 ];
@@ -114,36 +120,29 @@ const resolveMailIdentity = (email, reportedName, contactsByEmail) => {
   };
 };
 
+const RBE_MAIL_DOMAIN = '@association-rbe.fr';
+
 const normalizeMailContacts = (members, teamMembers = []) => {
-  const uniqueEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
-  const directoryMembers = Array.isArray(teamMembers) ? teamMembers : [];
-  const teamByEmail = new Map(
-    directoryMembers
-      .filter((teamMember) => teamMember?.email)
-      .map((teamMember) => [String(teamMember.email).trim().toLowerCase(), teamMember])
-  );
-  const teamByName = new Map(
-    directoryMembers.map((teamMember) => [normalizeDirectoryName(teamMember?.name), teamMember])
-  );
-
-  const memberContacts = (Array.isArray(members) ? members : []).reduce((contacts, member) => {
+  // Les adresses @association-rbe.fr ne sont plus déduites des matricules (boîtes non validées) :
+  // seules celles du carnet ci-dessus sont proposées. Les fiches membres ne servent qu'aux photos.
+  const avatarByEmail = new Map();
+  for (const member of Array.isArray(members) ? members : []) {
     const email = buildRbeEmail(member.matricule);
-    const firstName = String(member.firstName || member.prenom || '').trim();
-    const lastName = String(member.lastName || member.nom || '').trim();
-    const name = `${firstName} ${lastName}`.trim();
-    const teamMember = teamByEmail.get(email) || teamByName.get(normalizeDirectoryName(name));
-
-    if (!email || !name || uniqueEmails.has(email)) return contacts;
-    uniqueEmails.add(email);
-    contacts.push({ id: String(member.id || email), name, email, avatar: normalizeAvatarUrl(member.image || teamMember?.image) });
-    return contacts;
-  }, [...PERMANENT_MAIL_CONTACTS]);
-
-  for (const teamMember of directoryMembers) {
+    if (email && member.image) avatarByEmail.set(email, normalizeAvatarUrl(member.image));
+  }
+  for (const teamMember of Array.isArray(teamMembers) ? teamMembers : []) {
     const email = String(teamMember?.email || '').trim().toLowerCase();
-    if (!email || uniqueEmails.has(email)) continue;
-    uniqueEmails.add(email);
-    memberContacts.push({
+    if (email && teamMember.image && !avatarByEmail.has(email)) avatarByEmail.set(email, normalizeAvatarUrl(teamMember.image));
+  }
+
+  const knownEmails = new Set(PERMANENT_MAIL_CONTACTS.map((contact) => contact.email));
+  const contacts = PERMANENT_MAIL_CONTACTS.map((contact) => ({ ...contact, avatar: avatarByEmail.get(contact.email) || '' }));
+
+  for (const teamMember of Array.isArray(teamMembers) ? teamMembers : []) {
+    const email = String(teamMember?.email || '').trim().toLowerCase();
+    if (!email || knownEmails.has(email) || email.endsWith(RBE_MAIL_DOMAIN)) continue;
+    knownEmails.add(email);
+    contacts.push({
       id: String(teamMember.id || email),
       name: String(teamMember.name || email).trim(),
       email,
@@ -151,9 +150,24 @@ const normalizeMailContacts = (members, teamMembers = []) => {
     });
   }
 
-  return memberContacts.sort((firstContact, secondContact) => firstContact.name.localeCompare(secondContact.name, 'fr'));
+  return contacts.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 };
 
+const attachmentsSignature = (attachments) => (attachments || [])
+  .map((attachment) => `${attachment.filename}:${attachment.size}`)
+  .join('|');
+
+const plainTextToHtml = (text) => escapeHtml(text).replace(/\r?\n/g, '<br>');
+
+const htmlToPlainText = (html) => String(html || '')
+  .replace(/<img[^>]*>/gi, '')
+  .replace(/<\/(div|p|h[1-6]|li|tr|blockquote)>/gi, '\n')
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/gi, ' ')
+  .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#0?39;/gi, "'").replace(/&amp;/gi, '&')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
 export default function Retromail() {
   const { user, matricule, member } = useUser();
   const toast = useToast();
@@ -188,18 +202,14 @@ export default function Retromail() {
   const [loading, setLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [serverQuery, setServerQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState("INBOX");
   const [showAutoConnectSuggest, setShowAutoConnectSuggest] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [drafts, setDrafts] = useState(() => {
-    // Charger les brouillons depuis localStorage
-    try {
-      const saved = localStorage.getItem('mail_drafts');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [drafts, setDrafts] = useState([]);
+  const [draftsReady, setDraftsReady] = useState(false);
+  const draftSaveFailedRef = useRef(false);
+  const composeBaselineRef = useRef('');
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const lastSavedDraftPayloadRef = useRef('');
   const signatureEditorRef = useRef(null);
@@ -382,6 +392,9 @@ export default function Retromail() {
   const [mailFont, setMailFont] = useState(() => localStorage.getItem('mail_font') || 'Arial');
   const [mailSettingsLoaded, setMailSettingsLoaded] = useState(false);
 
+  const signatureRef = useRef(signature);
+  signatureRef.current = signature;
+
   const saveSignature = useCallback((nextSignature) => {
     setSignature(nextSignature);
     localStorage.setItem('mail_signature', nextSignature);
@@ -403,8 +416,17 @@ export default function Retromail() {
   useEffect(() => {
     const editor = signatureEditorRef.current;
     const signatureHtml = toSignatureHtml(signature);
-    if (editor && editor.innerHTML !== signatureHtml) editor.innerHTML = signatureHtml;
+    if (editor && document.activeElement !== editor && editor.innerHTML !== signatureHtml) editor.innerHTML = signatureHtml;
   }, [signature]);
+
+  // L'éditeur vit dans la fenêtre Paramètres (montée à l'ouverture) : on le remplit dès qu'il apparaît.
+  const setSignatureEditorNode = useCallback((node) => {
+    signatureEditorRef.current = node;
+    if (node && !node.dataset.initialized) {
+      node.innerHTML = toSignatureHtml(signatureRef.current);
+      node.dataset.initialized = '1';
+    }
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -466,20 +488,39 @@ export default function Retromail() {
     return emailAccount.toLowerCase().includes('noreply@association-rbe.fr');
   }, [emailAccount]);
 
-  // Sauvegarder les brouillons dans localStorage
-  const saveDraftsToStorage = useCallback((draftsArray) => {
-    try {
-      // Les contenus base64 des PJ dépassent vite le quota localStorage et empêchent
-      // alors aussi la sauvegarde du texte du brouillon.
-      const persistentDrafts = draftsArray.map(({ attachments, ...draft }) => ({
-        ...draft,
-        attachments: []
-      }));
-      localStorage.setItem('mail_drafts', JSON.stringify(persistentDrafts));
-    } catch (error) {
-      console.error('Erreur sauvegarde brouillons:', error);
-    }
+  // Brouillons : chargés depuis IndexedDB, réécrits à chaque modification
+  useEffect(() => {
+    let isActive = true;
+    loadDrafts().then((stored) => {
+      if (!isActive) return;
+      setDrafts((current) => {
+        const knownIds = new Set(current.map((draft) => draft.id));
+        return [...current, ...stored.filter((draft) => !knownIds.has(draft.id))];
+      });
+    }).finally(() => {
+      setDraftsReady(true);
+    });
+    return () => {
+      isActive = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!draftsReady) return;
+    saveDrafts(drafts).then(() => {
+      draftSaveFailedRef.current = false;
+    }).catch((error) => {
+      console.error('Erreur sauvegarde brouillons:', error);
+      if (draftSaveFailedRef.current) return;
+      draftSaveFailedRef.current = true;
+      toast({
+        title: 'Brouillon non enregistré',
+        description: 'Le stockage du navigateur est plein ou indisponible. Les pièces jointes ne sont pas conservées.',
+        status: 'warning',
+        duration: 6000
+      });
+    });
+  }, [drafts, draftsReady, toast]);
 
   // Sauvegarder le brouillon actuel
   const saveDraft = useCallback((values = {}) => {
@@ -490,13 +531,23 @@ export default function Retromail() {
     const nextComposeBody = values.body ?? composeBody;
     const nextComposeAttachments = values.attachments ?? composeAttachments;
 
-    // Ne sauvegarder que si au moins un champ est rempli
-    if (!nextComposeTo.trim() && !nextComposeSubject.trim() && !nextComposeBody.trim() && nextComposeAttachments.length === 0) {
+    const contentSignature = JSON.stringify([
+      nextComposeTo, nextComposeCc, nextComposeBcc, nextComposeSubject, nextComposeBody,
+      attachmentsSignature(nextComposeAttachments)
+    ]);
+
+    // Ne rien enregistrer tant que l'utilisateur n'a rien modifié (réponse / transfert vierges inclus)
+    if (contentSignature === composeBaselineRef.current) return;
+    if (!nextComposeTo.trim() && !nextComposeSubject.trim() && !hasMailContent(nextComposeBody) && !/<img\s/i.test(nextComposeBody) && nextComposeAttachments.length === 0) {
       return;
     }
 
+    if (lastSavedDraftPayloadRef.current === `${currentDraftId}|${contentSignature}`) return;
+
+    const draftId = currentDraftId || `${Date.now()}`;
+    lastSavedDraftPayloadRef.current = `${draftId}|${contentSignature}`;
     const draft = {
-      id: currentDraftId || Date.now().toString(),
+      id: draftId,
       to: nextComposeTo,
       cc: nextComposeCc,
       bcc: nextComposeBcc,
@@ -506,67 +557,61 @@ export default function Retromail() {
       savedAt: new Date().toISOString()
     };
 
-    const draftPayload = JSON.stringify({
-      id: draft.id,
-      to: draft.to,
-      cc: draft.cc,
-      bcc: draft.bcc,
-      subject: draft.subject,
-      body: draft.body,
-      attachments: draft.attachments
+    setDrafts((previous) => {
+      const existingIndex = previous.findIndex((item) => item.id === draftId);
+      if (existingIndex < 0) return [draft, ...previous];
+      const next = [...previous];
+      next[existingIndex] = draft;
+      return next;
     });
 
-    if (lastSavedDraftPayloadRef.current === draftPayload) {
-      return;
-    }
-    lastSavedDraftPayloadRef.current = draftPayload;
-
-    setDrafts(prev => {
-      const existingIndex = prev.findIndex(d => d.id === draft.id);
-      let newDrafts;
-      
-      if (existingIndex >= 0) {
-        // Mettre à jour le brouillon existant
-        newDrafts = [...prev];
-        newDrafts[existingIndex] = draft;
-      } else {
-        // Ajouter un nouveau brouillon
-        newDrafts = [draft, ...prev];
-      }
-      
-      saveDraftsToStorage(newDrafts);
-      return newDrafts;
-    });
-
-    if (!currentDraftId) {
-      setCurrentDraftId(draft.id);
-    }
-
-  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, currentDraftId, saveDraftsToStorage]);
+    if (!currentDraftId) setCurrentDraftId(draftId);
+  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, currentDraftId]);
 
   const handleComposeClose = useCallback((body) => {
-    saveDraft({ body });
+    saveDraft(typeof body === 'string' ? { body } : {});
     onComposeClose();
   }, [onComposeClose, saveDraft]);
 
-  // La saisie de l'éditeur est déjà temporisée dans ComposeModal ; persister dès que l'état est reçu.
+  // Enregistrement automatique après une courte pause de saisie
   useEffect(() => {
-    if (!isComposeOpen) return;
+    if (!isComposeOpen) return undefined;
 
-    saveDraft();
+    const timer = setTimeout(() => saveDraft(), 800);
+    return () => clearTimeout(timer);
   }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, isComposeOpen, saveDraft]);
+
+  // Démarrer une nouvelle composition en repartant d'un état propre
+  const beginCompose = useCallback((values = {}) => {
+    const next = {
+      to: values.to || '',
+      cc: values.cc || '',
+      bcc: values.bcc || '',
+      subject: values.subject || '',
+      body: values.body || '',
+      attachments: values.attachments || []
+    };
+    composeBaselineRef.current = JSON.stringify([
+      next.to, next.cc, next.bcc, next.subject, next.body, attachmentsSignature(next.attachments)
+    ]);
+    lastSavedDraftPayloadRef.current = '';
+    setCurrentDraftId(null);
+    setComposeTo(next.to);
+    setComposeCc(next.cc);
+    setComposeBcc(next.bcc);
+    setComposeSubject(next.subject);
+    setComposeBody(next.body);
+    setComposeAttachments(next.attachments);
+    onComposeOpen();
+  }, [onComposeOpen]);
 
   // Charger un brouillon
   const loadDraft = useCallback((draft) => {
-    lastSavedDraftPayloadRef.current = JSON.stringify({
-      id: draft.id,
-      to: draft.to || '',
-      cc: draft.cc || '',
-      bcc: draft.bcc || '',
-      subject: draft.subject || '',
-      body: draft.body || '',
-      attachments: draft.attachments || []
-    });
+    composeBaselineRef.current = JSON.stringify([
+      draft.to || '', draft.cc || '', draft.bcc || '', draft.subject || '', draft.body || '',
+      attachmentsSignature(draft.attachments)
+    ]);
+    lastSavedDraftPayloadRef.current = '';
     setComposeTo(draft.to || '');
     setComposeCc(draft.cc || '');
     setComposeBcc(draft.bcc || '');
@@ -574,37 +619,26 @@ export default function Retromail() {
     setComposeBody(draft.body || '');
     setComposeAttachments(draft.attachments || []);
     setCurrentDraftId(draft.id);
-    
+
     onComposeOpen();
-    setActiveFolder('INBOX'); // Retourner à la boîte de réception
-    
-    toast({
-      title: "Brouillon chargé",
-      description: "Vous pouvez continuer votre message",
-      status: "info",
-      duration: 2000
-    });
-  }, [onComposeOpen, toast]);
+  }, [onComposeOpen]);
 
   // Supprimer un brouillon
-  const deleteDraft = useCallback((draftId) => {
-    setDrafts(prev => {
-      const newDrafts = prev.filter(d => d.id !== draftId);
-      saveDraftsToStorage(newDrafts);
-      return newDrafts;
-    });
-    
+  const deleteDraft = useCallback((draftId, { silent = false } = {}) => {
+    setDrafts((previous) => previous.filter((draft) => draft.id !== draftId));
+
     if (currentDraftId === draftId) {
       setCurrentDraftId(null);
     }
-    
-    toast({
-      title: "Brouillon supprimé",
-      status: "success",
-      duration: 2000
-    });
-  }, [currentDraftId, saveDraftsToStorage, toast]);
 
+    if (!silent) {
+      toast({
+        title: "Brouillon supprimé",
+        status: "success",
+        duration: 2000
+      });
+    }
+  }, [currentDraftId, toast]);
   // Auto-remplir l'email au montage
   useEffect(() => {
     if (deducedEmail && !emailAccount) {
@@ -695,7 +729,7 @@ export default function Retromail() {
     if (offset === 0) setLoading(true);
     else setLoadingMoreEmails(true);
     try {
-      const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${encodeURIComponent(activeFolder)}&limit=50&offset=${offset}`, {
+      const res = await fetchWithCSRF(`${API}/api/mail/list?folder=${encodeURIComponent(activeFolder)}&limit=50&offset=${offset}${serverQuery ? `&q=${encodeURIComponent(serverQuery)}` : ''}`, {
         method: 'GET'
       });
       
@@ -736,7 +770,12 @@ export default function Retromail() {
       setLoading(false);
       setLoadingMoreEmails(false);
     }
-  }, [isConnected, activeFolder, toast, API]);
+  }, [isConnected, activeFolder, serverQuery, toast, API]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setServerQuery(searchQuery.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (isConnected) {
@@ -981,6 +1020,8 @@ export default function Retromail() {
 
             canvas.width = width;
             canvas.height = height;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
 
             // Compresser en JPEG qualité 0.8
@@ -992,7 +1033,7 @@ export default function Retromail() {
                 }
                 if (settled) return;
                 settled = true;
-                const compressedFile = new File([blob], file.name, {
+                const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', {
                   type: 'image/jpeg',
                   lastModified: Date.now()
                 });
@@ -1017,17 +1058,19 @@ export default function Retromail() {
 
   // Gérer l'upload de pièces jointes
   const handleFileUpload = useCallback(async (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
+    if (e.target && 'value' in e.target) e.target.value = ''; // permet de re-sélectionner le même fichier
     if (files.length === 0) return;
 
-    // Limiter la taille totale à 10 MB
-    const maxSize = 10 * 1024 * 1024;
+    // Limiter la taille totale des pièces jointes (anciennes + nouvelles) à 20 MB
+    const maxSize = 20 * 1024 * 1024;
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const alreadyAttached = composeAttachments.reduce((sum, a) => sum + (a.size || 0), 0);
     
-    if (totalSize > maxSize) {
+    if (totalSize + alreadyAttached > maxSize) {
       toast({
         title: "Fichiers trop volumineux",
-        description: "La taille totale ne doit pas dépasser 10 MB",
+        description: "La taille totale des pièces jointes ne doit pas dépasser 20 MB",
         status: "warning",
         duration: 4000
       });
@@ -1107,7 +1150,7 @@ export default function Retromail() {
         duration: 3000
       });
     }
-  }, [toast]);
+  }, [toast, compressImage, composeAttachments]);
 
   // Retirer une pièce jointe
   const handleRemoveAttachment = useCallback((index) => {
@@ -1175,8 +1218,7 @@ export default function Retromail() {
 
   // Appliquer un template au formulaire de composition
   const applyTemplate = (template) => {
-    setComposeSubject(template.subject || '');
-    setComposeBody(template.body || '');
+    beginCompose({ subject: template.subject || '', body: template.body || '' });
     
     toast({
       title: "Template chargé",
@@ -1186,7 +1228,6 @@ export default function Retromail() {
     });
     
     onTemplatesClose();
-    onComposeOpen();
   };
 
   // Prévisualiser un template avant de l'appliquer
@@ -1209,7 +1250,7 @@ export default function Retromail() {
     const ccRecipients = parseMailRecipients(composeCc);
     const bccRecipients = parseMailRecipients(composeBcc);
     const messageBody = bodyOverride ?? composeBody;
-    const hasContent = composeSubject.trim() || hasMailContent(messageBody) || composeAttachments.length > 0;
+    const hasContent = composeSubject.trim() || hasMailContent(messageBody) || /<img\s/i.test(messageBody) || composeAttachments.length > 0;
 
     if (toRecipients.length === 0 || !hasContent) {
       toast({
@@ -1237,126 +1278,27 @@ export default function Retromail() {
 
     setIsSending(true);
     try {
-      // Construire le corps - composeBody contient déjà le HTML de l'éditeur WYSIWYG
-      let finalBody = messageBody;
-      
-      // Détecter si le contenu est déjà du HTML complet
-      const isFullHtml = finalBody.trim().startsWith('<!DOCTYPE') || 
-                         finalBody.trim().startsWith('<html') ||
-                         finalBody.includes('</html>');
-      
-      let htmlBody;
-      
-      if (isFullHtml) {
-        // HTML complet (template) - utiliser tel quel sans traitement lourd
-        console.log('📄 Template HTML complet - envoi direct');
-        htmlBody = finalBody;
-      } else {
-        // Détecter du vrai HTML formaté (pas juste des <br> de sauts de ligne)
-        const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img)[>\s]/i.test(finalBody);
-        
-        if (hasHtmlTags) {
-          // HTML partiel (édité avec la barre d'outils WYSIWYG) - wrapper simple
-          console.log('🎨 HTML partiel détecté - wrapper simple');
-          htmlBody = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">${finalBody}</div>`;
-        } else {
-          // Texte brut (ou texte avec juste des <br>) - convertir en HTML
-          console.log('📝 Texte brut détecté - conversion HTML');
-          
-          // Si le contenu contient des <br> (générés par l'éditeur), les remplacer par des sauts de ligne
-          let textContent = finalBody.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
-          
-          const convertToHtml = (text) => {
-            const lines = text.split('\n');
-            let html = `<div style="font-family: ${mailFont || 'Arial, sans-serif'}; font-size: 14px; line-height: 1.6; color: #333;">`;
-            let inQuote = false;
-            let quoteLines = [];
-          
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            if (line.startsWith('> ')) {
-              // Ligne citée
-              if (!inQuote) {
-                inQuote = true;
-                quoteLines = [];
-              }
-              quoteLines.push(line.substring(2));
-            } else {
-              // Ligne normale
-              if (inQuote) {
-                // Fermer la citation précédente
-                html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
-                html += quoteLines.join('<br>');
-                html += '</blockquote>';
-                inQuote = false;
-                quoteLines = [];
-              }
-              
-              // Ligne vide ou avec contenu
-              if (line.trim() === '') {
-                html += '<br>';
-              } else if (line.startsWith('---') || line.startsWith('Le ') && line.includes('a écrit :')) {
-                // Séparateur ou en-tête de citation
-                html += '<div style="color: #666; font-size: 12px; margin: 15px 0; font-style: italic;">' + line + '</div>';
-              } else if (line.startsWith('De :') || line.startsWith('Date :') || line.startsWith('Objet :') || line.startsWith('A :')) {
-                // Métadonnées d'email
-                html += '<div style="color: #666; font-size: 12px; margin: 2px 0;"><strong>' + line.split(':')[0] + ' :</strong>' + line.split(':').slice(1).join(':') + '</div>';
-              } else {
-                html += '<p style="margin: 5px 0;">' + line + '</p>';
-              }
-            }
-          }
-          
-          // Fermer la dernière citation si nécessaire
-          if (inQuote) {
-            html += '<blockquote style="border-left: 3px solid #ccc; padding-left: 15px; margin: 15px 0; color: #666; background: #f9f9f9; padding: 10px;">';
-            html += quoteLines.join('<br>');
-            html += '</blockquote>';
-          }
-          
-          html += '</div>';
-          return html;
-        };
-        
-        htmlBody = convertToHtml(textContent);
-        }
-      }
-      
-      // Traitement rapide pour templates vs emails normaux
+      const emailFont = `${mailFont || 'Arial'}, Arial, sans-serif`;
+      const isFullHtml = /^\s*<!DOCTYPE|^\s*<html|<\/html>/i.test(messageBody);
+      const hasHtmlTags = /<(div|p|table|h[1-6]|ul|ol|li|span|strong|b|em|i|u|a|img|blockquote|br)[\s>/]/i.test(messageBody);
       let finalHtml;
-      
+      let textBody;
+
       if (isFullHtml) {
-        // Template complet : traitement minimal
-        console.log('⚡ Template complet - traitement rapide');
-        finalHtml = htmlBody; // Pas de signature, pas de minification lourde
-        
-        // Juste ajouter un ID unique pour Gmail
+        // Template complet : envoyé tel quel (avec un identifiant unique contre le regroupement Gmail)
         const uniqueId = Date.now() + Math.random().toString(36).substring(2, 9);
-        finalHtml = finalHtml.replace(
-          '</body>',
-          `<span style="display:none;">${uniqueId}</span></body>`
-        );
+        finalHtml = messageBody.replace('</body>', `<span style="display:none;">${uniqueId}</span></body>`);
+        textBody = htmlToPlainText(messageBody);
       } else {
-        // Email normal : ajouter signature si nécessaire
-        console.log('📧 Email normal - traitement complet');
-        const emailFont = `${mailFont || 'Arial'}, Arial, sans-serif`;
-
-        // Vérifier si la signature est déjà présente dans le contenu
+        const contentHtml = hasHtmlTags ? messageBody : plainTextToHtml(messageBody);
         const signatureHtmlVersion = toSignatureHtml(signature);
-        const signatureTextPresent = signatureHtmlVersion && (
-          htmlBody.includes(signatureHtmlVersion) ||
-          (signatureHtmlVersion.length > 20 && htmlBody.includes(signatureHtmlVersion.substring(0, 20)))
-        );
-        const signatureHtml = signatureHtmlVersion && !signatureTextPresent
-          ? signatureHtmlVersion
+        const signatureAlreadyInserted = /data-rbe-signature/.test(contentHtml);
+        const identityBlock = signatureHtmlVersion && !signatureAlreadyInserted
+          ? `<div data-rbe-signature="1" style="margin-top:16px;">${signatureHtmlVersion}</div>`
           : '';
-        const identityBlock = signatureHtml ? `<div style="margin-top:16px;">${signatureHtml}</div>` : '';
 
-        finalHtml = `<div style="font-family:${emailFont};font-size:14px;line-height:1.6;color:#333;">${htmlBody}${identityBlock}</div>`;
-        
-        // Minifier seulement si nécessaire
-        finalHtml = minifyHtml(finalHtml);
+        finalHtml = minifyHtml(`<div style="font-family:${emailFont};font-size:14px;line-height:1.6;color:#333;">${contentHtml}${identityBlock}</div>`);
+        textBody = htmlToPlainText(`${contentHtml}${identityBlock ? `<br>${identityBlock}` : ''}`);
       }
 
       const res = await fetchWithCSRF(`${API}/api/mail/send`, {
@@ -1366,15 +1308,12 @@ export default function Retromail() {
           cc: ccRecipients.length > 0 ? ccRecipients : undefined,
           bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: composeSubject,
-          body: signature
-            ? `${finalBody}\n\n${toSignatureHtml(signature).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim()}`
-            : finalBody,
-          html: finalHtml,  // Version HTML
+          body: textBody,
+          html: finalHtml,
           fromName: mailDisplayName,
-          attachments: composeAttachments  // Pièces jointes en base64
+          attachments: composeAttachments
         })
       });
-
       if (res.ok) {
         const result = await res.json().catch(() => ({}));
         if (Number.isFinite(Number(result.attachmentCount)) && Number(result.attachmentCount) !== composeAttachments.length) {
@@ -1395,12 +1334,16 @@ export default function Retromail() {
           duration: 3000
         });
         
-        // Réinitialiser le formulaire
-        setComposeTo("");
-        setComposeCc("");
-        setComposeBcc("");
-        setComposeSubject("");
-        setComposeBody("");
+        // Le message est parti : le brouillon correspondant n'a plus lieu d'être
+        if (currentDraftId) deleteDraft(currentDraftId, { silent: true });
+        composeBaselineRef.current = '';
+        lastSavedDraftPayloadRef.current = '';
+        setCurrentDraftId(null);
+        setComposeTo('');
+        setComposeCc('');
+        setComposeBcc('');
+        setComposeSubject('');
+        setComposeBody('');
         setComposeAttachments([]);
         onComposeClose();
       } else {
@@ -1427,11 +1370,11 @@ export default function Retromail() {
     } finally {
       setIsSending(false);
     }
-  }, [composeTo, composeSubject, composeBody, composeAttachments, signature, mailDisplayName, profilePhoto, mailFont, API, toast, onComposeClose, minifyHtml]);
+  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, currentDraftId, deleteDraft, signature, mailDisplayName, mailFont, toast, onComposeClose, minifyHtml]);
 
   // Supprimer un email
   const handleDeleteEmail = async (emailId, folder = activeFolder) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet email ?")) return;
+    if (['TRASH', 'SPAM'].includes(folder) && !window.confirm("Supprimer définitivement cet email ?")) return;
 
     try {
       const res = await fetchWithCSRF(`${API}/api/mail/delete/${emailId}?folder=${encodeURIComponent(folder)}`, {
@@ -1439,12 +1382,13 @@ export default function Retromail() {
       });
 
       if (res.ok) {
-        setEmails(emails.filter(e => e.id !== emailId));
+        const result = await res.json().catch(() => ({}));
+        setEmails(prev => prev.filter(e => e.id !== emailId));
         if (selectedEmail?.id === emailId) {
           setSelectedEmail(null);
         }
         toast({
-          title: "Email supprimé",
+          title: result.permanent ? "Email supprimé définitivement" : "Email déplacé dans la corbeille",
           status: "success",
           duration: 2000
         });
@@ -1456,10 +1400,47 @@ export default function Retromail() {
       console.error("Erreur suppression:", e);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer l'email",
+        description: e.message || "Impossible de supprimer l'email",
         status: "error",
         duration: 3000
       });
+    }
+  };
+
+  const handleMoveEmail = async (emailId, toFolder, label) => {
+    try {
+      const res = await fetchWithCSRF(`${API}/api/mail/move/${emailId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromFolder: activeFolder, toFolder })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Impossible de déplacer l'email");
+      setEmails(prev => prev.filter(e => e.id !== emailId));
+      if (selectedEmail?.id === emailId) setSelectedEmail(null);
+      toast({ title: label, status: "success", duration: 2000 });
+    } catch (e) {
+      toast({ title: "Erreur", description: e.message, status: "error", duration: 3000 });
+    }
+  };
+
+  const handleSetFlags = async (emailId, changes) => {
+    const patch = {
+      ...(changes.seen !== undefined && { read: changes.seen }),
+      ...(changes.flagged !== undefined && { flagged: changes.flagged })
+    };
+    try {
+      const res = await fetchWithCSRF(`${API}/api/mail/flags/${emailId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: activeFolder, ...changes })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Impossible de mettre à jour l'email");
+      setEmails(prev => prev.map(e => (e.id === emailId ? { ...e, ...patch } : e)));
+      setSelectedEmail(prev => (prev?.id === emailId ? { ...prev, ...patch } : prev));
+    } catch (e) {
+      toast({ title: "Erreur", description: e.message, status: "error", duration: 3000 });
     }
   };
 
@@ -1499,82 +1480,77 @@ export default function Retromail() {
     }
   };
 
-  const openReply = useCallback(() => {
+  const formatQuoteDate = (value) => (value
+    ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+    : '');
+
+  // Citation en texte échappé : jamais de HTML tiers injecté dans l'éditeur
+  const buildQuotedHtml = (email) => {
+    const original = plainTextToHtml(email.body || '');
+    return `<blockquote style="margin:0 0 0 4px;padding-left:12px;border-left:3px solid #ccc;color:#555;">${original}</blockquote>`;
+  };
+
+  const loadFullEmail = useCallback(async (email) => {
+    try {
+      const response = await fetchWithCSRF(
+        `${API}/api/mail/read/${email.id}?folder=${encodeURIComponent(activeFolder)}`,
+        { method: 'GET' }
+      );
+      if (!response.ok) throw new Error('Lecture complète impossible');
+      const data = await response.json();
+      return data.email || email;
+    } catch (error) {
+      console.warn('Utilisation des données déjà chargées :', error.message);
+      return email;
+    }
+  }, [activeFolder]);
+
+  const openReply = useCallback((replyAll = false) => {
     if (!selectedEmail) return;
-    setComposeTo(selectedEmail.from);
-    setComposeSubject(`Re: ${selectedEmail.subject}`);
 
-    const dateStr = selectedEmail.date ? new Date(selectedEmail.date).toLocaleString('fr-FR', {
-      dateStyle: 'long',
-      timeStyle: 'short'
-    }) : '';
+    const ownEmail = String(emailAccount || deducedEmail || '').trim().toLowerCase();
+    const extractAddresses = (value) => String(value || '').match(/[^\s<>,;"']+@[^\s<>,;"']+\.[^\s<>,;"']+/g) || [];
+    const ccAddresses = replyAll
+      ? [...new Set([...extractAddresses(selectedEmail.to), ...extractAddresses(selectedEmail.cc)]
+        .map((address) => address.toLowerCase())
+        .filter((address) => address !== ownEmail && address !== String(selectedEmail.from || '').toLowerCase()))]
+      : [];
+
     const fromName = selectedEmail.fromName || selectedEmail.from;
+    const subject = /^re\s*:/i.test(selectedEmail.subject || '') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`;
 
-    const quotedBody = String(selectedEmail.body || '')
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n');
-
-    setComposeBody(`\n\nLe ${dateStr}, ${fromName} a ecrit :\n\n${quotedBody}`);
-    onComposeOpen();
-  }, [selectedEmail, onComposeOpen]);
+    beginCompose({
+      to: selectedEmail.from,
+      cc: ccAddresses.join(', '),
+      subject,
+      body: `<div><br></div><div>Le ${escapeHtml(formatQuoteDate(selectedEmail.date))}, ${escapeHtml(fromName)} a écrit :</div>${buildQuotedHtml(selectedEmail)}`
+    });
+  }, [selectedEmail, emailAccount, deducedEmail, beginCompose]);
 
   const openForward = useCallback(async () => {
     if (!selectedEmail) return;
 
-    let emailToForward = selectedEmail;
-    try {
-      const response = await fetchWithCSRF(
-        `${API}/api/mail/read/${selectedEmail.id}?folder=${encodeURIComponent(activeFolder)}`,
-        { method: 'GET' }
-      );
-      if (!response.ok) throw new Error('Lecture complète impossible');
+    const emailToForward = await loadFullEmail(selectedEmail);
+    if (emailToForward !== selectedEmail) setSelectedEmail(emailToForward);
 
-      const data = await response.json();
-      if (data.email) {
-        emailToForward = data.email;
-        setSelectedEmail(data.email);
-      }
-    } catch (error) {
-      console.warn('Transfert avec les données déjà chargées :', error.message);
-    }
-
-    lastSavedDraftPayloadRef.current = '';
-    setCurrentDraftId(null);
-    setComposeTo('');
-    setComposeCc('');
-    setComposeBcc('');
-    setComposeSubject(`Fwd: ${emailToForward.subject}`);
-
-    const dateStr = emailToForward.date ? new Date(emailToForward.date).toLocaleString('fr-FR', {
-      dateStyle: 'long',
-      timeStyle: 'short'
-    }) : '';
     const fromName = emailToForward.fromName || emailToForward.from;
+    const subject = /^(fwd|tr)\s*:/i.test(emailToForward.subject || '') ? emailToForward.subject : `Fwd: ${emailToForward.subject}`;
+    const header = [
+      '---------- Message transféré ----------',
+      `De : ${fromName}`,
+      `Date : ${formatQuoteDate(emailToForward.date)}`,
+      `Objet : ${emailToForward.subject || ''}`,
+      `À : ${emailToForward.to || ''}`
+    ].map((line) => escapeHtml(line)).join('<br>');
 
-    const quotedBody = String(emailToForward.body || '')
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n');
-
-    setComposeBody(`\n\n---------- Message transfere ----------\nDe : ${fromName}\nDate : ${dateStr}\nObjet : ${emailToForward.subject}\nA : ${emailToForward.to || ''}\n\n${quotedBody}`);
-    setComposeAttachments(
-      (emailToForward.attachments || [])
+    beginCompose({
+      subject,
+      body: `<div><br></div><div>${header}</div><div><br></div>${buildQuotedHtml(emailToForward)}`,
+      attachments: (emailToForward.attachments || [])
         .filter((attachment) => attachment?.content)
         .map((attachment) => ({ ...attachment }))
-    );
-    onComposeOpen();
-  }, [API, activeFolder, onComposeOpen, selectedEmail]);
-
-  const notifyComingSoon = useCallback((featureName) => {
-    toast({
-      title: featureName,
-      description: 'Fonctionnalite en developpement',
-      status: 'info',
-      duration: 1800
     });
-  }, [toast]);
-
+  }, [selectedEmail, loadFullEmail, beginCompose]);
   // Filtrer les emails par recherche
   const sourceEmails = activeFolder === 'DRAFTS' ? drafts : emails;
   
@@ -1590,12 +1566,8 @@ export default function Retromail() {
       );
     }
     
-    // Pour les emails normaux
-    return (
-      email.subject?.toLowerCase().includes(q) ||
-      email.from?.toLowerCase().includes(q) ||
-      email.body?.toLowerCase().includes(q)
-    );
+    // Emails serveur : déjà filtrés par la recherche IMAP
+    return true;
   });
   const unreadCount = activeFolder === 'DRAFTS' ? 0 : emails.filter((email) => !email.read).length;
   const folderCount = activeFolder === 'DRAFTS' ? drafts.length : totalEmails;
@@ -1976,7 +1948,7 @@ export default function Retromail() {
               leftIcon={<FiRefreshCw />} 
               size="sm"
               variant="ghost"
-              onClick={loadEmails}
+              onClick={() => loadEmails()}
               isLoading={loading}
               display={{ base: 'none', md: 'flex' }}
             >
@@ -1986,7 +1958,7 @@ export default function Retromail() {
               leftIcon={<FiEdit />}
               colorScheme="rbe"
               size="sm"
-              onClick={onComposeOpen}
+              onClick={() => (isComposeOpen ? onComposeOpen() : beginCompose())}
             >
               Nouveau
             </Button>
@@ -2305,7 +2277,7 @@ export default function Retromail() {
                 </Box>
                 );
               })}
-              {activeFolder !== 'DRAFTS' && hasMoreEmails && !searchQuery && (
+              {activeFolder !== 'DRAFTS' && hasMoreEmails && (
                 <Box p={4} borderTop="1px solid" borderColor="gray.100">
                   <Button
                     w="full"
@@ -2412,7 +2384,7 @@ export default function Retromail() {
                       size="sm"
                       variant="outline"
                       colorScheme="rbe"
-                      onClick={openReply}
+                      onClick={() => openReply(false)}
                       flex="1"
                     >
                       Repondre
@@ -2431,8 +2403,11 @@ export default function Retromail() {
                         Plus
                       </MenuButton>
                       <MenuList>
-                        <MenuItem icon={<FiArchive />} onClick={() => notifyComingSoon('Archivage')}>Archiver</MenuItem>
-                        <MenuItem icon={<FiFolder />} onClick={() => notifyComingSoon('Classement')}>Classer</MenuItem>
+                        <MenuItem icon={<FiCornerUpLeft />} onClick={() => openReply(true)}>Répondre à tous</MenuItem>
+                        <MenuItem icon={<FiArchive />} onClick={() => handleMoveEmail(selectedEmail.id, 'ARCHIVE', 'Email archivé')}>Archiver</MenuItem>
+                        <MenuItem icon={<FiInbox />} onClick={() => handleMoveEmail(selectedEmail.id, 'INBOX', 'Email remis dans la boîte de réception')}>Boîte de réception</MenuItem>
+                        <MenuItem icon={<FiMail />} onClick={() => handleSetFlags(selectedEmail.id, { seen: false })}>Marquer comme non lu</MenuItem>
+                        <MenuItem icon={<FiStar />} onClick={() => handleSetFlags(selectedEmail.id, { flagged: !selectedEmail.flagged })}>{selectedEmail.flagged ? "Retirer l'étoile" : "Ajouter une étoile"}</MenuItem>
                         <MenuItem icon={<FiTrash2 />} color="red.500" onClick={() => handleDeleteEmail(selectedEmail.id)}>Supprimer</MenuItem>
                       </MenuList>
                     </Menu>
@@ -2444,25 +2419,41 @@ export default function Retromail() {
                   size={{ base: "xs", md: "sm" }}
                   variant="outline"
                   colorScheme="rbe"
-                  onClick={openReply}
+                  onClick={() => openReply(false)}
                 >
                   Répondre
+                </Button>
+                <Button
+                  leftIcon={<FiCornerUpLeft />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openReply(true)}
+                >
+                  Répondre à tous
                 </Button>
                 <Button
                   leftIcon={<FiArchive />}
                   size="sm"
                   variant="outline"
-                  onClick={() => notifyComingSoon('Archivage')}
+                  onClick={() => handleMoveEmail(selectedEmail.id, 'ARCHIVE', 'Email archivé')}
                 >
                   Archiver
                 </Button>
                 <Button
-                  leftIcon={<FiFolder />}
+                  leftIcon={<FiMail />}
                   size="sm"
                   variant="outline"
-                  onClick={() => notifyComingSoon('Classement')}
+                  onClick={() => handleSetFlags(selectedEmail.id, { seen: false })}
                 >
-                  Classer
+                  Non lu
+                </Button>
+                <Button
+                  leftIcon={<FiStar />}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleSetFlags(selectedEmail.id, { flagged: !selectedEmail.flagged })}
+                >
+                  {selectedEmail.flagged ? "Retirer l'étoile" : "Étoile"}
                 </Button>
                 <Button
                   leftIcon={<FiCornerUpRight />}
@@ -2751,7 +2742,7 @@ export default function Retromail() {
                   <FormControl>
                     <FormLabel fontSize="sm">Votre signature</FormLabel>
                     <Box
-                      ref={signatureEditorRef}
+                      ref={setSignatureEditorNode}
                       contentEditable
                       suppressContentEditableWarning
                       role="textbox"
@@ -2772,12 +2763,13 @@ export default function Retromail() {
 
                         event.preventDefault();
                         const editor = event.currentTarget;
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          document.execCommand('insertImage', false, String(reader.result));
+                        imageFileToDataUrl(pastedImage, { maxDimension: 600, quality: 0.85 }).then((dataUrl) => {
+                          editor.focus();
+                          document.execCommand('insertImage', false, dataUrl);
                           saveSignature(editor.innerHTML);
-                        };
-                        reader.readAsDataURL(pastedImage);
+                        }).catch(() => {
+                          toast({ title: 'Image non ajoutée', status: 'error', duration: 3000 });
+                        });
                       }}
                     />
                     <Text fontSize="xs" color="gray.500" mt={1}>
