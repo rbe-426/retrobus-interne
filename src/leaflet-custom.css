@@ -20,6 +20,53 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
+/* Arrêts numérotés */
+.rbe-stop-icon {
+  background: transparent;
+  border: 0;
+}
+
+.rbe-stop-pin {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+  background: #2563eb;
+  box-sizing: border-box;
+}
+
+.rbe-stop-pin--start { background: #16a34a; }
+.rbe-stop-pin--end { background: #dc2626; }
+
+.rbe-stop-pin--active {
+  background: #f59e0b;
+  color: #111;
+  font-size: 15px;
+  border-color: #111;
+  animation: rbe-stop-pulse 1.1s ease-in-out infinite;
+}
+
+.rbe-stop-halo {
+  animation: rbe-stop-halo 1.1s ease-in-out infinite;
+}
+
+@keyframes rbe-stop-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+@keyframes rbe-stop-halo {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+}
+
 /* Route visualization */
 .route-polyline {
   stroke: #7c3aed;
