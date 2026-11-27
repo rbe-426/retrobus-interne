@@ -3,7 +3,7 @@
  * Mêmes services que la modale « frais kilométriques » des notes de frais.
  */
 
-import { findBookEntry, searchAddressBook } from './addressBook.js';
+import { ensureAddressBook, findBookEntry, searchAddressBook } from './addressBook.js';
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -130,8 +130,9 @@ export const rememberPlace = (label, place) => {
 /** Suggestions pour l'auto-complétion : carnet d'adresses puis BAN + Photon fusionnés. */
 export const searchPlaces = async (query, { limit = 6 } = {}) => {
   const q = String(query || '').trim();
+  await ensureAddressBook();
   const book = searchAddressBook(q, 4).map(e => ({
-    label: e.address, name: e.name, detail: e.address, lat: e.lat, lng: e.lng, source: 'carnet', builtin: e.builtin
+    id: e.id, label: e.address, name: e.name, detail: e.address, lat: e.lat, lng: e.lng, source: 'carnet'
   }));
   if (q.length < 3) return book;
 
@@ -151,6 +152,7 @@ export const searchPlaces = async (query, { limit = 6 } = {}) => {
 
 /** Géocode une saisie : carnet / lieu déjà choisi (instantané), sinon BAN + Photon, sinon Nominatim. */
 export const geocodeAddress = async (address) => {
+  await ensureAddressBook();
   const entry = findBookEntry(address);
   if (entry && Number.isFinite(entry.lat)) return { label: entry.address, lat: entry.lat, lng: entry.lng };
   const cached = placeCache.get(normalizeSearchText(address));

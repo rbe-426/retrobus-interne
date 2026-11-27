@@ -53,18 +53,26 @@ export default function AddressInput({ value, onChange, placeholder = 'Adresse',
     setOpen(false);
   };
 
-  const handleRemove = (event, place) => {
+  const handleRemove = async (event, place) => {
     event.stopPropagation();
-    removeAddress(place.name);
-    search(value);
+    try {
+      await removeAddress(place.id);
+      search(value);
+    } catch (e) {
+      toast({ title: e.message, status: 'error', duration: 3000 });
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const picked = pickedRef.current;
-    saveAddress({ name: bookName, address: value, lat: picked?.lat, lng: picked?.lng });
-    toast({ title: 'Adresse ajoutée au carnet', status: 'success', duration: 2000 });
-    setBookName('');
-    save.onClose();
+    try {
+      await saveAddress({ name: bookName, address: value, lat: picked?.lat, lng: picked?.lng });
+      toast({ title: 'Adresse ajoutée au carnet partagé', status: 'success', duration: 2000 });
+      setBookName('');
+      save.onClose();
+    } catch (e) {
+      toast({ title: e.message, status: 'error', duration: 3000 });
+    }
   };
 
   const canSave = Boolean(String(value || '').trim()) && !findBookEntry(value);
@@ -86,7 +94,7 @@ export default function AddressInput({ value, onChange, placeholder = 'Adresse',
             <PopoverTrigger>
               <IconButton
                 size="xs" variant="ghost" icon={<FiBookmark />} aria-label="Ajouter au carnet d'adresses"
-                title="Ajouter au carnet d'adresses" isDisabled={!canSave}
+                title="Ajouter au carnet d'adresses partagé" isDisabled={!canSave}
                 onClick={() => { setBookName(''); save.onToggle(); }}
               />
             </PopoverTrigger>
@@ -122,7 +130,7 @@ export default function AddressInput({ value, onChange, placeholder = 'Adresse',
                 {s.detail && s.detail !== s.name && <Text fontSize="xs" color="gray.600" noOfLines={1}>{s.detail}</Text>}
               </Box>
               {s.source === 'carnet' && <Badge colorScheme="purple">Carnet</Badge>}
-              {s.source === 'carnet' && !s.builtin && (
+              {s.source === 'carnet' && (
                 <IconButton
                   size="xs" variant="ghost" colorScheme="red" icon={<FiTrash2 />} aria-label="Retirer du carnet"
                   onMouseDown={(e) => handleRemove(e, s)}

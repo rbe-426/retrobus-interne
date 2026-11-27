@@ -1,6 +1,4 @@
-import { DEFAULT_ADDRESSES } from '../config/addressBook.js';
-
-const STORAGE_KEY = 'urbex.addressBook.v1';
+import { fetchWithCSRF } from './csrfClient.js';
 
 export const normalizeText = (value) => String(value || '')
   .normalize('NFD')
@@ -8,49 +6,60 @@ export const normalizeText = (value) => String(value || '')
   .toLowerCase()
   .trim();
 
-const readCustom = () => {
+// Carnet partagé (base de données) : copie en mémoire pour des recherches synchrones
+let book = [];
+let loadPromise = null;
+
+const toEntry = (row) => ({
+  id: row.id, name: row.name, address: row.address,
+  lat: Number.isFinite(row.lat) ? row.lat : undefined,
+  lng: Number.isFinite(row.lng) ? row.lng : undefined
+});
+
+export const loadAddressBook = () => book;
+
+export const refreshAddressBook = async () => {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    const res = await fetchWithCSRF('/api/finance/addresses');
+    if (res.ok) book = (await res.json()).map(toEntry);
   } catch {
-    return [];
+    // carnet indisponible : on garde la copie précédente
   }
+  return book;
 };
 
-/** Carnet = adresses pré-définies (config) + adresses enregistrées sur ce navigateur. */
-export const loadAddressBook = () => [
-  ...DEFAULT_ADDRESSES.map(entry => ({ ...entry, builtin: true })),
-  ...readCustom().map(entry => ({ ...entry, builtin: false }))
-];
-
-export const saveAddress = ({ name, address, lat, lng }) => {
-  const cleanName = String(name || '').trim();
-  const cleanAddress = String(address || '').trim();
-  if (!cleanName || !cleanAddress) return loadAddressBook();
-  const entry = { name: cleanName, address: cleanAddress };
-  if (Number.isFinite(lat) && Number.isFinite(lng)) Object.assign(entry, { lat, lng });
-  const next = [...readCustom().filter(e => normalizeText(e.name) !== normalizeText(cleanName)), entry];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return loadAddressBook();
+export const ensureAddressBook = () => {
+  if (!loadPromise) loadPromise = refreshAddressBook();
+  return loadPromise;
 };
 
-export const removeAddress = (name) => {
-  const next = readCustom().filter(e => normalizeText(e.name) !== normalizeText(name));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return loadAddressBook();
+export const saveAddress = async ({ name, address, lat, lng }) => {
+  const res = await fetchWithCSRF('/api/finance/addresses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, address, lat, lng })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Enregistrement de l'adresse impossible");
+  }
+  return refreshAddressBook();
+};
+
+export const removeAddress = async (id) => {
+  const res = await fetchWithCSRF(`/api/finance/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error("Suppression de l'adresse impossible");
+  return refreshAddressBook();
 };
 
 export const searchAddressBook = (query, limit = 5) => {
   const q = normalizeText(query);
-  const book = loadAddressBook();
   if (!q) return book.slice(0, limit);
-  return book
-    .filter(e => normalizeText(`${e.name} ${e.address}`).includes(q))
-    .slice(0, limit);
+  return book.filter(e => normalizeText(`${e.name} ${e.address}`).includes(q)).slice(0, limit);
 };
 
 export const findBookEntry = (text) => {
   const q = normalizeText(text);
   if (!q) return null;
-  return loadAddressBook().find(e => normalizeText(e.name) === q || normalizeText(e.address) === q) || null;
+  return book.find(e => normalizeText(e.name) === q || normalizeText(e.address) === q) || null;
 };
