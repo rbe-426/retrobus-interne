@@ -29,6 +29,7 @@ import {
 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../../lib/csrfClient.js';
 import { computeRoute, fuelStats } from '../../lib/routeCalc.js';
+import AddressInput from '../AddressInput.jsx';
 import {
   DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_ID, computeTotals, formatEUR, lineTotal, printHtml,
   renderTemplate, toPreviewDocument
@@ -520,7 +521,7 @@ export default function DevisWizard({
               return (
                 <HStack key={i}>
                   <Badge w="70px" textAlign="center" colorScheme={i === 0 ? 'green' : last ? 'red' : 'blue'}>{label}</Badge>
-                  <Input size="sm" placeholder="Adresse" value={addr} onChange={(e) => updateAddress(i, e.target.value)} />
+                  <AddressInput placeholder="Adresse, lieu ou carnet d'adresses" value={addr} onChange={(v) => updateAddress(i, v)} />
                   {trip.addresses.length > 2 && !(i === 0 || last) && (
                     <IconButton size="sm" variant="ghost" colorScheme="red" icon={<FiTrash2 />} aria-label="Retirer l'arrêt" onClick={() => removeStop(i)} />
                   )}

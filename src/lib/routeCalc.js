@@ -3,6 +3,8 @@
  * Mêmes services que la modale « frais kilométriques » des notes de frais.
  */
 
+import { findBookEntry, searchAddressBook } from './addressBook.js';
+
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const normalizeSearchText = (value) => String(value || '')
@@ -29,7 +31,7 @@ const scoreGeocodeResult = (result, query) => {
   return tokenScore + importanceScore + poiScore;
 };
 
-export const geocodeAddress = async (address, retryCount = 0) => {
+const nominatimGeocode = async (address, retryCount = 0) => {
   const queries = expandAddressKeywords(address);
   const results = [];
 
@@ -46,7 +48,7 @@ export const geocodeAddress = async (address, retryCount = 0) => {
       if (response.status === 429) {
         if (retryCount < 2) {
           await sleep(1000 * (retryCount + 1));
-          return geocodeAddress(address, retryCount + 1);
+          return nominatimGeocode(address, retryCount + 1);
         }
         throw new Error('Service de géocodage temporairement indisponible (trop de requêtes).');
       }
@@ -67,6 +69,98 @@ export const geocodeAddress = async (address, retryCount = 0) => {
   const best = unique.sort((a, b) => scoreGeocodeResult(b, b.query) - scoreGeocodeResult(a, a.query))[0];
 
   return { label: best.display_name, lat: Number(best.lat), lng: Number(best.lon) };
+};
+
+// Biais de recherche : centre de l'Essonne, pour départager les homonymes
+const BIAS = { lat: 48.63, lng: 2.35 };
+const FRANCE_BBOX = '-5.5,41.2,9.8,51.2';
+
+const fetchJson = async (url, timeoutMs = 6000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+// Base Adresse Nationale (Géoplateforme IGN) : la référence pour les adresses postales en France
+const searchBan = async (query, limit) => {
+  const data = await fetchJson(
+    `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(query)}&limit=${limit}&lat=${BIAS.lat}&lon=${BIAS.lng}`
+  );
+  return (data?.features || []).map(f => ({
+    label: f.properties.label,
+    name: f.properties.name || f.properties.label,
+    detail: [f.properties.postcode, f.properties.city].filter(Boolean).join(' '),
+    lat: f.geometry.coordinates[1],
+    lng: f.geometry.coordinates[0],
+    source: 'BAN',
+    score: Number(f.properties.score || 0) + 0.2
+  }));
+};
+
+// Photon (OpenStreetMap) : tolérant aux fautes de frappe et aux lieux/commerces
+const searchPhoton = async (query, limit) => {
+  const data = await fetchJson(
+    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${limit}&lang=fr&lat=${BIAS.lat}&lon=${BIAS.lng}&bbox=${FRANCE_BBOX}`
+  );
+  return (data?.features || []).map(f => {
+    const p = f.properties || {};
+    const street = [p.housenumber, p.street].filter(Boolean).join(' ');
+    const city = [p.postcode, p.city || p.town || p.village || p.county].filter(Boolean).join(' ');
+    const label = [p.name !== p.street ? p.name : null, street, city].filter(Boolean).join(', ');
+    return {
+      label, name: p.name || street || city, detail: [street, city].filter(Boolean).join(', '),
+      lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], source: 'OSM', score: p.name ? 0.3 : 0.1
+    };
+  }).filter(r => r.label);
+};
+
+const placeCache = new Map();
+export const rememberPlace = (label, place) => {
+  if (label && Number.isFinite(place?.lat)) placeCache.set(normalizeSearchText(label), { label, lat: place.lat, lng: place.lng });
+};
+
+/** Suggestions pour l'auto-complétion : carnet d'adresses puis BAN + Photon fusionnés. */
+export const searchPlaces = async (query, { limit = 6 } = {}) => {
+  const q = String(query || '').trim();
+  const book = searchAddressBook(q, 4).map(e => ({
+    label: e.address, name: e.name, detail: e.address, lat: e.lat, lng: e.lng, source: 'carnet', builtin: e.builtin
+  }));
+  if (q.length < 3) return book;
+
+  const [ban, photon] = await Promise.all([searchBan(q, limit), searchPhoton(q, limit)]);
+  const seen = new Set();
+  const merged = [...ban, ...photon]
+    .sort((a, b) => b.score - a.score)
+    .filter(r => {
+      const key = `${r.lat.toFixed(4)},${r.lng.toFixed(4)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+  return [...book, ...merged];
+};
+
+/** Géocode une saisie : carnet / lieu déjà choisi (instantané), sinon BAN + Photon, sinon Nominatim. */
+export const geocodeAddress = async (address) => {
+  const entry = findBookEntry(address);
+  if (entry && Number.isFinite(entry.lat)) return { label: entry.address, lat: entry.lat, lng: entry.lng };
+  const cached = placeCache.get(normalizeSearchText(address));
+  if (cached) return cached;
+
+  const query = entry ? entry.address : address;
+  const [ban, photon] = await Promise.all([searchBan(query, 3), searchPhoton(query, 3)]);
+  const best = [...ban, ...photon].sort((a, b) => b.score - a.score)[0];
+  if (best) return { label: best.label, lat: best.lat, lng: best.lng };
+  return nominatimGeocode(query);
 };
 
 const straightLineKm = (start, end) => {

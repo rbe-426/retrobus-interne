@@ -12,6 +12,8 @@ import {
 import L from "leaflet";
 import { FiPlus, FiTrash2, FiDownload } from "react-icons/fi";
 import { useFinanceData } from "../../hooks/useFinanceData";
+import AddressInput from "../AddressInput.jsx";
+import { geocodeAddress as sharedGeocodeAddress } from "../../lib/routeCalc.js";
 import "../../leaflet-custom.css";
 
 const EXPENSE_REPORT_TYPES = [
@@ -175,118 +177,9 @@ function MileageRouteMap({ route }) {
   );
 }
 
-const normalizeSearchText = (value) => String(value || "")
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase();
-
-const expandAddressKeywords = (address) => {
-  let expanded = address.trim();
-  const normalized = normalizeSearchText(address);
-
-  expanded = expanded
-    .replace(/\bmcdo\b/gi, "McDonald's")
-    .replace(/\bmcdonalds\b/gi, "McDonald's")
-    .replace(/\bevry\b/gi, "Évry-Courcouronnes")
-    .replace(/\bevry courcouronnes\b/gi, "Évry-Courcouronnes");
-
-  const contextualQueries = [];
-
-  if ((normalized.includes("mcdo") || normalized.includes("mcdonald")) && normalized.includes("massy")) {
-    contextualQueries.push("McDonald's Massy centre");
-  }
-
-  if (normalized.includes("carrefour") && normalized.includes("evry")) {
-    contextualQueries.push("Carrefour Le Spot Boulevard Valéry Giscard d'Estaing Évry-Courcouronnes");
-  }
-
-  return Array.from(new Set([
-    address.trim(),
-    expanded,
-    `${expanded}, France`,
-    ...contextualQueries
-  ].filter(Boolean)));
-};
-
-const scoreGeocodeResult = (result, query) => {
-  const haystack = normalizeSearchText([
-    result.display_name,
-    result.name,
-    result.type,
-    result.class,
-    result.category
-  ].filter(Boolean).join(" "));
-  const tokens = normalizeSearchText(query).split(/\s+/).filter(token => token.length > 1);
-  const tokenScore = tokens.reduce((score, token) => score + (haystack.includes(token) ? 4 : 0), 0);
-  const importanceScore = Number(result.importance || 0) * 10;
-  const poiScore = ["amenity", "shop", "tourism", "office", "leisure"].includes(result.class) ? 3 : 0;
-
-  return tokenScore + importanceScore + poiScore;
-};
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const geocodeAddress = async (address, retryCount = 0) => {
-  const queries = expandAddressKeywords(address);
-  const results = [];
-
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
-    
-    // Ajouter un délai entre les requêtes pour éviter le rate limiting
-    if (i > 0) await sleep(300);
-    
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&extratags=1&namedetails=1&countrycodes=fr&q=${encodeURIComponent(query)}`,
-        {
-          headers: { 
-            Accept: "application/json", 
-            "Accept-Language": "fr",
-            "User-Agent": "RetrobusEssonne/1.0"
-          }
-        }
-      );
-
-      if (response.status === 429) {
-        // Rate limiting - attendre et réessayer
-        if (retryCount < 2) {
-          await sleep(1000 * (retryCount + 1));
-          return geocodeAddress(address, retryCount + 1);
-        }
-        throw new Error("Service de géocodage temporairement indisponible (trop de requêtes). Veuillez patienter quelques secondes.");
-      }
-
-      if (!response.ok) {
-        console.warn(`Géocodage échoué pour "${query}": ${response.status} ${response.statusText}`);
-        continue;
-      }
-
-      const queryResults = await response.json();
-      results.push(...queryResults.map(result => ({ ...result, query })));
-    } catch (error) {
-      if (error.message.includes("Service de géocodage")) throw error;
-      console.error(`Erreur réseau pour "${query}":`, error);
-      // Continuer avec les autres requêtes
-    }
-  }
-
-  if (!results?.length) {
-    throw new Error(`Adresse introuvable: "${address}". Vérifiez l'orthographe ou essayez une adresse plus précise.`);
-  }
-
-  const uniqueResults = Array.from(
-    new Map(results.map(result => [`${result.lat},${result.lon}`, result])).values()
-  );
-  const bestResult = uniqueResults.sort((a, b) => scoreGeocodeResult(b, b.query) - scoreGeocodeResult(a, a.query))[0];
-
-  return {
-    label: bestResult.display_name,
-    lat: Number(bestResult.lat),
-    lng: Number(bestResult.lon),
-    query: bestResult.query
-  };
-};
+const geocodeAddress = (address) => sharedGeocodeAddress(address);
 
 const calculateStraightLineKm = (start, end) => {
   const earthRadiusKm = 6371;
@@ -418,21 +311,9 @@ const ExpenseReports = () => {
   const [travelRoute, setTravelRoute] = useState(createEmptyTravelRoute());
   const [travelRouteLoading, setTravelRouteLoading] = useState(false);
   const [travelRouteError, setTravelRouteError] = useState("");
-  const [addressSuggestions, setAddressSuggestions] = useState({});
-  const [suggestionLoadingIndex, setSuggestionLoadingIndex] = useState(null);
-  const suggestionsTimeoutRef = useRef(null);
 
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
-
-  // Cleanup du timeout lors du démontage du composant
-  useEffect(() => {
-    return () => {
-      if (suggestionsTimeoutRef.current) {
-        clearTimeout(suggestionsTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -446,8 +327,6 @@ const ExpenseReports = () => {
       travelRoundTrip: false,
       travelIntermediateRoundTrips: []
     });
-    setAddressSuggestions({});
-    setSuggestionLoadingIndex(null);
     setTravelRoute(createEmptyTravelRoute());
     setTravelRouteError("");
     setTravelRouteLoading(false);
@@ -481,90 +360,12 @@ const ExpenseReports = () => {
     }
   };
 
-  const fetchAddressSuggestions = async (address, index) => {
-    if (!address || address.length < 3) {
-      setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
-      return;
-    }
-
-    try {
-      setSuggestionLoadingIndex(index);
-      const queries = expandAddressKeywords(address);
-      const results = [];
-
-      // Limiter à 1 seule requête pour les suggestions pour éviter le rate limiting
-      const primaryQuery = queries[0];
-      
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&extratags=1&namedetails=1&countrycodes=fr&q=${encodeURIComponent(primaryQuery)}`,
-          { 
-            headers: { 
-              Accept: "application/json", 
-              "Accept-Language": "fr",
-              "User-Agent": "RetrobusEssonne/1.0"
-            } 
-          }
-        );
-
-        if (response.ok) {
-          const queryResults = await response.json();
-          results.push(...queryResults.map(result => ({ ...result, query: primaryQuery })));
-          console.log(`📍 Suggestions trouvées pour "${address}":`, results.length);
-        } else {
-          console.warn(`⚠️ Échec recherche suggestions (${response.status})`);
-        }
-      } catch (error) {
-        console.error('❌ Erreur fetch suggestions:', error);
-      }
-
-      const uniqueResults = Array.from(
-        new Map(results.map(result => [`${result.lat},${result.lon}`, result])).values()
-      );
-
-      const scoredResults = uniqueResults
-        .map(result => ({
-          ...result,
-          score: scoreGeocodeResult(result, result.query)
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-
-      setAddressSuggestions(prev => ({ ...prev, [index]: scoredResults }));
-    } catch (error) {
-      console.error('❌ Erreur recherche suggestions:', error);
-      setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
-    } finally {
-      setSuggestionLoadingIndex(null);
-    }
-  };
-
   const handleTravelAddressChange = (index, value) => {
     setFormData(prev => {
       const addresses = [...prev.travelAddresses];
       addresses[index] = value;
       return { ...prev, travelAddresses: addresses };
     });
-    resetTravelRoutePreview();
-
-    // Nettoyer le timeout précédent
-    if (suggestionsTimeoutRef.current) {
-      clearTimeout(suggestionsTimeoutRef.current);
-    }
-
-    // Programmer la recherche de suggestions avec debouncing
-    suggestionsTimeoutRef.current = setTimeout(() => {
-      fetchAddressSuggestions(value, index);
-    }, 400);
-  };
-
-  const handleSelectSuggestion = (index, suggestion) => {
-    setFormData(prev => {
-      const addresses = [...prev.travelAddresses];
-      addresses[index] = suggestion.display_name;
-      return { ...prev, travelAddresses: addresses };
-    });
-    setAddressSuggestions(prev => ({ ...prev, [index]: [] }));
     resetTravelRoutePreview();
   };
 
@@ -573,7 +374,6 @@ const ExpenseReports = () => {
       ...prev,
       travelAddresses: [...prev.travelAddresses, ""]
     }));
-    setAddressSuggestions({});
     resetTravelRoutePreview();
   };
 
@@ -582,11 +382,6 @@ const ExpenseReports = () => {
       ...prev,
       travelAddresses: prev.travelAddresses.filter((_, addressIndex) => addressIndex !== index)
     }));
-    setAddressSuggestions(prev => {
-      const updated = { ...prev };
-      delete updated[index];
-      return updated;
-    });
     resetTravelRoutePreview();
   };
 
@@ -658,7 +453,6 @@ const ExpenseReports = () => {
           return addr;
         })
       }));
-      setAddressSuggestions({});
       
       // Construire le parcours avec aller-retours intermédiaires
       let routePoints = [...geocodedPoints];
@@ -1256,56 +1050,13 @@ const ExpenseReports = () => {
                                 )}
                               </HStack>
                             </HStack>
-                            <Input
+                            <AddressInput
+                              size="md"
                               value={address}
-                              onChange={(event) => handleTravelAddressChange(index, event.target.value)}
+                              onChange={(value) => handleTravelAddressChange(index, value)}
                               placeholder={index === 0 ? "Ex: siège RBE Corbeil" : index === 1 ? "Ex: mcdo massy, carrefour evry, mairie paris..." : "Ex: étape, lieu, commerce ou adresse"}
                             />
                           </FormControl>
-                          
-                          {/* Suggestions d'adresses */}
-                          {addressSuggestions[index] && addressSuggestions[index].length > 0 && (
-                            <Box
-                              mt={1}
-                              borderWidth="1px"
-                              borderColor="gray.200"
-                              borderRadius="md"
-                              bg="white"
-                              shadow="sm"
-                              maxH="200px"
-                              overflowY="auto"
-                            >
-                              <List spacing={0}>
-                                {addressSuggestions[index].map((suggestion, suggestionIndex) => (
-                                  <ListItem
-                                    key={`${suggestion.place_id}-${suggestionIndex}`}
-                                    px={3}
-                                    py={2}
-                                    cursor="pointer"
-                                    _hover={{ bg: "blue.50" }}
-                                    borderBottomWidth={suggestionIndex < addressSuggestions[index].length - 1 ? "1px" : "0"}
-                                    borderBottomColor="gray.100"
-                                    onClick={() => handleSelectSuggestion(index, suggestion)}
-                                  >
-                                    <Text fontSize="sm" fontWeight="medium">
-                                      {suggestion.name || suggestion.display_name.split(',')[0]}
-                                    </Text>
-                                    <Text fontSize="xs" color="gray.600" noOfLines={1}>
-                                      {suggestion.display_name}
-                                    </Text>
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </Box>
-                          )}
-                          
-                          {/* Loading indicator */}
-                          {suggestionLoadingIndex === index && (
-                            <HStack mt={1} spacing={2}>
-                              <Spinner size="xs" />
-                              <Text fontSize="xs" color="gray.500">Recherche d'adresses...</Text>
-                            </HStack>
-                          )}
                         </Box>
                       ))}
 
