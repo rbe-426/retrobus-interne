@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  Button, HStack, VStack, Input, NumberInput, NumberInputField, Table, Thead, Tbody, Tr, Th, Td,
+  Button, HStack, VStack, Input, NumberInputField, Table, Thead, Tbody, Tr, Th, Td,
   IconButton, Switch, Text, useToast
 } from '@chakra-ui/react';
+import NumberInput from './NumberInput';
 import { FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
 import { fetchWithCSRF } from '../../lib/csrfClient.js';
 

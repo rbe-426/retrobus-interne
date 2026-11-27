@@ -9,7 +9,7 @@ import {
   Heading, Text, Button, Badge, Icon, SimpleGrid, useToast,
   Table, Thead, Tbody, Tr, Th, Td,
   Stat, StatLabel, StatNumber, StatHelpText,
-  Menu, MenuButton, MenuList, MenuItem,
+  Menu, MenuButton, MenuList, MenuItem, MenuDivider, MenuGroup,
   useColorModeValue
 } from "@chakra-ui/react";
 import { 
@@ -80,9 +80,11 @@ const FinanceInvoicing = () => {
     SENT: 'Envoyé',
     ACCEPTED: 'Accepté',
     REJECTED: 'Refusé',
+    RENEGOTIATED: 'Renégocié',
+    ABANDONED: 'Abdiqué',
     REEDITED: 'Réédité',
     PENDING_PAYMENT: 'En attente',
-    DEPOSIT_PAID: 'Accompte',
+    DEPOSIT_PAID: 'Acompte payé',
     PAID: 'Payé'
   };
 
@@ -91,10 +93,18 @@ const FinanceInvoicing = () => {
     SENT: 'blue',
     ACCEPTED: 'green',
     REJECTED: 'red',
+    RENEGOTIATED: 'orange',
+    ABANDONED: 'gray',
     REEDITED: 'orange',
     PENDING_PAYMENT: 'yellow',
     DEPOSIT_PAID: 'purple',
     PAID: 'green'
+  };
+
+  // Suivi proposé selon le type de document
+  const followUpOptions = {
+    QUOTE: ['SENT', 'REJECTED', 'RENEGOTIATED', 'ABANDONED', 'ACCEPTED', 'DEPOSIT_PAID'],
+    INVOICE: ['SENT', 'PENDING_PAYMENT', 'DEPOSIT_PAID', 'PAID']
   };
 
   // Sauvegarde (création ou édition) depuis le nouvel éditeur de devis/factures
@@ -520,6 +530,19 @@ const FinanceInvoicing = () => {
                             <MenuItem onClick={() => printDocument(doc)}>
                               Imprimer / PDF
                             </MenuItem>
+                            <MenuDivider />
+                            <MenuGroup title="Suivi">
+                              {(followUpOptions[doc.type] || []).map((s) => (
+                                <MenuItem
+                                  key={s}
+                                  fontWeight={doc.status === s ? 'bold' : 'normal'}
+                                  onClick={() => handleChangeStatus(doc.id, s)}
+                                >
+                                  {doc.status === s ? '✓ ' : ''}{statusLabels[s]}
+                                </MenuItem>
+                              ))}
+                            </MenuGroup>
+                            <MenuDivider />
                             <MenuItem
                               icon={<FiArchive />}
                               onClick={() => archiveDocument(doc.id, !doc.archived)}

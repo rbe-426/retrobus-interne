@@ -39,7 +39,6 @@ import {
   RadioGroup,
   Radio,
   Stack,
-  NumberInput,
   NumberInputField,
   NumberInputStepper,
   NumberIncrementStepper,
@@ -54,6 +53,7 @@ import {
   Icon,
   Flex
 } from '@chakra-ui/react';
+import NumberInput from './NumberInput';
 import {
   FiChevronRight,
   FiChevronLeft,

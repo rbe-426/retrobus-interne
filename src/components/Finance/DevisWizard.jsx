@@ -19,9 +19,10 @@ import {
   ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Stepper, Step, StepIndicator, StepStatus,
   StepIcon, StepNumber, StepTitle, StepDescription, StepSeparator, FormControl, FormLabel, Input,
   Textarea, SimpleGrid, Alert, AlertIcon, Badge, Divider, useColorModeValue, useToast, IconButton,
-  RadioGroup, Radio, Stack, NumberInput, NumberInputField, Table, Thead, Tbody, Tr, Th, Td, Select,
+  RadioGroup, Radio, Stack, NumberInputField, Table, Thead, Tbody, Tr, Th, Td, Select,
   Checkbox, Switch, Grid, GridItem, Tooltip, Spinner
 } from '@chakra-ui/react';
+import NumberInput from './NumberInput';
 import {
   FiFileText, FiUpload, FiCheck, FiPlus, FiTrash2, FiChevronRight, FiChevronLeft, FiMapPin,
   FiTruck, FiPrinter, FiBook, FiSave, FiRefreshCw, FiDroplet
@@ -138,16 +139,23 @@ export default function DevisWizard({
         unitPrice: num(quote.amountExcludingTax || quote.amount), discountPct: 0
       }]
     };
-    setPricing({ ...base, lines: base.lines.map(l => ({ ...l, id: newId() })) });
+    const depositPaid = quote.status === 'DEPOSIT_PAID';
+    setPricing({
+      ...base,
+      deposit: depositPaid ? base.deposit : 0,
+      lines: base.lines.map(l => ({ ...l, id: newId() }))
+    });
+    // Seuls le client, l'objet et les lignes sont repris : notes, conditions et échéance du devis ne le sont pas.
     setForm(f => ({
       ...f,
       title: quote.title || f.title,
-      description: quote.description || '',
+      description: '',
       clientName: quote.destinataireName || '',
       clientCompany: quote.destinataireSociete || '',
       clientAddress: quote.destinataireAdresse || '',
       clientContacts: quote.destinataireContacts || '',
-      notes: quote.notes || '',
+      notes: '',
+      dueDate: '',
       eventId: quote.eventId || '',
       memberId: quote.memberId || '',
       templateId: quote.templateId || f.templateId,

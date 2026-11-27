@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   VStack, HStack, Button, Input, Table, Thead, Tbody, Tr, Th, Td,
-  IconButton, useToast, FormControl, FormLabel, NumberInput,
-  NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader,
+  IconButton, useToast, FormControl, FormLabel, NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader,
   ModalBody, ModalFooter, useDisclosure, Box, Text, Divider, Badge, Heading
 } from '@chakra-ui/react';
+import NumberInput from './Finance/NumberInput';
 import { FiPlus, FiTrash2, FiEdit3, FiSave } from 'react-icons/fi';
 import { fetchJson } from '../apiClient';
 

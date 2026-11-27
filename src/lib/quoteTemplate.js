@@ -16,7 +16,7 @@ export const TEMPLATE_PLACEHOLDERS = [
   'VEHICULE', 'DATES_PRESTATION', 'DISTANCE_KM',
   'DEVIS_LINES_TR', 'TOTAL_BRUT', 'REMISE', 'TOTAL_HT', 'TVA', 'TAUX_TVA',
   'MONTANT', 'PRIX_NET', 'ACOMPTE', 'CONDITION_ACOMPTE', 'RESTE_A_PAYER',
-  'REFERENCE_DEVIS', 'NOTES', 'CONDITIONS_PAIEMENT',
+  'REFERENCE_DEVIS', 'NOTES', 'CONDITIONS_PAIEMENT', 'LIBELLE_NET', 'TITRE_CONDITIONS', 'BLOC_TOTAUX',
   'LOGO_IMG', 'BANDE_ENTETE', 'LOGO_BIG', 'LOGO_SMALL'
 ];
 
@@ -109,9 +109,7 @@ export const DEFAULT_TEMPLATE = {
             <tr><td style="padding:2px 0;">Montant Total :</td><td style="text-align:right;">{{TOTAL_HT}}</td></tr>
             <tr><td style="padding:2px 0;">TVA :</td><td style="text-align:right;">{{TVA}}</td></tr>
             <tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding-top:5px;"></td></tr>
-            <tr style="font-size:15px;font-weight:900;color:#0f172a;"><td>Net à payer :</td><td style="text-align:right;color:#e11d48;">{{MONTANT}}</td></tr>
-            <tr><td style="padding-top:5px;">Acompte :</td><td style="text-align:right;padding-top:5px;">{{ACOMPTE}}</td></tr>
-            <tr style="font-weight:700;"><td>Reste à payer :</td><td style="text-align:right;">{{RESTE_A_PAYER}}</td></tr>
+            {{BLOC_TOTAUX}}
           </table>
         </div>
       </td>
@@ -119,8 +117,8 @@ export const DEFAULT_TEMPLATE = {
   </table>
 
   <div class="bloc-break" style="padding:11px 14px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:10.5px;color:#78350f;margin-bottom:14px;line-height:1.5;">
-    <strong>Conditions de confirmation &amp; d'acompte</strong><br/>
-    {{CONDITION_ACOMPTE}} Le RIB de l'association sera transmis après retour du présent document signé, précédé de la mention manuscrite <em>« Bon pour accord »</em>.
+    <strong>{{TITRE_CONDITIONS}}</strong><br/>
+    {{CONDITION_ACOMPTE}}
     <div style="white-space:pre-line;margin-top:4px;">{{NOTES}}</div>
     <div style="margin-top:3px;">{{CONDITIONS_PAIEMENT}}</div>
   </div>
@@ -229,6 +227,7 @@ const formatDateFR = (value) => {
 export const buildTemplateData = (doc = {}) => {
   const totals = computeTotals(doc.pricing);
   const isInvoice = doc.type === 'INVOICE';
+  const hasDeposit = totals.deposit > 0;
   const vehicle = doc.pricing?.vehicle;
   const trip = doc.pricing?.trip;
   const lines = doc.pricing?.lines || [];
@@ -269,9 +268,18 @@ export const buildTemplateData = (doc = {}) => {
     PRIX_NET: formatEUR(totals.total),
     ACOMPTE: formatEUR(totals.deposit),
     RESTE_A_PAYER: formatEUR(totals.remaining),
-    CONDITION_ACOMPTE: totals.deposit > 0
-      ? `En cas de validation, un acompte de ${totals.total ? Math.round((totals.deposit / totals.total) * 100) : 0} % (soit ${formatEUR(totals.deposit)}) devra être versé par virement bancaire pour sécuriser l'opération.`
-      : '',
+    LIBELLE_NET: hasDeposit ? 'Reste net à payer' : 'Net à payer',
+    TITRE_CONDITIONS: isInvoice ? 'Conditions de règlement' : "Conditions de confirmation & d'acompte",
+    BLOC_TOTAUX: hasDeposit
+      ? `<tr><td style="padding:2px 0;">Total ${totals.taxRate ? 'TTC' : ''} :</td><td style="text-align:right;">${escapeHtml(formatEUR(totals.total))}</td></tr>
+         <tr><td style="padding:2px 0;">Acompte ${isInvoice ? 'déjà versé' : 'à verser'} :</td><td style="text-align:right;">- ${escapeHtml(formatEUR(totals.deposit))}</td></tr>
+         <tr style="font-size:15px;font-weight:900;color:#0f172a;"><td>Reste net à payer :</td><td style="text-align:right;color:#e11d48;">${escapeHtml(formatEUR(totals.remaining))}</td></tr>`
+      : `<tr style="font-size:15px;font-weight:900;color:#0f172a;"><td>Net à payer :</td><td style="text-align:right;color:#e11d48;">${escapeHtml(formatEUR(totals.total))}</td></tr>`,
+    CONDITION_ACOMPTE: isInvoice
+      ? (totals.deposit > 0 ? `Un acompte de ${formatEUR(totals.deposit)} a déjà été réglé et est déduit du total ci-dessus.` : '')
+      : `${totals.deposit > 0
+        ? `En cas de validation, un acompte de ${totals.total ? Math.round((totals.deposit / totals.total) * 100) : 0} % (soit ${formatEUR(totals.deposit)}) devra être versé par virement bancaire pour sécuriser l'opération. `
+        : ''}Le RIB de l'association sera transmis après retour du présent document signé, précédé de la mention manuscrite « Bon pour accord ».`,
     REFERENCE_DEVIS: doc.sourceQuoteNumber ? `Réf. devis ${doc.sourceQuoteNumber}` : '',
     NOTES: doc.notes || '',
     CONDITIONS_PAIEMENT: doc.paymentTerms ? `Paiement à ${doc.paymentTerms} jours.` : '',
@@ -279,7 +287,7 @@ export const buildTemplateData = (doc = {}) => {
   };
 };
 
-const RAW_HTML_KEYS = new Set(['DEVIS_LINES_TR', 'BANDE_ENTETE', 'LOGO_IMG']);
+const RAW_HTML_KEYS = new Set(['DEVIS_LINES_TR', 'BLOC_TOTAUX', 'BANDE_ENTETE', 'LOGO_IMG']);
 
 /** Rend le HTML interne du document (sans <html>/<body>) avec logo ancré en haut à gauche. */
 export const renderTemplate = (template = {}, doc = {}) => {

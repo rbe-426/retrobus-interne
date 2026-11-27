@@ -34,7 +34,6 @@ import {
   useColorModeValue,
   useToast,
   IconButton,
-  NumberInput,
   NumberInputField,
   NumberInputStepper,
   NumberIncrementStepper,
@@ -46,6 +45,7 @@ import {
   Th,
   Td,
 } from '@chakra-ui/react';
+import NumberInput from './NumberInput';
 import { FiChevronRight, FiChevronLeft, FiPlus, FiTrash2 } from 'react-icons/fi';
 
 const WIZARD_STEPS = [
